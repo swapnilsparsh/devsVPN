@@ -1,0 +1,9 @@
+/References/Linux/_out_bin/*
+/References/Linux/_tmp/*
+*.DS_Store
+.deps/
+bin/
+cli.exe
+ivpn.exe
+cli
+ivpn

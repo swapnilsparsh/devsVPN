@@ -1,0 +1,33 @@
+.DS_Store
+IVPN Agent
+References/macOS/_deps
+References/Windows/IVPN Firewall Native x64.dll
+References/Windows/IVPN Firewall Native.dll
+References/Windows/IVPN Helpers Native x64.dll
+References/Windows/IVPN Helpers Native.dll
+References/Windows/Native Projects/bin/
+References/Windows/Native Projects/IVPN Firewall Native/Release/
+References/Windows/Native Projects/IVPN Firewall Native/x64/
+References/Windows/Native Projects/IVPN Helpers Native/Release/
+References/Windows/Native Projects/IVPN Helpers Native/x64/
+bin/
+References/Windows/WintunInstaller/.deps/
+References/Windows/WintunInstaller/obj/
+References/Windows/WireGuard/
+.deps/
+References/Windows/etc/port.txt
+References/Windows/log/
+References/Windows/etc/settings.json
+__debug_bin
+References/Windows/etc/openvpn.cfg
+/References/linux/tmp/*
+/References/linux/etc/settings.json
+/References/Linux/etc/settings.json
+/References/Linux/scripts/_out_bin/*
+/References/Linux/tmp/port.txt
+/References/Linux/etc/openvpn.cfg
+*.pyc
+References/Windows/mutable/ovpn_extra_params.txt
+References/Windows/Native Projects/.vs/
+References/Windows/Native Projects/IVPN Firewall Native/IVPN Firewall Native.vcxproj.user
+References/Windows/Native Projects/IVPN Helpers Native/IVPN Helpers Native.vcxproj.user
