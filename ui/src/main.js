@@ -28,7 +28,7 @@ import store from "./store";
 
 const sender = window.ipcSender;
 
-import "@/main_style.js";
+import "@/main_style_win32.js";
 
 const app = createApp(App);
 app.use(store);

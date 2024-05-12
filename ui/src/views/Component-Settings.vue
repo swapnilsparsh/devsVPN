@@ -54,7 +54,7 @@
                   activeBtn: view === 'firewall',
                 }"
               >
-                IVPN Firewall
+                PrivateLINE Firewall
               </button>
               <button
                 v-if="isLoggedIn && isSplitTunnelVisible"

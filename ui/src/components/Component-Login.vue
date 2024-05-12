@@ -6,7 +6,7 @@
       <div class="column">
         <div class="centered" style="margin-top: -50px; margin-bottom: 50px">
           <!-- <img src="@/assets/logo.svg" /> -->
-          <h2>Devs VPN</h2>
+          <h2>PrivateLINE</h2>
         </div>
 
         <div v-if="isCaptchaRequired">
@@ -29,7 +29,7 @@
             v-on:keyup="keyup($event)"
           />
         </div>
-        <div v-else-if="is2FATokenRequired">
+        <div v-else-if="is2FATokenRequired">  
           <!-- 2FA TOKEN -->
           <div class="centered">
             <div class="large_text">2-Factor Authentication</div>
@@ -54,7 +54,7 @@
         <div v-else>
           <!-- ACCOUNT ID -->
           <div class="centered">
-            <div class="large_text">Enter your Account ID for Devs VPN</div>
+            <div class="large_text">Enter your Account ID for PrivateLINE</div>
             <div style="height: 12px" />
           </div>
 
@@ -64,7 +64,7 @@
             class="styledBig"
             ref="accountid"
             style="text-align: center"
-            placeholder="i-XXXX-... or ivpnXXXXXXXX"
+            placeholder="XXXXXXXX"
             v-model="accountID"
             v-on:keyup="keyup($event)"
           />
@@ -197,11 +197,11 @@ export default {
     async Login(isForceLogout, confirmation2FA) {
       try {
         // check accoundID
-        var pattern = new RegExp("^(i-....-....-....)|(ivpn[a-zA-Z0-9]{7,8})$"); // fragment locator
+        var pattern = new RegExp("^([a-zA-Z0-9]{7,8})$"); // fragment locator
         if (this.accountID) this.accountID = this.accountID.trim();
         if (pattern.test(this.accountID) !== true) {
           throw new Error(
-            "Your account ID has to be in 'i-XXXX-XXXX-XXXX' or 'ivpnXXXXXXXX' format. You can find it on other devices where you are logged in and in the client area of the IVPN website."
+            "Your account ID has to be in 'XXXXXXXX' format. You can find it on other devices where you are logged in and in the client area of the PrivateLINE website."
           );
         }
 
