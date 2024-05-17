@@ -44,7 +44,8 @@
           @scroll="recalcScrollButtonVisiblity()"
         >
           <div v-if="isMultihopAllowed">
-            <HopButtonsBlock />
+            <!-- +++++ Removed hop buttons +++++ -->
+            <!-- <HopButtonsBlock /> -->
             <div class="horizontalLine hopButtonsSeparator" />
           </div>
 
