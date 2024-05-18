@@ -18,9 +18,9 @@
               <img src="@/assets/settings.svg" />
             </button>
 
-            <button v-on:click="onMaximize(true)" title="Show map">
+            <!-- <button v-on:click="onMaximize(true)" title="Show map">
               <img src="@/assets/maximize.svg" />
-            </button>
+            </button> -->
           </div>
         </transition>
       </div>
@@ -38,7 +38,7 @@
         </transition>
       </div>
     </div>
-    <div id="right" v-if="!isMinimizedUI">
+    <!-- <div id="right" v-if="!isMinimizedUI">
       <transition name="fade" appear>
         <TheMap
           :isBlured="isMapBlured"
@@ -47,7 +47,7 @@
           :onMinimize="() => onMaximize(false)"
         />
       </transition>
-    </div>
+    </div> -->
   </div>
 </template>
 
