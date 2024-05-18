@@ -46,7 +46,7 @@
               >
                 Connection
               </button>
-              <button
+              <!-- <button
                 v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
                 v-on:click="onView('firewall')"
@@ -107,7 +107,7 @@
                 }"
               >
                 Advanced
-              </button>
+              </button> -->
 
               <!--
           <button
