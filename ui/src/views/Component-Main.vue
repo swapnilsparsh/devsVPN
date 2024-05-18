@@ -4,7 +4,6 @@
       <div class="leftPanelTopSpace">
         <transition name="smooth-display">
           <div
-            v-if="isMinimizedButtonsVisible"
             class="minimizedButtonsPanel leftPanelTopMinimizedButtonsPanel"
             v-bind:class="{
               minimizedButtonsPanelRightElements: isWindowHasFrame,
@@ -38,7 +37,7 @@
         </transition>
       </div>
     </div>
-    <!-- <div id="right" v-if="!isMinimizedUI">
+    <div id="right" v-if="!isMinimizedUI">
       <transition name="fade" appear>
         <TheMap
           :isBlured="isMapBlured"
@@ -47,7 +46,7 @@
           :onMinimize="() => onMaximize(false)"
         />
       </transition>
-    </div> -->
+    </div>
   </div>
 </template>
 
