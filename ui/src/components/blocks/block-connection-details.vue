@@ -12,7 +12,7 @@
 
     <!-- FIREWALL -->
 
-    <OnOffButtonControl
+    <!-- <OnOffButtonControl
       v-bind:class="{ lowOpacity: IsPaused }"
       text="Firewall"
       :onTextClick="onShowFirewallConfig"
@@ -29,10 +29,10 @@
           : null
       "
       :isProgress="firewallIsProgress"
-    />
+    /> -->
 
     <!-- ANTITRACKER -->
-    <div class="horizontalLine" />
+    <!-- <div class="horizontalLine" />
 
     <OnOffButtonControl
       text="AntiTracker"
@@ -51,10 +51,10 @@
         this.$store.state.settings.antiTracker?.Hardcore ? '#77152a' : null
       "
       :isProgress="antitrackerIsProgress"
-    />
+    /> -->
 
     <!-- PROTOCOL -->
-    <div class="horizontalLine" />
+    <!-- <div class="horizontalLine" /> -->
 
     <SelectButtonControl
       class="leftPanelBlock"
