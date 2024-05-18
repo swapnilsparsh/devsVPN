@@ -257,7 +257,7 @@ export default {
       sender.shellOpenExternal(`https://www.ivpn.net/account`);
     },
     addMoreTime() {
-      sender.shellOpenExternal(`https://www.ivpn.net/account`);
+      sender.shellOpenExternal(`https://privateline.io/`);
     },
   },
   computed: {
