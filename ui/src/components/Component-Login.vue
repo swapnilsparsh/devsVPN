@@ -290,7 +290,7 @@ export default {
       }
     },
     CreateAccount() {
-      sender.shellOpenExternal(`https://www.ivpn.net/signup`);
+      sender.shellOpenExternal(`https://privateline.io/`);
     },
     Cancel() {
       this.rawResponse = null;
