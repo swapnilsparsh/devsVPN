@@ -29,7 +29,7 @@
             v-on:keyup="keyup($event)"
           />
         </div>
-        <div v-else-if="is2FATokenRequired">  
+        <div v-else-if="is2FATokenRequired">
           <!-- 2FA TOKEN -->
           <div class="centered">
             <div class="large_text">2-Factor Authentication</div>
@@ -64,7 +64,7 @@
             class="styledBig"
             ref="accountid"
             style="text-align: center"
-            placeholder="XXXXXXXX"
+            placeholder="Enter you Account Id"
             v-model="accountID"
             v-on:keyup="keyup($event)"
           />
@@ -72,8 +72,6 @@
 
         <div style="height: 24px" />
         <button class="master" v-on:click="Login">Log In</button>
-        <div style="height: 12px" />
-        <button class="master" v-on:click="Login">Testing Button</button>
         <div style="height: 12px" />
 
         <button
@@ -87,7 +85,7 @@
       </div>
     </div>
 
-    <div class="flexRow leftright_margins" style="margin-bottom: 20px">
+    <!-- <div class="flexRow leftright_margins" style="margin-bottom: 20px">
       <div
         class="flexRow flexRowRestSpace switcher_small_text"
         style="margin-right: 10px"
@@ -100,7 +98,7 @@
         :isChecked="this.$store.state.vpnState.firewallState.IsEnabled"
         :isProgress="firewallIsProgress"
       />
-    </div>
+    </div> -->
   </div>
 </template>
 
@@ -218,9 +216,7 @@ export default {
         this.isProcessing = true;
         const resp = await sender.Login(
           this.accountID,
-          isForceLogout === true || this.isForceLogoutRequested === true
-            ? true
-            : false,
+          isForceLogout === true || this.isForceLogoutRequested === true,
           this.captchaID,
           this.captcha,
           confirmation2FA ? confirmation2FA : this.confirmation2FA
@@ -290,7 +286,7 @@ export default {
       }
     },
     CreateAccount() {
-      sender.shellOpenExternal(`https://www.ivpn.net/signup`);
+      sender.shellOpenExternal(`https://www.google.com`);
     },
     Cancel() {
       this.rawResponse = null;
