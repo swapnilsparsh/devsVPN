@@ -286,7 +286,7 @@ export default {
       }
     },
     CreateAccount() {
-      sender.shellOpenExternal(`https://www.google.com`);
+      sender.shellOpenExternal(`https://privateline.io/email-signup`);
     },
     Cancel() {
       this.rawResponse = null;
