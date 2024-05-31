@@ -21,8 +21,8 @@ module.exports = {
     extendInfo: {
       LSUIElement: 1,
       SUPublicDSAKeyFile: "dsa_pub.pem",
-      NSLocationUsageDescription: "IVPN requires location access to correctly detect WIFI network info",
-      NSLocationAlwaysAndWhenInUseUsageDescription: "IVPN requires location access to correctly detect WIFI network info",
+      NSLocationUsageDescription: "PrivateLINE requires location access to correctly detect WIFI network info",
+      NSLocationAlwaysAndWhenInUseUsageDescription: "PrivateLINE requires location access to correctly detect WIFI network info",
     },
   },
   win: {
