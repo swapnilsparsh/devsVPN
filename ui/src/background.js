@@ -1,25 +1,3 @@
-//
-//  UI for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
-//
-//  Created by Stelnykovych Alexandr.
-//  Copyright (c) 2023 IVPN Limited.
-//
-//  This file is part of the UI for IVPN Client Desktop.
-//
-//  The UI for IVPN Client Desktop is free software: you can redistribute it and/or
-//  modify it under the terms of the GNU General Public License as published by the Free
-//  Software Foundation, either version 3 of the License, or (at your option) any later version.
-//
-//  The UI for IVPN Client Desktop is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-//  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
-//  details.
-//
-//  You should have received a copy of the GNU General Public License
-//  along with the UI for IVPN Client Desktop. If not, see <https://www.gnu.org/licenses/>.
-//
-
 "use strict";
 
 import {
@@ -316,14 +294,14 @@ if (gotTheLock && isAllowedToStart) {
     // MACOS: Check is application is located in correct place (path)
     if (Platform() === PlatformEnum.macOS && !config.IsDebug()) {
       let appPath = app.getAppPath();
-      if (!appPath.startsWith("/Applications/IVPN.app/")) {
+      if (!appPath.startsWith("/Applications/PrivateLINE.app/")) {
         console.log(`Failed to start. Wrong application path: ${appPath}`);
 
         dialog.showMessageBoxSync({
           type: "error",
-          message: "Unable to start IVPN Client",
+          message: "Unable to start PrivateLINE Client",
           detail:
-            "IVPN client can only run from the Applications folder. Please move the IVPN.app into the /Applications folder",
+            "PrivateLINE client can only run from the Applications folder. Please move the PrivateLINE.app into the /Applications folder",
           buttons: ["Quit"],
         });
 
@@ -511,7 +489,7 @@ if (gotTheLock && isAllowedToStart) {
           break;
 
         case "account/sessionStatus":
-          // When IVPN apps detect a plan downgrade (from Pro to Standard), an active VPN connection that uses Pro features (MultiHop or Port forwarding)
+          // When PrivateLINE apps detect a plan downgrade (from Pro to Standard), an active VPN connection that uses Pro features (MultiHop or Port forwarding)
           // should be disconnected or reconnected with Standard plan features.
           // Before the active VPN connection is disconnected by the app,
           // a UI alert should be presented with the option to reconnect without pro features (e.g. SingleHop instead of MultiHop).
@@ -522,7 +500,7 @@ if (gotTheLock && isAllowedToStart) {
             ) {
               let msgBoxConfig = {
                 type: "question",
-                message: "Subscription is changed to IVPN Standard",
+                message: "Subscription is changed to PrivateLINE Standard",
                 detail:
                   "Active VPN connection is using Pro plan features (MultiHop or Port forwarding) and will be disconnected.",
                 buttons: ["OK", "Reconnect with SingleHop VPN"],
@@ -604,7 +582,7 @@ async function isCanQuit() {
         type: "question",
         message: "Deactivate Firewall?",
         detail:
-          "The IVPN Firewall is active.\nDo you want to deactivate it before exiting the application?",
+          "The PrivateLINE Firewall is active.\nDo you want to deactivate it before exiting the application?",
         buttons: [
           "Cancel",
           "Keep Firewall activated and Quit",
@@ -734,7 +712,7 @@ function createWindow(doNotShowWhenReady) {
       store.state.settings.showAppInSystemDock !== false ? false : true, // not applicable for Linux (since Electron v20)
 
     center: true,
-    title: "IVPN",
+    title: "PrivateLINE",
 
     frame: IsWindowHasFrame(),
     titleBarStyle: "hidden", // applicable only for macOS
@@ -912,7 +890,7 @@ function createUpdateWindow() {
     minimizable: false,
 
     center: true,
-    title: "IVPN Update",
+    title: "PrivateLINE Update",
 
     autoHideMenuBar: true,
 
@@ -1059,7 +1037,7 @@ async function connectToDaemon(
       } else {
         // force UI to show 'connecting' state
         setConnState(DaemonConnectionType.Connecting);
-        console.log(`Connecting to IVPN Daemon (retry #${retryNo}) ...`);
+        console.log(`Connecting to PrivateLINE Daemon (retry #${retryNo}) ...`);
         setTimeout(async () => {
           await connect(retryNo + 1);
         }, 1000);
