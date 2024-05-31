@@ -17,7 +17,7 @@ export default {
   UpdateWindowWidth: 600,
 
   // shellOpenExternal(...) allows only URLs started with this prefix
-  URLsAllowedPrefixes: ["https://privateline.io/"],
+  URLsAllowedPrefixes: ["https://privateline.io/", "x-apple.systempreferences:"],
   URLApps: "https://www.ivpn.net/apps/",
 
   IsDebug,

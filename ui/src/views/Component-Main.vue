@@ -4,7 +4,6 @@
       <div class="leftPanelTopSpace">
         <transition name="smooth-display">
           <div
-            v-if="isMinimizedButtonsVisible"
             class="minimizedButtonsPanel leftPanelTopMinimizedButtonsPanel"
             v-bind:class="{
               minimizedButtonsPanelRightElements: isWindowHasFrame,
@@ -18,9 +17,9 @@
               <img src="@/assets/settings.svg" />
             </button>
 
-            <button v-on:click="onMaximize(true)" title="Show map">
+            <!-- <button v-on:click="onMaximize(true)" title="Show map">
               <img src="@/assets/maximize.svg" />
-            </button>
+            </button> -->
           </div>
         </transition>
       </div>
