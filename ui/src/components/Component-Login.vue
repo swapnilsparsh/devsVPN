@@ -195,13 +195,13 @@ export default {
     async Login(isForceLogout, confirmation2FA) {
       try {
         // check accoundID
-        var pattern = new RegExp("^([a-zA-Z0-9]{7,8})$"); // fragment locator
-        if (this.accountID) this.accountID = this.accountID.trim();
-        if (pattern.test(this.accountID) !== true) {
-          throw new Error(
-            "Your account ID has to be in 'XXXXXXXX' format. You can find it on other devices where you are logged in and in the client area of the PrivateLINE website."
-          );
-        }
+        // var pattern = new RegExp("^(i-....-....-....)|(ivpn[a-zA-Z0-9]{7,8})$"); // fragment locator
+        // if (this.accountID) this.accountID = this.accountID.trim();
+        // if (pattern.test(this.accountID) !== true) {
+        //   throw new Error(
+        //     "Your account ID has to be in 'i-XXXX-XXXX-XXXX' or 'ivpnXXXXXXXX' format. You can find it on other devices where you are logged in and in the client area of the IVPN website.",
+        //   );
+        // }
 
         if (this.is2FATokenRequired && !this.confirmation2FA) {
           sender.showMessageBoxSync({
