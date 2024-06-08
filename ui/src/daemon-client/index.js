@@ -218,10 +218,9 @@ function send(request, reqNo) {
   request.Idx = reqNo;
 
   let serialized = toJson(request);
-  //log.debug(`==> ${serialized}`);
+  log.debug(`==> ${serialized}`);
   log.debug(`==> ${request.Command}  [${request.Idx}] ${request.Command == "APIRequest" ? request.APIPath : ""}`);
 
-  console.log("writing to socket", serialized);
   socket.write(`${serialized}\n`);
 }
 
@@ -787,7 +786,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
     portInfo = { port: parsed[0], secret: parsed[1] };
   } catch (e) {
     log.error(
-      `DAEMON CONNECTION ERROR: Unable to obtain IVPN daemon connection parameters: ${e}`
+      `DAEMON CONNECTION ERROR: Unable to obtain PrivateLINE daemon connection parameters: ${e}`
     );
     throw e;
   }
@@ -795,7 +794,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
   return new Promise((resolve, reject) => {
     if (!portInfo) {
       setConnState(DaemonConnectionType.NotConnected);
-      reject("IVPN daemon connection info is unknown.");
+      reject("PrivateLINE daemon connection info is unknown.");
       return;
     }
 
@@ -843,7 +842,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
           // the 'store.state.daemonVersion' and 'store.state.daemonIsOldVersionError' must be already initialized
           if (store.state.daemonIsOldVersionError === true) {
             const err = Error(
-              `Unsupported IVPN Daemon version: v${store.state.daemonVersion} (minimum required v${config.MinRequiredDaemonVer})`
+              `Unsupported PrivateLINE Daemon version: v${store.state.daemonVersion} (minimum required v${config.MinRequiredDaemonVer})`
             );
             err.unsupportedDaemonVersion = true;
             disconnectDaemonFunc(err); // REJECT
