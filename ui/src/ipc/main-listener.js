@@ -52,13 +52,16 @@ ipcMain.handle("renderer-request-refresh-storage", async () => {
 
 ipcMain.handle(
   "renderer-request-login",
-  async (event, accountID, force, captchaID, captcha, confirmation2FA) => {
+  async (event, email, password,
+    // force, captchaID, captcha, confirmation2FA
+  ) => {
     return await client.Login(
-      accountID,
-      force,
-      captchaID,
-      captcha,
-      confirmation2FA
+      email,
+      password,
+      // force,
+      // captchaID,
+      // captcha,
+      // confirmation2FA
     );
   }
 );
@@ -252,9 +255,8 @@ ipcMain.handle("renderer-request-get-diagnostic-logs", async () => {
   let accInfo = "";
   try {
     const acc = s.account;
-    accInfo = `${acc.accountStatus.CurrentPlan} (${
-      acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
-    })`;
+    accInfo = `${acc.accountStatus.CurrentPlan} (${acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
+      })`;
     if (acc.session.WgPublicKey)
       accInfo += `; wgKeys=OK ${acc.session.WgKeyGenerated}`;
     else accInfo += "; wgKeys=EMPTY";
@@ -426,12 +428,12 @@ ipcMain.handle("renderer-request-shell-open-external", async (event, uri) => {
     const errMsgText = `The link cannot be opened`;
     const errMsgTextLnk = `${uri}`;
     const errMsgDetail = `Links must start with: "${config.URLsAllowedPrefixes}". Opening links that do not meet this criterion is not allowed.`;
-    console.log(errMsgText + " " + errMsgTextLnk+ " " + errMsgDetail);
+    console.log(errMsgText + " " + errMsgTextLnk + " " + errMsgDetail);
 
     dialog.showMessageBoxSync(event.sender.getOwnerBrowserWindow(), {
       type: "error",
       message: errMsgText,
-      detail: errMsgTextLnk+ "\n\n" + errMsgDetail,
+      detail: errMsgTextLnk + "\n\n" + errMsgDetail,
       buttons: ["OK"],
     });
     return;
