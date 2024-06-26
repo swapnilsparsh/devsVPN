@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -904,55 +905,53 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		// all clients will be notified by service in OnVpnPauseChanged() handler
 
 	case "SessionNew":
-		p.sendError(conn, "hello to client login from daemon", reqCmd.Idx)
+		var req types.SessionNew
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
 
-		// var req types.SessionNew
-		// if err := json.Unmarshal(messageData, &req); err != nil {
-		// 	p.sendErrorResponse(conn, reqCmd, err)
-		// 	break
-		// }
+		// validate AccountID value
+		matched, err := regexp.MatchString("^(i-....-....-....)|(ivpn[a-zA-Z0-9]{7,8})$", req.AccountID)
+		if err != nil {
+			p.sendError(conn, fmt.Sprintf("[daemon] Account ID validation failed: %s", err), reqCmd.Idx)
+			break
+		}
+		if !matched {
+			p.sendError(conn, "[daemon] Your account ID has to be in 'i-XXXX-XXXX-XXXX' or 'ivpnXXXXXXXX' format.", reqCmd.Idx)
+			break
+		}
 
-		// // validate AccountID value
-		// matched, err := regexp.MatchString("^(i-....-....-....)|(ivpn[a-zA-Z0-9]{7,8})$", req.AccountID)
-		// if err != nil {
-		// 	p.sendError(conn, fmt.Sprintf("[daemon] Account ID validation failed: %s", err), reqCmd.Idx)
-		// 	break
-		// }
-		// if !matched {
-		// 	p.sendError(conn, "[daemon] Your account ID has to be in 'i-XXXX-XXXX-XXXX' or 'ivpnXXXXXXXX' format.", reqCmd.Idx)
-		// 	break
-		// }
+		var resp types.SessionNewResp
+		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.AccountID, req.ForceLogin, req.CaptchaID, req.Captcha, req.Confirmation2FA)
+		if err != nil {
+			if apiCode == 0 {
+				// if apiCode == 0 - it is not API error. Sending error response
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			// sending API error info
+			resp = types.SessionNewResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: apiErrMsg,
+				Session:         types.SessionResp{}, // empty session info
+				Account:         accountInfo,
+				RawResponse:     rawResponse}
+		} else {
+			// Success. Sending session info
+			resp = types.SessionNewResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: apiErrMsg,
+				Session:         types.CreateSessionResp(p._service.Preferences().Session),
+				Account:         accountInfo,
+				RawResponse:     rawResponse}
+		}
 
-		// var resp types.SessionNewResp
-		// apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.AccountID, req.ForceLogin, req.CaptchaID, req.Captcha, req.Confirmation2FA)
-		// if err != nil {
-		// 	if apiCode == 0 {
-		// 		// if apiCode == 0 - it is not API error. Sending error response
-		// 		p.sendErrorResponse(conn, reqCmd, err)
-		// 		break
-		// 	}
-		// 	// sending API error info
-		// 	resp = types.SessionNewResp{
-		// 		APIStatus:       apiCode,
-		// 		APIErrorMessage: apiErrMsg,
-		// 		Session:         types.SessionResp{}, // empty session info
-		// 		Account:         accountInfo,
-		// 		RawResponse:     rawResponse}
-		// } else {
-		// 	// Success. Sending session info
-		// 	resp = types.SessionNewResp{
-		// 		APIStatus:       apiCode,
-		// 		APIErrorMessage: apiErrMsg,
-		// 		Session:         types.CreateSessionResp(p._service.Preferences().Session),
-		// 		Account:         accountInfo,
-		// 		RawResponse:     rawResponse}
-		// }
+		// send response
+		p.sendResponse(conn, &resp, reqCmd.Idx)
 
-		// // send response
-		// p.sendResponse(conn, &resp, reqCmd.Idx)
-
-		// // notify all clients about changed session status
-		// p.notifyClients(p.createHelloResponse())
+		// notify all clients about changed session status
+		p.notifyClients(p.createHelloResponse())
 
 	case "SessionDelete":
 		var req types.SessionDelete

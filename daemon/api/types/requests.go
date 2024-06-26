@@ -30,16 +30,15 @@ type KemPublicKeys struct {
 
 // SessionNewRequest request to create new session
 type SessionNewRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	// ForceLogin bool   `json:"force"`
+	AccountID  string `json:"username"`
+	ForceLogin bool   `json:"force"`
 
-	// PublicKey string `json:"wg_public_key"`
-	// KemPublicKeys
+	PublicKey string `json:"wg_public_key"`
+	KemPublicKeys
 
-	// CaptchaID       string `json:"captcha_id,omitempty"`
-	// Captcha         string `json:"captcha,omitempty"`
-	// Confirmation2FA string `json:"confirmation,omitempty"`
+	CaptchaID       string `json:"captcha_id,omitempty"`
+	Captcha         string `json:"captcha,omitempty"`
+	Confirmation2FA string `json:"confirmation,omitempty"`
 }
 
 // SessionDeleteRequest request to delete session
