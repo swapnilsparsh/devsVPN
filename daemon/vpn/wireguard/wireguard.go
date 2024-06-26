@@ -23,8 +23,11 @@
 package wireguard
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -274,16 +277,85 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		return nil, fmt.Errorf("WG PresharedKey is not base64 string")
 	}
 
+	// API call to Privateline to get connection parameters
+	url := "https://api.privateline.io/connection/push-key"
+	method := "POST"
+
+	//TODO: check if preshared key is correct for public key params?
+	payload := strings.NewReader(`{
+		"device_id": "2455235145",
+		"device_name": "test",
+		"public_key": "` + wg.connectParams.presharedKey + `", 
+		"platform": "windows"
+	}`)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create API request: %w", err)
+	}
+	req.Header.Add("Authorization", "bearer token value") //TODO: Update this with the actual token
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute API request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read API response: %w", err)
+	}
+
+	var response struct {
+		Status  bool `json:"status"`
+		Message string `json:"message"`
+		Data    []struct {
+			Interface struct {
+				Address string `json:"Address"`
+				DNS     string `json:"DNS"`
+			} `json:"Interface"`
+			Peer struct {
+				PublicKey string `json:"PublicKey"`
+				AllowedIPs string `json:"AllowedIPs"`
+				Endpoint   string `json:"Endpoint"`
+			} `json:"Peer"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse API response: %w", err)
+	}
+
+	if !response.Status {
+		return nil, fmt.Errorf("API error: %s", response.Message)
+	}
+
+	if len(response.Data) < 2 {
+		return nil, fmt.Errorf("unexpected API response format")
+	}
+
+	interfaceAddress := response.Data[0].Interface.Address
+	dns := response.Data[0].Interface.DNS
+	publicKey := response.Data[1].Peer.PublicKey
+	allowedIPs := response.Data[1].Peer.AllowedIPs
+	endpoint := response.Data[1].Peer.Endpoint
+
 	interfaceCfg := []string{
 		"[Interface]",
 		"PrivateKey = " + wg.connectParams.clientPrivateKey,
-		"ListenPort = " + strconv.Itoa(wg.localPort)}
+		"ListenPort = " + strconv.Itoa(wg.localPort),
+		"Address = " + interfaceAddress,
+		"DNS = " + dns,
+	}
 
 	peerCfg := []string{
 		"[Peer]",
-		"PublicKey = " + wg.connectParams.hostPublicKey,
-		"Endpoint = " + wg.connectParams.hostIP.String() + ":" + strconv.Itoa(wg.connectParams.hostPort),
-		"PersistentKeepalive = 25"}
+		"PublicKey = " + publicKey,
+		"Endpoint = " + endpoint,
+		"AllowedIPs = " + allowedIPs,
+		"PersistentKeepalive = 25",
+	}
 
 	if len(wg.connectParams.presharedKey) > 0 {
 		peerCfg = append(peerCfg, "PresharedKey = "+wg.connectParams.presharedKey)
