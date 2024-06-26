@@ -168,12 +168,12 @@ func (c *Client) GetHelloResponse() types.HelloResp {
 }
 
 // SessionNew creates new session
-func (c *Client) SessionNew(accountID string, forceLogin bool, the2FA string) (resp types.SessionNewResp, err error) {
+func (c *Client) SessionNew(email string, password string) (resp types.SessionNewResp, err error) {
 	if err := c.ensureConnected(); err != nil {
 		return resp, err
 	}
 
-	req := types.SessionNew{AccountID: accountID, ForceLogin: forceLogin, Confirmation2FA: the2FA}
+	req := types.SessionNew{Email: email, Password: password}
 
 	if err := c.sendRecv(&req, &resp); err != nil {
 		return resp, err
