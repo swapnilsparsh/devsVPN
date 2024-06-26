@@ -24,14 +24,14 @@
               class="noBordersTextBtn settingsLinkText"
               v-on:click="visitWebsiteAppsPage"
             >
-              IVPN website</button
+              PrivateLINE website</button
             >.
           </div>
         </div>
         <div v-else>
           <div class="small_text">
-            Not connected to daemon. Please, ensure IVPN daemon is running and
-            try to reconnect.
+            Not connected to daemon. Please, ensure PrivateLINE daemon is
+            running and try to reconnect.
           </div>
           <div v-if="isMacOS" class="small_text">
             Ensure that the <span>'IVPN'</span> background item is enabled in
@@ -41,12 +41,13 @@
             >)
           </div>
           <div class="small_text">
-            The latest version of the IVPN software can be downloaded from the
+            The latest version of the PrivateLINE software can be downloaded
+            from the
             <button
               class="noBordersTextBtn settingsLinkText"
               v-on:click="visitWebsiteAppsPage"
             >
-              IVPN website</button
+              PrivateLINE website</button
             >.
           </div>
         </div>
@@ -56,7 +57,7 @@
         class="noBordersTextBtn settingsLinkText"
         v-on:click="visitWebsite"
       >
-        www.ivpn.net
+        www.privateline.io
       </button>
     </div>
   </div>
@@ -96,10 +97,10 @@ export default {
       }
     },
     visitWebsite() {
-      sender.shellOpenExternal(`https://www.ivpn.net`);
+      sender.shellOpenExternal(`https://privateline.io/`);
     },
     visitWebsiteAppsPage() {
-      sender.shellOpenExternal(`https://www.ivpn.net/apps/`);
+      sender.shellOpenExternal(`https://privateline.io/downloads/`);
     },
   },
   computed: {

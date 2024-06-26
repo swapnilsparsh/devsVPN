@@ -204,23 +204,23 @@ function getNextRequestNo() {
 function send(request, reqNo) {
   if (socket == null) throw Error("Unable to send request (socket is closed)");
 
-  if (!request.ProtocolSecret) 
+  if (!request.ProtocolSecret)
     request.ProtocolSecret = ParanoidModeSecret;
 
   if (!request.Command)
     throw Error('Unable to send request ("Command" parameter not defined)');
-  
-  if (typeof request.Command === "undefined") 
+
+  if (typeof request.Command === "undefined")
     throw Error('Unable to send request. Unknown command: "' + request.Command + '"');
-  
+
   if (typeof reqNo === "undefined") reqNo = getNextRequestNo();
 
   request.Idx = reqNo;
 
   let serialized = toJson(request);
-  //log.debug(`==> ${serialized}`);
-  log.debug(`==> ${request.Command}  [${request.Idx}] ${request.Command == "APIRequest"? request.APIPath : ""}`);
-  
+  log.debug(`==> ${serialized}`);
+  log.debug(`==> ${request.Command}  [${request.Idx}] ${request.Command == "APIRequest" ? request.APIPath : ""}`);
+
   socket.write(`${serialized}\n`);
 }
 
@@ -357,7 +357,7 @@ async function processResponse(response) {
     if (obj.Command == "APIResponse")
       log.debug(
         `<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` +
-          (obj.Error ? " Error!" : "")
+        (obj.Error ? " Error!" : "")
       );
     else log.debug(`<== ${obj.Command} [${obj.Idx}]`);
   } else log.error(`<== ${response}`);
@@ -562,7 +562,7 @@ async function processResponse(response) {
         }, 3000);
       }
       break;
-    
+
     case daemonResponses.ErrorResp:
       if (obj.ErrorMessage) console.log("ERROR response:", obj.ErrorMessage);
 
@@ -573,7 +573,7 @@ async function processResponse(response) {
         console.log("!!!!!!!!!!!!!!!!!!!!!! ERROR RESP !!!!!!!!!!!!!!!!!!!!");
         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
       }
-      break;    
+      break;
 
     default:
   }
@@ -786,7 +786,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
     portInfo = { port: parsed[0], secret: parsed[1] };
   } catch (e) {
     log.error(
-      `DAEMON CONNECTION ERROR: Unable to obtain IVPN daemon connection parameters: ${e}`
+      `DAEMON CONNECTION ERROR: Unable to obtain PrivateLINE daemon connection parameters: ${e}`
     );
     throw e;
   }
@@ -794,7 +794,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
   return new Promise((resolve, reject) => {
     if (!portInfo) {
       setConnState(DaemonConnectionType.NotConnected);
-      reject("IVPN daemon connection info is unknown.");
+      reject("PrivateLINE daemon connection info is unknown.");
       return;
     }
 
@@ -842,7 +842,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
           // the 'store.state.daemonVersion' and 'store.state.daemonIsOldVersionError' must be already initialized
           if (store.state.daemonIsOldVersionError === true) {
             const err = Error(
-              `Unsupported IVPN Daemon version: v${store.state.daemonVersion} (minimum required v${config.MinRequiredDaemonVer})`
+              `Unsupported PrivateLINE Daemon version: v${store.state.daemonVersion} (minimum required v${config.MinRequiredDaemonVer})`
             );
             err.unsupportedDaemonVersion = true;
             disconnectDaemonFunc(err); // REJECT
@@ -905,17 +905,20 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
   });
 }
 
-async function Login(accountID, force, captchaID, captcha, confirmation2FA) {
+async function Login(email, password
+  //  force, captchaID, captcha, confirmation2FA
+) {
   let resp = await sendRecv({
     Command: daemonRequests.SessionNew,
-    AccountID: accountID,
-    ForceLogin: force,
-    CaptchaID: captchaID,
-    Captcha: captcha,
-    Confirmation2FA: confirmation2FA,
+    Email: email,
+    Password: password,
+    // ForceLogin: force,
+    // CaptchaID: captchaID,
+    // Captcha: captcha,
+    // Confirmation2FA: confirmation2FA,
   });
 
-  if (resp.APIStatus === API_SUCCESS) commitSession(resp.Session);
+  // if (resp.APIStatus === API_SUCCESS) commitSession(resp.Session);
 
   // Returning whole response object (even in case of error)
   // it contains details about error
