@@ -32,7 +32,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ivpn/desktop-app/daemon/helpers"
 	"github.com/ivpn/desktop-app/daemon/logger"
 	"github.com/ivpn/desktop-app/daemon/netinfo"
 	"github.com/ivpn/desktop-app/daemon/service/dns"
@@ -47,8 +46,10 @@ func init() {
 
 // ConnectionParams contains all information to make new connection
 type ConnectionParams struct {
+	bearerToken          string
 	clientLocalIP        net.IP
 	clientPrivateKey     string
+	clientPublicKey      string
 	presharedKey         string
 	hostPort             int
 	hostIP               net.IP
@@ -73,8 +74,10 @@ func (cp *ConnectionParams) GetIPv6HostLocalIP() net.IP {
 }
 
 // SetCredentials update WG credentials
-func (cp *ConnectionParams) SetCredentials(privateKey string, presharedKey string, localIP net.IP) {
+func (cp *ConnectionParams) SetCredentials(sessionToken string, privateKey string, publicKey string, presharedKey string, localIP net.IP) {
+	cp.bearerToken = sessionToken
 	cp.clientPrivateKey = privateKey
+	cp.clientPublicKey = publicKey
 	cp.presharedKey = presharedKey
 	cp.clientLocalIP = localIP
 }
@@ -259,6 +262,7 @@ func (wg *WireGuard) generateAndSaveConfigFile(cfgFilePath string) error {
 }
 
 func (wg *WireGuard) generateConfig() ([]string, error) {
+	logger.Debug("================= generateConfig logs =======================")
 	localPort, err := netinfo.GetFreeUDPPort()
 	if err != nil {
 		return nil, fmt.Errorf("unable to obtain free local port: %w", err)
@@ -267,15 +271,15 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	wg.localPort = localPort
 
 	// prevent user-defined data injection: ensure that nothing except the base64 public key will be stored in the configuration
-	if !helpers.ValidateBase64(wg.connectParams.hostPublicKey) {
-		return nil, fmt.Errorf("WG public key is not base64 string")
-	}
-	if !helpers.ValidateBase64(wg.connectParams.clientPrivateKey) {
-		return nil, fmt.Errorf("WG private key is not base64 string")
-	}
-	if len(wg.connectParams.presharedKey) > 0 && !helpers.ValidateBase64(wg.connectParams.presharedKey) {
-		return nil, fmt.Errorf("WG PresharedKey is not base64 string")
-	}
+	// if !helpers.ValidateBase64(wg.connectParams.hostPublicKey) {
+	// 	return nil, fmt.Errorf("WG public key is not base64 string")
+	// }
+	// if !helpers.ValidateBase64(wg.connectParams.clientPrivateKey) {
+	// 	return nil, fmt.Errorf("WG private key is not base64 string")
+	// }
+	// if len(wg.connectParams.presharedKey) > 0 && !helpers.ValidateBase64(wg.connectParams.presharedKey) {
+	// 	return nil, fmt.Errorf("WG PresharedKey is not base64 string")
+	// }
 
 	// API call to Privateline to get connection parameters
 	url := "https://api.privateline.io/connection/push-key"
@@ -285,16 +289,17 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	payload := strings.NewReader(`{
 		"device_id": "2455235145",
 		"device_name": "test",
-		"public_key": "` + wg.connectParams.presharedKey + `", 
-		"platform": "windows"
+		"public_key": "` + wg.connectParams.clientPublicKey + `", 
+		"platform": "linux"
 	}`)
 
+	logger.Debug(payload)
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create API request: %w", err)
 	}
-	req.Header.Add("Authorization", "bearer token value") //TODO: Update this with the actual token
+	req.Header.Add("Authorization", "bearer "+wg.connectParams.bearerToken)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -308,7 +313,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	}
 
 	var response struct {
-		Status  bool `json:"status"`
+		Status  bool   `json:"status"`
 		Message string `json:"message"`
 		Data    []struct {
 			Interface struct {
@@ -316,13 +321,16 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 				DNS     string `json:"DNS"`
 			} `json:"Interface"`
 			Peer struct {
-				PublicKey string `json:"PublicKey"`
+				PublicKey  string `json:"PublicKey"`
 				AllowedIPs string `json:"AllowedIPs"`
 				Endpoint   string `json:"Endpoint"`
 			} `json:"Peer"`
 		} `json:"data"`
 	}
 
+	logger.Debug(response.Status)
+	logger.Debug(response.Data)
+	logger.Debug(response.Message)
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to parse API response: %w", err)
 	}
@@ -357,14 +365,17 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"PersistentKeepalive = 25",
 	}
 
-	if len(wg.connectParams.presharedKey) > 0 {
-		peerCfg = append(peerCfg, "PresharedKey = "+wg.connectParams.presharedKey)
-	}
+	logger.Debug(interfaceCfg)
+	logger.Debug(peerCfg)
+	// if len(wg.connectParams.presharedKey) > 0 {
+	// 	peerCfg = append(peerCfg, "PresharedKey = "+wg.connectParams.presharedKey)
+	// }
 	// add some OS-specific configurations (if necessary)
-	iCfg, pCgf := wg.getOSSpecificConfigParams()
-	interfaceCfg = append(interfaceCfg, iCfg...)
-	peerCfg = append(peerCfg, pCgf...)
+	// iCfg, pCgf := wg.getOSSpecificConfigParams()
+	// interfaceCfg = append(interfaceCfg, iCfg...)
+	// peerCfg = append(peerCfg, pCgf...)
 
+	logger.Debug("============== generateConfig logs end =======================")
 	return append(interfaceCfg, peerCfg...), nil
 }
 
