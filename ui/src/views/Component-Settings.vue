@@ -46,7 +46,7 @@
               >
                 Connection
               </button>
-              <button
+              <!-- <button
                 v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
                 v-on:click="onView('firewall')"
@@ -54,7 +54,7 @@
                   activeBtn: view === 'firewall',
                 }"
               >
-                IVPN Firewall
+                PrivateLINE Firewall
               </button>
               <button
                 v-if="isLoggedIn && isSplitTunnelVisible"
@@ -107,7 +107,7 @@
                 }"
               >
                 Advanced
-              </button>
+              </button> -->
 
               <!--
           <button

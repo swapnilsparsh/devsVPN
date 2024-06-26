@@ -14,4 +14,6 @@ daemon/References/common/kem-helper/_out_windows/
 daemon/References/Windows/v2ray/v2ray.exe
 ui/build
 ui/out/
+ui/package-lock.json
+ui/*.lock
 ui/References/macOS/HelperProjects/launchAgent/_out

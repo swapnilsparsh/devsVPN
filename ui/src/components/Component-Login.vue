@@ -6,7 +6,7 @@
       <div class="column">
         <div class="centered" style="margin-top: -50px; margin-bottom: 50px">
           <!-- <img src="@/assets/logo.svg" /> -->
-          <h2>Devs VPN</h2>
+          <h2>PrivateLINE</h2>
         </div>
 
         <div v-if="isCaptchaRequired">
@@ -54,7 +54,7 @@
         <div v-else>
           <!-- ACCOUNT ID -->
           <div class="centered">
-            <div class="large_text">Enter your Account ID for Devs VPN</div>
+            <div class="large_text">Enter your Account ID for PrivateLINE</div>
             <div style="height: 12px" />
           </div>
 
@@ -64,7 +64,7 @@
             class="styledBig"
             ref="accountid"
             style="text-align: center"
-            placeholder="i-XXXX-... or ivpnXXXXXXXX"
+            placeholder="Enter you Account Id"
             v-model="accountID"
             v-on:keyup="keyup($event)"
           />
@@ -72,8 +72,6 @@
 
         <div style="height: 24px" />
         <button class="master" v-on:click="Login">Log In</button>
-        <div style="height: 12px" />
-        <button class="master" v-on:click="Login">Testing Button</button>
         <div style="height: 12px" />
 
         <button
@@ -87,7 +85,7 @@
       </div>
     </div>
 
-    <div class="flexRow leftright_margins" style="margin-bottom: 20px">
+    <!-- <div class="flexRow leftright_margins" style="margin-bottom: 20px">
       <div
         class="flexRow flexRowRestSpace switcher_small_text"
         style="margin-right: 10px"
@@ -100,7 +98,7 @@
         :isChecked="this.$store.state.vpnState.firewallState.IsEnabled"
         :isProgress="firewallIsProgress"
       />
-    </div>
+    </div> -->
   </div>
 </template>
 
@@ -197,11 +195,11 @@ export default {
     async Login(isForceLogout, confirmation2FA) {
       try {
         // check accoundID
-        var pattern = new RegExp("^(i-....-....-....)|(ivpn[a-zA-Z0-9]{7,8})$"); // fragment locator
+        var pattern = new RegExp("^([a-zA-Z0-9]{7,8})$"); // fragment locator
         if (this.accountID) this.accountID = this.accountID.trim();
         if (pattern.test(this.accountID) !== true) {
           throw new Error(
-            "Your account ID has to be in 'i-XXXX-XXXX-XXXX' or 'ivpnXXXXXXXX' format. You can find it on other devices where you are logged in and in the client area of the IVPN website."
+            "Your account ID has to be in 'XXXXXXXX' format. You can find it on other devices where you are logged in and in the client area of the PrivateLINE website."
           );
         }
 
@@ -218,9 +216,7 @@ export default {
         this.isProcessing = true;
         const resp = await sender.Login(
           this.accountID,
-          isForceLogout === true || this.isForceLogoutRequested === true
-            ? true
-            : false,
+          isForceLogout === true || this.isForceLogoutRequested === true,
           this.captchaID,
           this.captcha,
           confirmation2FA ? confirmation2FA : this.confirmation2FA
@@ -290,7 +286,7 @@ export default {
       }
     },
     CreateAccount() {
-      sender.shellOpenExternal(`https://privateline.io/`);
+      sender.shellOpenExternal(`https://privateline.io/email-signup`);
     },
     Cancel() {
       this.rawResponse = null;

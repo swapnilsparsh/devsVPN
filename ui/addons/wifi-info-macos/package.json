@@ -11,7 +11,7 @@
   "license": "GPL-3.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ivpn/desktop-app/ui/addons/wifi-info-macos"
+    "url": "https://github.com/swapnilsparsh/devsVPN/tree/master/ui/addons/wifi-info-macos"
   },
   "scripts": {
     "test": "node --napi-modules ./test/test_binding.js",
