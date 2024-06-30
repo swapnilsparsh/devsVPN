@@ -23,6 +23,7 @@
 package wireguard
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -285,28 +286,41 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	url := "https://api.privateline.io/connection/push-key"
 	method := "POST"
 
-	//TODO: check if preshared key is correct for public key params?
-	payload := strings.NewReader(`{
-		"device_id": "2455235145",
-		"device_name": "test",
-		"public_key": "` + wg.connectParams.clientPublicKey + `", 
-		"platform": "linux"
-	}`)
+	// Define the payload as a struct
+	type Payload struct {
+		DeviceID   string `json:"device_id"`
+		DeviceName string `json:"device_name"`
+		PublicKey  string `json:"public_key"`
+		Platform   string `json:"platform"`
+	}
 
-	logger.Debug(payload)
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, payload)
+	payload := Payload{
+		DeviceID:   "123",
+		DeviceName: "sandeep windows",
+		PublicKey:  wg.connectParams.clientPublicKey,
+		Platform:   "windows",
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(payloadBytes))
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create API request: %w", err)
 	}
-	req.Header.Add("Authorization", "bearer "+wg.connectParams.bearerToken)
+	// ++++++ Bearer token ++++
+	authorizationToken := "Bearer" + " " + wg.connectParams.bearerToken
 
+	// req.Header.Add("Authorization", "bearer "+wg.connectParams.bearerToken)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", authorizationToken)
+
+	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute API request: %w", err)
 	}
 	defer res.Body.Close()
-
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read API response: %w", err)
@@ -328,12 +342,15 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		} `json:"data"`
 	}
 
-	logger.Debug(response.Status)
-	logger.Debug(response.Data)
-	logger.Debug(response.Message)
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to parse API response: %w", err)
 	}
+
+	logger.Debug(response.Status)
+	log.Info("\n ++++++++++ Response data Connect API Start +++++++++++++++++ \n")
+	logger.Debug(response.Data)
+	log.Info("\n ++++++++++ Response data Connect API End +++++++++++++++++ \n")
+	logger.Debug(response.Message)
 
 	if !response.Status {
 		return nil, fmt.Errorf("API error: %s", response.Message)
@@ -365,8 +382,11 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"PersistentKeepalive = 25",
 	}
 
+	logger.Debug("\n====================== Sandeep Interface and Peers Config Start =================\n")
 	logger.Debug(interfaceCfg)
 	logger.Debug(peerCfg)
+	logger.Debug("\n====================== Sandeep Interface and Peers Config End ===================\n")
+
 	// if len(wg.connectParams.presharedKey) > 0 {
 	// 	peerCfg = append(peerCfg, "PresharedKey = "+wg.connectParams.presharedKey)
 	// }
