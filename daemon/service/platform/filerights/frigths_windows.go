@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ivpn/desktop-app/daemon/oshelpers/windows/go-acl"
+	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers/windows/go-acl"
 )
 
 var envVarProgramFiles string

@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -23,17 +23,20 @@
 package wireguard
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/ivpn/desktop-app/daemon/helpers"
-	"github.com/ivpn/desktop-app/daemon/logger"
-	"github.com/ivpn/desktop-app/daemon/netinfo"
-	"github.com/ivpn/desktop-app/daemon/service/dns"
-	"github.com/ivpn/desktop-app/daemon/vpn"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
 
 var log *logger.Logger
@@ -44,8 +47,10 @@ func init() {
 
 // ConnectionParams contains all information to make new connection
 type ConnectionParams struct {
+	bearerToken          string
 	clientLocalIP        net.IP
 	clientPrivateKey     string
+	clientPublicKey      string
 	presharedKey         string
 	hostPort             int
 	hostIP               net.IP
@@ -70,8 +75,10 @@ func (cp *ConnectionParams) GetIPv6HostLocalIP() net.IP {
 }
 
 // SetCredentials update WG credentials
-func (cp *ConnectionParams) SetCredentials(privateKey string, presharedKey string, localIP net.IP) {
+func (cp *ConnectionParams) SetCredentials(sessionToken string, privateKey string, publicKey string, presharedKey string, localIP net.IP) {
+	cp.bearerToken = sessionToken
 	cp.clientPrivateKey = privateKey
+	cp.clientPublicKey = publicKey
 	cp.presharedKey = presharedKey
 	cp.clientLocalIP = localIP
 }
@@ -256,6 +263,7 @@ func (wg *WireGuard) generateAndSaveConfigFile(cfgFilePath string) error {
 }
 
 func (wg *WireGuard) generateConfig() ([]string, error) {
+	logger.Debug("================= generateConfig logs =======================")
 	localPort, err := netinfo.GetFreeUDPPort()
 	if err != nil {
 		return nil, fmt.Errorf("unable to obtain free local port: %w", err)
@@ -264,35 +272,130 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	wg.localPort = localPort
 
 	// prevent user-defined data injection: ensure that nothing except the base64 public key will be stored in the configuration
-	if !helpers.ValidateBase64(wg.connectParams.hostPublicKey) {
-		return nil, fmt.Errorf("WG public key is not base64 string")
+	// if !helpers.ValidateBase64(wg.connectParams.hostPublicKey) {
+	// 	return nil, fmt.Errorf("WG public key is not base64 string")
+	// }
+	// if !helpers.ValidateBase64(wg.connectParams.clientPrivateKey) {
+	// 	return nil, fmt.Errorf("WG private key is not base64 string")
+	// }
+	// if len(wg.connectParams.presharedKey) > 0 && !helpers.ValidateBase64(wg.connectParams.presharedKey) {
+	// 	return nil, fmt.Errorf("WG PresharedKey is not base64 string")
+	// }
+
+	// API call to Privateline to get connection parameters
+	url := "https://api.privateline.io/connection/push-key"
+	method := "POST"
+
+	// Define the payload as a struct
+	type Payload struct {
+		DeviceID   string `json:"device_id"`
+		DeviceName string `json:"device_name"`
+		PublicKey  string `json:"public_key"`
+		Platform   string `json:"platform"`
 	}
-	if !helpers.ValidateBase64(wg.connectParams.clientPrivateKey) {
-		return nil, fmt.Errorf("WG private key is not base64 string")
+
+	payload := Payload{
+		DeviceID:   "123",
+		DeviceName: "sandeep windows",
+		PublicKey:  wg.connectParams.clientPublicKey,
+		Platform:   "windows",
 	}
-	if len(wg.connectParams.presharedKey) > 0 && !helpers.ValidateBase64(wg.connectParams.presharedKey) {
-		return nil, fmt.Errorf("WG PresharedKey is not base64 string")
+
+	payloadBytes, err := json.Marshal(payload)
+
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(payloadBytes))
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create API request: %w", err)
 	}
+	// ++++++ Bearer token ++++
+	authorizationToken := "Bearer" + " " + wg.connectParams.bearerToken
+
+	// req.Header.Add("Authorization", "bearer "+wg.connectParams.bearerToken)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", authorizationToken)
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute API request: %w", err)
+	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read API response: %w", err)
+	}
+
+	var response struct {
+		Status  bool   `json:"status"`
+		Message string `json:"message"`
+		Data    []struct {
+			Interface struct {
+				Address string `json:"Address"`
+				DNS     string `json:"DNS"`
+			} `json:"Interface"`
+			Peer struct {
+				PublicKey  string `json:"PublicKey"`
+				AllowedIPs string `json:"AllowedIPs"`
+				Endpoint   string `json:"Endpoint"`
+			} `json:"Peer"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse API response: %w", err)
+	}
+
+	logger.Debug(response.Status)
+	log.Info("\n ++++++++++ Response data Connect API Start ( BUILD 02072024 0046) +++++++++++++++++ \n")
+	logger.Debug(response.Data)
+	log.Info("\n ++++++++++ Response data Connect API End +++++++++++++++++ \n")
+	logger.Debug(response.Message)
+
+	if !response.Status {
+		return nil, fmt.Errorf("API error: %s", response.Message)
+	}
+
+	if len(response.Data) < 2 {
+		return nil, fmt.Errorf("unexpected API response format")
+	}
+
+	interfaceAddress := response.Data[0].Interface.Address
+	dns := response.Data[0].Interface.DNS
+	publicKey := response.Data[1].Peer.PublicKey
+	// allowedIPs := response.Data[1].Peer.AllowedIPs
+	endpoint := response.Data[1].Peer.Endpoint
 
 	interfaceCfg := []string{
 		"[Interface]",
 		"PrivateKey = " + wg.connectParams.clientPrivateKey,
-		"ListenPort = " + strconv.Itoa(wg.localPort)}
+		"ListenPort = " + strconv.Itoa(wg.localPort),
+		"Address = " + interfaceAddress,
+		"DNS = " + dns,
+	}
 
 	peerCfg := []string{
 		"[Peer]",
-		"PublicKey = " + wg.connectParams.hostPublicKey,
-		"Endpoint = " + wg.connectParams.hostIP.String() + ":" + strconv.Itoa(wg.connectParams.hostPort),
-		"PersistentKeepalive = 25"}
-
-	if len(wg.connectParams.presharedKey) > 0 {
-		peerCfg = append(peerCfg, "PresharedKey = "+wg.connectParams.presharedKey)
+		"PublicKey = " + publicKey,
+		"Endpoint = " + endpoint,
+		"AllowedIPs = " + "0.0.0.0/0",
+		"PersistentKeepalive = 25",
 	}
-	// add some OS-specific configurations (if necessary)
-	iCfg, pCgf := wg.getOSSpecificConfigParams()
-	interfaceCfg = append(interfaceCfg, iCfg...)
-	peerCfg = append(peerCfg, pCgf...)
 
+	logger.Debug("\n====================== Sandeep Interface and Peers Config Start =================\n")
+	logger.Debug(interfaceCfg)
+	logger.Debug(peerCfg)
+	logger.Debug("\n====================== Sandeep Interface and Peers Config End ===================\n")
+
+	// if len(wg.connectParams.presharedKey) > 0 {
+	// 	peerCfg = append(peerCfg, "PresharedKey = "+wg.connectParams.presharedKey)
+	// }
+	// add some OS-specific configurations (if necessary)
+	// iCfg, pCgf := wg.getOSSpecificConfigParams()
+	// interfaceCfg = append(interfaceCfg, iCfg...)
+	// peerCfg = append(peerCfg, pCgf...)
+
+	logger.Debug("============== generateConfig logs end =======================")
 	return append(interfaceCfg, peerCfg...), nil
 }
 

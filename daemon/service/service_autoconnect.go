@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -29,12 +29,12 @@ import (
 	"reflect"
 	"strings"
 
-	apiTypes "github.com/ivpn/desktop-app/daemon/api/types"
-	protocolTypes "github.com/ivpn/desktop-app/daemon/protocol/types"
-	"github.com/ivpn/desktop-app/daemon/service/preferences"
-	"github.com/ivpn/desktop-app/daemon/service/types"
-	"github.com/ivpn/desktop-app/daemon/vpn"
-	"github.com/ivpn/desktop-app/daemon/wifiNotifier"
+	apiTypes "github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
+	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier"
 )
 
 type autoConnectReason int

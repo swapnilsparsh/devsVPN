@@ -1,9 +1,9 @@
-module github.com/ivpn/desktop-app/cli
+module github.com/swapnilsparsh/devsVPN/cli
 
 go 1.21
 
 require (
-	github.com/ivpn/desktop-app/daemon v0.0.0
+	github.com/swapnilsparsh/devsVPN/daemon v0.0.0
 	golang.org/x/crypto v0.18.0
 	golang.org/x/sys v0.16.0
 	golang.org/x/term v0.16.0
@@ -24,4 +24,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/ivpn/desktop-app/daemon => ../daemon
+replace github.com/swapnilsparsh/devsVPN/daemon => ../daemon

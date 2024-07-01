@@ -2,7 +2,7 @@
 
 #
 #  Daemon for IVPN Client Desktop
-#  https://github.com/ivpn/desktop-app/daemon
+#  https://github.com/swapnilsparsh/devsVPN/daemon
 #
 #  Created by Stelnykovych Alexandr.
 #  Copyright (c) 2023 IVPN Limited.

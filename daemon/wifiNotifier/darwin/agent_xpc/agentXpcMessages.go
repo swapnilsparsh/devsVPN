@@ -45,7 +45,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ivpn/desktop-app/daemon/wifiNotifier/darwin"
+	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier/darwin"
 	"golang.org/x/sync/singleflight"
 )
 

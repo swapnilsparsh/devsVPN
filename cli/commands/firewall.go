@@ -1,6 +1,6 @@
 //
 //  IVPN command line interface (CLI)
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -25,7 +25,7 @@ package commands
 import (
 	"fmt"
 
-	"github.com/ivpn/desktop-app/cli/flags"
+	"github.com/swapnilsparsh/devsVPN/cli/flags"
 )
 
 type CmdFirewall struct {

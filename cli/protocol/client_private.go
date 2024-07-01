@@ -1,6 +1,6 @@
 //
 //  IVPN command line interface (CLI)
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -30,11 +30,11 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ivpn/desktop-app/cli/helpers"
-	"github.com/ivpn/desktop-app/daemon/logger"
-	daemonProtocol "github.com/ivpn/desktop-app/daemon/protocol"
-	"github.com/ivpn/desktop-app/daemon/protocol/types"
-	"github.com/ivpn/desktop-app/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/cli/helpers"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	daemonProtocol "github.com/swapnilsparsh/devsVPN/daemon/protocol"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 )
 
 func (c *Client) ensureConnected() error {

@@ -1,4 +1,4 @@
-module github.com/ivpn/desktop-app/daemon
+module github.com/swapnilsparsh/devsVPN/daemon
 
 go 1.21
 

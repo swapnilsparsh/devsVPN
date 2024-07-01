@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ivpn/desktop-app/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 )
 
 var log *logger.Logger

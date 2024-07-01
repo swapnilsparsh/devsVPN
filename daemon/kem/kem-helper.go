@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -21,7 +21,7 @@
 //
 
 //
-// Wrapper to 'kem-helper' tool: https://github.com/ivpn/desktop-app/tree/master/daemon/References/common/kem-helper
+// Wrapper to 'kem-helper' tool: https://github.com/swapnilsparsh/devsVPN/tree/master/daemon/References/common/kem-helper
 //
 
 package kem

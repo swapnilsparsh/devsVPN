@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -33,7 +33,7 @@ import (
 )
 
 import (
-	"github.com/ivpn/desktop-app/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 )
 
 // TODO: reimplement accessing libivpn using syscall.NewLazyDLL+NewProc (avoid using CGO)

@@ -1,5 +1,5 @@
 //  UI for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Modified by Stelnykovych Alexandr
 //  Copyright (c) 2023 IVPN Limited.

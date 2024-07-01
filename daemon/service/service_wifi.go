@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -25,7 +25,7 @@ package service
 import (
 	"time"
 
-	"github.com/ivpn/desktop-app/daemon/wifiNotifier"
+	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier"
 )
 
 var timerDelayedWifiNotify *time.Timer

@@ -1,6 +1,6 @@
 //
 //  IVPN command line interface (CLI)
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -27,16 +27,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"syscall"
 	"text/tabwriter"
 	"time"
 
-	"github.com/ivpn/desktop-app/cli/flags"
-	"github.com/ivpn/desktop-app/cli/helpers"
-	"github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/service/srverrors"
-	"github.com/ivpn/desktop-app/daemon/vpn"
-	"golang.org/x/term"
+	"github.com/swapnilsparsh/devsVPN/cli/flags"
+	"github.com/swapnilsparsh/devsVPN/cli/helpers"
+	"github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
 
 type CmdLogout struct {
@@ -58,21 +56,21 @@ func (c *CmdLogout) Run() error {
 // ----------------------------------------------------------------------------------------
 type CmdLogin struct {
 	flags.CmdInfo
-	accountID string
-	force     bool
+	email    string
+	password string
 }
 
 func (c *CmdLogin) Init() {
 	c.Initialize("login", "Login operation (register ACCOUNT_ID on this device)")
-	c.DefaultStringVar(&c.accountID, "ACCOUNT_ID")
-	c.BoolVar(&c.force, "force", false, "Log out from all other devices (applicable only with 'login' option)")
+	c.DefaultStringVar(&c.email, "Email")
+	c.DefaultStringVar(&c.password, "Password")
 }
 
 func (c *CmdLogin) Run() error {
-	return doLogin(c.accountID, c.force)
+	return doLogin(c.email, c.password)
 }
 
-func doLogin(accountID string, force bool) error {
+func doLogin(email string, password string) error {
 	// checking if we are logged-in
 	_proto.SessionStatus() // do not check error response (could be received 'not logged in' errors)
 	helloResp := _proto.GetHelloResponse()
@@ -83,34 +81,34 @@ func doLogin(accountID string, force bool) error {
 	}
 
 	// login
-	if len(accountID) == 0 {
-		fmt.Print("Enter your Account ID: ")
-		data, err := term.ReadPassword(int(syscall.Stdin))
-		fmt.Println("")
-		if err != nil {
-			return fmt.Errorf("failed to read accountID: %w", err)
-		}
-		accountID = string(data)
-	}
+	// if len(accountID) == 0 {
+	// 	fmt.Print("Enter your Account ID: ")
+	// 	data, err := term.ReadPassword(int(syscall.Stdin))
+	// 	fmt.Println("")
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to read accountID: %w", err)
+	// 	}
+	// 	accountID = string(data)
+	// }
 
-	resp, err := _proto.SessionNew(accountID, force, "")
+	resp, err := _proto.SessionNew(email, password)
 	if err != nil {
-		if resp.APIStatus == types.The2FARequired {
-			fmt.Println("Account has two-factor authentication enabled.")
-			fmt.Print("Please enter TOTP token to login: ")
-			reader := bufio.NewReader(os.Stdin)
-			topt, _ := reader.ReadString('\n')
+		// if resp.APIStatus == types.The2FARequired {
+		// 	fmt.Println("Account has two-factor authentication enabled.")
+		// 	fmt.Print("Please enter TOTP token to login: ")
+		// 	reader := bufio.NewReader(os.Stdin)
+		// 	topt, _ := reader.ReadString('\n')
 
-			topt = strings.TrimSuffix(topt, "\n")
-			topt = strings.TrimSuffix(topt, "\r")
+		// 	topt = strings.TrimSuffix(topt, "\n")
+		// 	topt = strings.TrimSuffix(topt, "\r")
 
-			resp, err = _proto.SessionNew(accountID, force, topt)
-		}
+		// 	resp, err = _proto.SessionNew(accountID, force, topt)
+		// }
 
 		if resp.APIStatus == types.CodeSessionsLimitReached {
 			PrintTips([]TipType{TipForceLogin})
 
-			if !helpers.IsLegacyAccount(accountID) && len(resp.Account.DeviceManagementURL) > 0 {
+			if !helpers.IsLegacyAccount(email) && len(resp.Account.DeviceManagementURL) > 0 {
 				prefixText := "Visit Device Management"
 				if !resp.Account.DeviceManagement {
 					prefixText = "Enable Device Management"

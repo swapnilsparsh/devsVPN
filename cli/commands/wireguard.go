@@ -1,6 +1,6 @@
 //
 //  IVPN command line interface (CLI)
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -28,8 +28,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/ivpn/desktop-app/cli/flags"
-	"github.com/ivpn/desktop-app/daemon/service/srverrors"
+	"github.com/swapnilsparsh/devsVPN/cli/flags"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
 )
 
 type CmdWireGuard struct {

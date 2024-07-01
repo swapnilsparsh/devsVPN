@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -33,25 +33,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ivpn/desktop-app/daemon/api"
-	api_types "github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/kem"
-	"github.com/ivpn/desktop-app/daemon/logger"
-	"github.com/ivpn/desktop-app/daemon/netinfo"
-	"github.com/ivpn/desktop-app/daemon/oshelpers"
-	protocolTypes "github.com/ivpn/desktop-app/daemon/protocol/types"
-	"github.com/ivpn/desktop-app/daemon/service/dns"
-	"github.com/ivpn/desktop-app/daemon/service/firewall"
-	"github.com/ivpn/desktop-app/daemon/service/platform"
-	"github.com/ivpn/desktop-app/daemon/service/platform/filerights"
-	"github.com/ivpn/desktop-app/daemon/service/preferences"
-	"github.com/ivpn/desktop-app/daemon/service/srverrors"
-	"github.com/ivpn/desktop-app/daemon/service/types"
-	"github.com/ivpn/desktop-app/daemon/shell"
-	"github.com/ivpn/desktop-app/daemon/splittun"
-	"github.com/ivpn/desktop-app/daemon/vpn"
-	"github.com/ivpn/desktop-app/daemon/vpn/wireguard"
-	"github.com/ivpn/desktop-app/daemon/wifiNotifier"
+	"github.com/swapnilsparsh/devsVPN/daemon/api"
+	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/kem"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers"
+	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform/filerights"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/shell"
+	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn/wireguard"
+	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier"
 )
 
 var log *logger.Logger
@@ -1562,7 +1562,7 @@ func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountI
 }
 
 // SessionNew creates new session
-func (s *Service) SessionNew(accountID string, forceLogin bool, captchaID string, captcha string, confirmation2FA string) (
+func (s *Service) SessionNew(email string, password string) (
 	apiCode int,
 	apiErrorMsg string,
 	accountInfo preferences.AccountStatus,
@@ -1631,7 +1631,7 @@ func (s *Service) SessionNew(accountID string, forceLogin bool, captchaID string
 			log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
 		}
 
-		successResp, errorLimitResp, apiErr, rawRespStr, err = s._api.SessionNew(accountID, publicKey, kemKeys, forceLogin, captchaID, captcha, confirmation2FA)
+		successResp, errorLimitResp, apiErr, rawRespStr, err = s._api.SessionNew(email, password)
 		rawResponse = rawRespStr
 
 		apiCode = 0
@@ -1688,7 +1688,7 @@ func (s *Service) SessionNew(accountID string, forceLogin bool, captchaID string
 	accountInfo = s.createAccountStatus(successResp.ServiceStatus)
 
 	s.setCredentials(accountInfo,
-		accountID,
+		email,
 		successResp.Token,
 		successResp.DeviceName,
 		successResp.VpnUsername,

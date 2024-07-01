@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -22,7 +22,7 @@
 
 package main
 
-import "github.com/ivpn/desktop-app/daemon/service"
+import "github.com/swapnilsparsh/devsVPN/daemon/service"
 
 var serviceEventsChan chan service.ServiceEventType = make(chan service.ServiceEventType, 1)
 

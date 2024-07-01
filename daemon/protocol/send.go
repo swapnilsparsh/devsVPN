@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -27,8 +27,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/ivpn/desktop-app/daemon/helpers"
-	"github.com/ivpn/desktop-app/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 )
 
 type ICommandBase interface {
