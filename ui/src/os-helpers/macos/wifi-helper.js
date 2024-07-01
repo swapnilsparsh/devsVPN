@@ -1,6 +1,6 @@
 //
 //  UI for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2024 IVPN Limited.

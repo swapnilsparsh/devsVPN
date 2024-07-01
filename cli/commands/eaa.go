@@ -1,6 +1,6 @@
 //
 //  IVPN command line interface (CLI)
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -28,10 +28,10 @@ import (
 	"syscall"
 	"text/tabwriter"
 
-	"github.com/ivpn/desktop-app/cli/flags"
-	"github.com/ivpn/desktop-app/cli/helpers"
-	"github.com/ivpn/desktop-app/daemon/protocol/eaa"
-	"github.com/ivpn/desktop-app/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/cli/flags"
+	"github.com/swapnilsparsh/devsVPN/cli/helpers"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/eaa"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"golang.org/x/term"
 )
 

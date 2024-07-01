@@ -11,7 +11,7 @@ Please, refer to development dependencies described in the [main readme](../read
 Clone the sources and build everything using the script `cli/References/Linux/build.sh`:
 
 ```bash
-git clone https://github.com/ivpn/desktop-app.git
+git clone https://github.com/swapnilsparsh/devsVPN.git
 cd desktop-app/cli/References/Linux/
 ./build.sh
 ```
@@ -132,4 +132,4 @@ Compiled files location:
 
 - [ArchLinux User Repository installation files (base package)](https://aur.archlinux.org/cgit/aur.git/tree/?h=ivpn)
 - [ArchLinux User Repository installation files (UI package)](https://aur.archlinux.org/cgit/aur.git/tree/?h=ivpn-ui)
-- [Configuring IVPN daemon on OpenRC init systems](https://github.com/ivpn/desktop-app/issues/1#issuecomment-822919358)  
+- [Configuring IVPN daemon on OpenRC init systems](https://github.com/swapnilsparsh/devsVPN/issues/1#issuecomment-822919358)  

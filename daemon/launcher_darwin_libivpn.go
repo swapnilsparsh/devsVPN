@@ -1,10 +1,11 @@
+//go:build darwin && libivpn
 // +build darwin,libivpn
 
 package main
 
 import (
-	"github.com/ivpn/desktop-app/daemon/logger"
-	"github.com/ivpn/desktop-app/daemon/oshelpers/macos/libivpn"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers/macos/libivpn"
 )
 
 // inform OS-specific implementation about listener port

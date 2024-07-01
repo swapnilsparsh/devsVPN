@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ivpn/desktop-app/daemon/oshelpers/macos/darwinhelpers"
-	"github.com/ivpn/desktop-app/daemon/wifiNotifier/darwin"
-	agentxpc "github.com/ivpn/desktop-app/daemon/wifiNotifier/darwin/agent_xpc"
-	"github.com/ivpn/desktop-app/daemon/wifiNotifier/darwin/obsolete"
+	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers/macos/darwinhelpers"
+	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier/darwin"
+	agentxpc "github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier/darwin/agent_xpc"
+	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier/darwin/obsolete"
 )
 
 type DarwinWifiInfoSource interface {

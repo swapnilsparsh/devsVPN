@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -23,10 +23,10 @@
 package protocol
 
 import (
-	api_types "github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/protocol/types"
-	"github.com/ivpn/desktop-app/daemon/service/preferences"
-	"github.com/ivpn/desktop-app/daemon/wifiNotifier"
+	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
+	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier"
 )
 
 // OnServiceSessionChanged - SessionChanged handler

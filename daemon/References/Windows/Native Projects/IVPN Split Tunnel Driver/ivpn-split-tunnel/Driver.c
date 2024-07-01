@@ -1,12 +1,12 @@
 //
 //  Split-Tunnel Driver for Windows
-//  https://github.com/ivpn/desktop-app/daemon/References/Windows/Native%20Projects/IVPN%20Split%20Tunnel%20Driver
+//  https://github.com/swapnilsparsh/devsVPN/daemon/References/Windows/Native%20Projects/IVPN%20Split%20Tunnel%20Driver
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
 //
 //  This file is part of the IVPN Client for Desktop project.
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  The IVPN Client for Desktop is free software: you can redistribute it and/or
 //  modify it under the terms of the GNU General Public License as published by the Free

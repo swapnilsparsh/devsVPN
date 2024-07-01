@@ -1,6 +1,6 @@
 //
 //  IVPN command line interface (CLI)
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -30,13 +30,13 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/ivpn/desktop-app/cli/cliplatform"
-	"github.com/ivpn/desktop-app/cli/protocol"
-	apitypes "github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/protocol/types"
-	"github.com/ivpn/desktop-app/daemon/splittun"
-	"github.com/ivpn/desktop-app/daemon/v2r"
-	"github.com/ivpn/desktop-app/daemon/vpn"
+	"github.com/swapnilsparsh/devsVPN/cli/cliplatform"
+	"github.com/swapnilsparsh/devsVPN/cli/protocol"
+	apitypes "github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
+	"github.com/swapnilsparsh/devsVPN/daemon/v2r"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
 
 var _proto *protocol.Client

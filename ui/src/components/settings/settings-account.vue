@@ -277,7 +277,7 @@ export default {
     },
     IsShowActiveUntil: function () {
       // Disable active until and Add more time when product name = Member VPN Pro Account
-      // https://github.com/ivpn/desktop-app-shadow/issues/135
+      // https://github.com/swapnilsparsh/devsVPN-shadow/issues/135
       // TODO: this is bad practice. The team account attribute have to be provideded by backend
       if (this.CurrentPlan == "Member VPN Pro Account") return false;
 

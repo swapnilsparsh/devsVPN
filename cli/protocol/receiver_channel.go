@@ -1,6 +1,6 @@
 //
 //  IVPN command line interface (CLI)
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -27,8 +27,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ivpn/desktop-app/daemon/logger"
-	"github.com/ivpn/desktop-app/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 )
 
 func createReceiver(waitingIdx int, isIgnoreWaitingIndex bool, waitingObjectsList ...interface{}) *receiverChannel {

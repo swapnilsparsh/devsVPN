@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -23,8 +23,8 @@
 package types
 
 import (
-	"github.com/ivpn/desktop-app/daemon/oshelpers"
-	"github.com/ivpn/desktop-app/daemon/splittun"
+	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers"
+	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
 )
 
 // GetInstalledApps (request) requests information about installed applications on the system

@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ivpn/desktop-app/cli/flags"
+	"github.com/swapnilsparsh/devsVPN/cli/flags"
 )
 
 func CheckIsAdmin() bool {

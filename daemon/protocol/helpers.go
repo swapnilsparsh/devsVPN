@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -26,11 +26,11 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/ivpn/desktop-app/daemon/protocol/types"
-	"github.com/ivpn/desktop-app/daemon/service/dns"
-	"github.com/ivpn/desktop-app/daemon/service/platform"
-	"github.com/ivpn/desktop-app/daemon/version"
-	"github.com/ivpn/desktop-app/daemon/vpn"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/daemon/version"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
 
 func (p *Protocol) createSettingsResponse() *types.SettingsResp {

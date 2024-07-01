@@ -3,7 +3,7 @@ package wifiNotifier
 import (
 	"fmt"
 
-	"github.com/ivpn/desktop-app/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 )
 
 var log *logger.Logger

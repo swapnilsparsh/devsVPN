@@ -1,6 +1,6 @@
 //
 //  IVPN command line interface (CLI)
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -30,15 +30,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ivpn/desktop-app/cli/flags"
-	apitypes "github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/obfsproxy"
-	"github.com/ivpn/desktop-app/daemon/protocol/types"
-	"github.com/ivpn/desktop-app/daemon/service/dns"
-	"github.com/ivpn/desktop-app/daemon/service/srverrors"
-	service_types "github.com/ivpn/desktop-app/daemon/service/types"
-	"github.com/ivpn/desktop-app/daemon/v2r"
-	"github.com/ivpn/desktop-app/daemon/vpn"
+	"github.com/swapnilsparsh/devsVPN/cli/flags"
+	apitypes "github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/obfsproxy"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/v2r"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
 
 type port struct {

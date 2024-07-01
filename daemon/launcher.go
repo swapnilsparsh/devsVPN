@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -34,16 +34,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ivpn/desktop-app/daemon/api"
-	"github.com/ivpn/desktop-app/daemon/logger"
-	"github.com/ivpn/desktop-app/daemon/netchange"
-	"github.com/ivpn/desktop-app/daemon/protocol"
-	"github.com/ivpn/desktop-app/daemon/service"
-	"github.com/ivpn/desktop-app/daemon/service/firewall"
-	"github.com/ivpn/desktop-app/daemon/service/platform"
-	"github.com/ivpn/desktop-app/daemon/service/preferences"
-	"github.com/ivpn/desktop-app/daemon/service/wgkeys"
-	"github.com/ivpn/desktop-app/daemon/version"
+	"github.com/swapnilsparsh/devsVPN/daemon/api"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/netchange"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
+	"github.com/swapnilsparsh/devsVPN/daemon/service"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/wgkeys"
+	"github.com/swapnilsparsh/devsVPN/daemon/version"
 )
 
 var log *logger.Logger

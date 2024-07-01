@@ -78,9 +78,9 @@ go get -v
 if [[ "$@" == *"-debug"* ]]
 then
     echo "Compiling in DEBUG mode"
-    go build -tags debug -o "$OUT_FILE" -trimpath -ldflags "-X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
+    go build -tags debug -o "$OUT_FILE" -trimpath -ldflags "-X github.com/swapnilsparsh/devsVPN/daemon/version._version=$VERSION -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=$COMMIT -X github.com/swapnilsparsh/devsVPN/daemon/version._time=$DATE"
 else
-    go build -o "$OUT_FILE" -trimpath -ldflags "-s -w -X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
+    go build -o "$OUT_FILE" -trimpath -ldflags "-s -w -X github.com/swapnilsparsh/devsVPN/daemon/version._version=$VERSION -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=$COMMIT -X github.com/swapnilsparsh/devsVPN/daemon/version._time=$DATE"
 fi
 
 # generate bash-completion script

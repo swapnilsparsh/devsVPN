@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -33,9 +33,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/ivpn/desktop-app/daemon/logger"
-	"github.com/ivpn/desktop-app/daemon/netinfo"
-	"github.com/ivpn/desktop-app/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 )
 
 type Response struct {

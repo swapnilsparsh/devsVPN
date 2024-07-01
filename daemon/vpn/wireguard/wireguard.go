@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -33,10 +33,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ivpn/desktop-app/daemon/logger"
-	"github.com/ivpn/desktop-app/daemon/netinfo"
-	"github.com/ivpn/desktop-app/daemon/service/dns"
-	"github.com/ivpn/desktop-app/daemon/vpn"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
 
 var log *logger.Logger
@@ -347,7 +347,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	}
 
 	logger.Debug(response.Status)
-	log.Info("\n ++++++++++ Response data Connect API Start +++++++++++++++++ \n")
+	log.Info("\n ++++++++++ Response data Connect API Start ( BUILD 02072024 0046) +++++++++++++++++ \n")
 	logger.Debug(response.Data)
 	log.Info("\n ++++++++++ Response data Connect API End +++++++++++++++++ \n")
 	logger.Debug(response.Message)
@@ -363,7 +363,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	interfaceAddress := response.Data[0].Interface.Address
 	dns := response.Data[0].Interface.DNS
 	publicKey := response.Data[1].Peer.PublicKey
-	allowedIPs := response.Data[1].Peer.AllowedIPs
+	// allowedIPs := response.Data[1].Peer.AllowedIPs
 	endpoint := response.Data[1].Peer.Endpoint
 
 	interfaceCfg := []string{
@@ -378,7 +378,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"[Peer]",
 		"PublicKey = " + publicKey,
 		"Endpoint = " + endpoint,
-		"AllowedIPs = " + allowedIPs,
+		"AllowedIPs = " + "0.0.0.0/0",
 		"PersistentKeepalive = 25",
 	}
 

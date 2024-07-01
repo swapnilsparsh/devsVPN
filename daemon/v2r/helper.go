@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -26,7 +26,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ivpn/desktop-app/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 )
 
 // Start - helper function which starts V2Ray client with specified parameters

@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -23,11 +23,11 @@
 package types
 
 import (
-	api_types "github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/service/dns"
-	"github.com/ivpn/desktop-app/daemon/service/preferences"
-	service_types "github.com/ivpn/desktop-app/daemon/service/types"
-	"github.com/ivpn/desktop-app/daemon/vpn"
+	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
 
 type EmptyReq struct {

@@ -270,7 +270,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/ivpn/desktop-app/daemon/oshelpers/linux/netlink"
+	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers/linux/netlink"
 )
 
 var (

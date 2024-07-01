@@ -21,7 +21,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/ivpn/desktop-app/daemon/wifiNotifier/darwin"
+	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier/darwin"
 )
 
 var (

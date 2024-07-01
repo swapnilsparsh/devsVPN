@@ -88,7 +88,7 @@ if [ ! -z "$IVPN_NO_WIFI" ]; then
   BUILDTAG_NOWIFI="nowifi"
 fi
 
-go build -buildmode=pie -tags "${BUILDTAG_DEBUG} ${BUILDTAG_NOWIFI}" -o "$OUT_FILE" -trimpath -ldflags "-X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
+go build -buildmode=pie -tags "${BUILDTAG_DEBUG} ${BUILDTAG_NOWIFI}" -o "$OUT_FILE" -trimpath -ldflags "-X github.com/swapnilsparsh/devsVPN/daemon/version._version=$VERSION -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=$COMMIT -X github.com/swapnilsparsh/devsVPN/daemon/version._time=$DATE"
 
 echo "Compiled binary: '$OUT_FILE'"
 

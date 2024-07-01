@@ -3,7 +3,7 @@
 #
 #  Script to control the Split-Tunneling functionality for Linux.
 #  It is a part of Daemon for IVPN Client Desktop.
-#  https://github.com/ivpn/desktop-app/daemon
+#  https://github.com/swapnilsparsh/devsVPN/daemon
 #
 #  Created by Stelnykovych Alexandr.
 #  Copyright (c) 2023 IVPN Limited.
@@ -781,7 +781,7 @@ else
     echo "Script to control the Split-Tunneling functionality for Linux."
     echo "Applications running in the split tunnel environment do not use the VPN tunnel."
     echo "It is a part of Daemon for IVPN Client Desktop."
-    echo "https://github.com/ivpn/desktop-app/daemon"
+    echo "https://github.com/swapnilsparsh/devsVPN/daemon"
     echo "Created by Stelnykovych Alexandr."
     echo "Copyright (c) 2023 IVPN Limited."
     echo ""

@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -25,10 +25,10 @@ package openvpn
 import (
 	"fmt"
 
-	"github.com/ivpn/desktop-app/daemon/service/dns"
-	"github.com/ivpn/desktop-app/daemon/service/platform"
-	"github.com/ivpn/desktop-app/daemon/service/platform/filerights"
-	"github.com/ivpn/desktop-app/daemon/vpn"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform/filerights"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
 
 type platformSpecificProperties struct {

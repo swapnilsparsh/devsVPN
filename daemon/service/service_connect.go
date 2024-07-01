@@ -1,6 +1,6 @@
 //
 //  Daemon for IVPN Client Desktop
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -34,20 +34,20 @@ import (
 	"sync"
 	"time"
 
-	api_types "github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/helpers"
-	"github.com/ivpn/desktop-app/daemon/netinfo"
-	"github.com/ivpn/desktop-app/daemon/obfsproxy"
-	"github.com/ivpn/desktop-app/daemon/service/dns"
-	"github.com/ivpn/desktop-app/daemon/service/firewall"
-	"github.com/ivpn/desktop-app/daemon/service/platform"
-	"github.com/ivpn/desktop-app/daemon/service/platform/filerights"
-	"github.com/ivpn/desktop-app/daemon/service/srverrors"
-	"github.com/ivpn/desktop-app/daemon/service/types"
-	"github.com/ivpn/desktop-app/daemon/v2r"
-	"github.com/ivpn/desktop-app/daemon/vpn"
-	"github.com/ivpn/desktop-app/daemon/vpn/openvpn"
-	"github.com/ivpn/desktop-app/daemon/vpn/wireguard"
+	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
+	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/obfsproxy"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform/filerights"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/v2r"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn/openvpn"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn/wireguard"
 )
 
 type svrConnInfo struct {

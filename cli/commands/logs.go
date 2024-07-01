@@ -1,6 +1,6 @@
 //
 //  IVPN command line interface (CLI)
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -28,9 +28,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ivpn/desktop-app/cli/flags"
-	service_types "github.com/ivpn/desktop-app/daemon/protocol/types"
-	"github.com/ivpn/desktop-app/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/cli/flags"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 )
 
 type CmdLogs struct {

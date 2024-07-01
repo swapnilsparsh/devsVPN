@@ -1,6 +1,6 @@
 //
 //  IVPN command line interface (CLI)
-//  https://github.com/ivpn/desktop-app
+//  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
@@ -35,14 +35,14 @@ import (
 	"sync"
 	"time"
 
-	apitypes "github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/logger"
-	"github.com/ivpn/desktop-app/daemon/protocol/types"
-	"github.com/ivpn/desktop-app/daemon/service/dns"
-	"github.com/ivpn/desktop-app/daemon/service/preferences"
-	service_types "github.com/ivpn/desktop-app/daemon/service/types"
-	"github.com/ivpn/desktop-app/daemon/version"
-	"github.com/ivpn/desktop-app/daemon/vpn"
+	apitypes "github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/version"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 	"golang.org/x/crypto/pbkdf2"
 )
 
