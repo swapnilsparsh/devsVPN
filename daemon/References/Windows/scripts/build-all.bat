@@ -64,7 +64,7 @@ if "%GITHUB_ACTIONS%" == "true" (
 	call :build_kem_helper || goto :error
 )
 
-call :update_servers_info || goto :error
+REM call :update_servers_info || goto :error
 call :build_agent || goto :error
 
 rem THE END

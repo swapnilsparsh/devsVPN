@@ -167,7 +167,7 @@ else
   fi
 fi
 # updating servers.json
-./update-servers.sh
+#./update-servers.sh
 
 echo "======================================================"
 echo "=============== IVPN Agent ==========================="

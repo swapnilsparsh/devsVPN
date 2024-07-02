@@ -34,7 +34,7 @@ fi
 
 # updating servers.json
 cd $SCRIPT_DIR
-./update-servers.sh
+#./update-servers.sh
 
 echo "!!!!!!!!!!!!!!!!!!!! INFO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo "Version: $VERSION"
