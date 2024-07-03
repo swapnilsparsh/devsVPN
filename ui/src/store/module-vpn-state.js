@@ -780,9 +780,11 @@ function updateServers(oldServers, newServers) {
   function initNewServersAndCreateHash(hashObj, servers) {
     let retObj = hashObj;
     if (retObj == null) retObj = {};
-    for (let i = 0; i < servers.length; i++) {
-      let svr = servers[i];
-      retObj[svr.gateway] = svr; // hash
+    if (servers != null) {
+      for (let i = 0; i < servers.length; i++) {
+        let svr = servers[i];
+        retObj[svr.gateway] = svr; // hash
+      }
     }
     return retObj;
   }
@@ -797,7 +799,8 @@ function updateServers(oldServers, newServers) {
     return a.city.localeCompare(b.city);
   }
   newServers.wireguard.sort(compare);
-  newServers.openvpn.sort(compare);
+  if (newServers.openvpn != null)
+    newServers.openvpn.sort(compare);
 
   return {
     servers: newServers,
