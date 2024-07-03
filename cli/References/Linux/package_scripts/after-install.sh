@@ -89,6 +89,8 @@ else
     echo $INSTALL_OUTPUT
     echo "[-] Service install FAILED!"
 fi
+# Patch .service file in place to add "--logging" command-line parameter
+sed -i -e "s/ExecStart=\/usr\/bin\/privateline-service/ExecStart=\/usr\/bin\/privateline-service --logging/" /etc/systemd/system/privateline-service.service
 
 if $NEED_TO_SAVE_INSTRUCTIONS == true ; then
     echo $INSTALL_OUTPUT > $INSTRUCTIONS_FILE
