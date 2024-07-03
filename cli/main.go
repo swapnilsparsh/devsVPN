@@ -66,7 +66,7 @@ func addCommand(cmd ICommand) {
 }
 
 func printHeader() {
-	fmt.Println("Command-line interface for IVPN client (www.ivpn.net)")
+	fmt.Println("Command-line interface for privateLINE client (www.privateline.io)")
 	fmt.Println("version:" + version.GetFullVersion() + " " + runtime.GOARCH + "\n")
 }
 
