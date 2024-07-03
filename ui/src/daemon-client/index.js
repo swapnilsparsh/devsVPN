@@ -217,6 +217,7 @@ function send(request, reqNo) {
 
   request.Idx = reqNo;
 
+  // If request contains a password, print it as stars in the log
   let passwordBak;
   if (request.Password) {
     passwordBak = request.Password;
