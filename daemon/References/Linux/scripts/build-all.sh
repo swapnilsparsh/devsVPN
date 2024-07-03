@@ -14,7 +14,7 @@ cd "$(dirname "$0")"
 
 SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 OUT_DIR="$SCRIPT_DIR/_out_bin"
-OUT_FILE="$OUT_DIR/ivpn-service"
+OUT_FILE="$OUT_DIR/privateline-service"
 
 set -e
 
@@ -98,7 +98,7 @@ else
 fi
 
 echo "======================================================"
-echo "============ Compiling IVPN service =================="
+echo "============ Compiling PRIVATELINE service ==========="
 echo "======================================================"
 ./build-daemon.sh $@
 

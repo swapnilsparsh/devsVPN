@@ -4,8 +4,8 @@ cd "$(dirname "$0")"
 
 SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 OUT_DIR="$SCRIPT_DIR/_out_bin"
-OUT_FILE="$OUT_DIR/ivpn"
-OUT_BASH_COMPLETION_SCRIPT=$OUT_DIR/ivpn.bash-completion
+OUT_FILE="$OUT_DIR/privateline"
+OUT_BASH_COMPLETION_SCRIPT=$OUT_DIR/privateline.bash-completion
 
 set -e
 
@@ -34,7 +34,7 @@ if [ -z "$COMMIT" ]; then
 fi
 
 echo "======================================================"
-echo "============== Compiling IVPN CLI ===================="
+echo "============== Compiling PRIVATELINE CLI ===================="
 echo "======================================================"
 echo "Version: $VERSION"
 echo "Date   : $DATE"
@@ -48,7 +48,7 @@ echo "Commit : $COMMIT"
 #   ldd -r -v <binary_file> # check shared libraries dependencies
 #
 # Info: CLI does not use CGO directly (and can be easily disabled manually), but we use the same build environment as a for daemon (to be able to detect same errors as with daemon binary) 
-if [ ! -z "$IVPN_BUILD_SKIP_GLIBC_VER_CHECK" ] || [ ! -z "$GITHUB_ACTIONS" ]; 
+if [ ! -z "$PRIVATELINE_BUILD_SKIP_GLIBC_VER_CHECK" ] || [ ! -z "$GITHUB_ACTIONS" ]; 
 then
   echo "[!] ! GLIBC version check skipped (according to env vars configuration) !"
 else
@@ -58,7 +58,7 @@ else
   then
       echo "[!] GLIBC version '${GLIBC_VER}' is greater than reqired '${GLIBC_VER_MAX_REQUIRED}'"
       echo "[!] Compiling with the new GLIBC version will not allow the program to start on systems with the old GLIBC."
-      echo "[ ] (you can define env var 'IVPN_BUILD_SKIP_GLIBC_VER_CHECK' to skip this check"
+      echo "[ ] (you can define env var 'PRIVATELINE_BUILD_SKIP_GLIBC_VER_CHECK' to skip this check"
       read -p "[?] Do you want to continue? [y\n] (N - default): " yn
       case $yn in
         [Yy]* ) ;;
@@ -84,7 +84,7 @@ else
 fi
 
 # generate bash-completion script
-$SCRIPT_DIR/bash-completion-generator-ivpn-cli.sh "$OUT_FILE" > "$OUT_BASH_COMPLETION_SCRIPT"
+$SCRIPT_DIR/bash-completion-generator-privateline-cli.sh "$OUT_FILE" > "$OUT_BASH_COMPLETION_SCRIPT"
 bash -n "$OUT_BASH_COMPLETION_SCRIPT" # check bash-completion script syntax
 
 

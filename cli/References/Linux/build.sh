@@ -9,7 +9,7 @@
 # Useful commands (Ubuntu):
 #
 # To view *.deb package content:
-#     dpkg -c ivpn_1.0_amd64.deb
+#     dpkg -c privateline_1.0_amd64.deb
 # List of installet packets:
 #     dpkg --list [<mask>]
 # Install package:
@@ -17,7 +17,7 @@
 # Remove packet:
 #     dpkg --remove <packetname>
 # Remove (2):
-#     apt-get remove ivpn
+#     apt-get remove privateline
 #     apt-get purge curl
 #     apt-get autoremove
 # Remove repository (https://www.ostechnix.com/how-to-delete-a-repository-and-gpg-key-in-ubuntu/):
@@ -26,10 +26,10 @@
 # List of services:
 #     systemctl --type=service
 # Start service:
-#     systemctl start ivpn-service
+#     systemctl start privateline-service
 # Remove BROKEN package (which is unable to uninstall by normal ways)
-#     sudo mv /var/lib/dpkg/info/ivpn.* /tmp/
-#     sudo dpkg --remove --force-remove-reinstreq ivpn
+#     sudo mv /var/lib/dpkg/info/privateline.* /tmp/
+#     sudo dpkg --remove --force-remove-reinstreq privateline
 
 cd "$(dirname "$0")"
 
@@ -52,7 +52,7 @@ SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 OUT_DIR="$SCRIPT_DIR/_out_bin"
 
 DAEMON_REPO_ABS_PATH=$("./../config/daemon_repo_local_path_abs.sh")
-CheckLastResult "Failed to determine location of IVPN Daemon sources. Plase check 'config/daemon_repo_local_path.txt'"
+CheckLastResult "Failed to determine location of PRIVATELINE Daemon sources. Plase check 'config/daemon_repo_local_path.txt'"
 
 # ---------------------------------------------------------
 # version info variables
@@ -75,7 +75,7 @@ then
   VERSION="$(awk -F: '/"version"/ { gsub(/[" ,\n\r]/, "", $2); print $2 }' ../../../ui/package.json)"
   if [ -n "$VERSION" ]
   then
-    echo "[ ] You are going to compile IVPN Daemon & CLI 'v${VERSION}' (commit:${COMMIT})"
+    echo "[ ] You are going to compile PRIVATELINE Daemon & CLI 'v${VERSION}' (commit:${COMMIT})"
     read -p "Press enter to continue" yn
   else    
     echo "Usage:"
@@ -85,16 +85,16 @@ then
 fi
 
 echo '---------------------------'
-echo "Building IVPN Daemon ($DAEMON_REPO_ABS_PATH)...";
+echo "Building PRIVATELINE Daemon ($DAEMON_REPO_ABS_PATH)...";
 echo '---------------------------'
 $DAEMON_REPO_ABS_PATH/References/Linux/scripts/build-all.sh -v $VERSION
-CheckLastResult "ERROR building IVPN Daemon"
+CheckLastResult "ERROR building PRIVATELINE Daemon"
 
 echo '---------------------------'
-echo "Building IVPN CLI ...";
+echo "Building PRIVATELINE CLI ...";
 echo '---------------------------'
 $SCRIPT_DIR/compile-cli.sh -v $VERSION
-CheckLastResult "ERROR building IVPN CLI"
+CheckLastResult "ERROR building PRIVATELINE CLI"
 
 echo "======================================================"
 echo "============== Building packages ====================="
@@ -111,7 +111,7 @@ mkdir -p $TMPDIRSRVC
 cd $TMPDIRSRVC
 
 echo "Preparing service..."
-fpm -v $VERSION -n ivpn-service -s pleaserun -t dir --deb-no-default-config-files /usr/bin/ivpn-service
+fpm -v $VERSION -n privateline-service -s pleaserun -t dir --deb-no-default-config-files /usr/bin/privateline-service
 
 OBFSPXY_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/obfs4proxy_inst/obfs4proxy
 WG_QUICK_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/wireguard-tools_inst/wg-quick
@@ -211,26 +211,26 @@ CreatePackage()
 
   fpm -d openvpn -d iptables $EXTRA_ARGS \
     --rpm-rpmbuild-define "_build_id_links none" \
-    --deb-no-default-config-files -s dir -t $PKG_TYPE -n ivpn -v $VERSION --url https://www.ivpn.net --license "GNU GPL3" \
+    --deb-no-default-config-files -s dir -t $PKG_TYPE -n privateline -v $VERSION --url https://www.privateline.net --license "GNU GPL3" \
     --template-scripts --template-value pkg=$PKG_TYPE \
-    --vendor "IVPN Limited" --maintainer "IVPN Limited" \
-    --description "$(printf "Client for IVPN service (https://www.ivpn.net)\nCommand line interface v$VERSION. Try 'ivpn' from command line.")" \
+    --vendor "PRIVATELINE Limited" --maintainer "PRIVATELINE Limited" \
+    --description "$(printf "Client for PRIVATELINE service (https://www.privateline.net)\nCommand line interface v$VERSION. Try 'privateline' from command line.")" \
     --before-install "$SCRIPT_DIR/package_scripts/before-install.sh" \
     --after-install "$SCRIPT_DIR/package_scripts/after-install.sh" \
     --before-remove "$SCRIPT_DIR/package_scripts/before-remove.sh" \
     --after-remove "$SCRIPT_DIR/package_scripts/after-remove.sh" \
-    $DAEMON_REPO_ABS_PATH/References/Linux/etc=/opt/ivpn/ \
-    $DAEMON_REPO_ABS_PATH/References/common/etc=/opt/ivpn/ \
-    $DAEMON_REPO_ABS_PATH/References/Linux/scripts/_out_bin/ivpn-service=/usr/bin/ \
-    $OUT_DIR/ivpn=/usr/bin/ \
-    $OUT_DIR/ivpn.bash-completion=/opt/ivpn/etc/ivpn.bash-completion \
-    $OBFSPXY_BIN=/opt/ivpn/obfsproxy/obfs4proxy \
-    $V2RAY_BIN=/opt/ivpn/v2ray/v2ray \
-    $WG_QUICK_BIN=/opt/ivpn/wireguard-tools/wg-quick \
-    $WG_BIN=/opt/ivpn/wireguard-tools/wg \
-    ${DNSCRYPT_PROXY_BIN}=/opt/ivpn/dnscrypt-proxy/dnscrypt-proxy \
-    ${KEM_HELPER_BIN}=/opt/ivpn/kem/kem-helper \
-    $TMPDIRSRVC/ivpn-service.dir/usr/share/pleaserun/=/usr/share/pleaserun
+    $DAEMON_REPO_ABS_PATH/References/Linux/etc=/opt/privateline/ \
+    $DAEMON_REPO_ABS_PATH/References/common/etc=/opt/privateline/ \
+    $DAEMON_REPO_ABS_PATH/References/Linux/scripts/_out_bin/privateline-service=/usr/bin/ \
+    $OUT_DIR/privateline=/usr/bin/ \
+    $OUT_DIR/privateline.bash-completion=/opt/privateline/etc/privateline.bash-completion \
+    $OBFSPXY_BIN=/opt/privateline/obfsproxy/obfs4proxy \
+    $V2RAY_BIN=/opt/privateline/v2ray/v2ray \
+    $WG_QUICK_BIN=/opt/privateline/wireguard-tools/wg-quick \
+    $WG_BIN=/opt/privateline/wireguard-tools/wg \
+    ${DNSCRYPT_PROXY_BIN}=/opt/privateline/dnscrypt-proxy/dnscrypt-proxy \
+    ${KEM_HELPER_BIN}=/opt/privateline/kem/kem-helper \
+    $TMPDIRSRVC/privateline-service.dir/usr/share/pleaserun/=/usr/share/pleaserun
 }
 
 if [ ! -z "$GITHUB_ACTIONS" ]; 

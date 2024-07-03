@@ -19,10 +19,10 @@ fi
 # Next block is in use only for compatibility with old package versions (v3.8.20 and older)
 #
 # ########################################################################################
-# RPM: do not forget to remove file '/opt/ivpn/mutable/rpm_upgrade.lock' (if exists)
+# RPM: do not forget to remove file '/opt/privateline/mutable/rpm_upgrade.lock' (if exists)
 if [ "<%= pkg %>" = "rpm" ]; then
-    if [ -f /opt/ivpn/mutable/rpm_upgrade.lock ]; then
-        rm /opt/ivpn/mutable/rpm_upgrade.lock || echo "[-] Failed to remove rpm_upgrade.lock"
+    if [ -f /opt/privateline/mutable/rpm_upgrade.lock ]; then
+        rm /opt/privateline/mutable/rpm_upgrade.lock || echo "[-] Failed to remove rpm_upgrade.lock"
     fi
 fi
 # ########################################################################################
@@ -48,18 +48,18 @@ try_systemd_stop() {
         echo "[ ] systemd detected. Trying to stop service ..."
 
         echo "[+] Stopping service"
-        silent systemctl stop ivpn-service
+        silent systemctl stop privateline-service
 
         echo "[+] Disabling service"
-        silent systemctl disable ivpn-service
+        silent systemctl disable privateline-service
 
-        if [ -f "/etc/systemd/system/ivpn-service.service" ]; then
+        if [ -f "/etc/systemd/system/privateline-service.service" ]; then
             echo "[+] Removing service"
-            rm /etc/systemd/system/ivpn-service.service
+            rm /etc/systemd/system/privateline-service.service
         fi
-        if [ -f "/usr/lib/systemd/system/ivpn-service.service" ]; then
+        if [ -f "/usr/lib/systemd/system/privateline-service.service" ]; then
             echo "[+] Removing service"
-            rm /usr/lib/systemd/system/ivpn-service.service
+            rm /usr/lib/systemd/system/privateline-service.service
         fi
     fi
 }
@@ -68,7 +68,7 @@ uninstall_bash_completion() {
     # get bash completion folder (according to https://github.com/scop/bash-completion)
     bash_competion_folder=$(pkg-config --variable=completionsdir bash-completion 2>&1) 
     if [ $? -eq 0 ] && [ ! -z $bash_competion_folder ] ; then
-      completion_file=${bash_competion_folder}/ivpn
+      completion_file=${bash_competion_folder}/privateline
       if [ -f ${completion_file} ] ; then
         echo "[+] Uninstalling bash completion ('${completion_file}')"
         rm "${completion_file}"    
@@ -81,29 +81,29 @@ try_systemd_stop
 
 uninstall_bash_completion
 
-PLEASERUN_DIR="/usr/share/pleaserun/ivpn-service"
+PLEASERUN_DIR="/usr/share/pleaserun/privateline-service"
 if [ -d $PLEASERUN_DIR ] ; then
   echo "[+] Service cleanup (pleaserun) ..."
   silent sh $PLEASERUN_DIR/cleanup.sh 
   rm -fr $PLEASERUN_DIR
 fi 
 
-#IVPN_DIR="/opt/ivpn"
-#if [ -d $IVPN_DIR ] ; then
+#PRIVATELINE_DIR="/opt/privateline"
+#if [ -d $PRIVATELINE_DIR ] ; then
 #  echo "[+] Removing other files ..."
 #  # Normally, all files which were installed, deleted automatically.
-#  # But ivpn-service also writing to 'mutable' additional temporary files (uninstaller know nothing about them).
-#  # Therefore, we are completely removing all content of '/opt/ivpn/mutable'.
+#  # But privateline-service also writing to 'mutable' additional temporary files (uninstaller know nothing about them).
+#  # Therefore, we are completely removing all content of '/opt/privateline/mutable'.
 #  # Also, there could stay empty dirs which were not deleted automatically.
-#  rm -rf $IVPN_DIR || echo "[-] Removing '$IVPN_DIR' folder failed"
+#  rm -rf $PRIVATELINE_DIR || echo "[-] Removing '$PRIVATELINE_DIR' folder failed"
 #fi
 
 echo "[+] Removing mutable data ..."
-IVPN_TMP="/etc/opt/ivpn"
-rm -rf $IVPN_TMP
+PRIVATELINE_TMP="/etc/opt/privateline"
+rm -rf $PRIVATELINE_TMP
 
 echo "[+] Removing logs ..."
-IVPN_LOG="/var/log/ivpn" 
-rm -rf $IVPN_LOG
+PRIVATELINE_LOG="/var/log/privateline" 
+rm -rf $PRIVATELINE_LOG
 
 
