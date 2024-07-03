@@ -26,6 +26,8 @@
 			]
 		}
 	],
+	"openvpn": [
+	],
 	"config": {
 		"antitracker": {
 			"default": {
