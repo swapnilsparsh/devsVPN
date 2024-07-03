@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=PRIVATELINE
+Name=privateLINE
 Exec=privateline.ui
 Terminal=false
 Type=Application
 Icon=${SNAP}/meta/gui/privateline.png
 StartupWMClass=PRIVATELINE
-Comment=PRIVATELINE Client
+Comment=privateLINE Client
 Categories=Network;

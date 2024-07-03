@@ -1,5 +1,5 @@
 # **********************************************
-# Snap package of IVPN software (daemon+CLI+UI)
+# Snap package of privateLINE software (daemon+CLI+UI)
 # **********************************************
 # How to build snap package:
 # 1) Set 'version:' (bellow) to the same value as in 'ui/package.json'
@@ -13,8 +13,8 @@
 #   multipass list
 #   lxc list
 # Delete multipass\LXD container:
-#   multipass delete $vm --purge  # eg: multipass delete snapcraft-ivpn --purge
-#   lxc delete $vm --force        # eg: lxc delete snapcraft-ivpn --force
+#   multipass delete $vm --purge  # eg: multipass delete snapcraft-privateline --purge
+#   lxc delete $vm --force        # eg: lxc delete snapcraft-privateline --force
 #
 # **********************************************
 # Installation:
@@ -22,55 +22,55 @@
 #
 # After package installed:
 #   (this is not required, since the SnapStore enabled auto-connection
-#   of required interfaces for IVPN package;
+#   of required interfaces for privateLINE package;
 #   the steps can be useful only when snap package was built manually)
 #   1) Manual connection of the required interfaces:
-#     $ sudo snap connect ivpn:network-control
-#     $ sudo snap connect ivpn:firewall-control
+#     $ sudo snap connect privateline:network-control
+#     $ sudo snap connect privateline:firewall-control
 #
 #     (Optional) Enable the ability to manage the '/etc/resolv.conf' file.
 #     This can be useful in situations where the host machine does not use 'systemd-resolved'.
 #     In this case, the daemon may attempt to directly modify this file.
 #     Note: This is not recommended!
-#       $ sudo snap connect ivpn:etc-resolv-conf
+#       $ sudo snap connect privateline:etc-resolv-conf
 #
 #   2) Restart daemon:
-#     $ sudo snap restart ivpn.daemon
+#     $ sudo snap restart privateline.daemon
 # **********************************************
 # Another useful commands:
 #   List of services:
-#     $ snap services ivpn
+#     $ snap services privateline
 #   List of connections:
-#     $ snap connections ivpn
+#     $ snap connections privateline
 #   Start stop daemon:
-#     $ sudo snap stop ivpn.daemon
-#     $ sudo snap start ivpn.daemon
+#     $ sudo snap stop privateline.daemon
+#     $ sudo snap start privateline.daemon
 #   See logs realtime:
-#     $ sudo snap logs ivpn.daemon -f
+#     $ sudo snap logs privateline.daemon -f
 #   See logs:
-#     $ sudo snap logs -n=all ivpn.daemon
+#     $ sudo snap logs -n=all privateline.daemon
 #   Snap shell:
-#     snap run --shell ivpn.daemon
+#     snap run --shell privateline.daemon
 #     Check connection under snap shell (example): snapctl is-connected etc-resolv-conf
 # **********************************************
-# To release/deploy package to SnapStore (only for IVPN developers!):
+# To release/deploy package to SnapStore (only for privateLINE developers!):
 #   $ snapcraft upload --release=<risk_level> <snap_file>
 #     * where <risk_level> could be: edge/beta/candidate/stable
 #     * https://snapcraft.io/docs/releasing-your-app
 #   Example:
-#     $ snapcraft upload --release=beta ivpn_${VERSION}_amd64.snap
+#     $ snapcraft upload --release=beta privateline_${VERSION}_amd64.snap
 # **********************************************
 
-name: ivpn # you probably want to 'snapcraft register <name>'
+name: privateline # you probably want to 'snapcraft register <name>'
 base: core20 # the base snap is the execution environment for this snap
 # TODO: Set 'version:' to the same value as in 'ui/package.json'. This value will be used to stamp version for CLI and daemon
 version: "3.14.2"
 
-title: IVPN
-summary: IVPN - Secure VPN for Privacy  # 79 char long summary
+title: privateLINE
+summary: privateLINE - Secure VPN for Privacy  # 79 char long summary
 description: |
   Secure, private VPN with fast WireGuard connections.
-  Use our open-source privacy app to start a private connection to the third party audited IVPN service. Choose from OpenVPN and WireGuard protocols.
+  Use our open-source privacy app to start a private connection to the third party audited privateLINE service. Choose from OpenVPN and WireGuard protocols.
 
   Features:
   * multiple protocols (OpenVPN, WireGuard)
@@ -83,20 +83,20 @@ description: |
 
 license: GPL-3.0
 source-code: https://github.com/swapnilsparsh/devsVPN
-issues: https://www.ivpn.net/contactus/
-contact: support@ivpn.net
-website: https://www.ivpn.net
+issues: https://www.privateline.net/contactus/
+contact: support@privateline.net
+website: https://www.privateline.net
 
 grade: stable # devel # must be 'stable' to release into candidate/stable channels
 confinement: strict # devmode #classic # use 'strict' once you have the right plugs and slots
 
 compression: lzo # increased snap size but faster first start for UI
 
-icon: snap/gui/ivpn.svg
+icon: snap/gui/privateline.svg
 
 apps:
   daemon:
-    command: bin/ivpn-service
+    command: bin/privateline-service
     daemon: simple
     restart-condition: always
     stop-mode: sigterm
@@ -105,15 +105,15 @@ apps:
       - firewall-control  # Ability to control firewall rules (iptables)
       - network-bind      # Ability to listen for incoming connections from clients (cli, ui)
 
-  ivpn:
-    command: bin/ivpn
+  privateline:
+    command: bin/privateline
     completer:
-      opt/ivpn/bash-completion/ivpn.bash-completion
+      opt/privateline/bash-completion/privateline.bash-completion
     plugs:
       - network
 
   ui:
-    command: opt/ivpn/ui/bin/ivpn-ui --no-sandbox
+    command: opt/privateline/ui/bin/privateline-ui --no-sandbox
     extensions: [gnome-3-38] # https://snapcraft.io/docs/gnome-3-38-extension
     plugs:
       - desktop
@@ -126,7 +126,7 @@ apps:
       - network
       - gsettings
       - opengl
-    autostart: ivpn-ui.desktop
+    autostart: privateline-ui.desktop
     environment:
       GTK_USE_PORTAL: '1'
       SNAP_DESKTOP_RUNTIME: $SNAP/gnome-platform
@@ -155,11 +155,11 @@ plugs:
     interface: system-files
     write:
       - /etc/resolv.conf
-      - /etc/resolv.conf.ivpnsave
+      - /etc/resolv.conf.privatelinesave
 
 # ToDo: uncomment bellow lines if it is required to expose mutable folder (contains port.txt) to a slot (to be able to connect slot out from external snap)
-#       When using separate snapt for UI (ivpn-ui), it will be necessary to connect daemon port interface to the ivpn-ui snap package:
-#       $ sudo snap connect ivpn-ui:port ivpn:port
+#       When using separate snapt for UI (privateline-ui), it will be necessary to connect daemon port interface to the privateline-ui snap package:
+#       $ sudo snap connect privateline-ui:port privateline:port
 #slots:
 #  port:
 #    interface: content
@@ -185,7 +185,7 @@ parts:
     override-build: |
       daemon/References/Linux/scripts/build-daemon.sh -v $SNAPCRAFT_PROJECT_VERSION
       mkdir -p $SNAPCRAFT_PART_INSTALL/bin
-      cp daemon/References/Linux/scripts/_out_bin/ivpn-service $SNAPCRAFT_PART_INSTALL/bin
+      cp daemon/References/Linux/scripts/_out_bin/privateline-service $SNAPCRAFT_PART_INSTALL/bin
       mkdir -p $SNAPCRAFT_PART_INSTALL/usr/bin
       rctlpath=$( which resolvectl )
       cp $rctlpath $SNAPCRAFT_PART_INSTALL/usr/bin
@@ -201,9 +201,9 @@ parts:
     override-build: |
       cli/References/Linux/compile-cli.sh -v $SNAPCRAFT_PROJECT_VERSION
       mkdir -p $SNAPCRAFT_PART_INSTALL/bin
-      cp cli/References/Linux/_out_bin/ivpn $SNAPCRAFT_PART_INSTALL/bin
+      cp cli/References/Linux/_out_bin/privateline $SNAPCRAFT_PART_INSTALL/bin
       mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline/bash-completion
-      cp cli/References/Linux/_out_bin/ivpn.bash-completion $SNAPCRAFT_PART_INSTALL/opt/privateline/bash-completion
+      cp cli/References/Linux/_out_bin/privateline.bash-completion $SNAPCRAFT_PART_INSTALL/opt/privateline/bash-completion
 
   wireguard-tools:
     plugin: nil
