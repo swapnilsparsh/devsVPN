@@ -236,8 +236,8 @@ CreatePackage()
     --after-install "$SCRIPT_DIR/package_scripts/after-install.sh" \
     --before-remove "$SCRIPT_DIR/package_scripts/before-remove.sh" \
     --after-remove "$SCRIPT_DIR/package_scripts/after-remove.sh" \
-    $SCRIPT_DIR/ui/privateline.desktop=/opt/privateline/ui/privateline.desktop \
-    $SCRIPT_DIR/ui/privatelineicon.svg=/opt/privateline/ui/privatelineicon.svg \
+    $SCRIPT_DIR/ui/privateline-ui.desktop=/usr/share/applications/privateline-ui.desktop \
+    $SCRIPT_DIR/ui/privateline.svg=/usr/share/icons/hicolor/scalable/apps/privateline.svg \
     $APP_BIN_DIR=/opt/privateline/ui/
 }
 

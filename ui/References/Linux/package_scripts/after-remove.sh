@@ -11,7 +11,7 @@ UI_APP_USER_DIR_OLD="/home/${USER}/.config/privateline-ui" # (old productName='p
 AUTOSTART_FILE="/home/${USER}/.config/autostart/privateline-ui.desktop"
 
 DESKTOP_FILE_DIR=/usr/share/applications
-DESKTOP_FILE=/usr/share/applications/privateline.desktop
+DESKTOP_FILE=/usr/share/applications/privateline-ui.desktop
 
 silent() {
   "$@" > /dev/null 2>&1
