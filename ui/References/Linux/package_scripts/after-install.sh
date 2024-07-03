@@ -8,6 +8,12 @@ ICON_SRC_FILE=/opt/privateline/ui/privatelineicon.svg
 sudo chmod 744 $DESKTOP_SRC_FILE
 sudo chmod 744 $ICON_SRC_FILE
 
+# set permissions to allow non-root user to run privateline-ui
+sudo chmod 755 /opt/privateline/ui/privateline.desktop
+sudo chmod 644 /opt/privateline/ui/privatelineicon.svg
+sudo find /opt/privateline/ui/bin -type d -exec chmod 755 "{}" \;
+sudo chmod -R a+r /opt/privateline/ui/bin
+
 # create link to .desktop file
 APPS_DIR=/usr/share/applications
 DESKTOP_APPS_FILE=$APPS_DIR/privateline.desktop
