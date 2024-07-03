@@ -217,8 +217,25 @@ function send(request, reqNo) {
 
   request.Idx = reqNo;
 
+  // let reqPasswordStarred = JSON.parse(JSON.stringify(request));
+  // if (request.Password)
+  //   reqPasswordStarred.Password = request.Password.replace(/./g, '*');
+  // let serializedPasswordStarred = toJson(reqPasswordStarred);
+  // log.debug(`==> ${serializedPasswordStarred}`);
+  // let serialized = toJson(request);
+  // log.debug(`==> ${request.Command}  [${request.Idx}] ${request.Command == "APIRequest" ? request.APIPath : ""}`);
+
+  let passwordBak;
+  if (request.Password) {
+    passwordBak = request.Password;
+    request.Password = passwordBak.replace(/./g, '*');
+  }
   let serialized = toJson(request);
   log.debug(`==> ${serialized}`);
+  if (request.Password) {
+    request.Password = passwordBak;
+    serialized = toJson(request);
+  }
   log.debug(`==> ${request.Command}  [${request.Idx}] ${request.Command == "APIRequest" ? request.APIPath : ""}`);
 
   socket.write(`${serialized}\n`);
