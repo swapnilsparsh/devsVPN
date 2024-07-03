@@ -29,7 +29,8 @@ cd v2ray-core/main
 
 echo [*] Compiling V2Ray ...
 
-go build -o "%SCRIPTDIR%..\v2ray\v2ray.exe" -trimpath -ldflags "-s -w" >nul 2>&1 || exit /b 1
+REM go build -o "%SCRIPTDIR%..\v2ray\v2ray.exe" -trimpath -ldflags "-s -w" >%TEMP%\v2ray.build.log 2>&1 || exit /b 1
+go build -o "%SCRIPTDIR%..\v2ray\v2ray.exe" -trimpath -ldflags "-s -w" || exit /b 1
 
 echo [ ] SUCCESS
 echo [ ] The compiled 'v2ray.exe' binary located at:
