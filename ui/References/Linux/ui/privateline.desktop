@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=PRIVATELINE
-Comment=UI interface for PRIVATELINE 
+Name=privateLINE
+Comment=UI interface for privateLINE
 GenericName=VPN client
 Exec=/opt/privateline/ui/bin/privateline-ui
 Icon=/opt/privateline/ui/privatelineicon.svg
