@@ -5,7 +5,7 @@ echo "[*] After remove (<%= version %> : <%= pkg %> : $1)"
 # Obtaining information about user running the script
 # (script can be executed with 'sudo', but we should get real user)
 USER="${SUDO_USER:-$USER}"
-UI_APP_USER_DIR="/home/${USER}/.config/PRIVATELINE"
+UI_APP_USER_DIR="/home/${USER}/.config/privateline"
 UI_APP_USER_DIR_OLD="/home/${USER}/.config/privateline-ui" # (old productName='privateline-ui')
 
 AUTOSTART_FILE="/home/${USER}/.config/autostart/privateline-ui.desktop"
