@@ -112,8 +112,6 @@ cd $TMPDIRSRVC
 
 echo "Preparing service..."
 fpm -v $VERSION -n privateline-service -s pleaserun -t dir --deb-no-default-config-files /usr/bin/privateline-service
-# Patch .service file in place to add "--logging" command-line parameter
-sed -i -e "s/ExecStart=\/usr\/bin\/privateline-service/ExecStart=\/usr\/bin\/privateline-service --logging/" /usr/share/pleaserun/privateline-service/systemd/default/files/etc/systemd/system/privateline-service.service
 
 OBFSPXY_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/obfs4proxy_inst/obfs4proxy
 WG_QUICK_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/wireguard-tools_inst/wg-quick
