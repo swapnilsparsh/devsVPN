@@ -30,11 +30,11 @@ import (
 )
 
 func doOsInitForBuild() (warnings []string, errors []error, logInfo []string) {
-	installDir := "/opt/ivpn"
+	installDir := "/opt/privateline"
 
 	// check if we are running in snap environment
 	if envs := GetSnapEnvs(); envs != nil {
-		installDir = path.Join(envs.SNAP, "/opt/ivpn")
+		installDir = path.Join(envs.SNAP, "/opt/privateline")
 
 		if logInfo == nil {
 			logInfo = make([]string, 0)

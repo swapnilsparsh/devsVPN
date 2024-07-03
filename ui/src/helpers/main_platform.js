@@ -41,9 +41,9 @@ export async function GetPortInfoFilePath() {
       const snapVars = GetLinuxSnapEnvVars();
       if (snapVars != null) {
         console.log("SNAP environment detected!");
-        return path.join(snapVars.SNAP_COMMON, "/opt/ivpn/mutable/port.txt");
+        return path.join(snapVars.SNAP_COMMON, "/opt/privateline/mutable/port.txt");
       }
-      return "/etc/opt/ivpn/mutable/port.txt"; 
+      return "/etc/opt/privateline/mutable/port.txt"; 
     }
     case PlatformEnum.Windows: {
       let dir = await winInstallFolder();
