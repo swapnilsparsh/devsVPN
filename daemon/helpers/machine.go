@@ -8,7 +8,6 @@ import (
 // That way it is a stable machine identifier across reboots (so long as the operating system is not reinstalled),
 // while we also strive to protect end user privacy.
 func StableMachineID() (string, error) {
-	//var rawId string
 	rawId, err := machineid.ID()
 	if err != nil {
 		return "ERROR", err
