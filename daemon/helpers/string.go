@@ -22,7 +22,11 @@
 
 package helpers
 
-import "strings"
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"strings"
+)
 
 func CapitalizeFirstLetter(s string) string {
 	if len(s) == 0 {
@@ -30,4 +34,12 @@ func CapitalizeFirstLetter(s string) string {
 	}
 	// Convert the first character to uppercase and concatenate it with the rest of the string
 	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+func Random64HexStr() (string, error) {
+	bytes := make([]byte, 8)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }

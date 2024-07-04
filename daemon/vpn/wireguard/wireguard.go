@@ -24,19 +24,17 @@ package wireguard
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net"
 	"net/http"
 	"os"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
@@ -266,18 +264,8 @@ func (wg *WireGuard) generateAndSaveConfigFile(cfgFilePath string) error {
 	return nil
 }
 
-func Random64HexStr() string {
-	bytes := make([]byte, 8)
-	if _, err := rand.Read(bytes); err != nil {
-		return ""
-	}
-	return hex.EncodeToString(bytes)
-}
-
-var ip4AddrRegex *regexp.Regexp = nil
-
 func (wg *WireGuard) generateConfig() ([]string, error) {
-	logger.Debug("================= generateConfig logs =======================")
+	log.Debug("================= generateConfig logs =======================")
 	localPort, err := netinfo.GetFreeUDPPort()
 	if err != nil {
 		return nil, fmt.Errorf("unable to obtain free local port: %w", err)
@@ -308,9 +296,14 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		Platform   string `json:"platform"`
 	}
 
+	stableMachineID, err := helpers.StableMachineID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate machine ID: %w", err)
+	}
+
 	payload := Payload{
-		DeviceID:   Random64HexStr(),
-		DeviceName: "PL Connect - " + Random64HexStr(),
+		DeviceID:   stableMachineID,
+		DeviceName: "PL Connect - " + stableMachineID[:8],
 		PublicKey:  wg.connectParams.clientPublicKey,
 		Platform:   runtime.GOOS,
 	}
@@ -360,11 +353,11 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		return nil, fmt.Errorf("%s. Failed to parse API response: %w", res.Status, err)
 	}
 
-	logger.Debug(response.Status)
+	log.Debug(response.Status)
 	log.Info("\n ++++++++++ Response data Connect API Start ( BUILD 02072024 0046) +++++++++++++++++ \n")
-	logger.Debug(response.Data)
+	log.Debug(response.Data)
 	log.Info("\n ++++++++++ Response data Connect API End +++++++++++++++++ \n")
-	logger.Debug(response.Message)
+	log.Debug(response.Message)
 
 	if !response.Status {
 		return nil, fmt.Errorf("API error: %s", response.Message)
@@ -396,7 +389,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"PersistentKeepalive = 25",
 	}
 
-	logger.Debug("\n====================== Sandeep Interface and Peers Config Start =================\n")
+	log.Debug("\n====================== Sandeep Interface and Peers Config Start =================\n")
 
 	interfaceCfgPrivkeyStarred := []string{
 		"[Interface]",
@@ -405,10 +398,10 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"Address = " + interfaceAddress,
 		"DNS = " + dnsServers,
 	}
-	logger.Debug(interfaceCfgPrivkeyStarred)
+	log.Debug(interfaceCfgPrivkeyStarred)
 
-	logger.Debug(peerCfg)
-	logger.Debug("\n====================== Sandeep Interface and Peers Config End ===================\n")
+	log.Debug(peerCfg)
+	log.Debug("\n====================== Sandeep Interface and Peers Config End ===================\n")
 
 	// if len(wg.connectParams.presharedKey) > 0 {
 	// 	peerCfg = append(peerCfg, "PresharedKey = "+wg.connectParams.presharedKey)
@@ -418,23 +411,22 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	// interfaceCfg = append(interfaceCfg, iCfg...)
 	// peerCfg = append(peerCfg, pCfg...)
 
-	logger.Debug("============== generateConfig logs end =======================")
+	log.Debug("============== generateConfig logs end =======================")
 
-	if ip4AddrRegex == nil {
-		ip4AddrRegex, _ = regexp.Compile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
+	// TODO FIXME: setting client local IP here for now
+	interfaceAddressOnly := helpers.IPv4AddrRegex.FindString(interfaceAddress)
+	if interfaceAddressOnly != "" {
+		wg.connectParams.clientLocalIP = net.ParseIP(interfaceAddressOnly)
+	} else {
+		log.Error("Error - returned interface address '" + interfaceAddress + "' does not include an IP address")
 	}
-	if ip4AddrRegex != nil {
-		// TODO FIXME: setting client local IP here for now
-		interfaceAddressOnly := ip4AddrRegex.FindString(interfaceAddress)
-		if interfaceAddressOnly != "" {
-			wg.connectParams.clientLocalIP = net.ParseIP(interfaceAddressOnly)
-		}
 
-		// TODO FIXME: setting manual DNS to the 1st returned DNS
-		firstDnsSrv := ip4AddrRegex.FindString(dnsServers)
-		if firstDnsSrv != "" {
-			wg.setManualDNS(dns.DnsSettings{DnsHost: firstDnsSrv})
-		}
+	// TODO FIXME: setting manual DNS to the 1st returned DNS
+	firstDnsSrv := helpers.IPv4AddrRegex.FindString(dnsServers)
+	if firstDnsSrv != "" {
+		wg.setManualDNS(dns.DnsSettings{DnsHost: firstDnsSrv})
+	} else {
+		log.Error("Error - returned DNS servers '" + dnsServers + "' do not include an IP address")
 	}
 
 	return append(interfaceCfg, peerCfg...), nil
