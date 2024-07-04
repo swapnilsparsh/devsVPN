@@ -6,7 +6,7 @@
 #  https://github.com/swapnilsparsh/devsVPN/daemon
 #
 #  Created by Stelnykovych Alexandr.
-#  Copyright (c) 2023 PRIVATELINE Limited.
+#  Copyright (c) 2023 IVPN Limited.
 #
 #  This file is part of the Daemon for PRIVATELINE Client Desktop.
 #
@@ -783,7 +783,7 @@ else
     echo "It is a part of Daemon for PRIVATELINE Client Desktop."
     echo "https://github.com/swapnilsparsh/devsVPN/daemon"
     echo "Created by Stelnykovych Alexandr."
-    echo "Copyright (c) 2023 PRIVATELINE Limited."
+    echo "Copyright (c) 2023 IVPN Limited."
     echo ""
     echo "Usage:"
     echo "Note! The script have to be started under privilaged user (sudo $0 ...)"
