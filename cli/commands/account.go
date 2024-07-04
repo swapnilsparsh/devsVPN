@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
+	"golang.org/x/term"
 )
 
 type CmdLogout struct {
@@ -56,40 +58,36 @@ func (c *CmdLogout) Run() error {
 // ----------------------------------------------------------------------------------------
 type CmdLogin struct {
 	flags.CmdInfo
-	email    string
-	password string
+	email string
 }
 
 func (c *CmdLogin) Init() {
-	c.Initialize("login", "Login operation (register ACCOUNT_ID on this device)")
+	c.Initialize("login", "Login operation (register account on this device)")
 	c.DefaultStringVar(&c.email, "Email")
-	c.DefaultStringVar(&c.password, "Password")
 }
 
 func (c *CmdLogin) Run() error {
-	return doLogin(c.email, c.password)
+	return doLogin(c.email)
 }
 
-func doLogin(email string, password string) error {
+func doLogin(email string) error {
 	// checking if we are logged-in
 	_proto.SessionStatus() // do not check error response (could be received 'not logged in' errors)
 	helloResp := _proto.GetHelloResponse()
 	if len(helloResp.Session.Session) != 0 {
 		fmt.Println("Already logged in")
 		PrintTips([]TipType{TipLogout})
-		return fmt.Errorf("unable login (please, log out first)")
+		return fmt.Errorf("unable to login (please, log out first)")
 	}
 
 	// login
-	// if len(accountID) == 0 {
-	// 	fmt.Print("Enter your Account ID: ")
-	// 	data, err := term.ReadPassword(int(syscall.Stdin))
-	// 	fmt.Println("")
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to read accountID: %w", err)
-	// 	}
-	// 	accountID = string(data)
-	// }
+	fmt.Print("Enter your password: ")
+	data, err := term.ReadPassword(int(syscall.Stdin))
+	fmt.Println("")
+	if err != nil {
+		return fmt.Errorf("failed to read password: %w", err)
+	}
+	password := string(data)
 
 	resp, err := _proto.SessionNew(email, password)
 	if err != nil {
