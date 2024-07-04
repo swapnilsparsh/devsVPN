@@ -42,7 +42,7 @@ const (
 	_defaultRequestTimeout = time.Second * 10 // full request time (for each request)
 	_defaultDialTimeout    = time.Second * 5  // time for the dial to the API server (for each request)
 	_apiHost               = "api.privateline.io"
-	_updateHost            = "repo.ivpn.net"
+	_updateHost            = "repo.privateline.io"
 	_serversPath           = "v5/servers.json"
 	_apiPathPrefix         = "v4"
 	_sessionNewPath        = "/user/login"
@@ -324,7 +324,7 @@ func (a *API) SessionNew(email string, password string) (
 
 	// Check is it API error
 	if err := json.Unmarshal(data, &apiErr); err != nil {
-		return nil, nil, nil, rawResponse, fmt.Errorf("[%d; status=%s] failed to deserialize API response: %w", "200", http.StatusOK, err)
+		return nil, nil, nil, rawResponse, fmt.Errorf("[%d; status=%d] failed to deserialize API response: %w", 200, http.StatusOK, err)
 	}
 
 	// success

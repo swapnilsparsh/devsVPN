@@ -425,6 +425,7 @@ func fix_response_body(responseBody []byte, statusCode int) (reqResponseBody []b
 				UpgradeToURL:     "N.A.",
 				DeviceManagement: false,
 			},
+			// TODO FIXME addr 172.24.237.187
 			Wireguard: map[string]interface{}{
 				"status":      200,
 				"ip_address":  "172.24.237.187",
