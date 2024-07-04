@@ -143,7 +143,7 @@ func doInitConstants() {
 	servicePortFile = path.Join(tmpDir, "port.txt")
 	paranoidModeSecretFile = path.Join(tmpDir, "eaa")
 
-	logFile = path.Join(logDir, "privateLINE_Agent.log")
+	logFile = path.Join(logDir, "privateline-service.log")
 
 	openvpnUserParamsFile = path.Join(tmpDir, "ovpn_extra_params.txt")
 }
