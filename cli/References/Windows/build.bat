@@ -7,7 +7,7 @@ set DATE=""
 set CERT_SHA1=%2
 
 echo ==================================================
-echo ============ BUILDING privateline-connect-cli ====
+echo ======== BUILDING privateline-connect-cli ========
 echo ==================================================
 
 rem Getting info about current date

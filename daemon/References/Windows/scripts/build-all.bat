@@ -15,7 +15,7 @@ rem Update this line if using another version of VisualStudio or it is installed
 set _VS_VARS_BAT="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
 
 echo ==================================================
-echo ============ BUILDING privateline-connect-svc ====
+echo ======== BUILDING privateline-connect-svc ========
 echo ==================================================
 
 rem Getting info about current date

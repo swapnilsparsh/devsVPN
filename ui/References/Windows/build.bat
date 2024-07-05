@@ -97,7 +97,7 @@ goto :success
 
 :build_ui
 	echo ==================================================
-	echo ============ BUILDING privateline-connect-ui =====
+	echo ======== BUILDING privateline-connect-ui =========
 	echo ==================================================
   cd %SCRIPTDIR%\..\..  || exit /b 1
 
