@@ -38,7 +38,7 @@ var (
 	firewallScript string
 	splitTunScript string
 	logDir         string = "/var/log/privateline"
-	tmpDir         string = "/etc/opt/privateline/mutable"
+	tmpDir         string = "/etc/opt/privateline-connect/mutable"
 
 	// path to 'resolvectl' binary
 	resolvectlBinPath string
@@ -126,7 +126,7 @@ func isSnapPlugConnected(plugName string) (bool, error) {
 	return false, nil
 }
 
-// initialize all constant values (e.g. servicePortFile) which can be used in external projects (privateLINE CLI)
+// initialize all constant values (e.g. servicePortFile) which can be used in external projects (i.e., privateline-connect-cli)
 func doInitConstants() {
 	openVpnBinaryPath = "/usr/sbin/openvpn"
 	routeCommand = "/sbin/ip route"
@@ -134,8 +134,8 @@ func doInitConstants() {
 	// check if we are running in snap environment
 	if envs := GetSnapEnvs(); envs != nil {
 		// Note! Changing 'tmpDir' value may break upgrade compatibility with old versions (e.g. lose account login information)
-		logDir = path.Join(envs.SNAP_COMMON, "/opt/privateline/log")
-		tmpDir = path.Join(envs.SNAP_COMMON, "/opt/privateline/mutable")
+		logDir = path.Join(envs.SNAP_COMMON, "/opt/privateline-connect/log")
+		tmpDir = path.Join(envs.SNAP_COMMON, "/opt/privateline-connect/mutable")
 		openVpnBinaryPath = path.Join(envs.SNAP, openVpnBinaryPath)
 	}
 
@@ -143,7 +143,7 @@ func doInitConstants() {
 	servicePortFile = path.Join(tmpDir, "port.txt")
 	paranoidModeSecretFile = path.Join(tmpDir, "eaa")
 
-	logFile = path.Join(logDir, "privateline-svc.log")
+	logFile = path.Join(logDir, "privateline-connect-svc.log")
 
 	openvpnUserParamsFile = path.Join(tmpDir, "ovpn_extra_params.txt")
 }

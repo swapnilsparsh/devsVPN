@@ -19,10 +19,10 @@ fi
 # Next block is in use only for compatibility with old package versions (v3.8.20 and older)
 #
 # ########################################################################################
-# RPM: do not forget to remove file '/opt/privateline/mutable/rpm_upgrade.lock' (if exists)
+# RPM: do not forget to remove file '/opt/privateline-connect/mutable/rpm_upgrade.lock' (if exists)
 if [ "<%= pkg %>" = "rpm" ]; then
-    if [ -f /opt/privateline/mutable/rpm_upgrade.lock ]; then
-        rm /opt/privateline/mutable/rpm_upgrade.lock || echo "[-] Failed to remove rpm_upgrade.lock"
+    if [ -f /opt/privateline-connect/mutable/rpm_upgrade.lock ]; then
+        rm /opt/privateline-connect/mutable/rpm_upgrade.lock || echo "[-] Failed to remove rpm_upgrade.lock"
     fi
 fi
 # ########################################################################################
@@ -48,18 +48,18 @@ try_systemd_stop() {
         echo "[ ] systemd detected. Trying to stop service ..."
 
         echo "[+] Stopping service"
-        silent systemctl stop privateline-svc
+        silent systemctl stop privateline-connect-svc
 
         echo "[+] Disabling service"
-        silent systemctl disable privateline-svc
+        silent systemctl disable privateline-connect-svc
 
-        if [ -f "/etc/systemd/system/privateline-svc.service" ]; then
+        if [ -f "/etc/systemd/system/privateline-connect-svc.service" ]; then
             echo "[+] Removing service"
-            rm /etc/systemd/system/privateline-svc.service
+            rm /etc/systemd/system/privateline-connect-svc.service
         fi
-        if [ -f "/usr/lib/systemd/system/privateline-svc.service" ]; then
+        if [ -f "/usr/lib/systemd/system/privateline-connect-svc.service" ]; then
             echo "[+] Removing service"
-            rm /usr/lib/systemd/system/privateline-svc.service
+            rm /usr/lib/systemd/system/privateline-connect-svc.service
         fi
     fi
 }
@@ -81,25 +81,25 @@ try_systemd_stop
 
 uninstall_bash_completion
 
-PLEASERUN_DIR="/usr/share/pleaserun/privateline-svc"
+PLEASERUN_DIR="/usr/share/pleaserun/privateline-connect-svc"
 if [ -d $PLEASERUN_DIR ] ; then
   echo "[+] Service cleanup (pleaserun) ..."
   silent sh $PLEASERUN_DIR/cleanup.sh 
   rm -fr $PLEASERUN_DIR
 fi 
 
-#PRIVATELINE_DIR="/opt/privateline"
+#PRIVATELINE_DIR="/opt/privateline-connect"
 #if [ -d $PRIVATELINE_DIR ] ; then
 #  echo "[+] Removing other files ..."
 #  # Normally, all files which were installed, deleted automatically.
-#  # But privateline-svc also writing to 'mutable' additional temporary files (uninstaller know nothing about them).
-#  # Therefore, we are completely removing all content of '/opt/privateline/mutable'.
+#  # But privateline-connect-svc also writing to 'mutable' additional temporary files (uninstaller know nothing about them).
+#  # Therefore, we are completely removing all content of '/opt/privateline-connect/mutable'.
 #  # Also, there could stay empty dirs which were not deleted automatically.
 #  rm -rf $PRIVATELINE_DIR || echo "[-] Removing '$PRIVATELINE_DIR' folder failed"
 #fi
 
 echo "[+] Removing mutable data ..."
-PRIVATELINE_TMP="/etc/opt/privateline"
+PRIVATELINE_TMP="/etc/opt/privateline-connect"
 rm -rf $PRIVATELINE_TMP
 
 echo "[+] Removing logs ..."

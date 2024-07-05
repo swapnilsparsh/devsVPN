@@ -43,7 +43,7 @@ module.exports = {
         port: {
           interface: "content",
           content: "file",
-          target: "$SNAP_COMMON/opt/privateline/mutable",
+          target: "$SNAP_COMMON/opt/privateline-connect/mutable",
         },
       },
     ],

@@ -26,7 +26,7 @@
 # List of services:
 #     systemctl --type=service
 # Start service:
-#     systemctl start privateline-svc
+#     systemctl start privateline-connect-svc
 # Remove BROKEN package (which is unable to uninstall by normal ways)
 #     sudo mv /var/lib/dpkg/info/privateline.* /tmp/
 #     sudo dpkg --remove --force-remove-reinstreq privateline
@@ -85,16 +85,16 @@ then
 fi
 
 echo '---------------------------'
-echo "Building PRIVATELINE Daemon ($DAEMON_REPO_ABS_PATH)...";
+echo "Building privateLINE Connect Daemon ($DAEMON_REPO_ABS_PATH)...";
 echo '---------------------------'
 $DAEMON_REPO_ABS_PATH/References/Linux/scripts/build-all.sh -v $VERSION
-CheckLastResult "ERROR building PRIVATELINE Daemon"
+CheckLastResult "ERROR building privateLINE Connect Daemon"
 
 echo '---------------------------'
-echo "Building PRIVATELINE CLI ...";
+echo "Building privateLINE Connect CLI ...";
 echo '---------------------------'
 $SCRIPT_DIR/compile-cli.sh -v $VERSION
-CheckLastResult "ERROR building PRIVATELINE CLI"
+CheckLastResult "ERROR building privateLINE Connect CLI"
 
 echo "======================================================"
 echo "============== Building packages ====================="
@@ -111,7 +111,7 @@ mkdir -p $TMPDIRSRVC
 cd $TMPDIRSRVC
 
 echo "Preparing service..."
-fpm -v $VERSION -n privateline-svc -s pleaserun -t dir --deb-no-default-config-files /usr/bin/privateline-svc
+fpm -v $VERSION -n privateline-connect-svc -s pleaserun -t dir --deb-no-default-config-files /usr/bin/privateline-connect-svc
 
 OBFSPXY_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/obfs4proxy_inst/obfs4proxy
 WG_QUICK_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/wireguard-tools_inst/wg-quick
@@ -219,18 +219,18 @@ CreatePackage()
     --after-install "$SCRIPT_DIR/package_scripts/after-install.sh" \
     --before-remove "$SCRIPT_DIR/package_scripts/before-remove.sh" \
     --after-remove "$SCRIPT_DIR/package_scripts/after-remove.sh" \
-    $DAEMON_REPO_ABS_PATH/References/Linux/etc=/opt/privateline/ \
-    $DAEMON_REPO_ABS_PATH/References/common/etc=/opt/privateline/ \
-    $DAEMON_REPO_ABS_PATH/References/Linux/scripts/_out_bin/privateline-svc=/usr/bin/ \
+    $DAEMON_REPO_ABS_PATH/References/Linux/etc=/opt/privateline-connect/ \
+    $DAEMON_REPO_ABS_PATH/References/common/etc=/opt/privateline-connect/ \
+    $DAEMON_REPO_ABS_PATH/References/Linux/scripts/_out_bin/privateline-connect-svc=/usr/bin/ \
     $OUT_DIR/privateline=/usr/bin/ \
-    $OUT_DIR/privateline.bash-completion=/opt/privateline/etc/privateline.bash-completion \
-    $OBFSPXY_BIN=/opt/privateline/obfsproxy/obfs4proxy \
-    $V2RAY_BIN=/opt/privateline/v2ray/v2ray \
-    $WG_QUICK_BIN=/opt/privateline/wireguard-tools/wg-quick \
-    $WG_BIN=/opt/privateline/wireguard-tools/wg \
-    ${DNSCRYPT_PROXY_BIN}=/opt/privateline/dnscrypt-proxy/dnscrypt-proxy \
-    ${KEM_HELPER_BIN}=/opt/privateline/kem/kem-helper \
-    $TMPDIRSRVC/privateline-svc.dir/usr/share/pleaserun/=/usr/share/pleaserun
+    $OUT_DIR/privateline.bash-completion=/opt/privateline-connect/etc/privateline.bash-completion \
+    $OBFSPXY_BIN=/opt/privateline-connect/obfsproxy/obfs4proxy \
+    $V2RAY_BIN=/opt/privateline-connect/v2ray/v2ray \
+    $WG_QUICK_BIN=/opt/privateline-connect/wireguard-tools/wg-quick \
+    $WG_BIN=/opt/privateline-connect/wireguard-tools/wg \
+    ${DNSCRYPT_PROXY_BIN}=/opt/privateline-connect/dnscrypt-proxy/dnscrypt-proxy \
+    ${KEM_HELPER_BIN}=/opt/privateline-connect/kem/kem-helper \
+    $TMPDIRSRVC/privateline-connect-svc.dir/usr/share/pleaserun/=/usr/share/pleaserun
 }
 
 if [ ! -z "$GITHUB_ACTIONS" ]; 

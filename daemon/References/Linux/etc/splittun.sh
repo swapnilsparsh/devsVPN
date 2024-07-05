@@ -46,8 +46,8 @@ _iptables_locktime=2
 # Backup folder name.
 # This folder contains temporary data to be able to clean everything correctly 
 _backup_folder_name=privateline-exclude-tmp
-_mutable_folder_default=/etc/opt/privateline/mutable   # default location of 'mutable' folder
-_mutable_folder_fallback=/opt/privateline/mutable      # alternate location of 'mutable' folder (needed for backward compatibility and snap environment)
+_mutable_folder_default=/etc/opt/privateline-connect/mutable   # default location of 'mutable' folder
+_mutable_folder_fallback=/opt/privateline-connect/mutable      # alternate location of 'mutable' folder (needed for backward compatibility and snap environment)
 
 # Info: The 'mark' value for packets coming from the Split-Tunneling environment.
 # Using here value 0xca6c. It is the same as WireGuard marking packets which were processed.

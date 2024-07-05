@@ -27,7 +27,7 @@
 # List of services:
 #     systemctl --type=service
 # Start service:
-#     systemctl start privateline-svc
+#     systemctl start privateline-connect-svc
 # Remove BROKEN package (which is unable to uninstall by normal ways)
 #     sudo mv /var/lib/dpkg/info/privateline.* /tmp/
 #     sudo dpkg --remove --force-remove-reinstreq privateline
@@ -76,7 +76,7 @@ then
   VERSION="$(awk -F: '/"version"/ { gsub(/[" ,\n\r]/, "", $2); print $2 }' ../../package.json)"
   if [ -n "$VERSION" ]
   then
-    echo "[ ] You are going to compile PrivateLine UI v${VERSION}"
+    echo "[ ] You are going to compile PrivateLine Connect UI v${VERSION}"
     read -p "Press enter to continue" yn
   else    
     echo "Usage:"
@@ -128,14 +128,14 @@ if [ -d $APP_UNPACKED_DIR ]; then
     echo "[ ] Exist: $APP_UNPACKED_DIR"
 else
   echo "[!] Folder not exists: '$APP_UNPACKED_DIR'"
-  echo "    Build PrivateLine UI project (do not forget to set correct version for it in 'package.json')"
+  echo "    Build PrivateLine Connect UI project (do not forget to set correct version for it in 'package.json')"
   exit 1
 fi
-if [ -f "$APP_UNPACKED_DIR/privateline-ui" ]; then
-    echo "[ ] Exist: $APP_UNPACKED_DIR/privateline-ui"
+if [ -f "$APP_UNPACKED_DIR/privateline-connect-ui" ]; then
+    echo "[ ] Exist: $APP_UNPACKED_DIR/privateline-connect-ui"
 else
-  echo "[!] File not exists: '$APP_UNPACKED_DIR/privateline-ui'"
-  echo "    Build PrivateLine UI project (do not forget to set correct version for it in 'package.json')"
+  echo "[!] File not exists: '$APP_UNPACKED_DIR/privateline-connect-ui'"
+  echo "    Build PrivateLine Connect UI project (do not forget to set correct version for it in 'package.json')"
   exit 1
 fi
 
@@ -228,7 +228,7 @@ CreatePackage()
 
   fpm -d privateline $EXTRA_ARGS \
     --rpm-rpmbuild-define "_build_id_links none" \
-    --deb-no-default-config-files -s dir -t $PKG_TYPE -n privateline-ui -v $VERSION --url https://www.privateline.io --license "GNU GPL3" \
+    --deb-no-default-config-files -s dir -t $PKG_TYPE -n privateline-connect-ui -v $VERSION --url https://www.privateline.io --license "GNU GPL3" \
     --template-scripts --template-value pkg=$PKG_TYPE --template-value version=$VERSION \
     --vendor "PrivateLine Limited" --maintainer "PrivateLine Limited" \
     --description "$(printf "UI client for PrivateLine service (https://www.privateline.io)\nGraphical interface v$VERSION.")" \
@@ -236,9 +236,9 @@ CreatePackage()
     --after-install "$SCRIPT_DIR/package_scripts/after-install.sh" \
     --before-remove "$SCRIPT_DIR/package_scripts/before-remove.sh" \
     --after-remove "$SCRIPT_DIR/package_scripts/after-remove.sh" \
-    $SCRIPT_DIR/ui/privateline-ui.desktop=/usr/share/applications/privateline-ui.desktop \
-    $SCRIPT_DIR/ui/privateline.svg=/usr/share/icons/hicolor/scalable/apps/privateline.svg \
-    $APP_BIN_DIR=/opt/privateline/ui/
+    $SCRIPT_DIR/ui/privateline-connect-ui.desktop=/usr/share/applications/privateline-connect-ui.desktop \
+    $SCRIPT_DIR/ui/privateline-connect.svg=/usr/share/icons/hicolor/scalable/apps/privateline-connect.svg \
+    $APP_BIN_DIR=/opt/privateline-connect/ui/
 }
 
 echo '---------------------------'
@@ -248,7 +248,7 @@ CreatePackage "deb"
 
 echo '---------------------------'
 echo "RPM package..."
-CreatePackage "rpm"
+#CreatePackage "rpm"
 
 echo '---------------------------'
 echo "Copying compiled pachages to '$OUT_DIR'..."

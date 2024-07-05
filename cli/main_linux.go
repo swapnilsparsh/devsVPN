@@ -29,8 +29,8 @@ import (
 )
 
 func printServStartInstructions() {
-	fmt.Printf("Please, restart 'ivpn-service'\n")
-	tmpDir := "/etc/opt/privateline/mutable"
+	fmt.Printf("Please, restart 'privateline-connect-svc'\n")
+	tmpDir := "/etc/opt/privateline-connect/mutable"
 	// print service install instructions (if exists)
 	content, err := os.ReadFile(path.Join(tmpDir, "service_install.txt"))
 	if err == nil {

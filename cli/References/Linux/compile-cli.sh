@@ -34,7 +34,7 @@ if [ -z "$COMMIT" ]; then
 fi
 
 echo "======================================================"
-echo "============== Compiling PRIVATELINE CLI ===================="
+echo "============== Compiling privateLINE Connect CLI ====="
 echo "======================================================"
 echo "Version: $VERSION"
 echo "Date   : $DATE"
@@ -84,7 +84,7 @@ else
 fi
 
 # generate bash-completion script
-$SCRIPT_DIR/bash-completion-generator-privateline-cli.sh "$OUT_FILE" > "$OUT_BASH_COMPLETION_SCRIPT"
+$SCRIPT_DIR/bash-completion-generator-privateline-connect-cli.sh "$OUT_FILE" > "$OUT_BASH_COMPLETION_SCRIPT"
 bash -n "$OUT_BASH_COMPLETION_SCRIPT" # check bash-completion script syntax
 
 

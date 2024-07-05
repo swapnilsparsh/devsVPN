@@ -299,9 +299,9 @@ if (gotTheLock && isAllowedToStart) {
 
         dialog.showMessageBoxSync({
           type: "error",
-          message: "Unable to start PrivateLINE Client",
+          message: "Unable to start privateLINE Connect",
           detail:
-            "PrivateLINE client can only run from the Applications folder. Please move the PrivateLINE.app into the /Applications folder",
+            "privateLINE Connect can only run from the Applications folder. Please move the PrivateLINE.app into the /Applications folder",
           buttons: ["Quit"],
         });
 

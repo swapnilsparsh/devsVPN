@@ -3,9 +3,9 @@
 echo "[*] After install (<%= version %> : <%= pkg %> : $1)"
 
 NEED_TO_SAVE_INSTRUCTIONS=true
-PRIVATELINE_OPT="/opt/privateline"
-PRIVATELINE_ETC="/opt/privateline/etc"
-PRIVATELINE_TMP="/etc/opt/privateline/mutable"
+PRIVATELINE_OPT="/opt/privateline-connect"
+PRIVATELINE_ETC="/opt/privateline-connect/etc"
+PRIVATELINE_TMP="/etc/opt/privateline-connect/mutable"
 PRIVATELINE_LOG="/var/log/privateline"
 
 SERVERS_FILE_BUNDLED="$PRIVATELINE_ETC/servers.json"
@@ -30,11 +30,11 @@ try_systemd_install() {
     if has_systemd ; then
         echo "[ ] systemd detected. Trying to start service ..."
         echo "[+] Stopping old service (if exists)"
-        systemctl stop privateline-svc
+        systemctl stop privateline-connect-svc
         echo "[+] Enabling service"
-        systemctl enable privateline-svc || return 1
+        systemctl enable privateline-connect-svc || return 1
         echo "[+] Starting service"
-        systemctl start privateline-svc || return 1
+        systemctl start privateline-connect-svc || return 1
 
         NEED_TO_SAVE_INSTRUCTIONS=false
         return 0
@@ -63,7 +63,7 @@ silent chmod 0700 $PRIVATELINE_ETC/*.sh          # can execute only owner (root)
 silent chmod 0700 $PRIVATELINE_ETC/*.up          # can execute only owner (root)
 silent chmod 0700 $PRIVATELINE_ETC/*.down        # can execute only owner (root)
 silent chmod 0755 /usr/bin/privateline           # can change only owner (root)
-silent chmod 0755 /usr/bin/privateline-svc   # can change only owner (root)
+silent chmod 0755 /usr/bin/privateline-connect-svc   # can change only owner (root)
 silent chmod 0755 $PRIVATELINE_OPT/obfsproxy/obfs4proxy          # can change only owner (root)
 silent chmod 0755 $PRIVATELINE_OPT/v2ray/v2ray                   # can change only owner (root)
 silent chmod 0755 $PRIVATELINE_OPT/wireguard-tools/wg-quick      # can change only owner (root)
@@ -79,7 +79,7 @@ if [ -f "${SERVERS_FILE_BUNDLED}" ] && [ -f "${SERVERS_FILE_DEST}" ]; then
 fi
 
 echo "[+] Service install start (pleaserun) ..."
-INSTALL_OUTPUT=$(sh /usr/share/pleaserun/privateline-svc/install.sh)
+INSTALL_OUTPUT=$(sh /usr/share/pleaserun/privateline-connect-svc/install.sh)
 if [ $? -eq 0 ]; then
     # Print output of the install script
     echo $INSTALL_OUTPUT
@@ -90,7 +90,7 @@ else
     echo "[-] Service install FAILED!"
 fi
 # Patch .service file in place to add "--logging" command-line parameter
-sed -i -e "s/ExecStart=\/usr\/bin\/privateline-svc/ExecStart=\/usr\/bin\/privateline-svc --logging/" /etc/systemd/system/privateline-svc.service
+sed -i -e "s/ExecStart=\/usr\/bin\/privateline-connect-svc/ExecStart=\/usr\/bin\/privateline-connect-svc --logging/" /etc/systemd/system/privateline-connect-svc.service
 
 if $NEED_TO_SAVE_INSTRUCTIONS == true ; then
     echo $INSTALL_OUTPUT > $INSTRUCTIONS_FILE
@@ -107,7 +107,7 @@ install_bash_completion
 # here we have to re-login
 #
 # ########################################################################################
-FILE_ACCID_TO_UPGRADE="/opt/privateline/mutable/toUpgradeID.tmp"
+FILE_ACCID_TO_UPGRADE="/opt/privateline-connect/mutable/toUpgradeID.tmp"
 if [ -f $FILE_ACCID_TO_UPGRADE ]; then
   echo "[ ] Upgrade detected (after-install: old-style)"
   # It is an upgrade.

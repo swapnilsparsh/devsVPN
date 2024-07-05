@@ -92,11 +92,11 @@ confinement: strict # devmode #classic # use 'strict' once you have the right pl
 
 compression: lzo # increased snap size but faster first start for UI
 
-icon: snap/gui/privateline.svg
+icon: snap/gui/privateline-connect.svg
 
 apps:
   daemon:
-    command: bin/privateline-svc
+    command: bin/privateline-connect-svc
     daemon: simple
     restart-condition: always
     stop-mode: sigterm
@@ -113,7 +113,7 @@ apps:
       - network
 
   ui:
-    command: opt/privateline/ui/bin/privateline-ui --no-sandbox
+    command: opt/privateline-connect/ui/bin/privateline-connect-ui --no-sandbox
     extensions: [gnome-3-38] # https://snapcraft.io/docs/gnome-3-38-extension
     plugs:
       - desktop
@@ -126,7 +126,7 @@ apps:
       - network
       - gsettings
       - opengl
-    autostart: privateline-ui.desktop
+    autostart: privateline-connect-ui.desktop
     environment:
       GTK_USE_PORTAL: '1'
       SNAP_DESKTOP_RUNTIME: $SNAP/gnome-platform
@@ -158,14 +158,14 @@ plugs:
       - /etc/resolv.conf.privatelinesave
 
 # ToDo: uncomment bellow lines if it is required to expose mutable folder (contains port.txt) to a slot (to be able to connect slot out from external snap)
-#       When using separate snapt for UI (privateline-ui), it will be necessary to connect daemon port interface to the privateline-ui snap package:
-#       $ sudo snap connect privateline-ui:port privateline:port
+#       When using separate snapt for UI (privateline-connect-ui), it will be necessary to connect daemon port interface to the privateline-connect-ui snap package:
+#       $ sudo snap connect privateline-connect-ui:port privateline:port
 #slots:
 #  port:
 #    interface: content
 #    content: file
 #    read:
-#      - $SNAP_COMMON/opt/privateline/mutable
+#      - $SNAP_COMMON/opt/privateline-connect/mutable
 
 parts:
   daemon:
@@ -185,7 +185,7 @@ parts:
     override-build: |
       daemon/References/Linux/scripts/build-daemon.sh -v $SNAPCRAFT_PROJECT_VERSION
       mkdir -p $SNAPCRAFT_PART_INSTALL/bin
-      cp daemon/References/Linux/scripts/_out_bin/privateline-svc $SNAPCRAFT_PART_INSTALL/bin
+      cp daemon/References/Linux/scripts/_out_bin/privateline-connect-svc $SNAPCRAFT_PART_INSTALL/bin
       mkdir -p $SNAPCRAFT_PART_INSTALL/usr/bin
       rctlpath=$( which resolvectl )
       cp $rctlpath $SNAPCRAFT_PART_INSTALL/usr/bin
@@ -202,8 +202,8 @@ parts:
       cli/References/Linux/compile-cli.sh -v $SNAPCRAFT_PROJECT_VERSION
       mkdir -p $SNAPCRAFT_PART_INSTALL/bin
       cp cli/References/Linux/_out_bin/privateline $SNAPCRAFT_PART_INSTALL/bin
-      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline/bash-completion
-      cp cli/References/Linux/_out_bin/privateline.bash-completion $SNAPCRAFT_PART_INSTALL/opt/privateline/bash-completion
+      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/bash-completion
+      cp cli/References/Linux/_out_bin/privateline.bash-completion $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/bash-completion
 
   wireguard-tools:
     plugin: nil
@@ -215,9 +215,9 @@ parts:
     override-build: |
       rm -fr ./_deps/wireguard-tools*
       ./scripts/build-wireguard-tools.sh
-      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline/wireguard-tools
-      cp _deps/wireguard-tools_inst/wg-quick $SNAPCRAFT_PART_INSTALL/opt/privateline/wireguard-tools/wg-quick
-      cp _deps/wireguard-tools_inst/wg $SNAPCRAFT_PART_INSTALL/opt/privateline/wireguard-tools/wg
+      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/wireguard-tools
+      cp _deps/wireguard-tools_inst/wg-quick $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/wireguard-tools/wg-quick
+      cp _deps/wireguard-tools_inst/wg $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/wireguard-tools/wg
 
   dnscrypt-proxy:
     plugin: nil
@@ -229,8 +229,8 @@ parts:
     override-build: |
       rm -fr ./_deps/dnscryptproxy*
       ./scripts/build-dnscrypt-proxy.sh
-      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline/dnscrypt-proxy
-      cp _deps/dnscryptproxy_inst/dnscrypt-proxy $SNAPCRAFT_PART_INSTALL/opt/privateline/dnscrypt-proxy/dnscrypt-proxy
+      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/dnscrypt-proxy
+      cp _deps/dnscryptproxy_inst/dnscrypt-proxy $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/dnscrypt-proxy/dnscrypt-proxy
 
   obfs4proxy:
     plugin: nil
@@ -242,8 +242,8 @@ parts:
     override-build: |
       rm -fr ./_deps/obfs4proxy*
       ./scripts/build-obfs4proxy.sh
-      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline/obfsproxy
-      cp _deps/obfs4proxy_inst/obfs4proxy $SNAPCRAFT_PART_INSTALL/opt/privateline/obfsproxy/obfs4proxy
+      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/obfsproxy
+      cp _deps/obfs4proxy_inst/obfs4proxy $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/obfsproxy/obfs4proxy
 
   v2ray:
     plugin: nil
@@ -255,8 +255,8 @@ parts:
     override-build: |
       rm -fr ./_deps/v2ray*
       ./scripts/build-v2ray.sh
-      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline/v2ray
-      cp _deps/v2ray_inst/v2ray $SNAPCRAFT_PART_INSTALL/opt/privateline/v2ray/v2ray      
+      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/v2ray
+      cp _deps/v2ray_inst/v2ray $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/v2ray/v2ray      
 
   kemhelper:
     plugin: nil
@@ -281,17 +281,17 @@ parts:
     override-build: |
       rm -fr ./Linux/_deps/kem-helper
       ./Linux/scripts/build-kem-helper.sh
-      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline/kem
-      cp Linux/_deps/kem-helper/kem-helper-bin/kem-helper $SNAPCRAFT_PART_INSTALL/opt/privateline/kem/kem-helper
+      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/kem
+      cp Linux/_deps/kem-helper/kem-helper-bin/kem-helper $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/kem/kem-helper
 
   etc:
     plugin: nil
     source: ./daemon/References
     override-build: |
-      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline/etc
-      cp common/etc/* $SNAPCRAFT_PART_INSTALL/opt/privateline/etc
-      cp Linux/etc/* $SNAPCRAFT_PART_INSTALL/opt/privateline/etc
-      cd $SNAPCRAFT_PART_INSTALL/opt/privateline/etc
+      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/etc
+      cp common/etc/* $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/etc
+      cp Linux/etc/* $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/etc
+      cd $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/etc
       chmod 0400 *
       chmod 0600 servers.json
       chmod 0700 *.sh
@@ -311,5 +311,5 @@ parts:
     override-build: |
       rm -fr dist
       ./References/Linux/build.sh -v $SNAPCRAFT_PROJECT_VERSION
-      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline/ui
-      cp -R dist/bin $SNAPCRAFT_PART_INSTALL/opt/privateline/ui
+      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/ui
+      cp -R dist/bin $SNAPCRAFT_PART_INSTALL/opt/privateline-connect/ui

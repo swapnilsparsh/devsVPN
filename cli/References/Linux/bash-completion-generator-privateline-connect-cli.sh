@@ -22,7 +22,7 @@ set -e
 
 # By default, the source command is `privateline`. 
 # Also you can specify custom path to PRIVATELINE CLI binary in the first argument to this script (e.g. `bash-completion-generator-privateline-cli.sh /usr/local/bin/privateline`)
-cli="privateline"
+cli="privateline-connect-cli"
 if [ ! -z "$1" ]
 then
   cli="$1"
