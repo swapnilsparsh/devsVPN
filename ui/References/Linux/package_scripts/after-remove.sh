@@ -49,7 +49,7 @@ if [ "$1" = "upgrade" ] || [ "$1" = "1" ] ; then
 
 else
   # REMOVE
-  if [ -d $DESKTOP_FILE_DIR ] ; then
+  if [ -e $DESKTOP_FILE ] ; then
     echo "[+] Uninstalling .desktop file: '$DESKTOP_FILE' ..."
     rm $DESKTOP_FILE || echo "[-] Failed"
   fi
