@@ -27,7 +27,7 @@
 # List of services:
 #     systemctl --type=service
 # Start service:
-#     systemctl start privateline-service
+#     systemctl start privateline-svc
 # Remove BROKEN package (which is unable to uninstall by normal ways)
 #     sudo mv /var/lib/dpkg/info/privateline.* /tmp/
 #     sudo dpkg --remove --force-remove-reinstreq privateline

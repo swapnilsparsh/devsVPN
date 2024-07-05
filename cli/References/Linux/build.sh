@@ -26,7 +26,7 @@
 # List of services:
 #     systemctl --type=service
 # Start service:
-#     systemctl start privateline-service
+#     systemctl start privateline-svc
 # Remove BROKEN package (which is unable to uninstall by normal ways)
 #     sudo mv /var/lib/dpkg/info/privateline.* /tmp/
 #     sudo dpkg --remove --force-remove-reinstreq privateline
@@ -111,7 +111,7 @@ mkdir -p $TMPDIRSRVC
 cd $TMPDIRSRVC
 
 echo "Preparing service..."
-fpm -v $VERSION -n privateline-service -s pleaserun -t dir --deb-no-default-config-files /usr/bin/privateline-service
+fpm -v $VERSION -n privateline-svc -s pleaserun -t dir --deb-no-default-config-files /usr/bin/privateline-svc
 
 OBFSPXY_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/obfs4proxy_inst/obfs4proxy
 WG_QUICK_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/wireguard-tools_inst/wg-quick
@@ -221,7 +221,7 @@ CreatePackage()
     --after-remove "$SCRIPT_DIR/package_scripts/after-remove.sh" \
     $DAEMON_REPO_ABS_PATH/References/Linux/etc=/opt/privateline/ \
     $DAEMON_REPO_ABS_PATH/References/common/etc=/opt/privateline/ \
-    $DAEMON_REPO_ABS_PATH/References/Linux/scripts/_out_bin/privateline-service=/usr/bin/ \
+    $DAEMON_REPO_ABS_PATH/References/Linux/scripts/_out_bin/privateline-svc=/usr/bin/ \
     $OUT_DIR/privateline=/usr/bin/ \
     $OUT_DIR/privateline.bash-completion=/opt/privateline/etc/privateline.bash-completion \
     $OBFSPXY_BIN=/opt/privateline/obfsproxy/obfs4proxy \
@@ -230,7 +230,7 @@ CreatePackage()
     $WG_BIN=/opt/privateline/wireguard-tools/wg \
     ${DNSCRYPT_PROXY_BIN}=/opt/privateline/dnscrypt-proxy/dnscrypt-proxy \
     ${KEM_HELPER_BIN}=/opt/privateline/kem/kem-helper \
-    $TMPDIRSRVC/privateline-service.dir/usr/share/pleaserun/=/usr/share/pleaserun
+    $TMPDIRSRVC/privateline-svc.dir/usr/share/pleaserun/=/usr/share/pleaserun
 }
 
 if [ ! -z "$GITHUB_ACTIONS" ]; 

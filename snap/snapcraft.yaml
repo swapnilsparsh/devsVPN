@@ -96,7 +96,7 @@ icon: snap/gui/privateline.svg
 
 apps:
   daemon:
-    command: bin/privateline-service
+    command: bin/privateline-svc
     daemon: simple
     restart-condition: always
     stop-mode: sigterm
@@ -185,7 +185,7 @@ parts:
     override-build: |
       daemon/References/Linux/scripts/build-daemon.sh -v $SNAPCRAFT_PROJECT_VERSION
       mkdir -p $SNAPCRAFT_PART_INSTALL/bin
-      cp daemon/References/Linux/scripts/_out_bin/privateline-service $SNAPCRAFT_PART_INSTALL/bin
+      cp daemon/References/Linux/scripts/_out_bin/privateline-svc $SNAPCRAFT_PART_INSTALL/bin
       mkdir -p $SNAPCRAFT_PART_INSTALL/usr/bin
       rctlpath=$( which resolvectl )
       cp $rctlpath $SNAPCRAFT_PART_INSTALL/usr/bin
