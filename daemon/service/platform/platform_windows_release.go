@@ -65,7 +65,7 @@ func getInstallDir() string {
 	}
 
 	if len(ret) == 0 {
-		fmt.Println("WARNING: There is no info about privateLINE Connect install folder in the registry. Is IVPN Client installed?")
+		fmt.Println("WARNING: There is no info about privateLINE Connect install folder in the registry. Is privateLINE Connect installed?")
 		return ""
 	}
 
