@@ -1,4 +1,4 @@
-; IVPN Client Installer
+; privateLINE Connect Installer
 ; Install script for NSIS 2.x
 
 SetCompressor lzma
@@ -23,13 +23,13 @@ ${StrLoc}
 
 ; SOURCE_DIR is defined in build.bat
 
-!define PRODUCT_NAME "IVPN Client"
-!define PRODUCT_IDENTIFIER "IVPN Client"
-!define PRODUCT_PUBLISHER "IVPN Limited"
+!define PRODUCT_NAME "privateLINE Connect"
+!define PRODUCT_IDENTIFIER "privateLINE Connect"
+!define PRODUCT_PUBLISHER "privateLINE Limited"
 
-!define APP_RUN_PATH "$INSTDIR\ui\IVPN Client.exe"
-!define PROCESS_NAME "IVPN Client.exe"
-!define IVPN_SERVICE_NAME "IVPN Client"
+!define APP_RUN_PATH "$INSTDIR\ui\privateline-connect-ui.exe"
+!define PROCESS_NAME "privateline-connect-ui.exe"
+!define PRIVATELINE_SERVICE_NAME "privateline-connect-svc"
 !define PATHDIR "$INSTDIR\cli"
 
 !define DEVCON_BASENAME "devcon.exe"
@@ -189,7 +189,7 @@ Var STR_RETURN_VAR
 
   SetRegView 64
   StrCpy $BitDir "x86_64"
-  StrCpy $StartMenuFolder "IVPN"
+  StrCpy $StartMenuFolder "privateLINE"
   DetailPrint "Running on architecture: $BitDir"
 !macroend
 
@@ -218,7 +218,7 @@ FunctionEnd
 !define MUI_UNICON "icon.ico"
 
 !define MUI_FINISHPAGE_NOAUTOCLOSE
-!define MUI_FINISHPAGE_RUN "$INSTDIR\IVPN Client.exe"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\privateline-connect-ui.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Run ${PRODUCT_NAME} now"
 !define MUI_FINISHPAGE_RUN_FUNCTION ExecAppFile
 
@@ -229,7 +229,7 @@ FunctionEnd
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "Create a desktop shortcut"
 !define MUI_FINISHPAGE_SHOWREADME_FUNCTION finishpageaction
 Function finishpageaction
-CreateShortcut "$DESKTOP\IVPN Client.lnk" "${APP_RUN_PATH}"
+CreateShortcut "$DESKTOP\${PRODUCT_NAME}.lnk" "${APP_RUN_PATH}"
 FunctionEnd
 
 LicenseForceSelection checkbox "I Agree"
@@ -266,7 +266,7 @@ LicenseForceSelection checkbox "I Agree"
 !insertmacro MUI_LANGUAGE "English"
 
 ;===============================
-; FINISH page modification handlers (add additional checkbox "Add IVPN CLI binary to the path" to the 'finish' page)
+; FINISH page modification handlers (add additional checkbox "Add privateLINE Connect CLI binary to the path" to the 'finish' page)
 Function fin_show
 	ReadINIStr $0 "$PLUGINSDIR\iospecial.ini" "Field 6" "HWND"
 	SetCtlColors $0 0x000000 0xFFFFFF
@@ -275,7 +275,7 @@ FunctionEnd
 Function fin_pre
 	WriteINIStr "$PLUGINSDIR\iospecial.ini" "Settings" "NumFields" "6"
 	WriteINIStr "$PLUGINSDIR\iospecial.ini" "Field 6" "Type" "CheckBox"
-	WriteINIStr "$PLUGINSDIR\iospecial.ini" "Field 6" "Text" "Add IVPN CLI binary to the path"
+	WriteINIStr "$PLUGINSDIR\iospecial.ini" "Field 6" "Text" "Add privateLINE Connect CLI binary to the path"
 	WriteINIStr "$PLUGINSDIR\iospecial.ini" "Field 6" "Left" "120"
 	WriteINIStr "$PLUGINSDIR\iospecial.ini" "Field 6" "Right" "315"
 	WriteINIStr "$PLUGINSDIR\iospecial.ini" "Field 6" "Top" "130"
@@ -298,12 +298,12 @@ FunctionEnd
 ; installer sections
 ; ------------------
 
-Section "${PRODUCT_NAME}" SecIVPN
+Section "${PRODUCT_NAME}" SecPRIVATELINE
   SetRegView 64
   SetOutPath "$INSTDIR"
 
   ; <<< Uninstall previous section START
-  ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\IVPN Client" "UninstallString"
+  ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\privateLINE" "UninstallString"
   StrCmp $R0 "" done
   DetailPrint "Removing previous installation..."
   ; # '_?=$INSTDIR' is required to be able to wait untill uninstaller finish
@@ -313,40 +313,40 @@ Section "${PRODUCT_NAME}" SecIVPN
   done:
   ; >>> Uninstall previous section END
 
-  ; Stop IVPN service
-  stopservcice:
+  ; Stop privateline-connect-svc
+  stopservice:
   Call StopService
   Pop $0 ; 1 - SUCCESS;
   ${if} $0 != 1
-		DetailPrint "ERROR: Failed to stop 'IVPN Client' service."
-		MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "Failed to stop 'IVPN Client' service.$\nIgnoring this problem can lead to issues with IVPN Client software in the future." IDRETRY stopservcice IDIGNORE ignoreservicestop
+		DetailPrint "ERROR: Failed to stop 'privateline-connect-svc' service."
+		MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "Failed to stop 'privateline-connect-svc' service.$\nIgnoring this problem can lead to issues with privateLINE Connect software in the future." IDRETRY stopservice IDIGNORE ignoreservicestop
 		DetailPrint "Aborted"
 		Abort
   ${EndIf}
   ignoreservicestop:
 
-  ; When service stopping - IVPN Client must also Close automatically
-  ; anyway, there could be situations when IVPN Client not connected to service (cannot receive 'service exiting' notification.)
-  ; Therefore, here we try to stop IVPN Client process manually.
-  ; Stop IVPN Client application
+  ; When privateline-connect-svc stopping - privateline-connect-ui must also Close automatically
+  ; anyway, there could be situations when privateline-connect-ui not connected to service (cannot receive 'service exiting' notification.)
+  ; Therefore, here we try to stop privateline-connect-ui process manually.
+  ; Stop privateline-connect-ui application
   stopclient:
   Call StopClient
   Pop $0 ; 1 - SUCCESS
   ${if} $0 != 1
-		DetailPrint "ERROR: Failed to stop 'IVPN Client' application."
-		MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "Failed to stop 'IVPN Client' application.$\nIgnoring this problem can lead to issues with IVPN Client software in the future." IDRETRY stopclient IDIGNORE ignoreclientstop
+		DetailPrint "ERROR: Failed to stop 'privateline-connect-ui' application."
+		MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "Failed to stop 'privateline-connect-ui' application.$\nIgnoring this problem can lead to issues with privateLINE Connect software in the future." IDRETRY stopclient IDIGNORE ignoreclientstop
 		DetailPrint "Aborted"
 		Abort
   ${EndIf}
   ignoreclientstop:
 
   ; check is library can be overwritten
-  Push "$INSTDIR\IVPN Firewall Native x64.dll" ; file to check for writting
+  Push "$INSTDIR\privateLINE Firewall Native x64.dll" ; file to check for writting
   Push 15000 ; 15 seconds
   Call WaitFileOpenForWritting
 
   ; check is library can be overwritten
-  Push "$INSTDIR\IVPN Helpers Native x64.dll" ; file to check for writting
+  Push "$INSTDIR\privateLINE Helpers Native x64.dll" ; file to check for writting
   Push 15000 ; 15 seconds
   Call WaitFileOpenForWritting
 
@@ -359,12 +359,12 @@ Section "${PRODUCT_NAME}" SecIVPN
   StrCmp $R2 "" reg_autostart_update reg_autostart_done
   reg_autostart_update:
   DetailPrint "Fixing the AutoStart registry item ..."
-  ; "C:\Program Files\IVPN Client\ui\IVPN Client.exe" --hidden
+  ; "C:\Program Files\privateLINE Connect\ui\privateline-connect-ui.exe" --hidden
   WriteRegStr    HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCT_IDENTIFIER}" '"${APP_RUN_PATH}" --hidden'
   reg_autostart_done:
   ; <<<
 
-  ; extract all files from source dir (it is important that IVPN Client Application must be stopped on this moment)
+  ; extract all files from source dir (it is important that privateline-connect-ui Application must be stopped on this moment)
   File /r "${SOURCE_DIR}\*.*"
 
   CreateDirectory "$INSTDIR\log"
@@ -380,7 +380,7 @@ Section "${PRODUCT_NAME}" SecIVPN
   ; create StartMenu shortcuts
   CreateDirectory "$SMPROGRAMS\$StartMenuFolder"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Uninstall ${PRODUCT_NAME}.lnk" "$INSTDIR\Uninstall.exe"
-  CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${PRODUCT_NAME}.lnk" "$INSTDIR\ui\IVPN Client.exe"
+  CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${PRODUCT_NAME}.lnk" "$INSTDIR\ui\privateline-connect-ui.exe"
 
   ; ============ TAP driver ======================================================================
   DetailPrint "Installing TAP Driver..."
@@ -477,16 +477,16 @@ Section "${PRODUCT_NAME}" SecIVPN
   */
   ; ============ Service ======================================================================
   ; install service
-  DetailPrint "Installing IVPN Client service..."
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" create "IVPN Client" binPath= "\"$INSTDIR\IVPN Service.exe\"" start= auto'
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" sdset "IVPN Client" "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPDTLO;;;S-1-1-0)"'
+  DetailPrint "Installing privateline-connect-svc service..."
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" create "privateline-connect-svc" binPath= "\"$INSTDIR\privateline-connect-svc.exe\"" start= auto'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" sdset "privateline-connect-svc" "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPDTLO;;;S-1-1-0)"'
 
   ; add service to firewall
-  ;nsExec::ExecToLog '"$SYSDIR\netsh.exe" firewall add allowedprogram "$INSTDIR\IVPN Service.exe" "IVPN Service" ENABLE'
+  ;nsExec::ExecToLog '"$SYSDIR\netsh.exe" firewall add allowedprogram "$INSTDIR\privateline-connect-svc.exe" "privateline-connect-svc" ENABLE'
 
   ; start service
-  DetailPrint "Starting IVPN Client service..."
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" start "IVPN Client"'
+  DetailPrint "Starting privateline-connect-svc service..."
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" start "privateline-connect-svc"'
 SectionEnd
 
 ; -----------
@@ -497,30 +497,30 @@ Section "Uninstall"
   SetRegView 64
 
   DetailPrint "Ensure VPN is disconnected..."
-  nsExec::ExecToLog '"${PATHDIR}\ivpn.exe" disconnect'
+  nsExec::ExecToLog '"${PATHDIR}\privateline-connect-cli.exe" disconnect'
 
   ${StrContains} $0 " -update" $CMDLINE
   ${If} $0 == ""
       ; uninstall
       DetailPrint "Ensure firewall is disabled..."
-      nsExec::ExecToLog '"${PATHDIR}\ivpn.exe" firewall -persistent_off'
-      nsExec::ExecToLog '"${PATHDIR}\ivpn.exe" firewall -off'
+      nsExec::ExecToLog '"${PATHDIR}\privateline-connect-cli.exe" firewall -persistent_off'
+      nsExec::ExecToLog '"${PATHDIR}\privateline-connect-cli.exe" firewall -off'
 
       DetailPrint "Logout..."
-      nsExec::ExecToLog '"${PATHDIR}\ivpn.exe" logout'
+      nsExec::ExecToLog '"${PATHDIR}\privateline-connect-cli.exe" logout'
   ${Else}
       ; update
   ${EndIf}
 
   ; stop service
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop "${IVPN_SERVICE_NAME}"'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop "${PRIVATELINE_SERVICE_NAME}"'
 
-  ; wait a little (give change for IVPN Client application to stop)
+  ; wait a little (give change for privateline-connect-ui application to stop)
   Sleep 1500
 
-  ; When service stopping - IVPN Client must also Close automatically
-  ; anyway, there could be situations when IVPN Client not connected to service (cannot receive 'service exiting' notification.)
-  ; Therefore, here we try to stop IVPN Client process manually.
+  ; When service stopping - privateline-connect-ui must also Close automatically
+  ; anyway, there could be situations when privateline-connect-ui not connected to service (cannot receive 'service exiting' notification.)
+  ; Therefore, here we try to stop privateline-connect-ui process manually.
   ${StrContains} $0 " -update" $CMDLINE
   ${If} $0 == ""
       ; uninstall
@@ -531,7 +531,7 @@ Section "Uninstall"
   ${Else}
       ; update
       ; Do not use /T option when upgrade.
-      ; Otherwise we will kill current uninstaller process (which was spwaned by ${PROCESS_NAME})
+      ; Otherwise we will kill current uninstaller process (which was spawned by ${PROCESS_NAME})
       nsExec::ExecToStack '"$SYSDIR\taskkill" /IM "${PROCESS_NAME}" /F'
   ${EndIf}
 
@@ -539,10 +539,10 @@ Section "Uninstall"
   Sleep 1500
 
   ; remove service
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" delete "IVPN Client"'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" delete "privateline-connect-svc"'
 
   ; removing firewall rules
-  nsExec::ExecToLog '"$INSTDIR\ivpncli.exe" firewall disable'
+  nsExec::ExecToLog '"$INSTDIR\privateline-connect-cli.exe" firewall disable'
 
   ; uninstall TUN/TAP driver
   DetailPrint "Removing TUN/TAP device..."
@@ -558,7 +558,7 @@ Section "Uninstall"
 
   DetailPrint "Removing files..."
   ; remove all
-  Delete "$DESKTOP\IVPN Client.lnk"
+  Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
   RMDir /r "$INSTDIR\mutable"
   RMDir /r "$INSTDIR\log"
   RMDir /r "$INSTDIR\devcon"
@@ -580,17 +580,17 @@ Section "Uninstall"
       RMDir "$INSTDIR"
 
       SetShellVarContext current ; To be able to get environment variables of current user ("$LOCALAPPDATA", "$APPDATA")
-      RMDir /r "$APPDATA\IVPN"
+      RMDir /r "$APPDATA\privateLINE"
       SetShellVarContext all
-      RMDir /r "$APPDATA\IVPN"
+      RMDir /r "$APPDATA\privateLINE"
 
-      RMDir /r "$PROFILE\.ivpn" ; ~/.ivpn (created by CLI)      
+      RMDir /r "$PROFILE\.privateline" ; ~/.privateline (created by CLI)      
   ${Else}
       ; update
   ${EndIf}
 
   ;!insertmacro MUI_STARTMENU_GETFOLDER Application $StartMenuFolder
-  StrCpy $StartMenuFolder "IVPN"
+  StrCpy $StartMenuFolder "privateLINE"
 
   Delete "$SMPROGRAMS\$StartMenuFolder\Uninstall ${PRODUCT_NAME}.lnk"
   Delete "$SMPROGRAMS\$StartMenuFolder\${PRODUCT_NAME}.lnk"
@@ -610,13 +610,13 @@ Function CheckOSSupported
     ${If} ${AtLeastWin10}
         goto archcheck
     ${EndIf}
-    MessageBox MB_ICONSTOP|MB_OK "Unsupported Windows Version.$\nThis version of IVPN Client can only be installed on Windows 10 and above."
+    MessageBox MB_ICONSTOP|MB_OK "Unsupported Windows Version.$\nThis version of privateLINE Connect can only be installed on Windows 10 and above."
     Quit
 archcheck:
     ${If} ${RunningX64}
         goto end
     ${EndIf}
-    MessageBox MB_ICONSTOP|MB_OK "Unsupported architecture.$\nThis version of IVPN Client can only be installed on 64-bit Windows."
+    MessageBox MB_ICONSTOP|MB_OK "Unsupported architecture.$\nThis version of privateLINE Connect can only be installed on 64-bit Windows."
     Quit
 end:
 FunctionEnd
@@ -626,7 +626,7 @@ FunctionEnd
 ;	0 - NOT STOPPED
 ; 	1 - Stopped (SECCUSS)
 Function StopService
-	DetailPrint "Checking is IVPN Client service is running..."
+	DetailPrint "Checking is privateline-connect-svc service is running..."
 	Call IsServiceStopped
 	Pop $0
 	${If} $0 == 1
@@ -634,14 +634,14 @@ Function StopService
 		Return
 	${EndIf}
 
-	DetailPrint "Stopping IVPN Client service..."
+	DetailPrint "Stopping privateline-connect-svc service..."
 
 	; stop service
-	nsExec::ExecToStack '"$SYSDIR\sc.exe" stop "${IVPN_SERVICE_NAME}"'
+	nsExec::ExecToStack '"$SYSDIR\sc.exe" stop "${PRIVATELINE_SERVICE_NAME}"'
 	Pop $0 ; Return
 	Pop $1 ; Output
 	${If} $0 == '1060'
-		DetailPrint "IVPN Client service does not exist as an installed service [1060]"
+		DetailPrint "privateline-connect-svc service does not exist as an installed service [1060]"
 		Push 1 		; Stopped OK
 		Return
 	${EndIf}
@@ -672,7 +672,7 @@ Function StopService
 	killservice:
 	; if we still here - service still not stopped. Killing it manually
 	DetailPrint "WARNING: Unable to stop service. Killing process ..."
-	nsExec::ExecToStack '"$SYSDIR\taskkill" /fi "Services eq ${IVPN_SERVICE_NAME}" /F'
+	nsExec::ExecToStack '"$SYSDIR\taskkill" /fi "Services eq ${PRIVATELINE_SERVICE_NAME}" /F'
 	Pop $0 ; Return
 	Pop $1 ; Output
 	${If} $0 < 0
@@ -698,11 +698,11 @@ Function StopService
 FunctionEnd
 
 Function IsServiceStopped
-	nsExec::ExecToStack '"$SYSDIR\sc.exe" query "${IVPN_SERVICE_NAME}"'
+	nsExec::ExecToStack '"$SYSDIR\sc.exe" query "${PRIVATELINE_SERVICE_NAME}"'
 	Pop $0 ; Return
 	Pop $1 ; Output
 	${If} $0 == '1060'
-		DetailPrint "IVPN Client service does not exist as an installed service [1060]"
+		DetailPrint "privateline-connect-svc service does not exist as an installed service [1060]"
 		Push 1 		; Stopped OK
 		Return
 	${EndIf}
@@ -713,7 +713,7 @@ Function IsServiceStopped
 	${EndIf}
 
 	; An example of an expected result:
-	; 	SERVICE_NAME: IVPN Client
+	; 	SERVICE_NAME: privateline-connect-svc
     ;    TYPE               : 10  WIN32_OWN_PROCESS
     ;    STATE              : 4  RUNNING
     ;                            (STOPPABLE, NOT_PAUSABLE, ACCEPTS_SHUTDOWN)
@@ -745,7 +745,7 @@ FunctionEnd
 ;	0 - NOT STOPPED
 ; 	1 - Stopped (SECCUSS)
 Function StopClient
-	DetailPrint "Checking is IVPN Client application is running..."
+	DetailPrint "Checking is privateline-connect-ui application is running..."
 	Call IsClientStopped
 	Pop $0
 	${If} $0 == 1
@@ -753,7 +753,7 @@ Function StopClient
 		Return
 	${EndIf}
 
-	DetailPrint "Terminating IVPN Client application..."
+	DetailPrint "Terminating privateline-connect-ui application..."
 
 	; stop client
 	nsExec::ExecToStack '"$SYSDIR\taskkill" /IM "${PROCESS_NAME}" /F'
@@ -875,8 +875,8 @@ Function AddPath
 
 		${if} $2 > 0
 			; the real PATH is not empty. Skip updating the PATH to avoid breaking anything.			
-			MessageBox MB_OK|MB_ICONINFORMATION  "The PATH was not updated because the original length of characters exceeds the ${NSIS_MAX_STRLEN} character limit.$\r$\n$\r$\nTo facilitate quick access to the 'ivpn' command in the terminal, you can manually incorporate '${PATHDIR}' into the PATH variable within the Windows environment." /SD IDOK
-			DetailPrint "The PATH was not updated because the original length of characters exceeds the ${NSIS_MAX_STRLEN} character limit.$\r$\n$\r$\nTo facilitate quick access to the 'ivpn' command in the terminal, you can manually incorporate '${PATHDIR}' into the PATH variable within the Windows environment."
+			MessageBox MB_OK|MB_ICONINFORMATION  "The PATH was not updated because the original length of characters exceeds the ${NSIS_MAX_STRLEN} character limit.$\r$\n$\r$\nTo facilitate quick access to the 'privateline-connect-cli' command in the terminal, you can manually incorporate '${PATHDIR}' into the PATH variable within the Windows environment." /SD IDOK
+			DetailPrint "The PATH was not updated because the original length of characters exceeds the ${NSIS_MAX_STRLEN} character limit.$\r$\n$\r$\nTo facilitate quick access to the 'privateline-connect-cli' command in the terminal, you can manually incorporate '${PATHDIR}' into the PATH variable within the Windows environment."
 			Goto end
 		${EndIf}
 	${EndIf}  
@@ -896,8 +896,8 @@ Function AddPath
 	StrLen $3 "${PATHDIR};"
 	IntOp $2 $2 + $3	
 	${If} $2 > ${NSIS_MAX_STRLEN}
-		MessageBox MB_OK|MB_ICONINFORMATION "The PATH was not updated because the new length of $2 characters exceeds the ${NSIS_MAX_STRLEN} character limit.$\r$\n$\r$\nTo facilitate quick access to the 'ivpn' command in the terminal, you can manually incorporate '${PATHDIR}' into the PATH variable within the Windows environment." /SD IDOK
-		DetailPrint "The PATH was not updated because the new length of $2 characters exceeds the ${NSIS_MAX_STRLEN} character limit.$\r$\n$\r$\nTo facilitate quick access to the 'ivpn' command in the terminal, you can manually incorporate '${PATHDIR}' into the PATH variable within the Windows environment."
+		MessageBox MB_OK|MB_ICONINFORMATION "The PATH was not updated because the new length of $2 characters exceeds the ${NSIS_MAX_STRLEN} character limit.$\r$\n$\r$\nTo facilitate quick access to the 'privateline-connect-cli' command in the terminal, you can manually incorporate '${PATHDIR}' into the PATH variable within the Windows environment." /SD IDOK
+		DetailPrint "The PATH was not updated because the new length of $2 characters exceeds the ${NSIS_MAX_STRLEN} character limit.$\r$\n$\r$\nTo facilitate quick access to the 'privateline-connect-cli' command in the terminal, you can manually incorporate '${PATHDIR}' into the PATH variable within the Windows environment."
 		Goto end
 	${EndIf}
 	  

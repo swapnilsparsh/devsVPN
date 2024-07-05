@@ -32,7 +32,7 @@ import { DnsEncryption } from "@/store/types";
 var saveSettingsTimeout = null;
 
 const userDataFolder = app.getPath("userData");
-const filename = path.join(userDataFolder, "ivpn-settings.json");
+const filename = path.join(userDataFolder, "privateline-connect-settings.json");
 
 export function InitPersistentSettings() {
   // persistent SETTINGS

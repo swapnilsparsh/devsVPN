@@ -7,7 +7,7 @@ set DATE=""
 set CERT_SHA1=%2
 
 echo ==================================================
-echo ============ BUILDING IVPN CLI ===================
+echo ============ BUILDING privateLINE Connect CLI ====
 echo ==================================================
 
 rem Getting info about current date
@@ -33,27 +33,27 @@ call :build || goto :error
 goto :success
 
 :build
-	echo [*] Building IVPN CLI
+	echo [*] Building privateLINE Connect CLI
 
-	if exist "bin\x86\cli\ivpn.exe" del "bin\x86\cli\ivpn.exe" || exit /b 1
-	if exist "bin\x86_64\cli\ivpn.exe" del "bin\x86_64\cli\ivpn.exe" || exit /b 1
+	if exist "bin\x86\cli\privateline-connect-cli.exe" del "bin\x86\cli\privateline-connect-cli.exe" || exit /b 1
+	if exist "bin\x86_64\cli\privateline-connect-cli.exe" del "bin\x86_64\cli\privateline-connect-cli.exe" || exit /b 1
 
 	set GOOS=windows
 
 	rem echo [ ] x86 ...
 	rem set GOARCH=386
-	rem go build -tags release -o "bin\x86\cli\ivpn.exe" -trimpath -ldflags "-X github.com/swapnilsparsh/devsVPN/daemon/version._version=%APPVER% -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=%COMMIT% -X github.com/swapnilsparsh/devsVPN/daemon/version._time=%DATE%" || exit /b 1
+	rem go build -tags release -o "bin\x86\cli\privateline-connect-cli.exe" -trimpath -ldflags "-X github.com/swapnilsparsh/devsVPN/daemon/version._version=%APPVER% -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=%COMMIT% -X github.com/swapnilsparsh/devsVPN/daemon/version._time=%DATE%" || exit /b 1
 
 	echo [ ] x86_64 ...
 	set GOARCH=amd64
-	go build -tags release -o "bin\x86_64\cli\ivpn.exe" -trimpath -ldflags "-s -w -X github.com/swapnilsparsh/devsVPN/daemon/version._version=%APPVER% -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=%COMMIT% -X github.com/swapnilsparsh/devsVPN/daemon/version._time=%DATE%" || exit /b 1
+	go build -tags release -o "bin\x86_64\cli\privateline-connect-cli.exe" -trimpath -ldflags "-s -w -X github.com/swapnilsparsh/devsVPN/daemon/version._version=%APPVER% -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=%COMMIT% -X github.com/swapnilsparsh/devsVPN/daemon/version._time=%DATE%" || exit /b 1
 
 	set TIMESTAMP_SERVER=http://timestamp.digicert.com
 	if NOT "%CERT_SHA1%" == "" (
 		echo.
 		echo Signing binary by certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%
 		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "bin\x86_64\cli\ivpn.exe" || exit /b 1
+		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "bin\x86_64\cli\privateline-connect-cli.exe" || exit /b 1
 		echo.
 		echo Signing SUCCES
 		echo.
@@ -67,5 +67,5 @@ goto :success
 	exit /b 0
 
 :error
-	echo [!] IVPN Service build script FAILED with error #%errorlevel%.
+	echo [!] privateLINE Connect CLI build script FAILED with error #%errorlevel%.
 	exit /b %errorlevel%

@@ -1,6 +1,6 @@
 icon.ico
-IVPN Service.exe
-cli\ivpn.exe
+privateline-connect-svc.exe
+cli\privateline-connect-cli.exe
 etc\ca.crt
 etc\servers.json
 etc\ta.key

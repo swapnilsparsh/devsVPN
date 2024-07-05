@@ -5,8 +5,11 @@ daemon/References/Windows/dnscrypt-proxy/
 daemon/References/Windows/etc/dnscrypt-proxy/
 daemon/daemon
 daemon/daemon.exe
-daemon/References/Windows/Native Projects/IVPN KEM Helper/.*
-daemon/References/Windows/Native Projects/IVPN KEM Helper/x64/*
+daemon/References/Windows/*.dll
+daemon/References/Windows/Native Projects/privateLINE KEM Helper/.*
+daemon/References/Windows/Native Projects/privateLINE KEM Helper/x64/*
+daemon/References/Windows/Native Projects/privateLINE Firewall Native/x64/*
+daemon/References/Windows/Native Projects/privateLINE Helpers Native/x64/*
 daemon/References/Windows/kem/kem-helper.exe
 daemon/References/common/kem-helper/_out_linux/
 daemon/References/common/kem-helper/_out_macos/

@@ -22,7 +22,7 @@
     <ProjectGuid>{D9D4F595-89BD-4A45-8566-A057252DAB49}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>NativeHelpers</RootNamespace>
-    <ProjectName>IVPN Firewall Native</ProjectName>
+    <ProjectName>privateLINE Firewall Native</ProjectName>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
