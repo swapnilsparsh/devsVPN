@@ -223,7 +223,7 @@ func createOpenVpnUserParamsFileExample() error {
 	builder.WriteString("# You will need administrator permission to edit this file.\n")
 	builder.WriteString("# \n")
 	builder.WriteString("# This file contains additional user-defined parameters for OpenVPN configuration.\n")
-	builder.WriteString("# All parameters defined here will be added to default OpenVPN configuration used by the IVPN Client.\n")
+	builder.WriteString("# All parameters defined here will be added to default OpenVPN configuration used by the privateLINE Connect.\n")
 	builder.WriteString("# All changes are made at your own risk!\n")
 	builder.WriteString("# We recommend keeping this file empty.\n")
 

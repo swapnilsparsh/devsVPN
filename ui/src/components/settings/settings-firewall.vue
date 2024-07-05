@@ -37,7 +37,7 @@
         <div class="fwDescription">
           When the option is enabled the IVPN Firewall is started during system
           boot time before any other process. IVPN Firewall will always be
-          active even when IVPN Client is not running
+          active even when privateLINE Connect is not running
         </div>
       </div>
     </div>

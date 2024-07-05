@@ -35,7 +35,7 @@ import (
 )
 
 // ServiceName -  name of the service
-const _serviceName = "IVPN Client"
+const _serviceName = "privateline-connect-svc"
 
 var _evtlog *eventlog.Log
 var _stopped chan struct{}

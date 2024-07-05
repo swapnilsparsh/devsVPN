@@ -51,7 +51,7 @@ func doOsInitForBuild() {
 func getInstallDir() string {
 	ret := ""
 
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\IVPN Client`, registry.QUERY_VALUE|registry.WOW64_64KEY)
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\privateLINE Connect`, registry.QUERY_VALUE|registry.WOW64_64KEY)
 	if err != nil {
 		fmt.Println("ERROR: ", err)
 	}
@@ -65,7 +65,7 @@ func getInstallDir() string {
 	}
 
 	if len(ret) == 0 {
-		fmt.Println("WARNING: There is no info about IVPN Client install folder in the registry. Is IVPN Client installed?")
+		fmt.Println("WARNING: There is no info about privateLINE Connect install folder in the registry. Is IVPN Client installed?")
 		return ""
 	}
 
