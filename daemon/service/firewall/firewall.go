@@ -60,11 +60,17 @@ var (
 // Initialize is doing initialization stuff
 // Must be called on application start
 func Initialize() error {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	return implInitialize()
 }
 
 // SetEnabled - change firewall state
 func SetEnabled(enable bool) error {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -98,6 +104,9 @@ func SetEnabled(enable bool) error {
 
 // SetPersistant - set persistant firewall state and enable it if necessary
 func SetPersistant(persistant bool) error {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -112,6 +121,9 @@ func SetPersistant(persistant bool) error {
 
 // GetEnabled - get firewall status enabled/disabled
 func GetEnabled() (bool, error) {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return false, nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -124,6 +136,9 @@ func GetEnabled() (bool, error) {
 }
 
 func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, err error) {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return false, false, false, nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -140,6 +155,9 @@ func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, err error) {
 // Returns error if IVPN firewall is enabled.
 // As soon as IVPN firewall enables - this rule will be removed
 func SingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 	return implSingleDnsRuleOn(dnsAddr)
@@ -148,6 +166,9 @@ func SingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 // SingleDnsRuleOff - remove rule (if exist) to allow DNS communication with specified IP only defined by SingleDnsRuleOn()
 // (usefull for Inverse Split Tunneling feature)
 func SingleDnsRuleOff() (retErr error) {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 	return implSingleDnsRuleOff()
@@ -165,6 +186,9 @@ func ClientResumed() {
 
 // ClientConnected - allow communication for local vpn/client IP address
 func ClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net.IP, clientPort int, serverIP net.IP, serverPort int, isTCP bool) error {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 	ClientResumed()
@@ -187,6 +211,9 @@ func ClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net.IP,
 
 // ClientDisconnected - Remove all hosts exceptions
 func ClientDisconnected() error {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 	ClientResumed()
@@ -212,6 +239,9 @@ func ClientDisconnected() error {
 //   - onlyForICMP	-	(applicable only for Linux) try add rule to allow only ICMP protocol for this IP
 //   - isPersistent	-	keep rule enabled even if VPN disconnected
 func AddHostsToExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) error {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -224,6 +254,9 @@ func AddHostsToExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) err
 }
 
 func RemoveHostsFromExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) error {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -237,6 +270,9 @@ func RemoveHostsFromExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool
 
 // AllowLAN - allow/forbid LAN communication
 func AllowLAN(allowLan bool, allowLanMulticast bool) error {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -253,6 +289,9 @@ func AllowLAN(allowLan bool, allowLanMulticast bool) error {
 }
 
 func GetDnsInfo() (dns.DnsSettings, bool) {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return dns.DnsSettings{}, false
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -263,6 +302,9 @@ func GetDnsInfo() (dns.DnsSettings, bool) {
 }
 
 func getDnsIP() net.IP {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return dnsConfig.Ip()
+
 	cfg := dnsConfig
 
 	var dnsIP net.IP
@@ -274,6 +316,9 @@ func getDnsIP() net.IP {
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
 func OnChangeDNS(newDnsCfg *dns.DnsSettings) error {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -307,6 +352,9 @@ func OnChangeDNS(newDnsCfg *dns.DnsSettings) error {
 // Parameters:
 //   - exceptions - comma separated list of IP addresses in format: x.x.x.x[/xx]
 func SetUserExceptions(exceptions string, ignoreParseErrors bool) error {
+	// TODO FIXME: re-enable the firewall after MVP 1.0
+	return nil
+
 	userExceptions = []net.IPNet{}
 
 	splitFunc := func(c rune) bool {

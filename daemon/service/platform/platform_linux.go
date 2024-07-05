@@ -1,23 +1,23 @@
 //
-//  Daemon for IVPN Client Desktop
+//  Daemon for privateLINE Connect Desktop
 //  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
 //
-//  This file is part of the Daemon for IVPN Client Desktop.
+//  This file is part of the Daemon for privateLINE Connect Desktop.
 //
-//  The Daemon for IVPN Client Desktop is free software: you can redistribute it and/or
+//  The Daemon for privateLINE Connect Desktop is free software: you can redistribute it and/or
 //  modify it under the terms of the GNU General Public License as published by the Free
 //  Software Foundation, either version 3 of the License, or (at your option) any later version.
 //
-//  The Daemon for IVPN Client Desktop is distributed in the hope that it will be useful,
+//  The Daemon for privateLINE Connect Desktop is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 //  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 //  details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with the Daemon for IVPN Client Desktop. If not, see <https://www.gnu.org/licenses/>.
+//  along with the Daemon for privateLINE Connect Desktop. If not, see <https://www.gnu.org/licenses/>.
 //
 
 package platform
@@ -37,8 +37,8 @@ import (
 var (
 	firewallScript string
 	splitTunScript string
-	logDir         string = "/var/log/ivpn"
-	tmpDir         string = "/etc/opt/ivpn/mutable"
+	logDir         string = "/var/log/privateline"
+	tmpDir         string = "/etc/opt/privateline-connect/mutable"
 
 	// path to 'resolvectl' binary
 	resolvectlBinPath string
@@ -52,7 +52,7 @@ const (
 	// This can be useful in situations where the host machine does not use 'systemd-resolved'.
 	// In this case, the daemon may attempt to directly modify this file.
 	// Note: This is not recommended!
-	// Command for user to connect required slot:   $ sudo snap connect ivpn:etc-resolv-conf
+	// Command for user to connect required slot:   $ sudo snap connect privateline:etc-resolv-conf
 	snapPlugNameResolvconfAccess string = "etc-resolv-conf"
 )
 
@@ -103,8 +103,8 @@ func IsSnapAbleManageResolvconf() (allowed bool, userErrMsgIfNotAllowed string, 
 
 	if !allowed {
 		userErrMsgIfNotAllowed = fmt.Sprintf(
-			"It appears that you are running the IVPN snap package on a host system that does not utilize the 'systemd-resolved' DNS resolver, which is required.\n\n"+
-				"As a workaround, you can grant IVPN permission to modify '/etc/resolv.conf' directly by using the command:\n'$ sudo snap connect ivpn:%s'", snapPlugNameResolvconfAccess)
+			"It appears that you are running the privateLINE snap package on a host system that does not utilize the 'systemd-resolved' DNS resolver, which is required.\n\n"+
+				"As a workaround, you can grant privateLINE permission to modify '/etc/resolv.conf' directly by using the command:\n'$ sudo snap connect privateline:%s'", snapPlugNameResolvconfAccess)
 	}
 	return allowed, userErrMsgIfNotAllowed, err
 }
@@ -126,7 +126,7 @@ func isSnapPlugConnected(plugName string) (bool, error) {
 	return false, nil
 }
 
-// initialize all constant values (e.g. servicePortFile) which can be used in external projects (IVPN CLI)
+// initialize all constant values (e.g. servicePortFile) which can be used in external projects (i.e., privateline-connect-cli)
 func doInitConstants() {
 	openVpnBinaryPath = "/usr/sbin/openvpn"
 	routeCommand = "/sbin/ip route"
@@ -134,8 +134,8 @@ func doInitConstants() {
 	// check if we are running in snap environment
 	if envs := GetSnapEnvs(); envs != nil {
 		// Note! Changing 'tmpDir' value may break upgrade compatibility with old versions (e.g. lose account login information)
-		logDir = path.Join(envs.SNAP_COMMON, "/opt/ivpn/log")
-		tmpDir = path.Join(envs.SNAP_COMMON, "/opt/ivpn/mutable")
+		logDir = path.Join(envs.SNAP_COMMON, "/opt/privateline-connect/log")
+		tmpDir = path.Join(envs.SNAP_COMMON, "/opt/privateline-connect/mutable")
 		openVpnBinaryPath = path.Join(envs.SNAP, openVpnBinaryPath)
 	}
 
@@ -143,7 +143,7 @@ func doInitConstants() {
 	servicePortFile = path.Join(tmpDir, "port.txt")
 	paranoidModeSecretFile = path.Join(tmpDir, "eaa")
 
-	logFile = path.Join(logDir, "IVPN_Agent.log")
+	logFile = path.Join(logDir, "privateline-connect-svc.log")
 
 	openvpnUserParamsFile = path.Join(tmpDir, "ovpn_extra_params.txt")
 }

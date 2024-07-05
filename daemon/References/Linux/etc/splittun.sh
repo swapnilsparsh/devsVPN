@@ -2,52 +2,52 @@
 
 #
 #  Script to control the Split-Tunneling functionality for Linux.
-#  It is a part of Daemon for IVPN Client Desktop.
+#  It is a part of Daemon for privateLINE Connect Desktop.
 #  https://github.com/swapnilsparsh/devsVPN/daemon
 #
 #  Created by Stelnykovych Alexandr.
 #  Copyright (c) 2023 IVPN Limited.
 #
-#  This file is part of the Daemon for IVPN Client Desktop.
+#  This file is part of the Daemon for privateLINE Connect Desktop.
 #
-#  The Daemon for IVPN Client Desktop is free software: you can redistribute it and/or
+#  The Daemon for privateLINE Connect Desktop is free software: you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License as published by the Free
 #  Software Foundation, either version 3 of the License, or (at your option) any later version.
 #
-#  The Daemon for IVPN Client Desktop is distributed in the hope that it will be useful,
+#  The Daemon for privateLINE Connect Desktop is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 #  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 #  details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with the Daemon for IVPN Client Desktop. If not, see <https://www.gnu.org/licenses/>.
+#  along with the Daemon for privateLINE Connect Desktop. If not, see <https://www.gnu.org/licenses/>.
 #
 
 # Split Tunneling cgroup parameters
-_cgroup_name=ivpn-exclude
+_cgroup_name=privateline-exclude
 _cgroup_classid=0x4956504e      # Anything from 0x00000001 to 0xFFFFFFFF
 _cgroup_folder=/sys/fs/cgroup/net_cls/${_cgroup_name}
 
 # Routing tabel configuration for packets coming from Split-Tunneling environment
-_routing_table_name=ivpn-exclude-tbl
+_routing_table_name=privateline-exclude-tbl
 _routing_table_weight=17            # Anything from 1 to 252
 
 # iptables chains
-POSTROUTING_mangle="IVPN_ST_POSTROUTING -t mangle"
-OUTPUT_mangle="IVPN_ST_OUTPUT -t mangle"
-PREROUTING_mangle="IVPN_ST_PREROUTING -t mangle"
-POSTROUTING_nat="IVPN_ST_POSTROUTING -t nat"
-OUTPUT="IVPN_ST_OUTPUT"
-INPUT="IVPN_ST_INPUT"
+POSTROUTING_mangle="PRIVATELINE_ST_POSTROUTING -t mangle"
+OUTPUT_mangle="PRIVATELINE_ST_OUTPUT -t mangle"
+PREROUTING_mangle="PRIVATELINE_ST_PREROUTING -t mangle"
+POSTROUTING_nat="PRIVATELINE_ST_POSTROUTING -t nat"
+OUTPUT="PRIVATELINE_ST_OUTPUT"
+INPUT="PRIVATELINE_ST_INPUT"
 
 # Additional parameters
 _iptables_locktime=2
 
 # Backup folder name.
 # This folder contains temporary data to be able to clean everything correctly 
-_backup_folder_name=ivpn-exclude-tmp
-_mutable_folder_default=/etc/opt/ivpn/mutable   # default location of 'mutable' folder
-_mutable_folder_fallback=/opt/ivpn/mutable      # alternate location of 'mutable' folder (needed for backward compatibility and snap environment)
+_backup_folder_name=privateline-exclude-tmp
+_mutable_folder_default=/etc/opt/privateline-connect/mutable   # default location of 'mutable' folder
+_mutable_folder_fallback=/opt/privateline-connect/mutable      # alternate location of 'mutable' folder (needed for backward compatibility and snap environment)
 
 # Info: The 'mark' value for packets coming from the Split-Tunneling environment.
 # Using here value 0xca6c. It is the same as WireGuard marking packets which were processed.
@@ -159,7 +159,7 @@ function test()
     vercomp $iptables_version $min_required_ver # compare versions
     if [[ $? -eq 2 ]]; then 
         # NOTE! Do not chnage the message below. It is used by daemon to detect the error.
-        echo "Warning: Inverse mode for IVPN Split Tunnel functionality is not applicable. The minimum required version of 'iptables' is $min_required_ver, while your version is $iptables_version."
+        echo "Warning: Inverse mode for PRIVATELINE Split Tunnel functionality is not applicable. The minimum required version of 'iptables' is $min_required_ver, while your version is $iptables_version."
     fi
     
     return 0
@@ -219,7 +219,7 @@ function init_iptables()
     ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT_mangle} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -p tcp --dport 53 -j RETURN
     ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT_mangle} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -p udp --dport 53 -j RETURN
 
-    # Allow packets from/to cgroup (bypass IVPN firewall)
+    # Allow packets from/to cgroup (bypass PRIVATELINE firewall)
     if [ ! -z ${def_inf_name} ]; then
         ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j ACCEPT
         ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j ACCEPT   # this rule is not effective, so we use 'mark' (see the next rule)
@@ -403,7 +403,7 @@ function init()
 
     set +e
 
-    echo "IVPN Split Tunneling enabled"
+    echo "PRIVATELINE Split Tunneling enabled"
 }
 
 function updateRoutes() 
@@ -431,7 +431,7 @@ function clean()
     restore 
 
     ##############################################
-    # Move all processes from the IVPN cgroup to the main cgroup
+    # Move all processes from the PRIVATELINE cgroup to the main cgroup
     ##############################################    
     # removeAllPids
 
@@ -514,7 +514,7 @@ function restore()
     rm -fr ${_tempDir}
 }
 
-# Move all processes from the IVPN cgroup to the main cgroup
+# Move all processes from the PRIVATELINE cgroup to the main cgroup
 function removeAllPids() 
 {    
     while IFS= read -r line
@@ -659,12 +659,12 @@ function info()
     
     echo ---------------------------------
     if [[ $1 != "-4" ]]; then
-        echo "[*] ip6tables -S | grep IVPN:"
-        ${_bin_ip6tables} -S  | grep IVPN
+        echo "[*] ip6tables -S | grep PRIVATELINE:"
+        ${_bin_ip6tables} -S  | grep PRIVATELINE
     fi
     if [[ $1 != "-6" ]]; then
-        echo "[*] iptables -S | grep IVPN:"
-        ${_bin_iptables} -S  | grep IVPN    
+        echo "[*] iptables -S | grep PRIVATELINE:"
+        ${_bin_iptables} -S  | grep PRIVATELINE    
     fi
     echo ---------------------------------
     if [[ $1 != "-4" ]]; then
@@ -780,7 +780,7 @@ elif [[ $1 = "manual" ]] ; then
 else
     echo "Script to control the Split-Tunneling functionality for Linux."
     echo "Applications running in the split tunnel environment do not use the VPN tunnel."
-    echo "It is a part of Daemon for IVPN Client Desktop."
+    echo "It is a part of Daemon for privateLINE Connect Desktop."
     echo "https://github.com/swapnilsparsh/devsVPN/daemon"
     echo "Created by Stelnykovych Alexandr."
     echo "Copyright (c) 2023 IVPN Limited."

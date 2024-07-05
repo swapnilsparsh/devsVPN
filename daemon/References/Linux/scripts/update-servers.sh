@@ -12,7 +12,8 @@ cd "$( dirname "${BASH_SOURCE[0]}" )"
 
   echo "[+] UPDATING servers.json ..."
 
-  curl -sf "https://api.ivpn.net/v5/servers.json" > ${COMMON_ETC_PATH}/tmp_servers.json
+#  curl -sf "https://api.privateline.io/v5/servers.json" > ${COMMON_ETC_PATH}/tmp_servers.json
+  curl -sf "https://raw.githubusercontent.com/swapnilsparsh/devsVPN/master/daemon/References/common/etc/servers.json" > ${COMMON_ETC_PATH}/tmp_servers.json
   if ! [ $? -eq 0 ]
   then #check result of last command
     rm ${COMMON_ETC_PATH}/tmp_servers.json
@@ -20,9 +21,9 @@ cd "$( dirname "${BASH_SOURCE[0]}" )"
     
     if [ -f ${SERVERS_FILE} ]; then
       # In case of failure to download the latest version of 'servers.json', we can use the local copy of it.
-      # To enable this ability, the environment variable has to be defined: IVPN_BUILD_CAN_SKIP_DOWNLOAD_SERVERS
-      # (It can be useful for situations, for example, when https://api.ivpn.net is blocked by ISP)
-      if [ ! -z "$IVPN_BUILD_CAN_SKIP_DOWNLOAD_SERVERS" ]; then
+      # To enable this ability, the environment variable has to be defined: PRIVATELINE_BUILD_CAN_SKIP_DOWNLOAD_SERVERS
+      # (It can be useful for situations, for example, when https://api.privateline.io is blocked by ISP)
+      if [ ! -z "$PRIVATELINE_BUILD_CAN_SKIP_DOWNLOAD_SERVERS" ]; then
           echo "[i] Using local copy of 'servers.json': ${SERVERS_FILE}"
           exit 0
       fi

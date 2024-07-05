@@ -1,8 +1,8 @@
 icon.ico
-IVPN Helpers Native x64.dll
-IVPN Firewall Native x64.dll
-IVPN Service.exe
-cli\ivpn.exe
+privateLINE Helpers Native x64.dll
+privateLINE Firewall Native x64.dll
+privateline-connect-svc.exe
+cli\privateline-connect-cli.exe
 etc\ca.crt
 etc\servers.json
 etc\ta.key

@@ -1,11 +1,11 @@
 //
-//  IVPN command line interface (CLI)
+//  privateLINE Connect CLI (command line interface)
 //  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
 //
-//  This file is part of the IVPN command line interface.
+//  This file is part of the privateLINE Connect CLI (command line interface).
 //
 //  The IVPN command line interface is free software: you can redistribute it and/or
 //  modify it under the terms of the GNU General Public License as published by the Free
@@ -66,7 +66,7 @@ func addCommand(cmd ICommand) {
 }
 
 func printHeader() {
-	fmt.Println("Command-line interface for IVPN client (www.ivpn.net)")
+	fmt.Println("privateLINE Connect CLI (www.privateline.io)")
 	fmt.Println("version:" + version.GetFullVersion() + " " + runtime.GOARCH + "\n")
 }
 
@@ -264,7 +264,7 @@ func readDaemonPort() (port int, secret uint64, err error) {
 
 	if _, err := os.Stat(file); err != nil {
 		if os.IsNotExist(err) {
-			return 0, 0, fmt.Errorf("please, ensure IVPN daemon is running (connection-info not exists)")
+			return 0, 0, fmt.Errorf("please, ensure PrivateLine daemon is running (connection-info not exists)")
 		}
 		return 0, 0, fmt.Errorf("connection-info check error: %s", err)
 	}

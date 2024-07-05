@@ -217,8 +217,18 @@ function send(request, reqNo) {
 
   request.Idx = reqNo;
 
+  // If request contains a password, print it as stars in the log
+  let passwordBak;
+  if (request.Password) {
+    passwordBak = request.Password;
+    request.Password = "***";
+  }
   let serialized = toJson(request);
   log.debug(`==> ${serialized}`);
+  if (request.Password) {
+    request.Password = passwordBak;
+    serialized = toJson(request);
+  }
   log.debug(`==> ${request.Command}  [${request.Idx}] ${request.Command == "APIRequest" ? request.APIPath : ""}`);
 
   socket.write(`${serialized}\n`);

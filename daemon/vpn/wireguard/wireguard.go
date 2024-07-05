@@ -30,9 +30,11 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
@@ -146,7 +148,7 @@ func (wg *WireGuard) DefaultDNS() net.IP {
 		return nil
 	}
 
-	return wg.connectParams.hostLocalIP
+	return wg.internals.manualDNS.Ip()
 }
 
 // Type just returns VPN type
@@ -263,7 +265,7 @@ func (wg *WireGuard) generateAndSaveConfigFile(cfgFilePath string) error {
 }
 
 func (wg *WireGuard) generateConfig() ([]string, error) {
-	logger.Debug("================= generateConfig logs =======================")
+	log.Debug("================= generateConfig logs =======================")
 	localPort, err := netinfo.GetFreeUDPPort()
 	if err != nil {
 		return nil, fmt.Errorf("unable to obtain free local port: %w", err)
@@ -294,24 +296,29 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		Platform   string `json:"platform"`
 	}
 
+	stableMachineID, err := helpers.StableMachineID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate machine ID: %w", err)
+	}
+
 	payload := Payload{
-		DeviceID:   "123",
-		DeviceName: "sandeep windows",
+		DeviceID:   stableMachineID,
+		DeviceName: "PL Connect - " + stableMachineID[:8],
 		PublicKey:  wg.connectParams.clientPublicKey,
-		Platform:   "windows",
+		Platform:   runtime.GOOS,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
 
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(payloadBytes))
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to create API request: %w", err)
 	}
 	// ++++++ Bearer token ++++
-	authorizationToken := "Bearer" + " " + wg.connectParams.bearerToken
-
-	// req.Header.Add("Authorization", "bearer "+wg.connectParams.bearerToken)
+	authorizationToken := "Bearer " + wg.connectParams.bearerToken
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", authorizationToken)
 
@@ -343,14 +350,14 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse API response: %w", err)
+		return nil, fmt.Errorf("%s. Failed to parse API response: %w", res.Status, err)
 	}
 
-	logger.Debug(response.Status)
+	log.Debug(response.Status)
 	log.Info("\n ++++++++++ Response data Connect API Start ( BUILD 02072024 0046) +++++++++++++++++ \n")
-	logger.Debug(response.Data)
+	log.Debug(response.Data)
 	log.Info("\n ++++++++++ Response data Connect API End +++++++++++++++++ \n")
-	logger.Debug(response.Message)
+	log.Debug(response.Message)
 
 	if !response.Status {
 		return nil, fmt.Errorf("API error: %s", response.Message)
@@ -361,7 +368,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	}
 
 	interfaceAddress := response.Data[0].Interface.Address
-	dns := response.Data[0].Interface.DNS
+	dnsServers := response.Data[0].Interface.DNS
 	publicKey := response.Data[1].Peer.PublicKey
 	// allowedIPs := response.Data[1].Peer.AllowedIPs
 	endpoint := response.Data[1].Peer.Endpoint
@@ -371,7 +378,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"PrivateKey = " + wg.connectParams.clientPrivateKey,
 		"ListenPort = " + strconv.Itoa(wg.localPort),
 		"Address = " + interfaceAddress,
-		"DNS = " + dns,
+		"DNS = " + dnsServers,
 	}
 
 	peerCfg := []string{
@@ -382,20 +389,46 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"PersistentKeepalive = 25",
 	}
 
-	logger.Debug("\n====================== Sandeep Interface and Peers Config Start =================\n")
-	logger.Debug(interfaceCfg)
-	logger.Debug(peerCfg)
-	logger.Debug("\n====================== Sandeep Interface and Peers Config End ===================\n")
+	log.Debug("\n====================== Sandeep Interface and Peers Config Start =================\n")
+
+	interfaceCfgPrivkeyStarred := []string{
+		"[Interface]",
+		"PrivateKey = ***",
+		"ListenPort = " + strconv.Itoa(wg.localPort),
+		"Address = " + interfaceAddress,
+		"DNS = " + dnsServers,
+	}
+	log.Debug(interfaceCfgPrivkeyStarred)
+
+	log.Debug(peerCfg)
+	log.Debug("\n====================== Sandeep Interface and Peers Config End ===================\n")
 
 	// if len(wg.connectParams.presharedKey) > 0 {
 	// 	peerCfg = append(peerCfg, "PresharedKey = "+wg.connectParams.presharedKey)
 	// }
 	// add some OS-specific configurations (if necessary)
-	// iCfg, pCgf := wg.getOSSpecificConfigParams()
+	// iCfg, pCfg := wg.getOSSpecificConfigParams()
 	// interfaceCfg = append(interfaceCfg, iCfg...)
-	// peerCfg = append(peerCfg, pCgf...)
+	// peerCfg = append(peerCfg, pCfg...)
 
-	logger.Debug("============== generateConfig logs end =======================")
+	log.Debug("============== generateConfig logs end =======================")
+
+	// TODO FIXME: setting client local IP here for now
+	interfaceAddressOnly := helpers.IPv4AddrRegex.FindString(interfaceAddress)
+	if interfaceAddressOnly != "" {
+		wg.connectParams.clientLocalIP = net.ParseIP(interfaceAddressOnly)
+	} else {
+		log.Error("Error - returned interface address '" + interfaceAddress + "' does not include an IP address")
+	}
+
+	// TODO FIXME: setting manual DNS to the 1st returned DNS
+	firstDnsSrv := helpers.IPv4AddrRegex.FindString(dnsServers)
+	if firstDnsSrv != "" {
+		wg.setManualDNS(dns.DnsSettings{DnsHost: firstDnsSrv})
+	} else {
+		log.Error("Error - returned DNS servers '" + dnsServers + "' do not include an IP address")
+	}
+
 	return append(interfaceCfg, peerCfg...), nil
 }
 

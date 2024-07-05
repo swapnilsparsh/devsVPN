@@ -39,19 +39,19 @@ func doInitConstantsForBuild() {
 
 func doOsInitForBuild() {
 	installDir := getInstallDir()
-	wfpDllPath = path.Join(installDir, "IVPN Firewall Native x64.dll")
-	nativeHelpersDllPath = path.Join(installDir, "IVPN Helpers Native x64.dll")
+	wfpDllPath = path.Join(installDir, "privateLINE Firewall Native x64.dll")
+	nativeHelpersDllPath = path.Join(installDir, "privateLINE Helpers Native x64.dll")
 	splitTunDriverPath = path.Join(installDir, "SplitTunnelDriver", "x86_64", "ivpn-split-tunnel.sys")
 	if !Is64Bit() {
-		wfpDllPath = path.Join(installDir, "IVPN Firewall Native.dll")
-		nativeHelpersDllPath = path.Join(installDir, "IVPN Helpers Native.dll")
+		wfpDllPath = path.Join(installDir, "privateLINE Firewall Native.dll")
+		nativeHelpersDllPath = path.Join(installDir, "privateLINE Helpers Native.dll")
 	}
 }
 
 func getInstallDir() string {
 	ret := ""
 
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\IVPN Client`, registry.QUERY_VALUE|registry.WOW64_64KEY)
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\privateLINE Connect`, registry.QUERY_VALUE|registry.WOW64_64KEY)
 	if err != nil {
 		fmt.Println("ERROR: ", err)
 	}
@@ -65,7 +65,7 @@ func getInstallDir() string {
 	}
 
 	if len(ret) == 0 {
-		fmt.Println("WARNING: There is no info about IVPN Client install folder in the registry. Is IVPN Client installed?")
+		fmt.Println("WARNING: There is no info about privateLINE Connect install folder in the registry. Is privateLINE Connect installed?")
 		return ""
 	}
 

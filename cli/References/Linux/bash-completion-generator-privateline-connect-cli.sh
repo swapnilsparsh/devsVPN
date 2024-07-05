@@ -1,16 +1,16 @@
 #!/bin/bash
 
-# Bash completion generator for ivpn CLI
-# (generates a bash completion script for the `ivpn` CLI)
-# https://github.com/jordan-ivpn/bash-completion-generator-ivpn-cli/
+# Bash completion generator for privateline CLI
+# (generates a bash completion script for the `privateline` CLI)
+# https://github.com/jordan-privateline/bash-completion-generator-privateline-cli/
 #
 # Usage:
-#   Install the ivpn CLI package first: https://www.ivpn.net/apps-linux/
+#   Install the privateline CLI package first: https://www.privateline.net/apps-linux/
 #
-#   $ bash-completion-generator-ivpn-cli.sh > ivpn.bash
-#   $ source ivpn.bash
-#   $ sudo mv ivpn.bash /usr/share/bash-completion/completions/ivpn
-#   $ sudo chown root:root /usr/share/bash-completion/completions/ivpn
+#   $ bash-completion-generator-privateline-cli.sh > privateline.bash
+#   $ source privateline.bash
+#   $ sudo mv privateline.bash /usr/share/bash-completion/completions/privateline
+#   $ sudo chown root:root /usr/share/bash-completion/completions/privateline
 #
 # Info: 
 #   1)  The recommended directory is `completionsdir`, which you can get with `pkg-config --variable=completionsdir bash-completion`
@@ -20,9 +20,9 @@
 # exit on error
 set -e
 
-# By default, the source command is `ivpn`. 
-# Also you can specify custom path to IVPN CLI binary in the first argument to this script (e.g. `bash-completion-generator-ivpn-cli.sh /usr/local/bin/ivpn`)
-cli="ivpn"
+# By default, the source command is `privateline`. 
+# Also you can specify custom path to PRIVATELINE CLI binary in the first argument to this script (e.g. `bash-completion-generator-privateline-cli.sh /usr/local/bin/privateline`)
+cli="privateline-connect-cli"
 if [ ! -z "$1" ]
 then
   cli="$1"
@@ -35,14 +35,14 @@ if ! command -v "$cli" > /dev/null 2>&1; then
 fi
 
 # print header
-echo "# bash completion for ivpn"
+echo "# bash completion for privateline"
 echo ""
-echo "_ivpn()"
+echo "_privateline()"
 echo "{"
 echo '    local cur opts'
 echo '    COMPREPLY=()'
 echo '    cur="${COMP_WORDS[COMP_CWORD]}" # current word'
-echo '    cmd="${COMP_WORDS[1]}"          # next word after "ivpn", e.g.: $ ivpn <cmd> ...'
+echo '    cmd="${COMP_WORDS[1]}"          # next word after "privateline", e.g.: $ privateline <cmd> ...'
 echo ""
 
 # determine command list and print list
@@ -73,7 +73,7 @@ echo ""
 echo '   COMPREPLY=($(compgen -W "${opts}" -- ${cur}))'
 echo "   return 0"
 echo "}"
-echo "complete -F _ivpn ivpn"
+echo "complete -F _privateline privateline"
 echo ""
 
 exit 0

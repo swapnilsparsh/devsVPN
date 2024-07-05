@@ -15,7 +15,7 @@ rem Update this line if using another version of VisualStudio or it is installed
 set _VS_VARS_BAT="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
 
 echo ==================================================
-echo ============ BUILDING IVPN Service ===============
+echo ======== BUILDING privateline-connect-svc ========
 echo ==================================================
 
 rem Getting info about current date
@@ -72,7 +72,7 @@ goto :success
 
 :update_servers_info
 	echo [*] Updating servers.json ...
-	curl -#fLo %SCRIPTDIR%..\..\common\etc\servers.json https://api.ivpn.net/v5/servers.json || exit /b 1
+	curl -#fLo %SCRIPTDIR%..\..\common\etc\servers.json https://raw.githubusercontent.com/swapnilsparsh/devsVPN/master/daemon/References/common/etc/servers.json || exit /b 1
 	goto :eof
 
 :build_agent
@@ -83,23 +83,23 @@ goto :success
 :build_agent_plat
 	set GOARCH=%~2
 
-	echo [*] Building IVPN service %1
+	echo [*] Building privateline-connect-svc.exe %1
 
-	if exist "bin\%~1\IVPN Service.exe" del "bin\%~1\IVPN Service.exe" || exit /b 1
+	if exist "bin\%~1\privateline-connect-svc.exe" del "bin\%~1\privateline-connect-svc.exe" || exit /b 1
 
-	go build -tags release -o "bin\%~1\IVPN Service.exe" -trimpath -ldflags "-s -w -X github.com/swapnilsparsh/devsVPN/daemon/version._version=%APPVER% -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=%COMMIT% -X github.com/swapnilsparsh/devsVPN/daemon/version._time=%DATE%" || exit /b 1
+	go build -tags release -o "bin\%~1\privateline-connect-svc.exe" -trimpath -ldflags "-s -w -X github.com/swapnilsparsh/devsVPN/daemon/version._version=%APPVER% -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=%COMMIT% -X github.com/swapnilsparsh/devsVPN/daemon/version._time=%DATE%" || exit /b 1
 
 	if NOT "%CERT_SHA1%" == "" (
 		echo.
 		echo Signing binary by certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%
 		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "bin\%~1\IVPN Service.exe" || exit /b 1
+		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "bin\%~1\privateline-connect-svc.exe" || exit /b 1
 		echo.
 		echo Signing SUCCES
 		echo.
 	)
 
-	echo Compiled binary: "bin\%~1\IVPN Service.exe"
+	echo Compiled binary: "bin\%~1\privateline-connect-svc.exe"
 	goto :eof
 
 :build_native_libs
@@ -111,7 +111,7 @@ goto :success
 		goto :eof
 	)
 
-	msbuild "%SCRIPTDIR%..\Native Projects\ivpn-windows-native.sln" /verbosity:quiet /t:Build /property:Configuration=Release /property:Platform=x64 || exit /b 1
+	msbuild "%SCRIPTDIR%..\Native Projects\privateline-windows-native.sln" /verbosity:quiet /t:Build /property:Configuration=Release /property:Platform=x64 || exit /b 1
 	goto :eof
 
 :build_obfs4proxy
@@ -230,7 +230,7 @@ goto :success
 
 :error
 	set ERR=%errorlevel%
-	echo [!] IVPN Service build script FAILED with error #%errorlevel%.
+	echo [!] privateline-connect-svc build script FAILED with error #%errorlevel%.
 	rem echo [!] Removing files:
 	rem echo [ ] "%SCRIPTDIR%..\OpenVPN\obfsproxy\obfs4proxy.exe"
 	rem echo [ ] "%SCRIPTDIR%..\WireGuard\x86_64\wg.exe"

@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=IVPN
-Exec=ivpn.ui
+Name=privateLINE Connect UI
+Exec=privateline-connect-ui
 Terminal=false
 Type=Application
-Icon=${SNAP}/meta/gui/ivpn.png
-StartupWMClass=IVPN
-Comment=IVPN Client
+Icon=${SNAP}/meta/gui/privateline-connect.png
+StartupWMClass=PRIVATELINE
+Comment=privateLINE Connect UI Client
 Categories=Network;

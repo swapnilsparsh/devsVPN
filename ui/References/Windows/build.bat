@@ -85,19 +85,19 @@ goto :success
 	goto :eof
 
 :build_service
-	echo [*] Building IVPN service and dependencies...
+	echo [*] Building privateline-connect-svc and dependencies...
 	call %SERVICE_REPO%\References\Windows\scripts\build-all.bat %APPVER% %CERT_SHA1% || exit /b 1
 	goto :eof
 
 :build_cli
-	echo [*] Building IVPN CLI...
+	echo [*] Building privateline-connect-cli...
 	echo %CLI_REPO%\References\Windows\build.bat
 	call %CLI_REPO%\References\Windows\build.bat %APPVER% %CERT_SHA1% || exit /b 1
 	goto :eof
 
 :build_ui
 	echo ==================================================
-	echo ============ BUILDING IVPN UI ====================
+	echo ======== BUILDING privateline-connect-ui =========
 	echo ==================================================
   cd %SCRIPTDIR%\..\..  || exit /b 1
 
@@ -118,9 +118,9 @@ goto :success
 		echo.
 		echo Signing binary by certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%
 		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "%UI_BINARIES_FOLDER%\IVPN.exe" || exit /b 1
+		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "%UI_BINARIES_FOLDER%\privateline-connect-ui.exe" || exit /b 1
 		echo.
-		echo Signing SUCCES
+		echo Signing SUCCESS
 		echo.
 	)
 
@@ -132,8 +132,8 @@ goto :success
 
 	echo     Copying UI '%UI_BINARIES_FOLDER%' ...
 	xcopy /E /I  "%UI_BINARIES_FOLDER%" "%INSTALLER_TMP_DIR%\ui" || goto :error
-	echo     Renaming UI binary to 'IVPN Client.exe' ...
-	rename  "%INSTALLER_TMP_DIR%\ui\IVPN.exe" "IVPN Client.exe" || goto :error
+	echo     Renaming UI binary to 'privateline-connect-ui.exe' ...
+	rename  "%INSTALLER_TMP_DIR%\ui\privateline-connect-ui.exe" "privateline-connect-ui.exe" || goto :error
 
 	echo     Copying other files ...
 	set BIN_FOLDER_SERVICE=%SERVICE_REPO%\bin\x86_64\
@@ -190,8 +190,8 @@ goto :success
 	
 	cd %SCRIPTDIR%\Installer
 
-	SET OUT_FILE="%INSTALLER_OUT_DIR%\IVPN-Client-v%APPVER%.exe"
-	%MAKENSIS% /DPRODUCT_VERSION=%APPVER% /DOUT_FILE=%OUT_FILE% /DSOURCE_DIR=%INSTALLER_TMP_DIR% "IVPN Client.nsi"
+	SET OUT_FILE="%INSTALLER_OUT_DIR%\privateLINE-Connect-v%APPVER%.exe"
+	%MAKENSIS% /DPRODUCT_VERSION=%APPVER% /DOUT_FILE=%OUT_FILE% /DSOURCE_DIR=%INSTALLER_TMP_DIR% "privateLINE Connect.nsi"
 	IF not ERRORLEVEL 0 (
 		ECHO [!] Error: failed to create installer
 		EXIT /B 1
@@ -205,7 +205,7 @@ goto :success
 
 :error
 	goto :remove_tmp_vars_before_exit
-	echo [!] IVPN Client installer build FAILED with error #%errorlevel%.
+	echo [!] privateLINE Connect installer build FAILED with error #%errorlevel%.
 	exit /b %errorlevel%
 
 :remove_tmp_vars_before_exit

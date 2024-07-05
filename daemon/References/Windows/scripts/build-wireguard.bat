@@ -27,11 +27,11 @@ if not exist "%SCRIPTDIR%..\.deps\wireguard-windows\.deps\prepared" (
   cd "%SCRIPTDIR%..\.deps"
 
   echo [*] Cloning wireguard-windows...
-  git clone git://git.zx2c4.com/wireguard-windows || exit /b 1
+  git clone https://git.zx2c4.com/wireguard-windows || exit /b 1
   cd wireguard-windows || exit /b 1
 
   echo [*] Checking out wireguard-windows version [%WGVER%]...
-  git checkout %WGVER% >nul 2>&1 || exit /b 1
+  git checkout %WGVER% || exit /b 1
     echo [*] Building wireguard-windows from NEW sources...
 ) else (
   echo [*] Building wireguard-windows from ALREADY DOWNLOADED sources...

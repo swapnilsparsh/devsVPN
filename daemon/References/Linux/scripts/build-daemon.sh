@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 
 SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 OUT_DIR="$SCRIPT_DIR/_out_bin"
-OUT_FILE="$OUT_DIR/ivpn-service"
+OUT_FILE="$OUT_DIR/privateline-connect-svc"
 
 set -e
 
@@ -50,7 +50,7 @@ echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 #   ldd -r -v <binary_file> # check shared libraries dependencies
 #
 # TODO: think how to avoid using CGO
-if [ ! -z "$IVPN_BUILD_SKIP_GLIBC_VER_CHECK" ] || [ ! -z "$GITHUB_ACTIONS" ]; 
+if [ ! -z "$PRIVATELINE_BUILD_SKIP_GLIBC_VER_CHECK" ] || [ ! -z "$GITHUB_ACTIONS" ]; 
 then
   echo "[!] ! GLIBC version check skipped (according to env vars configuration) !"
 else
@@ -60,7 +60,7 @@ else
   then
       echo "[!] GLIBC version '${GLIBC_VER}' is greater than reqired '${GLIBC_VER_MAX_REQUIRED}'"
       echo "[!] Compiling with the new GLIBC version will not allow the program to start on systems with the old GLIBC."
-      echo "[ ] (you can define env var 'IVPN_BUILD_SKIP_GLIBC_VER_CHECK' to skip this check"
+      echo "[ ] (you can define env var 'PRIVATELINE_BUILD_SKIP_GLIBC_VER_CHECK' to skip this check"
       read -p "[?] Do you want to continue? [y\n] (N - default): " yn
       case $yn in
         [Yy]* ) ;;
@@ -83,7 +83,7 @@ then
   echo "[!] Compiling in DEBUG mode."
   BUILDTAG_DEBUG="debug"
 fi
-if [ ! -z "$IVPN_NO_WIFI" ]; then
+if [ ! -z "$PRIVATELINE_NO_WIFI" ]; then
   echo "[!] WIFI functionality DISABLED."
   BUILDTAG_NOWIFI="nowifi"
 fi

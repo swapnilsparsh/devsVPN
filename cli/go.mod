@@ -15,6 +15,7 @@ require (
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
+	github.com/panta/machineid v1.0.2 // indirect
 	github.com/parsiya/golnk v0.0.0-20221103095132-740a4c27c4ff // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect

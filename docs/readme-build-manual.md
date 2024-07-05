@@ -25,14 +25,14 @@ As a result, you will have compiled all the required binaries:
 
 ## Manual installation
 
-Manual installation involves placing compiled binaries into specified locations on the target system. The IVPN service checks for the existence of required files, their access rights, and owner. All the necessary files should be located under `/opt/ivpn`.
+Manual installation involves placing compiled binaries into specified locations on the target system. The IVPN service checks for the existence of required files, their access rights, and owner. All the necessary files should be located under `/opt/privateline`.
 
 Below is an example of a correct installation.  
 The file source locations are indicated as comments (e.g. `# path-relative-to-repository-root`)  
 ***Note: Files' owner and access rights are important!***  
 
 ```bash
-/opt/ivpn/etc:
+/opt/privateline/etc:
 -r-------- 1 root root  2358 Feb  8 16:10 ca.crt            # daemon\References\common\etc\ca.crt
 -rwx------ 1 root root   268 Feb  8 16:10 client.down       # daemon\References\Linux\etc\client.down
 -rwx------ 1 root root  2664 Feb  8 16:10 client.up         # daemon\References\Linux\etc\client.up
@@ -42,19 +42,19 @@ The file source locations are indicated as comments (e.g. `# path-relative-to-re
 -rwx------ 1 root root 33173 Feb  8 16:10 splittun.sh       # daemon\References\Linux\etc\splittun.sh
 -r-------- 1 root root   636 Feb  8 16:10 ta.key            # daemon\References\common\etc\ta.key
 
-/opt/ivpn/dnscrypt-proxy:
+/opt/privateline/dnscrypt-proxy:
 -rwxr-xr-x 1 root root 10828056 Feb  8 16:10 dnscrypt-proxy # daemon\References\Linux\_deps\dnscryptproxy_inst\dnscrypt-proxy
 
-/opt/ivpn/kem:
+/opt/privateline/kem:
 -rwxr-xr-x 1 root root 313568 Feb  8 16:10 kem-helper   # daemon\References\Linux\_deps\kem-helper\kem-helper-bin\kem-helper
 
-/opt/ivpn/obfsproxy:
+/opt/privateline/obfsproxy:
 -rwxr-xr-x 1 root root 5460792 Feb  8 16:10 obfs4proxy  # daemon\References\Linux\_deps\obfs4proxy_inst\obfs4proxy
 
-/opt/ivpn/v2ray:
+/opt/privateline/v2ray:
 -rwxr-xr-x 1 root root 31774552 Feb  8 16:10 v2ray      # daemon\References\Linux\_deps\v2ray_inst\v2ray
 
-/opt/ivpn/wireguard-tools:
+/opt/privateline/wireguard-tools:
 -rwxr-xr-x 1 root root 101312 Feb  8 16:10 wg           # daemon\References\Linux\_deps\wireguard-tools_inst\wg
 -rwxr-xr-x 1 root root  13460 Feb  8 16:10 wg-quick     # daemon\References\Linux\_deps\wireguard-tools_inst\wg-quick
 ```

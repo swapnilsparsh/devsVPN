@@ -1,8 +1,8 @@
 {
-  "name": "privateline-ui",
+  "name": "privateline-connect-ui",
   "version": "3.14.12",
-  "productName": "IVPN",
-  "description": "PrivateLINE Client",
+  "productName": "privateline-connect-ui",
+  "description": "privateLINE Connect UI Client",
   "author": "PrivateLINE Limited",
   "license": "GPL-3.0",
   "private": true,
