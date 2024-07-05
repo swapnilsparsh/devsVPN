@@ -39,12 +39,12 @@ func doInitConstantsForBuild() {
 
 func doOsInitForBuild() {
 	installDir := getInstallDir()
-	wfpDllPath = path.Join(installDir, "IVPN Firewall Native x64.dll")
-	nativeHelpersDllPath = path.Join(installDir, "IVPN Helpers Native x64.dll")
+	wfpDllPath = path.Join(installDir, "privateLINE Firewall Native x64.dll")
+	nativeHelpersDllPath = path.Join(installDir, "privateLINE Helpers Native x64.dll")
 	splitTunDriverPath = path.Join(installDir, "SplitTunnelDriver", "x86_64", "ivpn-split-tunnel.sys")
 	if !Is64Bit() {
-		wfpDllPath = path.Join(installDir, "IVPN Firewall Native.dll")
-		nativeHelpersDllPath = path.Join(installDir, "IVPN Helpers Native.dll")
+		wfpDllPath = path.Join(installDir, "privateLINE Firewall Native.dll")
+		nativeHelpersDllPath = path.Join(installDir, "privateLINE Helpers Native.dll")
 	}
 }
 
