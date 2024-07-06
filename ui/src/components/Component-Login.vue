@@ -21,31 +21,69 @@
           <input
             class="styledBig"
             ref="accountid"
-            style="text-align: center"
-            placeholder="Enter your email Id"
+            style="text-align: left"
+            placeholder="Enter your Email"
             v-model="email"
             v-on:keyup="keyup($event)"
           />
           <div style="height: 10px" />
-          <input
-            class="styledBig"
-            ref="password"
-            style="text-align: center"
-            placeholder="Enter your Password"
-            v-model="password"
-            type="password"
-            v-on:keyup="keyup($event)"
-          />
+          <div style="position: relative; display: flex; align-items: center">
+            <input
+              class="styledBig"
+              ref="password"
+              style="text-align: left"
+              placeholder="Enter your Password"
+              v-model="password"
+              :type="passwordType"
+              v-on:keyup="keyup($event)"
+            />
+            <img
+              src="@/assets/eye-close.svg"
+              @click="toggleEye"
+              alt="Eye Image"
+              style="
+                width: 20px;
+                height: 20px;
+                position: absolute;
+                right: 10px;
+                cursor: pointer;
+              "
+              v-if="showPassword"
+            />
+            <img
+              src="@/assets/eye-open.svg"
+              @click="toggleEye"
+              alt="Eye Image"
+              style="
+                width: 20px;
+                height: 20px;
+                position: absolute;
+                right: 10px;
+                cursor: pointer;
+              "
+              v-else
+            />
+          </div>
+        </div>
+        <div
+          class="medium_text"
+          style="
+            color: #0078d7;
+            width: 100%;
+            text-align: right;
+            font-weight: 500;
+            cursor: pointer;
+          "
+          v-on:click="ForgotPassword"
+        >
+          Forgot Password?
         </div>
 
         <div style="height: 24px" />
         <button class="master" v-on:click="Login">Log In</button>
         <div style="height: 12px" />
 
-        <button
-          class="slave"
-          v-on:click="CreateAccount"
-        >
+        <button class="slave" v-on:click="CreateAccount">
           Create an account
         </button>
       </div>
@@ -121,6 +159,7 @@ export default {
       isForceLogoutRequested: false,
       captcha: "",
       confirmation2FA: "",
+      showPassword: false,
     };
   },
   mounted() {
@@ -159,6 +198,10 @@ export default {
     }
   },
   methods: {
+    toggleEye() {
+      // Toggle the state
+      this.showPassword = !this.showPassword;
+    },
     async Login(isForceLogout, confirmation2FA) {
       try {
         // check accoundID
@@ -181,10 +224,10 @@ export default {
         // }
 
         this.isProcessing = true;
-        console.log({accountid: this.accountID, password: this.password});
+        console.log({ accountid: this.accountID, password: this.password });
         const resp = await sender.Login(
           this.email,
-          this.password,
+          this.password
           // isForceLogout === true || this.isForceLogoutRequested === true,
           // this.captchaID,
           // this.captcha,
@@ -257,6 +300,9 @@ export default {
     CreateAccount() {
       sender.shellOpenExternal(`https://privateline.io/email-signup`);
     },
+    ForgotPassword() {
+      sender.shellOpenExternal(`https://privateline.io/forgot-password`);
+    },
     Cancel() {
       this.rawResponse = null;
       this.apiResponseStatus = 0;
@@ -316,6 +362,10 @@ export default {
     },
   },
   computed: {
+    passwordType() {
+      return this.showPassword ? "text" : "password";
+    },
+
     isCaptchaRequired: function () {
       return (
         (this.apiResponseStatus === API_CAPTCHA_REQUIRED ||
