@@ -407,7 +407,7 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 		return responseBody, err
 	}
 
-	return nil, fmt.Errorf("unable to access IVPN API server: %w", firstErr)
+	return nil, fmt.Errorf("unable to access privateLINE API server: %v", firstErr)
 }
 
 func fix_response_body(responseBody []byte, statusCode int) (reqResponseBody []byte) {

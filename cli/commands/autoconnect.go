@@ -43,7 +43,7 @@ func (c *CmdAutoConnect) Init() {
 
 	c.Initialize("autoconnect", "Manage VPN auto-connection parameters")
 	c.BoolVar(&c.status, "status", false, "(default) Show settings")
-	c.StringVar(&c.on_launch_val, "on_launch", "", "[on/off]", "Autoconnect on daemon launch\nThis enables the VPN tunnel to startup as quickly as possible\nas the daemon is started early in the operating system boot process\nand before the IVPN app (The GUI)")
+	c.StringVar(&c.on_launch_val, "on_launch", "", "[on/off]", "Autoconnect on daemon launch\nThis enables the VPN tunnel to startup as quickly as possible\nas the daemon is started early in the operating system boot process\nand before the privateLINE app (The GUI)")
 
 }
 
