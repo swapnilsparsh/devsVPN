@@ -1723,7 +1723,7 @@ func (s *Service) SessionNew(email string, password string) (
 	}
 
 	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
-	// FIXME: api.privateline.io cert
+	// FIXME: include api.privateline.io cert in the apps, verify at connection time
 
 	// get account status info
 	// accountInfo = s.createAccountStatus(sessionNewSuccessResp.ServiceStatus)
@@ -1757,17 +1757,29 @@ func (s *Service) SessionNew(email string, password string) (
 		AllowedIPs: connectDevSuccessResp.Data[1].Peer.AllowedIPs,
 	}
 
-	s._preferences.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
-	s._preferences.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
+	// propagate the Wireguard device configuration we received to Preferences
 
-	// This should save our manual Wireguard configuration we received from the server API to preferences.json
+	s._preferences.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
+	s._preferences.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
+
+	// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
+	firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
+	if firstDnsSrv != "" {
+		s._preferences.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
+	} else {
+		log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
+		return apiCode, "", accountInfo, "", err
+	}
+
+	// save Preferences to preferences.json
 	s._preferences.SavePreferences()
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
 	// Apply SplitTunnel configuration. It is applicable for Inverse mode of SplitTunnel
 	if err := s.splitTunnelling_ApplyConfig(); err != nil {
-		log.Error(err)
+		log.Error(fmt.Errorf("splitTunnelling_ApplyConfig failed: %v", err))
+		return apiCode, "", accountInfo, "", err
 	}
 
 	return apiCode, "", accountInfo, rawResponse, nil

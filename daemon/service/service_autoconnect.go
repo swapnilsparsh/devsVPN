@@ -377,6 +377,7 @@ func (s *Service) updateParamsAccordingToMetadata(params types.ConnectionParams)
 	}
 	params.WireGuardParameters.EntryVpnServer = s._preferences.LastConnectionParams.WireGuardParameters.EntryVpnServer
 	params.WireGuardParameters.Port.Port = s._preferences.LastConnectionParams.WireGuardParameters.Port.Port
+	params.ManualDNS = s._preferences.LastConnectionParams.ManualDNS
 	return params, nil
 
 	/*

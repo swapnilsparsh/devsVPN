@@ -1147,6 +1147,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 		connectRequest.Params.WireGuardParameters.EntryVpnServer = prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer
 		connectRequest.Params.WireGuardParameters.Port.Port = prefs.LastConnectionParams.WireGuardParameters.Port.Port
+		connectRequest.Params.ManualDNS = prefs.LastConnectionParams.ManualDNS
 
 		// Save last received connection request. It will be processed in separate routine 'processConnectionRequests()' which is already running
 		p.RegisterConnectionRequest(connectRequest.Params)
