@@ -1771,7 +1771,7 @@ func (s *Service) SessionNew(email string, password string) (
 		return apiCode, "", accountInfo, "", err
 	}
 
-	// save Preferences to preferences.json
+	// save Preferences to settings.json
 	s._preferences.SavePreferences()
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
