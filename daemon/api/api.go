@@ -26,7 +26,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/http"
 	"runtime"
 	"strings"
 	"sync"
@@ -46,6 +45,7 @@ const (
 	_serversPath           = "v5/servers.json"
 	_apiPathPrefix         = "v4"
 	_sessionNewPath        = "/user/login"
+	_connectDevicePath     = "/connection/push-key"
 	_sessionStatusPath     = _apiPathPrefix + "/session/status"
 	_sessionDeletePath     = _apiPathPrefix + "/session/delete"
 	_wgKeySetPath          = _apiPathPrefix + "/session/wg/set"
@@ -324,11 +324,14 @@ func (a *API) SessionNew(email string, password string) (
 
 	// Check is it API error
 	if err := json.Unmarshal(data, &apiErr); err != nil {
-		return nil, nil, nil, rawResponse, fmt.Errorf("[%d; status=%d] failed to deserialize API response: %w", 200, http.StatusOK, err)
+		// TODO: FIXME: hardcoding code 200 is wrong, needs to be fixed. Need to revert definition of doRequestAPIHost() to return *http.Response, not byte array.
+		//return nil, nil, nil, rawResponse, fmt.Errorf("[%d; status=%d] failed to deserialize API response: %w", 200, http.StatusOK, err)
+		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 	}
 
 	// success
-	if apiErr.Status == types.CodeSuccess {
+	// if apiErr.Status == types.CodeSuccess {
+	if apiErr.Status == 0 {
 		if err := json.Unmarshal(data, &successResp); err != nil {
 			return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 		}
@@ -345,6 +348,53 @@ func (a *API) SessionNew(email string, password string) (
 	}
 
 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.Status, apiErr.Message)
+}
+
+func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string, sessionToken string) (
+	*types.ConnectDeviceResponse,
+	*types.APIErrorResponse,
+	string, // RAW response
+	error) {
+
+	var successResp types.ConnectDeviceResponse
+	var apiErr types.APIErrorResponse
+
+	rawResponse := ""
+
+	request := &types.ConnectDeviceRequest{
+		DeviceID:                  deviceID,
+		DeviceName:                deviceName,
+		PublicKey:                 publicKey,
+		Platform:                  runtime.GOOS,
+		AuthorizationSessionToken: types.AuthorizationSessionToken{SessionToken: sessionToken},
+	}
+
+	data, err := a.requestRaw(protocolTypes.IPvAny, "", _connectDevicePath, "POST", "application/json", request, 0, 0)
+	if err != nil {
+		return nil, nil, rawResponse, err
+	} // // ++++++ Bearer token ++++
+	// authorizationToken := "Bearer " + wg.connectParams.bearerToken
+	// req.Header.Set("Content-Type", "application/json")
+	// req.Header.Set("Authorization", authorizationToken)
+
+	rawResponse = string(data)
+
+	// Check is it API error
+	// if err := json.Unmarshal(data, &apiErr); err != nil {
+	// 	// TODO: FIXME: hardcoding code 200 is wrong, needs to be fixed. Need to revert definition of doRequestAPIHost() to return *http.Response, not byte array.
+	// 	return nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+	// }
+
+	// success
+	// if apiErr.Status == types.CodeSuccess {
+	if err := json.Unmarshal(data, &successResp); err != nil {
+		return nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+	}
+
+	return &successResp, &apiErr, rawResponse, nil
+	// }
+
+	// return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.Status, apiErr.Message)
 }
 
 // SessionStatus - get session status

@@ -185,7 +185,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 		}
 
 		// take first host from the list (if multiple hosts were defined, the random one was taken above)
-		host := net.ParseIP(params.OpenVpnParameters.EntryVpnServer.Hosts[0].Host)
+		host := net.ParseIP(params.OpenVpnParameters.EntryVpnServer.Hosts[0].EndpointIP)
 
 		// nothing from supported proxy types should be in this parameter
 		proxyType := params.OpenVpnParameters.Proxy.Type
@@ -216,7 +216,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 			connectionParams = openvpn.CreateConnectionParams(
 				exitHostValue.Hostname,
 				params.OpenVpnParameters.Port.Protocol > 0, // is TCP
-				exitHostValue.MultihopPort,
+				exitHostValue.EndpointPort,
 				host,
 				proxyType,
 				net.ParseIP(params.OpenVpnParameters.Proxy.Address),
@@ -279,22 +279,28 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 			// Multi-Hop
 			connectionParams = wireguard.CreateConnectionParams(
 				exitHostValue.Hostname,
-				exitHostValue.MultihopPort,
-				net.ParseIP(hostValue.Host),
+				exitHostValue.EndpointPort,
+				net.ParseIP(hostValue.EndpointIP),
 				exitHostValue.PublicKey,
 				hostLocalIP,
 				ipv6Prefix,
-				params.WireGuardParameters.Mtu)
+				params.WireGuardParameters.Mtu,
+				exitHostValue.DnsServers,
+				exitHostValue.AllowedIPs,
+			)
 		} else {
 			// Single-Hop
 			connectionParams = wireguard.CreateConnectionParams(
 				"",
-				params.WireGuardParameters.Port.Port,
-				net.ParseIP(hostValue.Host),
+				hostValue.EndpointPort,
+				net.ParseIP(hostValue.EndpointIP),
 				hostValue.PublicKey,
 				hostLocalIP,
 				ipv6Prefix,
-				params.WireGuardParameters.Mtu)
+				params.WireGuardParameters.Mtu,
+				hostValue.DnsServers,
+				hostValue.AllowedIPs,
+			)
 		}
 
 		return s.connectWireGuard(originalEntryServerInfo, connectionParams, params.ManualDNS, params.Metadata.AntiTracker, params.FirewallOn, params.FirewallOnDuringConnection, v2RayWrapper)
@@ -1031,11 +1037,11 @@ func (s *Service) startV2Ray(params types.ConnectionParams, v2RayType v2r.V2RayT
 		remoteSvrDnsName = params.OpenVpnParameters.EntryVpnServer.Hosts[0].DnsName
 		if len(params.OpenVpnParameters.MultihopExitServer.Hosts) > 0 {
 			// OpenVPN Multi-Hop
-			inboundIp = params.OpenVpnParameters.MultihopExitServer.Hosts[0].Host
+			inboundIp = params.OpenVpnParameters.MultihopExitServer.Hosts[0].EndpointIP
 			inboundPortsApplicable = []api_types.PortInfoBase{{Type: strings.ToUpper(requiredLocalPortTypeStr), Port: outboundPort}}
 		} else {
 			// OpenVPN Single-Hop
-			inboundIp = params.OpenVpnParameters.EntryVpnServer.Hosts[0].Host
+			inboundIp = params.OpenVpnParameters.EntryVpnServer.Hosts[0].EndpointIP
 			inboundPortsApplicable = svrs.Config.Ports.V2Ray.OpenVPN // for Single-Hop connections we use internal V2Ray ports for inbound connections
 		}
 	} else if params.VpnType == vpn.WireGuard {
@@ -1043,11 +1049,11 @@ func (s *Service) startV2Ray(params types.ConnectionParams, v2RayType v2r.V2RayT
 		remoteSvrDnsName = params.WireGuardParameters.EntryVpnServer.Hosts[0].DnsName
 		if len(params.WireGuardParameters.MultihopExitServer.Hosts) > 0 {
 			// WireGuard Multi-Hop
-			inboundIp = params.WireGuardParameters.MultihopExitServer.Hosts[0].Host
+			inboundIp = params.WireGuardParameters.MultihopExitServer.Hosts[0].EndpointIP
 			inboundPortsApplicable = []api_types.PortInfoBase{{Type: strings.ToUpper(requiredLocalPortTypeStr), Port: outboundPort}}
 		} else {
 			// WireGuard Single-Hop
-			inboundIp = params.WireGuardParameters.EntryVpnServer.Hosts[0].Host
+			inboundIp = params.WireGuardParameters.EntryVpnServer.Hosts[0].EndpointIP
 			inboundPortsApplicable = svrs.Config.Ports.V2Ray.WireGuard // for Single-Hop connections we use internal V2Ray ports for inbound connections
 		}
 	}
@@ -1109,30 +1115,30 @@ func (s *Service) startV2Ray(params types.ConnectionParams, v2RayType v2r.V2RayT
 		}
 
 		// We have to return the original information about EntryServer
-		origEntrySvr.IP = net.ParseIP(params.OpenVpnParameters.EntryVpnServer.Hosts[0].Host)
+		origEntrySvr.IP = net.ParseIP(params.OpenVpnParameters.EntryVpnServer.Hosts[0].EndpointIP)
 		origEntrySvr.Port = params.OpenVpnParameters.Port.Port
 		origEntrySvr.PortType = params.OpenVpnParameters.Port.Protocol
 
 		// Specify connection parameters to local V2Ray proxy
-		updatedParams.OpenVpnParameters.EntryVpnServer.Hosts[0].Host = "127.0.0.1"
+		updatedParams.OpenVpnParameters.EntryVpnServer.Hosts[0].EndpointIP = "127.0.0.1"
 		updatedParams.OpenVpnParameters.Port.Port = v2rayLocalPort
 
 		// for Multi-Hop connections
 		if len(params.OpenVpnParameters.MultihopExitServer.Hosts) > 0 {
 			// Data flow: Outbound(EntryServer:V2Ray) -> Inbound(ExitServer:OpenVPN)
 			// For V2Ray connections we ignore port-based multihop configuration. Use default ports instead.
-			updatedParams.OpenVpnParameters.MultihopExitServer.Hosts[0].MultihopPort = v2rayLocalPort
+			updatedParams.OpenVpnParameters.MultihopExitServer.Hosts[0].EndpointPort = v2rayLocalPort
 		}
 
 	} else if vpn.Type(params.VpnType) == vpn.WireGuard {
 
 		// We have to return the original information about EntryServer
-		origEntrySvr.IP = net.ParseIP(params.WireGuardParameters.EntryVpnServer.Hosts[0].Host)
+		origEntrySvr.IP = net.ParseIP(params.WireGuardParameters.EntryVpnServer.Hosts[0].EndpointIP)
 		origEntrySvr.Port = params.WireGuardParameters.Port.Port
 		origEntrySvr.PortType = params.WireGuardParameters.Port.Protocol
 
 		// Specify connection parameters to local V2Ray proxy
-		updatedParams.WireGuardParameters.EntryVpnServer.Hosts[0].Host = "127.0.0.1"
+		updatedParams.WireGuardParameters.EntryVpnServer.Hosts[0].EndpointIP = "127.0.0.1"
 		updatedParams.WireGuardParameters.Port.Port = v2rayLocalPort
 
 		// for Multi-Hop connections
@@ -1141,7 +1147,7 @@ func (s *Service) startV2Ray(params types.ConnectionParams, v2RayType v2r.V2RayT
 			// Since the first WG server is the ExitServer - we have to use it's public key in the WireGuard configuration
 			updatedParams.WireGuardParameters.EntryVpnServer.Hosts[0].PublicKey = params.WireGuardParameters.MultihopExitServer.Hosts[0].PublicKey
 			// For V2Ray connections we ignore port-based multihop configuration. Use default ports instead.
-			updatedParams.WireGuardParameters.MultihopExitServer.Hosts[0].MultihopPort = v2rayLocalPort
+			updatedParams.WireGuardParameters.MultihopExitServer.Hosts[0].EndpointPort = v2rayLocalPort
 		}
 	}
 	// ------------------------------------------------------------

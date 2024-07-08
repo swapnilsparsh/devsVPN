@@ -22,6 +22,16 @@
 
 package types
 
+type RequestWithAuthorization interface {
+	// Returns "" if there's no authentication token in this request
+	GetAuthenticationToken() string
+}
+
+type AuthorizationSessionToken struct {
+	// non-serializable vars to pass to httpRequest creation stage
+	SessionToken string // bearer token for authorization
+}
+
 // KemPublicKeys in use for KEM: to exchange WG PresharedKey
 type KemPublicKeys struct {
 	KemPublicKey_Kyber1024             string `json:"kem_public_key1,omitempty"`
@@ -43,14 +53,39 @@ type SessionNewRequest struct {
 	Password string `json:"password"`
 }
 
+func (req SessionNewRequest) GetAuthenticationToken() string {
+	return ""
+}
+
 // SessionDeleteRequest request to delete session
 type SessionDeleteRequest struct {
 	Session string `json:"session_token"`
 }
 
+func (req SessionDeleteRequest) GetAuthenticationToken() string {
+	return ""
+}
+
+// ConnectDeviceRequest request to register device
+type ConnectDeviceRequest struct {
+	DeviceID   string `json:"device_id"`
+	DeviceName string `json:"device_name"`
+	PublicKey  string `json:"public_key"`
+	Platform   string `json:"platform"`
+	AuthorizationSessionToken
+}
+
+func (req ConnectDeviceRequest) GetAuthenticationToken() string {
+	return req.AuthorizationSessionToken.SessionToken
+}
+
 // SessionStatusRequest request to get session status
 type SessionStatusRequest struct {
 	Session string `json:"session_token"`
+}
+
+func (req SessionStatusRequest) GetAuthenticationToken() string {
+	return ""
 }
 
 // SessionWireGuardKeySetRequest request to set new WK key for a session
@@ -59,4 +94,8 @@ type SessionWireGuardKeySetRequest struct {
 	PublicKey          string `json:"public_key"`
 	ConnectedPublicKey string `json:"connected_public_key"`
 	KemPublicKeys
+}
+
+func (req SessionWireGuardKeySetRequest) GetAuthenticationToken() string {
+	return ""
 }

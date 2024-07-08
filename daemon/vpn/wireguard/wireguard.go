@@ -23,14 +23,9 @@
 package wireguard
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"net/http"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -61,6 +56,8 @@ type ConnectionParams struct {
 	ipv6Prefix           string
 	multihopExitHostname string // (e.g.: "nl4.wg.ivpn.net") we need it only for informing clients about connection status
 	mtu                  int    // Set 0 to use default MTU value
+	allowedIPs           string
+	dnsServers           string
 }
 
 func (cp *ConnectionParams) GetIPv6ClientLocalIP() net.IP {
@@ -93,7 +90,9 @@ func CreateConnectionParams(
 	hostPublicKey string,
 	hostLocalIP net.IP,
 	ipv6Prefix string,
-	mtu int) ConnectionParams {
+	mtu int,
+	dnsServers string,
+	allowedIPs string) ConnectionParams {
 
 	return ConnectionParams{
 		multihopExitHostname: multihopExitHostName,
@@ -103,6 +102,8 @@ func CreateConnectionParams(
 		hostLocalIP:          hostLocalIP,
 		ipv6Prefix:           ipv6Prefix,
 		mtu:                  mtu,
+		allowedIPs:           allowedIPs,
+		dnsServers:           dnsServers,
 	}
 }
 
@@ -284,149 +285,30 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	// 	return nil, fmt.Errorf("WG PresharedKey is not base64 string")
 	// }
 
-	// API call to Privateline to get connection parameters
-	url := "https://api.privateline.io/connection/push-key"
-	method := "POST"
-
-	// Define the payload as a struct
-	type Payload struct {
-		DeviceID   string `json:"device_id"`
-		DeviceName string `json:"device_name"`
-		PublicKey  string `json:"public_key"`
-		Platform   string `json:"platform"`
-	}
-
-	stableMachineID, err := helpers.StableMachineID()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate machine ID: %w", err)
-	}
-
-	payload := Payload{
-		DeviceID:   stableMachineID,
-		DeviceName: "PL Connect - " + stableMachineID[:8],
-		PublicKey:  wg.connectParams.clientPublicKey,
-		Platform:   runtime.GOOS,
-	}
-
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create API request: %w", err)
-	}
-	// ++++++ Bearer token ++++
-	authorizationToken := "Bearer " + wg.connectParams.bearerToken
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorizationToken)
-
-	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute API request: %w", err)
-	}
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read API response: %w", err)
-	}
-
-	var response struct {
-		Status  bool   `json:"status"`
-		Message string `json:"message"`
-		Data    []struct {
-			Interface struct {
-				Address string `json:"Address"`
-				DNS     string `json:"DNS"`
-			} `json:"Interface"`
-			Peer struct {
-				PublicKey  string `json:"PublicKey"`
-				AllowedIPs string `json:"AllowedIPs"`
-				Endpoint   string `json:"Endpoint"`
-			} `json:"Peer"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("%s. Failed to parse API response: %w", res.Status, err)
-	}
-
-	log.Debug(response.Status)
-	log.Info("\n ++++++++++ Response data Connect API Start ( BUILD 02072024 0046) +++++++++++++++++ \n")
-	log.Debug(response.Data)
-	log.Info("\n ++++++++++ Response data Connect API End +++++++++++++++++ \n")
-	log.Debug(response.Message)
-
-	if !response.Status {
-		return nil, fmt.Errorf("API error: %s", response.Message)
-	}
-
-	if len(response.Data) < 2 {
-		return nil, fmt.Errorf("unexpected API response format")
-	}
-
-	interfaceAddress := response.Data[0].Interface.Address
-	dnsServers := response.Data[0].Interface.DNS
-	publicKey := response.Data[1].Peer.PublicKey
-	// allowedIPs := response.Data[1].Peer.AllowedIPs
-	endpoint := response.Data[1].Peer.Endpoint
-
 	interfaceCfg := []string{
 		"[Interface]",
 		"PrivateKey = " + wg.connectParams.clientPrivateKey,
 		"ListenPort = " + strconv.Itoa(wg.localPort),
-		"Address = " + interfaceAddress,
-		"DNS = " + dnsServers,
+		"Address = " + wg.connectParams.clientLocalIP.String(),
+		"DNS = " + wg.connectParams.dnsServers,
 	}
 
 	peerCfg := []string{
 		"[Peer]",
-		"PublicKey = " + publicKey,
-		"Endpoint = " + endpoint,
-		"AllowedIPs = " + "0.0.0.0/0",
+		"PublicKey = " + wg.connectParams.hostPublicKey,
+		"Endpoint = " + wg.connectParams.hostIP.String() + ":" + strconv.Itoa(wg.connectParams.hostPort),
+		"AllowedIPs = " + wg.connectParams.allowedIPs,
 		"PersistentKeepalive = 25",
 	}
 
-	log.Debug("\n====================== Sandeep Interface and Peers Config Start =================\n")
-
-	interfaceCfgPrivkeyStarred := []string{
-		"[Interface]",
-		"PrivateKey = ***",
-		"ListenPort = " + strconv.Itoa(wg.localPort),
-		"Address = " + interfaceAddress,
-		"DNS = " + dnsServers,
-	}
-	log.Debug(interfaceCfgPrivkeyStarred)
-
-	log.Debug(peerCfg)
-	log.Debug("\n====================== Sandeep Interface and Peers Config End ===================\n")
-
-	// if len(wg.connectParams.presharedKey) > 0 {
-	// 	peerCfg = append(peerCfg, "PresharedKey = "+wg.connectParams.presharedKey)
-	// }
-	// add some OS-specific configurations (if necessary)
-	// iCfg, pCfg := wg.getOSSpecificConfigParams()
-	// interfaceCfg = append(interfaceCfg, iCfg...)
-	// peerCfg = append(peerCfg, pCfg...)
-
 	log.Debug("============== generateConfig logs end =======================")
 
-	// TODO FIXME: setting client local IP here for now
-	interfaceAddressOnly := helpers.IPv4AddrRegex.FindString(interfaceAddress)
-	if interfaceAddressOnly != "" {
-		wg.connectParams.clientLocalIP = net.ParseIP(interfaceAddressOnly)
-	} else {
-		log.Error("Error - returned interface address '" + interfaceAddress + "' does not include an IP address")
-	}
-
-	// TODO FIXME: setting manual DNS to the 1st returned DNS
-	firstDnsSrv := helpers.IPv4AddrRegex.FindString(dnsServers)
+	// TODO: FIXME: setting manual DNS to the 1st returned DNS
+	firstDnsSrv := helpers.IPv4AddrRegex.FindString(wg.connectParams.dnsServers)
 	if firstDnsSrv != "" {
 		wg.setManualDNS(dns.DnsSettings{DnsHost: firstDnsSrv})
 	} else {
-		log.Error("Error - returned DNS servers '" + dnsServers + "' do not include an IP address")
+		log.Error("Error - returned DNS servers '" + wg.connectParams.dnsServers + "' do not include an IP address")
 	}
 
 	return append(interfaceCfg, peerCfg...), nil

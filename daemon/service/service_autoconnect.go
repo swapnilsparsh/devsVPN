@@ -23,9 +23,7 @@
 package service
 
 import (
-	"crypto/rand"
 	"fmt"
-	"math/big"
 	"reflect"
 	"strings"
 
@@ -373,147 +371,159 @@ func (s *Service) getActionForWifiNetwork(wifiInfo wifiNotifier.WifiInfo) (retAc
 
 // updateParamsAccordingToMetadata - update Entry/Exit servers if connection requires 'Fastest' or 'Random'
 func (s *Service) updateParamsAccordingToMetadata(params types.ConnectionParams) (types.ConnectionParams, error) {
-	if params.Metadata.ServerSelectionEntry == types.Default && params.Metadata.ServerSelectionExit == types.Default {
-		return params, nil
+	// TODO: FIXME: Vlad - unconditionally using the Wireguard entry server info saved in preferences (if we have one), not the passed parameter
+	if len(s._preferences.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) <= 0 {
+		return params, fmt.Errorf("error - this device was not yet registered with the privateLINE server, please login first")
 	}
-
-	allServers, err := s.ServersList()
-	if err != nil {
-		return params, err
-	}
-
-	// ENTRY server
-	if params.Metadata.ServerSelectionEntry != types.Default {
-		// Get countryCode of exit server (do not choose exit server from same country)
-		exitSvrCountryCode := ""
-		if params.IsMultiHop() && params.Metadata.ServerSelectionExit != types.Default {
-			exitSvrCountryCode = s.getServerCountryCode(params, false)
-		}
-
-		if params.VpnType == vpn.OpenVPN {
-			//OpenVPN
-			applicableEntryServers := []apiTypes.OpenvpnServerInfo{}
-			if exitSvrCountryCode == "" {
-				applicableEntryServers = allServers.OpenvpnServers
-			} else {
-				for _, s := range allServers.OpenvpnServers {
-					if s.CountryCode == exitSvrCountryCode {
-						continue // exclude exit server from the same country as Exit server
-					}
-					applicableEntryServers = append(applicableEntryServers, s)
-				}
-			}
-			// Random/Fastest
-			switch params.Metadata.ServerSelectionEntry {
-			case types.Random: // RANDOM SERVER (OpenVPN)
-				rndIdx, err := rand.Int(rand.Reader, big.NewInt(int64(len(applicableEntryServers))))
-				if err != nil {
-					return params, err
-				}
-				params.OpenVpnParameters.EntryVpnServer.Hosts = applicableEntryServers[rndIdx.Int64()].Hosts
-			case types.Fastest: // FASTEST SERVER (OpenVPN)
-				fastestSvr, err := getFastestServer(s, vpn.OpenVPN, applicableEntryServers, params.Metadata.FastestGatewaysExcludeList)
-				if err != nil {
-					return params, err
-				}
-				params.OpenVpnParameters.EntryVpnServer.Hosts = fastestSvr.Hosts
-			default:
-			}
-		} else {
-			// WireGuard
-			applicableEntryServers := []apiTypes.WireGuardServerInfo{}
-			if exitSvrCountryCode == "" {
-				applicableEntryServers = allServers.WireguardServers
-			} else {
-				for _, s := range allServers.WireguardServers {
-					if s.CountryCode == exitSvrCountryCode {
-						continue // exclude exit server from the same country as Exit server
-					}
-					applicableEntryServers = append(applicableEntryServers, s)
-				}
-			}
-			// Random/Fastest
-			switch params.Metadata.ServerSelectionEntry {
-			case types.Random: // RANDOM SERVER (WireGuard)
-				rndIdx, err := rand.Int(rand.Reader, big.NewInt(int64(len(applicableEntryServers))))
-				if err != nil {
-					return params, err
-				}
-				params.WireGuardParameters.EntryVpnServer.Hosts = applicableEntryServers[rndIdx.Int64()].Hosts
-			case types.Fastest: // FASTEST SERVER (WireGuard)
-				fastestSvr, err := getFastestServer(s, vpn.WireGuard, applicableEntryServers, params.Metadata.FastestGatewaysExcludeList)
-				if err != nil {
-					return params, err
-				}
-				params.WireGuardParameters.EntryVpnServer.Hosts = fastestSvr.Hosts
-			default:
-			}
-		}
-	}
-
-	// EXIT server (Fastest server is not applicable for exit server)
-	if params.IsMultiHop() && params.Metadata.ServerSelectionExit == types.Random {
-
-		// Get countryCode of exit server (do not choose exit server from same country)
-		entrySvrCountryCode := s.getServerCountryCode(params, true)
-
-		if params.VpnType == vpn.OpenVPN {
-			//OpenVPN
-			applicableExitServers := []apiTypes.OpenvpnServerInfo{}
-			if entrySvrCountryCode == "" {
-				applicableExitServers = allServers.OpenvpnServers
-			} else {
-				for _, s := range allServers.OpenvpnServers {
-					if s.CountryCode == entrySvrCountryCode {
-						continue // exclude exit server from the same country as Exit server
-					}
-					applicableExitServers = append(applicableExitServers, s)
-				}
-			}
-			// Random/Fastest
-			switch params.Metadata.ServerSelectionEntry {
-			case types.Random: // RANDOM SERVER (OpenVPN)
-				rndIdx, err := rand.Int(rand.Reader, big.NewInt(int64(len(applicableExitServers))))
-				if err != nil {
-					return params, err
-				}
-				params.OpenVpnParameters.MultihopExitServer.Hosts = applicableExitServers[rndIdx.Int64()].Hosts
-
-			case types.Fastest: // FASTEST SERVER (OpenVPN)
-				// fastest server not applicable for ExitServer
-			default:
-			}
-		} else {
-			// WireGuard
-
-			applicableExitServers := []apiTypes.WireGuardServerInfo{}
-			if entrySvrCountryCode == "" {
-				applicableExitServers = allServers.WireguardServers
-			} else {
-				for _, s := range allServers.WireguardServers {
-					if s.CountryCode == entrySvrCountryCode {
-						continue // exclude exit server from the same country as Exit server
-					}
-					applicableExitServers = append(applicableExitServers, s)
-				}
-			}
-			// Random/Fastest
-			switch params.Metadata.ServerSelectionEntry {
-			case types.Random: // RANDOM SERVER (WireGuard)
-				rndIdx, err := rand.Int(rand.Reader, big.NewInt(int64(len(applicableExitServers))))
-				if err != nil {
-					return params, err
-				}
-				params.WireGuardParameters.MultihopExitServer.Hosts = applicableExitServers[rndIdx.Int64()].Hosts
-
-			case types.Fastest: // FASTEST SERVER (WireGuard)
-				// fastest server not applicable for ExitServer
-			default:
-			}
-		}
-	}
-
+	params.WireGuardParameters.EntryVpnServer = s._preferences.LastConnectionParams.WireGuardParameters.EntryVpnServer
+	params.WireGuardParameters.Port.Port = s._preferences.LastConnectionParams.WireGuardParameters.Port.Port
 	return params, nil
+
+	/*
+	   	if params.Metadata.ServerSelectionEntry == types.Default && params.Metadata.ServerSelectionExit == types.Default {
+	   		return params, nil
+	   	}
+
+	   allServers, err := s.ServersList()
+
+	   	if err != nil {
+	   		return params, err
+	   	}
+
+	   // ENTRY server
+
+	   	if params.Metadata.ServerSelectionEntry != types.Default {
+	   		// Get countryCode of exit server (do not choose exit server from same country)
+	   		exitSvrCountryCode := ""
+	   		if params.IsMultiHop() && params.Metadata.ServerSelectionExit != types.Default {
+	   			exitSvrCountryCode = s.getServerCountryCode(params, false)
+	   		}
+
+	   		if params.VpnType == vpn.OpenVPN {
+	   			//OpenVPN
+	   			applicableEntryServers := []apiTypes.OpenvpnServerInfo{}
+	   			if exitSvrCountryCode == "" {
+	   				applicableEntryServers = allServers.OpenvpnServers
+	   			} else {
+	   				for _, s := range allServers.OpenvpnServers {
+	   					if s.CountryCode == exitSvrCountryCode {
+	   						continue // exclude exit server from the same country as Exit server
+	   					}
+	   					applicableEntryServers = append(applicableEntryServers, s)
+	   				}
+	   			}
+	   			// Random/Fastest
+	   			switch params.Metadata.ServerSelectionEntry {
+	   			case types.Random: // RANDOM SERVER (OpenVPN)
+	   				rndIdx, err := rand.Int(rand.Reader, big.NewInt(int64(len(applicableEntryServers))))
+	   				if err != nil {
+	   					return params, err
+	   				}
+	   				params.OpenVpnParameters.EntryVpnServer.Hosts = applicableEntryServers[rndIdx.Int64()].Hosts
+	   			case types.Fastest: // FASTEST SERVER (OpenVPN)
+	   				fastestSvr, err := getFastestServer(s, vpn.OpenVPN, applicableEntryServers, params.Metadata.FastestGatewaysExcludeList)
+	   				if err != nil {
+	   					return params, err
+	   				}
+	   				params.OpenVpnParameters.EntryVpnServer.Hosts = fastestSvr.Hosts
+	   			default:
+	   			}
+	   		} else {
+	   			// WireGuard
+	   			applicableEntryServers := []apiTypes.WireGuardServerInfo{}
+	   			if exitSvrCountryCode == "" {
+	   				applicableEntryServers = allServers.WireguardServers
+	   			} else {
+	   				for _, s := range allServers.WireguardServers {
+	   					if s.CountryCode == exitSvrCountryCode {
+	   						continue // exclude exit server from the same country as Exit server
+	   					}
+	   					applicableEntryServers = append(applicableEntryServers, s)
+	   				}
+	   			}
+	   			// Random/Fastest
+	   			switch params.Metadata.ServerSelectionEntry {
+	   			case types.Random: // RANDOM SERVER (WireGuard)
+	   				rndIdx, err := rand.Int(rand.Reader, big.NewInt(int64(len(applicableEntryServers))))
+	   				if err != nil {
+	   					return params, err
+	   				}
+	   				params.WireGuardParameters.EntryVpnServer.Hosts = applicableEntryServers[rndIdx.Int64()].Hosts
+	   			case types.Fastest: // FASTEST SERVER (WireGuard)
+	   				fastestSvr, err := getFastestServer(s, vpn.WireGuard, applicableEntryServers, params.Metadata.FastestGatewaysExcludeList)
+	   				if err != nil {
+	   					return params, err
+	   				}
+	   				params.WireGuardParameters.EntryVpnServer.Hosts = fastestSvr.Hosts
+	   			default:
+	   			}
+	   		}
+	   	}
+
+	   // EXIT server (Fastest server is not applicable for exit server)
+	   if params.IsMultiHop() && params.Metadata.ServerSelectionExit == types.Random {
+
+	   		// Get countryCode of exit server (do not choose exit server from same country)
+	   		entrySvrCountryCode := s.getServerCountryCode(params, true)
+
+	   		if params.VpnType == vpn.OpenVPN {
+	   			//OpenVPN
+	   			applicableExitServers := []apiTypes.OpenvpnServerInfo{}
+	   			if entrySvrCountryCode == "" {
+	   				applicableExitServers = allServers.OpenvpnServers
+	   			} else {
+	   				for _, s := range allServers.OpenvpnServers {
+	   					if s.CountryCode == entrySvrCountryCode {
+	   						continue // exclude exit server from the same country as Exit server
+	   					}
+	   					applicableExitServers = append(applicableExitServers, s)
+	   				}
+	   			}
+	   			// Random/Fastest
+	   			switch params.Metadata.ServerSelectionEntry {
+	   			case types.Random: // RANDOM SERVER (OpenVPN)
+	   				rndIdx, err := rand.Int(rand.Reader, big.NewInt(int64(len(applicableExitServers))))
+	   				if err != nil {
+	   					return params, err
+	   				}
+	   				params.OpenVpnParameters.MultihopExitServer.Hosts = applicableExitServers[rndIdx.Int64()].Hosts
+
+	   			case types.Fastest: // FASTEST SERVER (OpenVPN)
+	   				// fastest server not applicable for ExitServer
+	   			default:
+	   			}
+	   		} else {
+	   			// WireGuard
+
+	   			applicableExitServers := []apiTypes.WireGuardServerInfo{}
+	   			if entrySvrCountryCode == "" {
+	   				applicableExitServers = allServers.WireguardServers
+	   			} else {
+	   				for _, s := range allServers.WireguardServers {
+	   					if s.CountryCode == entrySvrCountryCode {
+	   						continue // exclude exit server from the same country as Exit server
+	   					}
+	   					applicableExitServers = append(applicableExitServers, s)
+	   				}
+	   			}
+	   			// Random/Fastest
+	   			switch params.Metadata.ServerSelectionEntry {
+	   			case types.Random: // RANDOM SERVER (WireGuard)
+	   				rndIdx, err := rand.Int(rand.Reader, big.NewInt(int64(len(applicableExitServers))))
+	   				if err != nil {
+	   					return params, err
+	   				}
+	   				params.WireGuardParameters.MultihopExitServer.Hosts = applicableExitServers[rndIdx.Int64()].Hosts
+
+	   			case types.Fastest: // FASTEST SERVER (WireGuard)
+	   				// fastest server not applicable for ExitServer
+	   			default:
+	   			}
+	   		}
+	   	}
+
+	   return params, nil
+	*/
 }
 
 func (s *Service) getServerCountryCode(params types.ConnectionParams, isEntryServer bool) string {
@@ -556,7 +566,7 @@ func getServerCountryCode[S serverBaseInterface, H hostBaseInterface](service *S
 	for _, pHost := range serverHosts {
 		for _, s := range allServers {
 			for _, h := range s.GetHostsInfoBase() {
-				if pHost.GetHostInfoBase().Host == h.Host {
+				if pHost.GetHostInfoBase().EndpointIP == h.EndpointIP {
 					return s.GetServerInfoBase().CountryCode
 				}
 			}
@@ -602,7 +612,7 @@ func getFastestServer[S serverBaseInterface](service *Service, vpnTypePrioritize
 		}
 
 		for _, h := range s.GetHostsInfoBase() {
-			if h.Host == minPingTimeIp {
+			if h.EndpointIP == minPingTimeIp {
 				return s, nil
 			}
 		}

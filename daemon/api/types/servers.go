@@ -35,9 +35,9 @@ type ServerGeneric interface {
 
 type HostInfoBase struct {
 	Hostname     string  `json:"hostname"`
-	Host         string  `json:"host"`
+	EndpointIP   string  `json:"endpoint_ip"`
 	DnsName      string  `json:"dns_name"`
-	MultihopPort int     `json:"multihop_port"`
+	EndpointPort int     `json:"endpoint_port"`
 	Load         float32 `json:"load"`
 	V2RayHost    string  `json:"v2ray"`
 }
@@ -72,9 +72,11 @@ type WireGuardServerHostInfoIPv6 struct {
 // WireGuardServerHostInfo contains info about WG server host
 type WireGuardServerHostInfo struct {
 	HostInfoBase
-	PublicKey string                      `json:"public_key"`
-	LocalIP   string                      `json:"local_ip"`
-	IPv6      WireGuardServerHostInfoIPv6 `json:"ipv6"`
+	PublicKey  string                      `json:"public_key"`
+	LocalIP    string                      `json:"local_ip"`
+	IPv6       WireGuardServerHostInfoIPv6 `json:"ipv6"`
+	DnsServers string                      `json:"dns_servers"`
+	AllowedIPs string                      `json:"allowed_ips"`
 }
 
 // WireGuardServerInfo contains all info about WG server

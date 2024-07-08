@@ -224,7 +224,7 @@ func (p *ConnectionParams) NormalizeHosts() error {
 			//filteredExitHosts := append(multihopExitHosts[0:0], multihopExitHosts...)
 			var filteredExitHosts []api_types.WireGuardServerHostInfo
 			for _, h := range multihopExitHosts {
-				if h.MultihopPort == 0 {
+				if h.EndpointPort == 0 {
 					continue
 				}
 				isHasMHPort = true

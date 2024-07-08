@@ -33,6 +33,7 @@ import (
 	"path"
 	"time"
 
+	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
@@ -171,7 +172,7 @@ func makeDialer(certHashes []string, serverName string, dialTimeout time.Duratio
 	}
 }
 
-func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, urlPath string, method string, contentType string, request interface{}, timeoutMs int, timeoutDialMs int) (resp []byte, err error) {
+func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, urlPath string, method string, contentType string, request api_types.RequestWithAuthorization, timeoutMs int, timeoutDialMs int) (resp []byte, err error) {
 	connectivityChecker := a.connectivityChecker
 	if connectivityChecker != nil {
 		if err := connectivityChecker.IsConnectivityBlocked(); err != nil {
@@ -252,7 +253,15 @@ func (a *API) doRequestUpdateHost(urlPath string, method string, contentType str
 	return resp, nil
 }
 
-func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUseDNS bool, urlPath string, method string, contentType string, request interface{}, timeoutMs int, timeoutDialMs int) (resp []byte, err error) {
+func setAuthTokenIfPresent(clientReq api_types.RequestWithAuthorization, httpReq *http.Request) {
+	if clientReq != nil && clientReq.GetAuthenticationToken() != "" {
+		authorizationToken := "Bearer " + clientReq.GetAuthenticationToken()
+		//httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("Authorization", authorizationToken)
+	}
+}
+
+func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUseDNS bool, urlPath string, method string, contentType string, request api_types.RequestWithAuthorization, timeoutMs int, timeoutDialMs int) (resp []byte, err error) {
 	isIPv6 := ipTypeRequired == types.IPv6
 
 	// timeout time for full request
@@ -302,6 +311,7 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 		if err != nil {
 			return nil, err
 		}
+		setAuthTokenIfPresent(request, req)
 
 		resp, err := client.Do(req)
 		if err == nil {
@@ -309,6 +319,7 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 			responseBody, _ := io.ReadAll(resp.Body)
 			return responseBody, nil
 		}
+		log.Debug(fmt.Sprintf("Bad API response for req %s: %v", req.URL, err))
 	}
 
 	// try to access API server by host DNS
@@ -322,8 +333,12 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 			fmt.Println("Error decoding bodyBuffer:", err)
 		}
 		payload := map[string]string{
-			"email":    data["email"],
-			"password": data["password"],
+			"email":       data["email"],
+			"password":    data["password"],
+			"device_id":   data["device_id"],
+			"device_name": data["device_name"],
+			"public_key":  data["public_key"],
+			"platform":    data["platform"],
 		}
 		payloadBytes, err := json.Marshal(payload)
 		if err != nil {
@@ -333,18 +348,21 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 		// Create a bytes.Reader from the JSON bytes
 		reader := bytes.NewReader(payloadBytes)
 		req, err := newRequest(getURL(_apiHost, urlPath), method, contentType, reader)
-
 		if err != nil {
 			return nil, err
 		}
+		setAuthTokenIfPresent(request, req)
+
 		firstResp, firstErr = client.Do(req)
 		if firstErr == nil {
 			// return firstResp, firstErr
 			responseBody, _ := io.ReadAll(firstResp.Body)
-			reqResponseBody := fix_response_body(responseBody, firstResp.StatusCode)
-			return reqResponseBody, firstErr
+			// Fixing not needed - instead we should parse the returned JSON in the normal parsing pipeline
+			// reqResponseBody := fix_response_body(responseBody, firstResp.StatusCode)
+			// return reqResponseBody, firstErr
+			return responseBody, firstErr
 		}
-		log.Warning("Failed to access " + _apiHost)
+		log.Warning(fmt.Sprintf("Failed to access %s: %v", _apiHost, err))
 	}
 
 	isLogNotificationPrinted := false
@@ -369,9 +387,11 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 		if err != nil {
 			return nil, err
 		}
-		resp, err := client.Do(req)
+		setAuthTokenIfPresent(request, req)
 
+		resp, err := client.Do(req)
 		if err != nil {
+			log.Debug(fmt.Sprintf("Bad API response for req %s: %v", req.URL, err))
 			if firstErr == nil {
 				firstErr = err
 			}
@@ -397,14 +417,14 @@ func fix_response_body(responseBody []byte, statusCode int) (reqResponseBody []b
 	var responseData map[string]interface{}
 	err := json.Unmarshal([]byte(jsonResponse), &responseData)
 	if err != nil {
-		fmt.Println("Error:", err)
+		logger.Warning(fmt.Sprintf("fix_response_body: %s", err))
 		return
 	}
 
 	// Extract necessary data from the response
 	if statusCode == 200 {
 		token := responseData["data"].(map[string]interface{})["token"].(string)
-		logger.Debug(token)
+		logger.Debug("Session token: " + token)
 		// Define the desired response structure
 		response := Response{
 			Status:      statusCode,
@@ -456,7 +476,7 @@ func fix_response_body(responseBody []byte, statusCode int) (reqResponseBody []b
 	}
 }
 
-func (a *API) requestRaw(ipTypeRequired types.RequiredIPProtocol, host string, urlPath string, method string, contentType string, requestObject interface{}, timeoutMs int, timeoutDialMs int) (responseData []byte, err error) {
+func (a *API) requestRaw(ipTypeRequired types.RequiredIPProtocol, host string, urlPath string, method string, contentType string, requestObject api_types.RequestWithAuthorization, timeoutMs int, timeoutDialMs int) (responseData []byte, err error) {
 	resp, err := a.doRequest(ipTypeRequired, host, urlPath, method, contentType, requestObject, timeoutMs, timeoutDialMs)
 	if err != nil {
 		return nil, fmt.Errorf("API request failed: %w", err)
@@ -468,11 +488,11 @@ func (a *API) requestRaw(ipTypeRequired types.RequiredIPProtocol, host string, u
 	return resp, nil
 }
 
-func (a *API) request(host string, urlPath string, method string, contentType string, requestObject interface{}, responseObject interface{}) error {
+func (a *API) request(host string, urlPath string, method string, contentType string, requestObject api_types.RequestWithAuthorization, responseObject interface{}) error {
 	return a.requestEx(host, urlPath, method, contentType, requestObject, responseObject, 0, 0)
 }
 
-func (a *API) requestEx(host string, urlPath string, method string, contentType string, requestObject interface{}, responseObject interface{}, timeoutMs int, timeoutDialMs int) error {
+func (a *API) requestEx(host string, urlPath string, method string, contentType string, requestObject api_types.RequestWithAuthorization, responseObject interface{}, timeoutMs int, timeoutDialMs int) error {
 	body, err := a.requestRaw(types.IPvAny, host, urlPath, method, contentType, requestObject, timeoutMs, timeoutDialMs)
 	if err != nil {
 		return err
