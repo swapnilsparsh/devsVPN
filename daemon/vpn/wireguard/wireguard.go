@@ -302,14 +302,6 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 
 	log.Debug("============== generateConfig logs end =======================")
 
-	// // TODO: FIXME: setting manual DNS to the 1st returned DNS
-	// firstDnsSrv := helpers.IPv4AddrRegex.FindString(wg.connectParams.dnsServers)
-	// if firstDnsSrv != "" {
-	// 	wg.setManualDNS(dns.DnsSettings{DnsHost: firstDnsSrv})
-	// } else {
-	// 	log.Error("Error - returned DNS servers '" + wg.connectParams.dnsServers + "' do not include an IP address")
-	// }
-
 	return append(interfaceCfg, peerCfg...), nil
 }
 

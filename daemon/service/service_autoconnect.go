@@ -371,7 +371,7 @@ func (s *Service) getActionForWifiNetwork(wifiInfo wifiNotifier.WifiInfo) (retAc
 
 // updateParamsAccordingToMetadata - update Entry/Exit servers if connection requires 'Fastest' or 'Random'
 func (s *Service) updateParamsAccordingToMetadata(params types.ConnectionParams) (types.ConnectionParams, error) {
-	// TODO: FIXME: Vlad - unconditionally using the Wireguard entry server info saved in preferences (if we have one), not the passed parameter
+	// TODO FIXME: Vlad - unconditionally using the Wireguard entry server info saved in preferences (if we have one), not the passed parameter
 	if len(s._preferences.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) <= 0 {
 		return params, fmt.Errorf("error - this device was not yet registered with the privateLINE server, please login first")
 	}

@@ -1630,66 +1630,67 @@ func (s *Service) SessionNew(email string, password string) (
 		rawRespStr            string // RAW response
 	)
 
-	// for {
-	// generate new keys for WireGuard
-	publicKey, privateKey, err = wireguard.GenerateKeys(platform.WgToolBinaryPath())
-	if err != nil {
-		log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
-	}
-
-	sessionNewSuccessResp, errorLimitResp, apiErr, rawRespStr, err = s._api.SessionNew(email, password)
-	rawResponse = rawRespStr
-
-	apiCode = 0
-	if apiErr != nil {
-		apiCode = apiErr.Status
-	}
-
-	if err != nil {
-		// if SessionsLimit response
-		if errorLimitResp != nil {
-			accountInfo = s.createAccountStatus(errorLimitResp.SessionLimitData)
-			return apiCode, apiErr.Message, accountInfo, rawResponse, err
+	for {
+		// generate new keys for WireGuard
+		publicKey, privateKey, err = wireguard.GenerateKeys(platform.WgToolBinaryPath())
+		if err != nil {
+			log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
 		}
 
-		// in case of other API error
+		sessionNewSuccessResp, errorLimitResp, apiErr, rawRespStr, err = s._api.SessionNew(email, password)
+		rawResponse = rawRespStr
+
+		apiCode = 0
 		if apiErr != nil {
-			return apiCode, apiErr.Message, accountInfo, rawResponse, err
+			apiCode = apiErr.Status
 		}
 
-		// not API error
-		return apiCode, "", accountInfo, rawResponse, err
+		if err != nil {
+			// if SessionsLimit response
+			if errorLimitResp != nil {
+				accountInfo = s.createAccountStatus(errorLimitResp.SessionLimitData)
+				return apiCode, apiErr.Message, accountInfo, rawResponse, err
+			}
+
+			// in case of other API error
+			if apiErr != nil {
+				return apiCode, apiErr.Message, accountInfo, rawResponse, err
+			}
+
+			// not API error
+			return apiCode, "", accountInfo, rawResponse, err
+		}
+
+		if sessionNewSuccessResp == nil {
+			return apiCode, "", accountInfo, rawResponse, fmt.Errorf("unexpected error when creating a new session")
+		}
+
+		//the /user/login API does not return the KEM ciphers yet
+		// if kemHelper != nil {
+		// 	if len(sessionNewSuccessResp.WireGuard.KemCipher_Kyber1024) == 0 && len(sessionNewSuccessResp.WireGuard.KemCipher_ClassicMcEliece348864) == 0 {
+		// 		log.Warning("The server did not respond with KEM ciphers. The WireGuard PresharedKey has not been initialized!")
+		// 	} else {
+		// 		if err := kemHelper.SetCipher(kem.AlgName_Kyber1024, sessionNewSuccessResp.WireGuard.KemCipher_Kyber1024); err != nil {
+		// 			log.Error(err)
+		// 		}
+		// 		if err := kemHelper.SetCipher(kem.AlgName_ClassicMcEliece348864, sessionNewSuccessResp.WireGuard.KemCipher_ClassicMcEliece348864); err != nil {
+		// 			log.Error(err)
+		// 		}
+
+		// 		wgPresharedKey, err = kemHelper.CalculatePresharedKey()
+		// 		if err != nil {
+		// 			log.Error(fmt.Sprintf("Failed to decode KEM ciphers! (%s). Retry Log-in without WireGuard PresharedKey...", err))
+		// 			kemHelper = nil
+		// 			kemKeys = api_types.KemPublicKeys{}
+		// 			if err := s.SessionDelete(true); err != nil {
+		// 				log.Error("Creating new session (retry 2) -> Failed to delete active session: ", err)
+		// 			}
+		// 			continue
+		// 		}
+		// 	}
+		// }
+		break
 	}
-
-	if sessionNewSuccessResp == nil {
-		return apiCode, "", accountInfo, rawResponse, fmt.Errorf("unexpected error when creating a new session")
-	}
-
-	// if kemHelper != nil {
-	// 	if len(sessionNewSuccessResp.WireGuard.KemCipher_Kyber1024) == 0 && len(sessionNewSuccessResp.WireGuard.KemCipher_ClassicMcEliece348864) == 0 {
-	// 		log.Warning("The server did not respond with KEM ciphers. The WireGuard PresharedKey has not been initialized!")
-	// 	} else {
-	// 		if err := kemHelper.SetCipher(kem.AlgName_Kyber1024, sessionNewSuccessResp.WireGuard.KemCipher_Kyber1024); err != nil {
-	// 			log.Error(err)
-	// 		}
-	// 		if err := kemHelper.SetCipher(kem.AlgName_ClassicMcEliece348864, sessionNewSuccessResp.WireGuard.KemCipher_ClassicMcEliece348864); err != nil {
-	// 			log.Error(err)
-	// 		}
-
-	// 		wgPresharedKey, err = kemHelper.CalculatePresharedKey()
-	// 		if err != nil {
-	// 			log.Error(fmt.Sprintf("Failed to decode KEM ciphers! (%s). Retry Log-in without WireGuard PresharedKey...", err))
-	// 			kemHelper = nil
-	// 			kemKeys = api_types.KemPublicKeys{}
-	// 			if err := s.SessionDelete(true); err != nil {
-	// 				log.Error("Creating new session (retry 2) -> Failed to delete active session: ", err)
-	// 			}
-	// 			continue
-	// 		}
-	// 	}
-	// }
-	// 	break
-	// }
 
 	// generate the stable (anonymized) device ID, and device name based on it
 	deviceID, err := helpers.StableMachineID()
@@ -1758,21 +1759,22 @@ func (s *Service) SessionNew(email string, password string) (
 	}
 
 	// propagate the Wireguard device configuration we received to Preferences
+	prefs := s._preferences
 
-	s._preferences.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
-	s._preferences.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
+	prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
+	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
 	// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
 	firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
 	if firstDnsSrv != "" {
-		s._preferences.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
+		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
 	} else {
 		log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
 		return apiCode, "", accountInfo, "", err
 	}
 
-	// save Preferences to settings.json
-	s._preferences.SavePreferences()
+	// propagate our prefs changes to Preferences and to settings.json
+	s.setPreferences(prefs)
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
