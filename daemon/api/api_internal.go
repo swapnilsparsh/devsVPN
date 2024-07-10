@@ -80,16 +80,22 @@ import (
 func unmarshalAPIErrorResponse(data []byte, httpResp *http.Response, apiErr *api_types.APIErrorResponse) error {
 	err := json.Unmarshal(data, &apiErr)
 
-	var httpStatus string
 	if httpResp != nil {
 		apiErr.SetHttpStatusCode(httpResp.StatusCode)
-		httpStatus = httpResp.Status
-	} else {
-		httpStatus = ""
 	}
 
 	if err != nil {
-		return fmt.Errorf("[%d; status=%s] failed to deserialize API response: %w", apiErr.HttpStatusCode, httpStatus, err)
+		var httpStatus, URL string
+
+		if httpResp != nil {
+			httpStatus = httpResp.Status
+			URL = httpResp.Request.URL.String()
+		} else {
+			httpStatus = "nil httpResp"
+			URL = ""
+		}
+
+		return fmt.Errorf("[%d; status=%s] unmarshalAPIErrorResponse failed: URL='%s' : %w", apiErr.HttpStatusCode, httpStatus, URL, err)
 	}
 
 	return nil

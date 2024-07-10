@@ -331,7 +331,6 @@ func (a *API) SessionNew(email string, password string) (
 
 	// Check is it API error
 	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
-		log.Debug("unmarshalAPIErrorResponse failed")
 		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 	}
 
@@ -393,13 +392,7 @@ func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string
 
 	// Check is it API error
 	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
-		var httpStatus string
-		if httpResp != nil {
-			httpStatus = httpResp.Status
-		} else {
-			httpStatus = ""
-		}
-		return nil, nil, rawResponse, fmt.Errorf("[%d; status=%s] failed to deserialize API response: %w", apiErr.HttpStatusCode, httpStatus, err)
+		return nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 	}
 
 	if !apiErr.Status {
