@@ -113,8 +113,8 @@ export default {
               ipv6: 
               {                        
                 local_ip: "",
-                host: "",
-                multihop_port: 0
+                endpoint_ip: "",
+                endpoint_port: 0
               },
               load: 0.0,
             }

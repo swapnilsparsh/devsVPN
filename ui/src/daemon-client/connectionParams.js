@@ -19,6 +19,7 @@ export function InitConnectionParamsObject() {
   };
 
   const getHosts = function (server, customHostId) {
+    if (server == null) return [];
     if (!customHostId) return server.hosts;
     for (const h of server.hosts) {
       if (h.hostname.startsWith(customHostId + ".")) return [h];

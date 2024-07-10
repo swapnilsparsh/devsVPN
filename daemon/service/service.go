@@ -35,6 +35,7 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/api"
 	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/kem"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
@@ -447,7 +448,7 @@ func (s *Service) findOpenVpnHost(hostname string, ip net.IP, svrs []api_types.O
 	if ((len(hostname) > 0) || (ip != nil && !ip.IsUnspecified())) && svrs != nil {
 		for _, svr := range svrs {
 			for _, host := range svr.Hosts {
-				if (len(hostname) <= 0 || !strings.EqualFold(host.Hostname, hostname)) && (ip == nil || ip.IsUnspecified() || !ip.Equal(net.ParseIP(host.Host))) {
+				if (len(hostname) <= 0 || !strings.EqualFold(host.Hostname, hostname)) && (ip == nil || ip.IsUnspecified() || !ip.Equal(net.ParseIP(host.EndpointIP))) {
 					continue
 				}
 				return host, nil
@@ -1274,6 +1275,10 @@ func (s *Service) SetConnectionParams(params types.ConnectionParams) error {
 func (s *Service) setConnectionParams(params types.ConnectionParams) error {
 	prefs := s._preferences
 
+	// TODO: FIXME: Vlad - if we have already stored a Wireguard server config, then used the saved one, don't overwrite it from here
+	if len(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) >= 0 {
+		return nil
+	}
 	prefs.LastConnectionParams = params
 	s.setPreferences(prefs)
 
@@ -1617,11 +1622,12 @@ func (s *Service) SessionNew(email string, password string) (
 		publicKey  string
 		privateKey string
 
-		wgPresharedKey string
-		successResp    *api_types.SessionNewResponse
-		errorLimitResp *api_types.SessionNewErrorLimitResponse
-		apiErr         *api_types.APIErrorResponse
-		rawRespStr     string // RAW response
+		wgPresharedKey        string
+		sessionNewSuccessResp *api_types.SessionNewResponse
+		errorLimitResp        *api_types.SessionNewErrorLimitResponse
+		apiErr                *api_types.APIErrorResponse
+		connectDevSuccessResp *api_types.ConnectDeviceResponse
+		rawRespStr            string // RAW response
 	)
 
 	for {
@@ -1631,7 +1637,7 @@ func (s *Service) SessionNew(email string, password string) (
 			log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
 		}
 
-		successResp, errorLimitResp, apiErr, rawRespStr, err = s._api.SessionNew(email, password)
+		sessionNewSuccessResp, errorLimitResp, apiErr, rawRespStr, err = s._api.SessionNew(email, password)
 		rawResponse = rawRespStr
 
 		apiCode = 0
@@ -1655,53 +1661,127 @@ func (s *Service) SessionNew(email string, password string) (
 			return apiCode, "", accountInfo, rawResponse, err
 		}
 
-		if successResp == nil {
+		if sessionNewSuccessResp == nil {
 			return apiCode, "", accountInfo, rawResponse, fmt.Errorf("unexpected error when creating a new session")
 		}
 
-		if kemHelper != nil {
-			if len(successResp.WireGuard.KemCipher_Kyber1024) == 0 && len(successResp.WireGuard.KemCipher_ClassicMcEliece348864) == 0 {
-				log.Warning("The server did not respond with KEM ciphers. The WireGuard PresharedKey has not been initialized!")
-			} else {
-				if err := kemHelper.SetCipher(kem.AlgName_Kyber1024, successResp.WireGuard.KemCipher_Kyber1024); err != nil {
-					log.Error(err)
-				}
-				if err := kemHelper.SetCipher(kem.AlgName_ClassicMcEliece348864, successResp.WireGuard.KemCipher_ClassicMcEliece348864); err != nil {
-					log.Error(err)
-				}
+		//the /user/login API does not return the KEM ciphers yet
+		// if kemHelper != nil {
+		// 	if len(sessionNewSuccessResp.WireGuard.KemCipher_Kyber1024) == 0 && len(sessionNewSuccessResp.WireGuard.KemCipher_ClassicMcEliece348864) == 0 {
+		// 		log.Warning("The server did not respond with KEM ciphers. The WireGuard PresharedKey has not been initialized!")
+		// 	} else {
+		// 		if err := kemHelper.SetCipher(kem.AlgName_Kyber1024, sessionNewSuccessResp.WireGuard.KemCipher_Kyber1024); err != nil {
+		// 			log.Error(err)
+		// 		}
+		// 		if err := kemHelper.SetCipher(kem.AlgName_ClassicMcEliece348864, sessionNewSuccessResp.WireGuard.KemCipher_ClassicMcEliece348864); err != nil {
+		// 			log.Error(err)
+		// 		}
 
-				wgPresharedKey, err = kemHelper.CalculatePresharedKey()
-				if err != nil {
-					log.Error(fmt.Sprintf("Failed to decode KEM ciphers! (%s). Retry Log-in without WireGuard PresharedKey...", err))
-					kemHelper = nil
-					kemKeys = api_types.KemPublicKeys{}
-					if err := s.SessionDelete(true); err != nil {
-						log.Error("Creating new session (retry 2) -> Failed to delete active session: ", err)
-					}
-					continue
-				}
-			}
-		}
+		// 		wgPresharedKey, err = kemHelper.CalculatePresharedKey()
+		// 		if err != nil {
+		// 			log.Error(fmt.Sprintf("Failed to decode KEM ciphers! (%s). Retry Log-in without WireGuard PresharedKey...", err))
+		// 			kemHelper = nil
+		// 			kemKeys = api_types.KemPublicKeys{}
+		// 			if err := s.SessionDelete(true); err != nil {
+		// 				log.Error("Creating new session (retry 2) -> Failed to delete active session: ", err)
+		// 			}
+		// 			continue
+		// 		}
+		// 	}
+		// }
 		break
 	}
+
+	// generate the stable (anonymized) device ID, and device name based on it
+	deviceID, err := helpers.StableMachineID()
+	if err != nil {
+		return 0, "", accountInfo, rawResponse, fmt.Errorf("failed to generate machine ID: %w", err)
+	}
+	deviceName := "PL Connect - " + deviceID[:8]
+
+	// now do the Connect Device API call
+	connectDevSuccessResp, apiErr, rawRespStr, err = s._api.ConnectDevice(deviceID, deviceName, publicKey, sessionNewSuccessResp.Data.Token)
+	rawResponse = rawRespStr
+
+	apiCode = 0
+	if apiErr != nil {
+		apiCode = apiErr.Status
+	}
+
+	if err != nil {
+		// in case of other API error
+		if apiErr != nil {
+			return apiCode, apiErr.Message, accountInfo, rawResponse, err
+		}
+		log.Error("rawResponse: " + rawResponse)
+
+		// not API error
+		return apiCode, "", accountInfo, rawResponse, err
+	}
+
+	if connectDevSuccessResp == nil {
+		return apiCode, "", accountInfo, rawResponse, fmt.Errorf("unexpected error when registering a device")
+	}
+
+	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
+	// FIXME: include api.privateline.io cert in the apps, verify at connection time
+
 	// get account status info
-	accountInfo = s.createAccountStatus(successResp.ServiceStatus)
+	// accountInfo = s.createAccountStatus(sessionNewSuccessResp.ServiceStatus)
 
 	s.setCredentials(accountInfo,
 		email,
-		successResp.Token,
-		successResp.DeviceName,
-		successResp.VpnUsername,
-		successResp.VpnPassword,
+		sessionNewSuccessResp.Data.Token,
+		deviceName,
+		email,
+		password,
 		publicKey,
 		privateKey,
-		successResp.WireGuard.IPAddress, 0, wgPresharedKey)
+		localIP,
+		0,
+		wgPresharedKey)
 
-	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", successResp.WireGuard.IPAddress, publicKey, len(wgPresharedKey) > 0))
+	endpointPortStr := strings.Split(connectDevSuccessResp.Data[1].Peer.Endpoint, ":")[1]
+	endpointPort, err := strconv.Atoi(endpointPortStr)
+	if err != nil {
+		log.Error(fmt.Sprintf("Error parsing endpoint port '%s' as number: %v", endpointPortStr, err))
+		return apiCode, "", accountInfo, "", err
+	}
+	hostValue := api_types.WireGuardServerHostInfo{
+		HostInfoBase: api_types.HostInfoBase{
+			EndpointIP:   strings.Split(connectDevSuccessResp.Data[1].Peer.Endpoint, ":")[0],
+			EndpointPort: endpointPort,
+		},
+		LocalIP:    localIP,
+		PublicKey:  connectDevSuccessResp.Data[1].Peer.PublicKey,
+		DnsServers: connectDevSuccessResp.Data[0].Interface.DNS,
+		AllowedIPs: connectDevSuccessResp.Data[1].Peer.AllowedIPs,
+	}
+
+	// propagate the Wireguard device configuration we received to Preferences
+	prefs := s._preferences
+
+	prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
+	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
+
+	// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
+	firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
+	if firstDnsSrv != "" {
+		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
+	} else {
+		log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
+		return apiCode, "", accountInfo, "", err
+	}
+
+	// propagate our prefs changes to Preferences and to settings.json
+	s.setPreferences(prefs)
+
+	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
 	// Apply SplitTunnel configuration. It is applicable for Inverse mode of SplitTunnel
 	if err := s.splitTunnelling_ApplyConfig(); err != nil {
-		log.Error(err)
+		log.Error(fmt.Errorf("splitTunnelling_ApplyConfig failed: %v", err))
+		return apiCode, "", accountInfo, "", err
 	}
 
 	return apiCode, "", accountInfo, rawResponse, nil

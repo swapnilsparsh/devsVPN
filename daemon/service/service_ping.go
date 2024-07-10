@@ -229,7 +229,7 @@ func (s *Service) ping_getHosts(vpnTypePrioritized vpn.Type, skipSecondPhase boo
 				htp := pingHost{
 					latitude:  sBase.Latitude,
 					longitude: sBase.Longitude,
-					host:      net.ParseIP(strings.Split(h.Host, "/")[0]),
+					host:      net.ParseIP(strings.Split(h.EndpointIP, "/")[0]),
 				}
 				htp.setPriority(phasePriority, vpnPriority, i)
 

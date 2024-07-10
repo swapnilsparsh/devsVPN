@@ -1139,6 +1139,16 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			return
 		}
 
+		// TODO FIXME: Vlad - unconditionally using the Wireguard entry server info saved in preferences (if we have one), not the passed parameter
+		prefs := p._service.Preferences()
+		if len(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) <= 0 {
+			p.sendErrorResponse(conn, reqCmd, fmt.Errorf("error - this device was not yet registered with the privateLINE server, please login first"))
+			return
+		}
+		connectRequest.Params.WireGuardParameters.EntryVpnServer = prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer
+		connectRequest.Params.WireGuardParameters.Port.Port = prefs.LastConnectionParams.WireGuardParameters.Port.Port
+		connectRequest.Params.ManualDNS = prefs.LastConnectionParams.ManualDNS
+
 		// Save last received connection request. It will be processed in separate routine 'processConnectionRequests()' which is already running
 		p.RegisterConnectionRequest(connectRequest.Params)
 

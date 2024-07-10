@@ -58,24 +58,34 @@ type KemCiphers struct {
 }
 
 // SessionNewResponse information about created session
+// TODO: FIXME: use more appropriate types than string: dates, etc.
 type SessionNewResponse struct {
-	APIErrorResponse
-	Token       string `json:"token"`
-	VpnUsername string `json:"vpn_username"`
-	VpnPassword string `json:"vpn_password"`
-
-	CaptchaID    string `json:"captcha_id"`
-	CaptchaImage string `json:"captcha_image"`
-
-	ServiceStatus ServiceStatusAPIResp `json:"service_status"`
-	DeviceName    string               `json:"device_name,omitempty"`
-
-	WireGuard struct {
-		Status    int    `json:"status"`
-		Message   string `json:"message,omitempty"`
-		IPAddress string `json:"ip_address,omitempty"`
-		KemCiphers
-	} `json:"wireguard"`
+	Status  bool   `json:"status"`            // FIXME: why is the API returning bool here?
+	Message string `json:"message,omitempty"` // Text description of the message
+	Data    struct {
+		ID          int    `json:"id"`
+		UserType    string `json:"user_type"`
+		Username    string `json:"name"`
+		Phone       string `json:"phone"`
+		Email       string `json:"email"`
+		IsVerified  bool   `json:"isVerified"`
+		Profile     string `json:"profile"`
+		IsActive    bool   `json:"isActive"`
+		IsSuspended bool   `json:"isSuspended"`
+		IsDeleted   bool   `json:"isDeleted"`
+		LastLogin   string `json:"last_login"`
+		TempToken   string `json:"temp_token"`
+		Login       int    `json:"login"`
+		CreatedAt   string `json:"createdAt"`
+		UpdatedAt   string `json:"updatedAt"`
+		Token       string `json:"token"`
+		// WireGuard struct {
+		// 	Status    int    `json:"status"`
+		// 	Message   string `json:"message,omitempty"`
+		// 	IPAddress string `json:"ip_address,omitempty"`
+		// 	KemCiphers
+		// } `json:"wireguard"`
+	}
 }
 
 // SessionNewErrorLimitResponse information about session limit error
@@ -89,6 +99,23 @@ type SessionsWireGuardResponse struct {
 	APIErrorResponse
 	IPAddress string `json:"ip_address,omitempty"`
 	KemCiphers
+}
+
+// ConnectDeviceResponse Connect Device response
+type ConnectDeviceResponse struct {
+	Status  bool   `json:"status"`
+	Message string `json:"message"`
+	Data    []struct {
+		Interface struct {
+			Address string `json:"Address"`
+			DNS     string `json:"DNS"`
+		} `json:"Interface"`
+		Peer struct {
+			PublicKey  string `json:"PublicKey"`
+			AllowedIPs string `json:"AllowedIPs"`
+			Endpoint   string `json:"Endpoint"`
+		} `json:"Peer"`
+	} `json:"data"`
 }
 
 // SessionStatusResponse session status response

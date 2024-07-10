@@ -242,7 +242,7 @@ func serversListByVpnType(servers apitypes.ServersInfoResponse, t vpn.Type) []se
 				if len(h.IPv6.LocalIP) > 0 {
 					isIPv6Tunnel = true
 				}
-				hosts = append(hosts, hostDesc{host: strings.TrimSpace(h.Host), hostname: strings.TrimSpace(h.Hostname), load: h.Load})
+				hosts = append(hosts, hostDesc{host: strings.TrimSpace(h.EndpointIP), hostname: strings.TrimSpace(h.Hostname), load: h.Load})
 			}
 			ret = append(ret, serverDesc{protocol: ProtoName_WireGuard, gateway: s.Gateway, city: s.City, countryCode: s.CountryCode, country: s.Country, isp: s.ISP, hosts: hosts, isIPv6Tunnel: isIPv6Tunnel})
 		}
@@ -253,7 +253,7 @@ func serversListByVpnType(servers apitypes.ServersInfoResponse, t vpn.Type) []se
 			hosts := make([]hostDesc, 0, len(s.Hosts))
 
 			for _, h := range s.Hosts {
-				hosts = append(hosts, hostDesc{host: strings.TrimSpace(h.Host), hostname: strings.TrimSpace(h.Hostname), load: h.Load})
+				hosts = append(hosts, hostDesc{host: strings.TrimSpace(h.EndpointIP), hostname: strings.TrimSpace(h.Hostname), load: h.Load})
 			}
 			ret = append(ret, serverDesc{protocol: ProtoName_OpenVPN, gateway: s.Gateway, city: s.City, countryCode: s.CountryCode, country: s.Country, isp: s.ISP, hosts: hosts})
 		}

@@ -248,7 +248,7 @@ CreatePackage "deb"
 
 echo '---------------------------'
 echo "RPM package..."
-#CreatePackage "rpm"
+CreatePackage "rpm"
 
 echo '---------------------------'
 echo "Copying compiled pachages to '$OUT_DIR'..."
