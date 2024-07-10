@@ -338,7 +338,8 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 		if err == nil {
 			return resp, nil
 		}
-		log.Debug(fmt.Errorf("bad API response for request %s: %w", req.URL, err))
+		err = fmt.Errorf("bad API response for request %s by lastGoodIP: %w", req.URL, err)
+		log.Debug(err)
 	}
 
 	// try to access API server by host DNS
@@ -374,7 +375,8 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 			// return reqResponseBody, firstErr
 			//return responseBody, firstErr
 		}
-		log.Warning(fmt.Errorf("bad 1st attempt: failed to access %s: %w", req.URL, firstErr))
+		firstErr = fmt.Errorf("bad API response for request %s by DNS name: %w", req.URL, firstErr)
+		log.Debug(firstErr)
 	}
 
 	isLogNotificationPrinted := false
@@ -403,7 +405,8 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Debug(fmt.Errorf("bad API response for request %s: %w", req.URL, err))
+			err = fmt.Errorf("bad API response for request %s by alternate IP %s: %w", req.URL, ip, err)
+			log.Debug(err)
 			if firstErr == nil {
 				firstErr = err
 			}
