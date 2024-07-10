@@ -22,12 +22,12 @@
 
 package types
 
-type RequestWithAuthorization interface {
-	// Returns "" if there's no authentication token in this request
-	GetAuthenticationToken() string
+type RequestWithSessionToken interface {
+	// Returns "" if there's no session token in this request
+	GetSessionToken() string
 }
 
-type AuthorizationSessionToken struct {
+type SessionTokenStruct struct {
 	// non-serializable vars to pass to httpRequest creation stage
 	SessionToken string // bearer token for authorization
 }
@@ -53,7 +53,7 @@ type SessionNewRequest struct {
 	Password string `json:"password"`
 }
 
-func (req SessionNewRequest) GetAuthenticationToken() string {
+func (req SessionNewRequest) GetSessionToken() string {
 	return ""
 }
 
@@ -62,8 +62,8 @@ type SessionDeleteRequest struct {
 	Session string `json:"session_token"`
 }
 
-func (req SessionDeleteRequest) GetAuthenticationToken() string {
-	return ""
+func (req SessionDeleteRequest) GetSessionToken() string {
+	return req.Session
 }
 
 // ConnectDeviceRequest request to register device
@@ -72,11 +72,12 @@ type ConnectDeviceRequest struct {
 	DeviceName string `json:"device_name"`
 	PublicKey  string `json:"public_key"`
 	Platform   string `json:"platform"`
-	AuthorizationSessionToken
+
+	SessionTokenStruct
 }
 
-func (req ConnectDeviceRequest) GetAuthenticationToken() string {
-	return req.AuthorizationSessionToken.SessionToken
+func (req ConnectDeviceRequest) GetSessionToken() string {
+	return req.SessionToken
 }
 
 // SessionStatusRequest request to get session status
@@ -84,8 +85,8 @@ type SessionStatusRequest struct {
 	Session string `json:"session_token"`
 }
 
-func (req SessionStatusRequest) GetAuthenticationToken() string {
-	return ""
+func (req SessionStatusRequest) GetSessionToken() string {
+	return req.Session
 }
 
 // SessionWireGuardKeySetRequest request to set new WK key for a session
@@ -96,6 +97,6 @@ type SessionWireGuardKeySetRequest struct {
 	KemPublicKeys
 }
 
-func (req SessionWireGuardKeySetRequest) GetAuthenticationToken() string {
-	return ""
+func (req SessionWireGuardKeySetRequest) GetSessionToken() string {
+	return req.Session
 }

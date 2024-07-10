@@ -231,6 +231,12 @@ type ServersInfoResponse struct {
 	WireguardServers []WireGuardServerInfo `json:"wireguard"`
 	OpenvpnServers   []OpenvpnServerInfo   `json:"openvpn"`
 	Config           ConfigInfo            `json:"config"`
+
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *ServersInfoResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 func (si ServersInfoResponse) ServersGenericWireguard() (ret []ServerGeneric) {

@@ -23,14 +23,26 @@
 package types
 
 // APIResponse - generic API response
-type APIResponse struct {
-	Status int `json:"status"` // status code
+// type APIResponse struct {
+// 	Status int `json:"status"` // status code
+// }
+
+// The purpose of this interface is to allow copying http.Response.StatusCode to API Response objects
+type APIResponse interface {
+	SetHttpStatusCode(newHttpStatusCode int)
 }
 
-// APIErrorResponse generic IVPN API error
+// APIErrorResponse generic PrivateLine API error
+// Unmarshal it with unmarshalApiErr(), not with json.Unmarshal() - this is in order to pass the HTTP status code to it
 type APIErrorResponse struct {
-	APIResponse
+	Status  bool   `json:"status,omitempty"`
 	Message string `json:"message,omitempty"` // Text description of the message
+
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *APIErrorResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 // ServiceStatusAPIResp account info
@@ -49,6 +61,12 @@ type ServiceStatusAPIResp struct {
 	DeviceManagement    bool     `json:"device_management"`
 	DeviceManagementURL string   `json:"device_management_url"` // applicable for 'session limit' error
 	Limit               int      `json:"limit"`                 // applicable for 'session limit' error
+
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *ServiceStatusAPIResp) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 // KemCiphers in use for KEM: to exchange WG PresharedKey
@@ -60,9 +78,8 @@ type KemCiphers struct {
 // SessionNewResponse information about created session
 // TODO: FIXME: use more appropriate types than string: dates, etc.
 type SessionNewResponse struct {
-	Status  bool   `json:"status"`            // FIXME: why is the API returning bool here?
-	Message string `json:"message,omitempty"` // Text description of the message
-	Data    struct {
+	APIErrorResponse
+	Data struct {
 		ID          int    `json:"id"`
 		UserType    string `json:"user_type"`
 		Username    string `json:"name"`
@@ -79,19 +96,28 @@ type SessionNewResponse struct {
 		CreatedAt   string `json:"createdAt"`
 		UpdatedAt   string `json:"updatedAt"`
 		Token       string `json:"token"`
-		// WireGuard struct {
-		// 	Status    int    `json:"status"`
-		// 	Message   string `json:"message,omitempty"`
-		// 	IPAddress string `json:"ip_address,omitempty"`
-		// 	KemCiphers
-		// } `json:"wireguard"`
 	}
+
+	// WireGuard struct {
+	// 	Status    int    `json:"status"`
+	// 	Message   string `json:"message,omitempty"`
+	// 	IPAddress string `json:"ip_address,omitempty"`
+	// 	KemCiphers
+	// } `json:"wireguard"`
+}
+
+func (resp *SessionNewResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 // SessionNewErrorLimitResponse information about session limit error
 type SessionNewErrorLimitResponse struct {
 	APIErrorResponse
 	SessionLimitData ServiceStatusAPIResp `json:"data"`
+}
+
+func (resp *SessionNewErrorLimitResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 // SessionsWireGuardResponse Sessions WireGuard response
@@ -101,11 +127,14 @@ type SessionsWireGuardResponse struct {
 	KemCiphers
 }
 
+func (resp *SessionsWireGuardResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
+}
+
 // ConnectDeviceResponse Connect Device response
 type ConnectDeviceResponse struct {
-	Status  bool   `json:"status"`
-	Message string `json:"message"`
-	Data    []struct {
+	APIErrorResponse
+	Data []struct {
 		Interface struct {
 			Address string `json:"Address"`
 			DNS     string `json:"DNS"`
@@ -118,11 +147,19 @@ type ConnectDeviceResponse struct {
 	} `json:"data"`
 }
 
+func (resp *ConnectDeviceResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
+}
+
 // SessionStatusResponse session status response
 type SessionStatusResponse struct {
 	APIErrorResponse
 	ServiceStatus ServiceStatusAPIResp `json:"service_status"`
 	DeviceName    string               `json:"device_name,omitempty"`
+}
+
+func (resp *SessionStatusResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 // GeoLookupResponse geolocation info
@@ -138,4 +175,9 @@ type GeoLookupResponse struct {
 	Longitude float32 `json:"longitude"`
 
 	//isIvpnServer bool
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *GeoLookupResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }

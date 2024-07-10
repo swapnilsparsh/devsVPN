@@ -1612,7 +1612,7 @@ func (s *Service) SessionNew(email string, password string) (
 	log.Info("Logging in...")
 	defer func() {
 		if err != nil {
-			log.Info("Logging in - FAILED: ", err)
+			log.Error("Logging in - FAILED: ", err)
 		} else {
 			log.Info("Logging in - SUCCESS")
 		}
@@ -1642,7 +1642,7 @@ func (s *Service) SessionNew(email string, password string) (
 
 		apiCode = 0
 		if apiErr != nil {
-			apiCode = apiErr.Status
+			apiCode = apiErr.HttpStatusCode
 		}
 
 		if err != nil {
@@ -1705,7 +1705,7 @@ func (s *Service) SessionNew(email string, password string) (
 
 	apiCode = 0
 	if apiErr != nil {
-		apiCode = apiErr.Status
+		apiCode = apiErr.HttpStatusCode
 	}
 
 	if err != nil {
@@ -1724,7 +1724,6 @@ func (s *Service) SessionNew(email string, password string) (
 	}
 
 	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
-	// FIXME: include api.privateline.io cert in the apps, verify at connection time
 
 	// get account status info
 	// accountInfo = s.createAccountStatus(sessionNewSuccessResp.ServiceStatus)
@@ -1916,7 +1915,7 @@ func (s *Service) RequestSessionStatus() (
 
 	apiCode = 0
 	if apiErr != nil {
-		apiCode = apiErr.Status
+		apiCode = apiErr.HttpStatusCode
 		// Session not found - can happens when user forced to logout from another device
 		if apiCode == api_types.SessionNotFound {
 			s.OnSessionNotFound()
