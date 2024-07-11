@@ -784,7 +784,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						// since we are connected - keep connection (reconnect if unexpected disconnection)
 						if s._requiredVpnState == Connect {
 							s._requiredVpnState = KeepConnection
-							log.Debug("set s._requiredVpnState = KeepConnection")
+							// log.Debug("set s._requiredVpnState = KeepConnection")
 						}
 
 						// If no any clients connected - connection notification will not be passed to user

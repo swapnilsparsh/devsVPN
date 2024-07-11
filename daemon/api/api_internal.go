@@ -37,7 +37,6 @@ import (
 	"time"
 
 	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
-	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 )
 
@@ -205,24 +204,26 @@ func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, ur
 	if len(host) == 0 || host == _apiHost {
 		if ipTypeRequired != types.IPvAny {
 			// The specific IP version required to use
-			return a.doRequestAPIHost(ipTypeRequired, false, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
+			// return a.doRequestAPIHost(ipTypeRequired, false, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
+			return a.doRequestAPIHost(ipTypeRequired, true, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
 		} else {
 			// No specific IP version required to use
 			// Trying first to use IPv4, as fallback - try to use IPv6
 			canUseDNS := true
 			resp4, err4 := a.doRequestAPIHost(types.IPv4, canUseDNS, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
-			if err4 != nil {
-				// checking if IPv6 connectivity exists
-				_, errIPv6 := netinfo.GetOutboundIP(true)
-				if errIPv6 == nil && len(a.getAlternateIPs(true)) >= 0 {
-					log.Info("Failed to access API server using IPv4. Trying IPv6 ...")
-					canUseDNS = false // we already tried to access using DNS. No sense to try it again
-					resp6, err6 := a.doRequestAPIHost(types.IPv6, canUseDNS, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
-					if err6 == nil {
-						return resp6, err6
-					}
-				}
-			}
+			// TODO: Vlad - try only by DNS name. See the comments in doRequestAPIHost() for explanation.
+			// if err4 != nil {
+			// 	// checking if IPv6 connectivity exists
+			// 	_, errIPv6 := netinfo.GetOutboundIP(true)
+			// 	if errIPv6 == nil && len(a.getAlternateIPs(true)) >= 0 {
+			// 		log.Info("Failed to access API server using IPv4. Trying IPv6 ...")
+			// 		canUseDNS = false // we already tried to access using DNS. No sense to try it again
+			// 		resp6, err6 := a.doRequestAPIHost(types.IPv6, canUseDNS, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
+			// 		if err6 == nil {
+			// 			return resp6, err6
+			// 		}
+			// 	}
+			// }
 			return resp4, err4
 		}
 	} else if host == _updateHost {
@@ -283,7 +284,7 @@ func setAuthTokenIfPresent(clientReq api_types.RequestWithSessionToken, httpReq 
 }
 
 func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUseDNS bool, urlPath string, method string, contentType string, request api_types.RequestWithSessionToken, timeoutMs int, timeoutDialMs int) (resp *http.Response, err error) {
-	isIPv6 := ipTypeRequired == types.IPv6
+	// isIPv6 := ipTypeRequired == types.IPv6
 
 	// timeout time for full request
 	timeout := _defaultRequestTimeout
@@ -325,24 +326,29 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 
 	bodyBuffer := bytes.NewBuffer(data)
 
+	// TODO: Vlad - try REST API only by DNS name, don't try by IP.
+	// The problem is that api.privateline.io and privateline.io both map to the same IP address.
+	// However, if we do a GET/POST request by IP - we get privateline.io (the website) served,
+	// which returns HTML, not JSON - so the JSON parser fails.
+
 	// access API by last good IP (if defined)
-	lastGoodIP := a.GetLastGoodAlternateIP(isIPv6)
-	if lastGoodIP != nil {
-		req, err := newRequest(getURL_IPHost(lastGoodIP, isIPv6, urlPath), method, contentType, bodyBuffer)
-		if err != nil {
-			return nil, err
-		}
-		setAuthTokenIfPresent(request, req)
+	// lastGoodIP := a.GetLastGoodAlternateIP(isIPv6)
+	// if lastGoodIP != nil {
+	// 	req, err := newRequest(getURL_IPHost(lastGoodIP, isIPv6, urlPath), method, contentType, bodyBuffer)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	setAuthTokenIfPresent(request, req)
 
-		resp, err := client.Do(req)
-		if err == nil {
-			return resp, nil
-		}
-		err = fmt.Errorf("bad API response for request %s by lastGoodIP: %w", req.URL, err)
-		log.Debug(err)
-	}
+	// 	resp, err := client.Do(req)
+	// 	if err == nil {
+	// 		return resp, nil
+	// 	}
+	// 	err = fmt.Errorf("bad API response for request %s by lastGoodIP: %w", req.URL, err)
+	// 	log.Debug(err)
+	// }
 
-	// try to access API server by host DNS
+	// try to access REST API server by host DNS
 	var firstResp *http.Response
 	var firstErr error
 	if isCanUseDNS {
@@ -379,46 +385,48 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 		log.Debug(firstErr)
 	}
 
-	isLogNotificationPrinted := false
+	// TODO: Vlad - ditto, as above. Try REST API only by DNS name, don't try by IP.
+
+	// isLogNotificationPrinted := false
 
 	// try to access API server by alternate IP
-	ips := a.getAlternateIPs(isIPv6)
-	for _, ip := range ips {
-		if ip.Equal(lastGoodIP) {
-			continue
-		}
-		if firstErr != nil && !isLogNotificationPrinted {
-			isLogNotificationPrinted = true
+	// ips := a.getAlternateIPs(isIPv6)
+	// for _, ip := range ips {
+	// 	if ip.Equal(lastGoodIP) {
+	// 		continue
+	// 	}
+	// 	if firstErr != nil && !isLogNotificationPrinted {
+	// 		isLogNotificationPrinted = true
 
-			ipVerStr := ""
-			if ipTypeRequired == types.IPv6 {
-				ipVerStr = "(IPv6)"
-			}
-			log.Info("trying to use alternate API IPs " + ipVerStr + " ...")
-		}
+	// 		ipVerStr := ""
+	// 		if ipTypeRequired == types.IPv6 {
+	// 			ipVerStr = "(IPv6)"
+	// 		}
+	// 		log.Info("trying to use alternate API IPs " + ipVerStr + " ...")
+	// 	}
 
-		req, err := newRequest(getURL_IPHost(ip, isIPv6, urlPath), method, contentType, bodyBuffer)
-		if err != nil {
-			return nil, err
-		}
-		setAuthTokenIfPresent(request, req)
+	// 	req, err := newRequest(getURL_IPHost(ip, isIPv6, urlPath), method, contentType, bodyBuffer)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	setAuthTokenIfPresent(request, req)
 
-		resp, err := client.Do(req)
-		if err != nil {
-			err = fmt.Errorf("bad API response for request %s by alternate IP %s: %w", req.URL, ip, err)
-			log.Debug(err)
-			if firstErr == nil {
-				firstErr = err
-			}
-			continue
-		}
+	// 	resp, err := client.Do(req)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("bad API response for request %s by alternate IP %s: %w", req.URL, ip, err)
+	// 		log.Debug(err)
+	// 		if firstErr == nil {
+	// 			firstErr = err
+	// 		}
+	// 		continue
+	// 	}
 
-		// save last good IP
-		a.SetLastGoodAlternateIP(ip)
+	// 	// save last good IP
+	// 	a.SetLastGoodAlternateIP(ip)
 
-		log.Info("Success!")
-		return resp, nil
-	}
+	// 	log.Info("Success!")
+	// 	return resp, nil
+	// }
 
 	return nil, fmt.Errorf("unable to access privateLINE API server: %w", firstErr)
 }
@@ -496,10 +504,15 @@ func (a *API) requestRaw(ipTypeRequired types.RequiredIPProtocol, host string, u
 		return nil, resp, fmt.Errorf("API request failed: %w", err)
 	}
 
+	var truncatedAuthToken string
 	if resp.StatusCode != 200 {
-		truncatedAuthToken := requestObject.GetSessionToken()
-		if truncatedAuthToken != "" {
-			truncatedAuthToken = fmt.Sprintf("%s...", truncatedAuthToken[0:4])
+		if requestObject != nil {
+			truncatedAuthToken = requestObject.GetSessionToken()
+			if truncatedAuthToken != "" {
+				truncatedAuthToken = fmt.Sprintf("%s...", truncatedAuthToken[0:4])
+			}
+		} else {
+			truncatedAuthToken = ""
 		}
 		log.Debug(fmt.Sprintf("API response: (HTTP status code %d); status='%s' host=%s URL=%s session_token='%s'", resp.StatusCode, resp.Status, host, urlPath, truncatedAuthToken))
 	}
