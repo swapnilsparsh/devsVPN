@@ -24,6 +24,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -52,8 +53,9 @@ const (
 	_apiPathPrefix     = "v4"
 	_sessionNewPath    = "/user/login"
 	_connectDevicePath = "/connection/push-key"
-	_sessionStatusPath = _apiPathPrefix + "/session/status"
-	_sessionDeletePath = _apiPathPrefix + "/session/delete"
+	_sessionStatusPath = "/session/status"
+	_sessionDeletePath = "/user/remove-device"
+	_deviceListPath    = "/user/device-list"
 	_wgKeySetPath      = _apiPathPrefix + "/session/wg/set"
 	_geoLookupPath     = _apiPathPrefix + "/geo-lookup"
 )
@@ -451,11 +453,44 @@ func (a *API) SessionStatus(session string) (
 	return nil, &apiErr, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
 
+func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, err error) {
+	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
+	resp := &types.DeviceListResponse{}
+	if err := a.request(_apiHost, _deviceListPath+"?search=&page=1&limit=100", "GET", "application/json", request, resp); err != nil {
+		return nil, err
+	}
+	if resp.HttpStatusCode != types.CodeSuccess {
+		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
+	}
+	return resp, nil
+
+}
+
 // SessionDelete - remove session
-func (a *API) SessionDelete(session string) error {
+func (a *API) SessionDelete(session string, deviceWGPublicKey string) error {
+
+	// lookup internal device ID by the device Wireguard public key
+	var deviceList *types.DeviceListResponse
+	var err error
+	if deviceList, err = a.DeviceList(session); err != nil {
+		return fmt.Errorf("error fetching device list: %w", err)
+	}
+
+	internalDeviceID := 0
+	for _, dev := range deviceList.Data.Rows {
+		if dev.PublicKey == deviceWGPublicKey {
+			internalDeviceID = dev.InternalID
+			break
+		}
+	}
+	if internalDeviceID == 0 {
+		return errors.New("error - no devices with the given WG public key found under the current user")
+	}
+
 	request := &types.SessionDeleteRequest{Session: session}
 	resp := &types.APIErrorResponse{}
-	if err := a.request(_apiHost, _sessionDeletePath, "POST", "application/json", request, resp); err != nil {
+	urlPath := fmt.Sprintf("%s/%d", _sessionDeletePath, internalDeviceID)
+	if err := a.request(_apiHost, urlPath, "DELETE", "application/json", request, resp); err != nil {
 		return err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {

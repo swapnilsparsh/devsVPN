@@ -1533,7 +1533,7 @@ func (s *Service) SplitTunnelling_AddedPidInfo(pid int, exec string, cmdToExecut
 // SESSIONS
 //////////////////////////////////////////////////////////
 
-func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountID, session, deviceName, vpnUser, vpnPass, wgPublicKey, wgPrivateKey, wgLocalIP string, wgKeyGenerated int64, wgPreSharedKey string) error {
+func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountID, session, deviceName, vpnUser, vpnPass, wgPublicKey, wgPrivateKey, wgLocalIP string, wgKeyGenerated int64, wgPreSharedKey string, deviceID string) error {
 	// save session info
 	s._preferences.SetSession(accountInfo,
 		accountID,
@@ -1544,7 +1544,8 @@ func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountI
 		wgPublicKey,
 		wgPrivateKey,
 		wgLocalIP,
-		wgPreSharedKey)
+		wgPreSharedKey,
+		deviceID)
 
 	// manually set info about WG keys timestamp
 	if wgKeyGenerated > 0 {
@@ -1738,7 +1739,8 @@ func (s *Service) SessionNew(email string, password string) (
 		privateKey,
 		localIP,
 		0,
-		wgPresharedKey)
+		wgPresharedKey,
+		deviceID)
 
 	endpointPortStr := strings.Split(connectDevSuccessResp.Data[1].Peer.Endpoint, ":")[1]
 	endpointPort, err := strconv.Atoi(endpointPortStr)
@@ -1838,7 +1840,7 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend bool, isCanDeleteSessionLo
 		session := s.Preferences().Session
 		if session.IsLoggedIn() {
 			log.Info("Logging out")
-			err := s._api.SessionDelete(session.Session)
+			err := s._api.SessionDelete(session.Session, s.Preferences().Session.WGPublicKey)
 			if err != nil {
 				log.Info("Logging out error:", err)
 				if !isCanDeleteSessionLocally {
@@ -1850,7 +1852,7 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend bool, isCanDeleteSessionLo
 		}
 	}
 
-	s._preferences.SetSession(preferences.AccountStatus{}, "", "", "", "", "", "", "", "", "")
+	s._preferences.SetSession(preferences.AccountStatus{}, "", "", "", "", "", "", "", "", "", "")
 	log.Info("Logged out locally")
 
 	// notify clients about session update

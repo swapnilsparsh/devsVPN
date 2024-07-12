@@ -238,7 +238,7 @@ func doCleanup() (osExitCode int) {
 		}
 
 		log.Info("Logging out ...")
-		err = apiObj.SessionDelete(session.Session)
+		err = apiObj.SessionDelete(session.Session, prefs.Session.WGPublicKey)
 		if err != nil {
 			return err
 		}

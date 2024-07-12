@@ -76,7 +76,6 @@ type KemCiphers struct {
 }
 
 // SessionNewResponse information about created session
-// TODO: FIXME: use more appropriate types than string: dates, etc.
 type SessionNewResponse struct {
 	APIErrorResponse
 	Data struct {
@@ -179,5 +178,40 @@ type GeoLookupResponse struct {
 }
 
 func (resp *GeoLookupResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
+}
+
+type DeviceListResponse struct {
+	Message string `json:"message"`
+	Data    struct {
+		Count int `json:"count"`
+		Rows  []struct {
+			InternalID         int    `json:"id"`
+			UserID             int    `json:"userID"`
+			DeviceID           string `json:"device_id"`
+			DeviceName         string `json:"device_name"`
+			Type               string `json:"type"`
+			DeviceIP           string `json:"device_ip"`
+			AllocatedIP        string `json:"allocated_ip"`
+			PublicKey          string `json:"public_key"`
+			InterfacePublicKey string `json:"interface_publickey"`
+			DNS                string `json:"DNS"`
+			AllowedIPs         string `json:"allowedIPs"`
+			Endpoint           string `json:"endpoint"`
+			IsDeleted          int    `json:"is_deleted"`
+			CreatedAt          string `json:"createdAt"`
+			ActiveTunnel       string `json:"active_tunnel"`
+			RX                 string `json:"rx"`
+			TX                 string `json:"tx"`
+			IsConnected        int    `json:"isConnected"`
+			//			KeepAlive          string `json:"keep_alive"`				// null
+			//			Handshake          string `json:"handshake"`				// null
+		} `json:"rows"`
+	} `json:"data"`
+
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *DeviceListResponse) SetHttpStatusCode(newHttpStatusCode int) {
 	resp.HttpStatusCode = newHttpStatusCode
 }

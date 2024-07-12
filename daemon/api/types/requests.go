@@ -58,6 +58,14 @@ func (req SessionNewRequest) GetSessionToken() string {
 }
 
 // SessionDeleteRequest request to delete session
+type DeviceListRequest struct {
+	SessionTokenStruct
+}
+
+func (req DeviceListRequest) GetSessionToken() string {
+	return req.SessionToken
+}
+
 type SessionDeleteRequest struct {
 	Session string `json:"session_token"`
 }
