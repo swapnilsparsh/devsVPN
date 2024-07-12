@@ -41,6 +41,7 @@ type SessionStatus struct {
 	WGLocalIP          string
 	WGKeyGenerated     time.Time
 	WGKeysRegenInerval time.Duration // syntax error in variable name. Keeping it as is for compatibility with previous versions
+	DeviceID           string        `json:",omitempty"`
 }
 
 // IsLoggedIn returns 'true' when user logged-in

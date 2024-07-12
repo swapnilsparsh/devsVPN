@@ -69,7 +69,7 @@ func (s *serversUpdater) GetServers() (*types.ServersInfoResponse, error) {
 		if !s.api.IsAlternateIPsInitialized(false) && !s.api.IsAlternateIPsInitialized(true) {
 			// Probably we can not use servers info because servers.json has wrong privileges (potential vulnerability)
 			// Trying to initialize only API IP addresses
-			// It is safe, because we are checking TLS server name for "api.ivpn.net" when accessing API (https)
+			// It is safe, because we are checking TLS server name for "api.privateline.io" when accessing API (https)
 			if len(apiIPsV4) > 0 || len(apiIPsV6) > 0 {
 				s.api.SetAlternateIPs(apiIPsV4, apiIPsV6)
 			}
@@ -116,6 +116,9 @@ func (s *serversUpdater) StartUpdater() error {
 
 // UpdateServers - download servers list
 func (s *serversUpdater) updateServers() (*types.ServersInfoResponse, error) {
+	// TODO FIXME: Vlad - temporarily disabling server updates, until we host servers.json on our servers
+	return nil, fmt.Errorf("Updating servers temporarily disabled")
+
 	servers, err := s.api.DownloadServersList()
 	if err != nil {
 		return servers, fmt.Errorf("failed to download servers list: %w", err)
@@ -177,7 +180,7 @@ func readServersFromCache() (svrs *types.ServersInfoResponse, apiIPsV4 []string,
 		os.Remove(serversFile)
 		// we can not use servers info from this file
 		// but we can try to get IP addresses of alternate IP's
-		// It is safe, because we are checking TLS server name for "api.ivpn.net" when accessing API (https)
+		// It is safe, because we are checking TLS server name for "api.privateline.io" when accessing API (https)
 		return nil, servers.Config.API.IPAddresses, servers.Config.API.IPv6Addresses, fmt.Errorf("skip reading servers cache file: %w", err)
 	}
 
