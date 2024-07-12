@@ -22,3 +22,4 @@ ui/*.lock
 ui/References/macOS/HelperProjects/launchAgent/_out
 .syncthing.*.tmp
 *.code-workspace
+.vs
