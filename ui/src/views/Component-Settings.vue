@@ -282,7 +282,7 @@ export default {
       sender.showMessageBoxSync({
         type: "info",
         buttons: ["OK"],
-        message: "IVPN version info",
+        message: "privateLINE version info",
         detail: infoStr,
       });
     },
