@@ -172,7 +172,7 @@ export default {
       let needToDisableFirewall = true;
       let needToResetSettings = false;
       const mes = "Do you really want to log out privateLINE account?";
-      const mesResetSettings = "Reset application settings to defaults";
+      // const mesResetSettings = "Reset application settings to defaults";
 
       if (isNeedPromptFirewallStatus == true) {
         // LOGOUT message: Firewall is enabled
@@ -182,34 +182,33 @@ export default {
             message: mes,
             detail:
               "The Firewall is enabled. All network access will be blocked.",
-            checkboxLabel: mesResetSettings,
+            // checkboxLabel: mesResetSettings,
             buttons: ["Turn Firewall off and log out", "Log out", "Cancel"],
           },
           true
         );
         if (ret.response == 2) return; // cancel
         if (ret.response != 0) needToDisableFirewall = false;
-        needToResetSettings = ret.checkboxChecked;
+        // needToResetSettings = ret.checkboxChecked;
       } else {
         // LOGOUT message: Firewall is disabled
         let ret = await sender.showMessageBox(
           {
             type: "question",
             message: mes,
-            checkboxLabel: mesResetSettings,
+            // checkboxLabel: mesResetSettings,
             buttons: ["Log out", "Cancel"],
           },
           true
         );
         if (ret.response == 1) return; // cancel
-        needToResetSettings = ret.checkboxChecked;
+        // needToResetSettings = ret.checkboxChecked;
       }
 
       // LOGOUT
       try {
         this.isProcessing = true;
-
-        const isCanDeleteSessionLocally = false;
+        const isCanDeleteSessionLocally = true;
         await sender.Logout(
           needToResetSettings,
           needToDisableFirewall,
