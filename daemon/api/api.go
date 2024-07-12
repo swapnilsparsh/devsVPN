@@ -24,6 +24,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -42,14 +43,21 @@ const (
 	_defaultRequestTimeout = time.Second * 10 // full request time (for each request)
 	_defaultDialTimeout    = time.Second * 5  // time for the dial to the API server (for each request)
 	_apiHost               = "api.privateline.io"
-	_updateHost            = "repo.privateline.io"
-	_serversPath           = "v5/servers.json"
-	_apiPathPrefix         = "v4"
-	_sessionNewPath        = "/user/login"
-	_sessionStatusPath     = _apiPathPrefix + "/session/status"
-	_sessionDeletePath     = _apiPathPrefix + "/session/delete"
-	_wgKeySetPath          = _apiPathPrefix + "/session/wg/set"
-	_geoLookupPath         = _apiPathPrefix + "/geo-lookup"
+
+	// temporarily fetching static servers.json from GitHub
+	// _updateHost         = "repo.privateline.io"
+	//	_serversPath       = "v5/servers.json"
+	_updateHost  = "raw.githubusercontent.com"
+	_serversPath = "swapnilsparsh/devsVPN/master/daemon/References/common/etc/servers.json"
+
+	_apiPathPrefix     = "v4"
+	_sessionNewPath    = "/user/login"
+	_connectDevicePath = "/connection/push-key"
+	_sessionStatusPath = "/session/status"
+	_sessionDeletePath = "/user/remove-device"
+	_deviceListPath    = "/user/device-list"
+	_wgKeySetPath      = _apiPathPrefix + "/session/wg/set"
+	_geoLookupPath     = _apiPathPrefix + "/geo-lookup"
 )
 
 // Alias - alias description of API request (can be requested by UI client)
@@ -246,7 +254,8 @@ func (a *API) doSetAlternateIPs(IPv6 bool, IPs []string) error {
 // DownloadServersList - download servers list form API IVPN server
 func (a *API) DownloadServersList() (*types.ServersInfoResponse, error) {
 	servers := new(types.ServersInfoResponse)
-	if err := a.request("", _serversPath, "GET", "", nil, servers); err != nil {
+	// if err := a.request(_apiHost, _serversPath, "GET", "", nil, servers); err != nil {
+	if err := a.request(_updateHost, _serversPath, "GET", "", nil, servers); err != nil {
 		return nil, err
 	}
 
@@ -285,7 +294,7 @@ func (a *API) DoRequestByAlias(apiAlias string, ipTypeRequired protocolTypes.Req
 		}
 	}
 
-	responseData, err = a.requestRaw(ipTypeRequired, alias.host, alias.path, "", "", nil, 0, 0)
+	responseData, _, err = a.requestRaw(ipTypeRequired, alias.host, alias.path, "", "", nil, 0, 0)
 	return responseData, err
 }
 
@@ -315,7 +324,7 @@ func (a *API) SessionNew(email string, password string) (
 		// Confirmation2FA: confirmation2FA
 	}
 
-	data, err := a.requestRaw(protocolTypes.IPvAny, "", _sessionNewPath, "POST", "application/json", request, 0, 0)
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
 	if err != nil {
 		return nil, nil, nil, rawResponse, err
 	}
@@ -323,28 +332,87 @@ func (a *API) SessionNew(email string, password string) (
 	rawResponse = string(data)
 
 	// Check is it API error
-	if err := json.Unmarshal(data, &apiErr); err != nil {
-		return nil, nil, nil, rawResponse, fmt.Errorf("[%d; status=%d] failed to deserialize API response: %w", 200, http.StatusOK, err)
+	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
+		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 	}
 
+	// if !apiErr.Status {
+	// 	log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
+	// 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	// }
+
 	// success
-	if apiErr.Status == types.CodeSuccess {
-		if err := json.Unmarshal(data, &successResp); err != nil {
-			return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+	if apiErr.HttpStatusCode == types.CodeSuccess {
+		err := json.Unmarshal(data, &successResp)
+		successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+		if err != nil {
+			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 		}
 
 		return &successResp, nil, &apiErr, rawResponse, nil
 	}
 
 	// Session limit check
-	if apiErr.Status == types.CodeSessionsLimitReached {
-		if err := json.Unmarshal(data, &errorLimitResp); err != nil {
-			return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+	if apiErr.HttpStatusCode == types.CodeSessionsLimitReached {
+		err := json.Unmarshal(data, &errorLimitResp)
+		errorLimitResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+		if err != nil {
+			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 		}
-		return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.Status, apiErr.Message)
+		return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 	}
 
-	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.Status, apiErr.Message)
+	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+}
+
+func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string, sessionToken string) (
+	*types.ConnectDeviceResponse,
+	*types.APIErrorResponse,
+	string, // RAW response
+	error) {
+
+	var successResp types.ConnectDeviceResponse
+	var apiErr types.APIErrorResponse
+
+	rawResponse := ""
+
+	request := &types.ConnectDeviceRequest{
+		DeviceID:           deviceID,
+		DeviceName:         deviceName,
+		PublicKey:          publicKey,
+		Platform:           runtime.GOOS,
+		SessionTokenStruct: types.SessionTokenStruct{SessionToken: sessionToken},
+	}
+
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _connectDevicePath, "POST", "application/json", request, 0, 0)
+
+	if err != nil {
+		return nil, nil, rawResponse, err
+	}
+
+	rawResponse = string(data)
+
+	// Check is it API error
+	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
+		return nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+	}
+
+	if !apiErr.Status {
+		return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	}
+
+	// success
+	if apiErr.HttpStatusCode == types.CodeSuccess {
+		err := json.Unmarshal(data, &successResp)
+		successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+		if err != nil {
+			return nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+		}
+
+		return &successResp, &apiErr, rawResponse, nil
+	}
+
+	return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
 
 // SessionStatus - get session status
@@ -358,36 +426,75 @@ func (a *API) SessionStatus(session string) (
 
 	request := &types.SessionStatusRequest{Session: session}
 
-	data, err := a.requestRaw(protocolTypes.IPvAny, "", _sessionStatusPath, "POST", "application/json", request, 0, 0)
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionStatusPath, "POST", "application/json", request, 0, 0)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Check is it API error
-	if err := json.Unmarshal(data, &apiErr); err != nil {
+	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
 		return nil, nil, fmt.Errorf("failed to deserialize API response: %w", err)
 	}
 
+	if !apiErr.Status {
+		return nil, &apiErr, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	}
+
 	// success
-	if apiErr.Status == types.CodeSuccess {
-		if err := json.Unmarshal(data, &resp); err != nil {
-			return nil, nil, fmt.Errorf("failed to deserialize API response: %w", err)
+	if apiErr.HttpStatusCode == types.CodeSuccess {
+		err := json.Unmarshal(data, &resp)
+		resp.SetHttpStatusCode(apiErr.HttpStatusCode)
+		if err != nil {
+			return nil, &apiErr, fmt.Errorf("failed to deserialize API response: %w", err)
 		}
 		return &resp, &apiErr, nil
 	}
 
-	return nil, &apiErr, types.CreateAPIError(apiErr.Status, apiErr.Message)
+	return nil, &apiErr, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+}
+
+func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, err error) {
+	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
+	resp := &types.DeviceListResponse{}
+	if err := a.request(_apiHost, _deviceListPath+"?search=&page=1&limit=100", "GET", "application/json", request, resp); err != nil {
+		return nil, err
+	}
+	if resp.HttpStatusCode != types.CodeSuccess {
+		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
+	}
+	return resp, nil
+
 }
 
 // SessionDelete - remove session
-func (a *API) SessionDelete(session string) error {
+func (a *API) SessionDelete(session string, deviceWGPublicKey string) error {
+
+	// lookup internal device ID by the device Wireguard public key
+	var deviceList *types.DeviceListResponse
+	var err error
+	if deviceList, err = a.DeviceList(session); err != nil {
+		return fmt.Errorf("error fetching device list: %w", err)
+	}
+
+	internalDeviceID := 0
+	for _, dev := range deviceList.Data.Rows {
+		if dev.PublicKey == deviceWGPublicKey {
+			internalDeviceID = dev.InternalID
+			break
+		}
+	}
+	if internalDeviceID == 0 {
+		return errors.New("error - no devices with the given WG public key found under the current user")
+	}
+
 	request := &types.SessionDeleteRequest{Session: session}
 	resp := &types.APIErrorResponse{}
-	if err := a.request("", _sessionDeletePath, "POST", "application/json", request, resp); err != nil {
+	urlPath := fmt.Sprintf("%s/%d", _sessionDeletePath, internalDeviceID)
+	if err := a.request(_apiHost, urlPath, "DELETE", "application/json", request, resp); err != nil {
 		return err
 	}
-	if resp.Status != types.CodeSuccess {
-		return types.CreateAPIError(resp.Status, resp.Message)
+	if resp.HttpStatusCode != types.CodeSuccess {
+		return types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
 	return nil
 }
@@ -403,12 +510,12 @@ func (a *API) WireGuardKeySet(session string, newPublicWgKey string, activePubli
 
 	resp := types.SessionsWireGuardResponse{}
 
-	if err := a.request("", _wgKeySetPath, "POST", "application/json", request, &resp); err != nil {
+	if err := a.request(_apiHost, _wgKeySetPath, "POST", "application/json", request, &resp); err != nil {
 		return resp, err
 	}
 
-	if resp.Status != types.CodeSuccess {
-		return resp, types.CreateAPIError(resp.Status, resp.Message)
+	if resp.HttpStatusCode != types.CodeSuccess {
+		return resp, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
 
 	return resp, nil
@@ -422,6 +529,7 @@ func (a *API) GeoLookup(timeoutMs int, ipTypeRequired protocolTypes.RequiredIPPr
 	singletonFunc := func(ipType protocolTypes.RequiredIPProtocol) (*types.GeoLookupResponse, []byte, error) {
 		// Each IP protocol has separate request
 		var gl *geolookup
+		var httpResp *http.Response
 		if ipType == protocolTypes.IPv4 {
 			gl = &a.geolookupV4
 		} else if ipType == protocolTypes.IPv6 {
@@ -447,8 +555,12 @@ func (a *API) GeoLookup(timeoutMs int, ipTypeRequired protocolTypes.RequiredIPPr
 					gl.isRunning = false
 					close(gl.done)
 				}()
-				gl.response, gl.err = a.requestRaw(ipType, "", _geoLookupPath, "GET", "", nil, timeoutMs, 0)
-				if err := json.Unmarshal(gl.response, &gl.location); err != nil {
+				gl.response, httpResp, gl.err = a.requestRaw(ipType, _apiHost, _geoLookupPath, "GET", "", nil, timeoutMs, 0)
+				err := json.Unmarshal(gl.response, &gl.location)
+				if httpResp != nil {
+					gl.location.SetHttpStatusCode(httpResp.StatusCode)
+				}
+				if err != nil {
 					gl.err = fmt.Errorf("failed to deserialize API response: %w", err)
 				}
 			}()

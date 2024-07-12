@@ -23,14 +23,26 @@
 package types
 
 // APIResponse - generic API response
-type APIResponse struct {
-	Status int `json:"status"` // status code
+// type APIResponse struct {
+// 	Status int `json:"status"` // status code
+// }
+
+// The purpose of this interface is to allow copying http.Response.StatusCode to API Response objects
+type APIResponse interface {
+	SetHttpStatusCode(newHttpStatusCode int)
 }
 
-// APIErrorResponse generic IVPN API error
+// APIErrorResponse generic PrivateLine API error
+// Unmarshal it with unmarshalApiErr(), not with json.Unmarshal() - this is in order to pass the HTTP status code to it
 type APIErrorResponse struct {
-	APIResponse
+	Status  bool   `json:"status,omitempty"`
 	Message string `json:"message,omitempty"` // Text description of the message
+
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *APIErrorResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 // ServiceStatusAPIResp account info
@@ -49,6 +61,12 @@ type ServiceStatusAPIResp struct {
 	DeviceManagement    bool     `json:"device_management"`
 	DeviceManagementURL string   `json:"device_management_url"` // applicable for 'session limit' error
 	Limit               int      `json:"limit"`                 // applicable for 'session limit' error
+
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *ServiceStatusAPIResp) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 // KemCiphers in use for KEM: to exchange WG PresharedKey
@@ -60,28 +78,45 @@ type KemCiphers struct {
 // SessionNewResponse information about created session
 type SessionNewResponse struct {
 	APIErrorResponse
-	Token       string `json:"token"`
-	VpnUsername string `json:"vpn_username"`
-	VpnPassword string `json:"vpn_password"`
+	Data struct {
+		ID          int    `json:"id"`
+		UserType    string `json:"user_type"`
+		Username    string `json:"name"`
+		Phone       string `json:"phone"`
+		Email       string `json:"email"`
+		IsVerified  bool   `json:"isVerified"`
+		Profile     string `json:"profile"`
+		IsActive    bool   `json:"isActive"`
+		IsSuspended bool   `json:"isSuspended"`
+		IsDeleted   bool   `json:"isDeleted"`
+		LastLogin   string `json:"last_login"`
+		TempToken   string `json:"temp_token"`
+		Login       int    `json:"login"`
+		CreatedAt   string `json:"createdAt"`
+		UpdatedAt   string `json:"updatedAt"`
+		Token       string `json:"token"`
+	}
 
-	CaptchaID    string `json:"captcha_id"`
-	CaptchaImage string `json:"captcha_image"`
+	// WireGuard struct {
+	// 	Status    int    `json:"status"`
+	// 	Message   string `json:"message,omitempty"`
+	// 	IPAddress string `json:"ip_address,omitempty"`
+	// 	KemCiphers
+	// } `json:"wireguard"`
+}
 
-	ServiceStatus ServiceStatusAPIResp `json:"service_status"`
-	DeviceName    string               `json:"device_name,omitempty"`
-
-	WireGuard struct {
-		Status    int    `json:"status"`
-		Message   string `json:"message,omitempty"`
-		IPAddress string `json:"ip_address,omitempty"`
-		KemCiphers
-	} `json:"wireguard"`
+func (resp *SessionNewResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 // SessionNewErrorLimitResponse information about session limit error
 type SessionNewErrorLimitResponse struct {
 	APIErrorResponse
 	SessionLimitData ServiceStatusAPIResp `json:"data"`
+}
+
+func (resp *SessionNewErrorLimitResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 // SessionsWireGuardResponse Sessions WireGuard response
@@ -91,11 +126,39 @@ type SessionsWireGuardResponse struct {
 	KemCiphers
 }
 
+func (resp *SessionsWireGuardResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
+}
+
+// ConnectDeviceResponse Connect Device response
+type ConnectDeviceResponse struct {
+	APIErrorResponse
+	Data []struct {
+		Interface struct {
+			Address string `json:"Address"`
+			DNS     string `json:"DNS"`
+		} `json:"Interface"`
+		Peer struct {
+			PublicKey  string `json:"PublicKey"`
+			AllowedIPs string `json:"AllowedIPs"`
+			Endpoint   string `json:"Endpoint"`
+		} `json:"Peer"`
+	} `json:"data"`
+}
+
+func (resp *ConnectDeviceResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
+}
+
 // SessionStatusResponse session status response
 type SessionStatusResponse struct {
 	APIErrorResponse
 	ServiceStatus ServiceStatusAPIResp `json:"service_status"`
 	DeviceName    string               `json:"device_name,omitempty"`
+}
+
+func (resp *SessionStatusResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }
 
 // GeoLookupResponse geolocation info
@@ -111,4 +174,44 @@ type GeoLookupResponse struct {
 	Longitude float32 `json:"longitude"`
 
 	//isIvpnServer bool
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *GeoLookupResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
+}
+
+type DeviceListResponse struct {
+	Message string `json:"message"`
+	Data    struct {
+		Count int `json:"count"`
+		Rows  []struct {
+			InternalID         int    `json:"id"`
+			UserID             int    `json:"userID"`
+			DeviceID           string `json:"device_id"`
+			DeviceName         string `json:"device_name"`
+			Type               string `json:"type"`
+			DeviceIP           string `json:"device_ip"`
+			AllocatedIP        string `json:"allocated_ip"`
+			PublicKey          string `json:"public_key"`
+			InterfacePublicKey string `json:"interface_publickey"`
+			DNS                string `json:"DNS"`
+			AllowedIPs         string `json:"allowedIPs"`
+			Endpoint           string `json:"endpoint"`
+			IsDeleted          int    `json:"is_deleted"`
+			CreatedAt          string `json:"createdAt"`
+			ActiveTunnel       string `json:"active_tunnel"`
+			RX                 string `json:"rx"`
+			TX                 string `json:"tx"`
+			IsConnected        int    `json:"isConnected"`
+			//			KeepAlive          string `json:"keep_alive"`				// null
+			//			Handshake          string `json:"handshake"`				// null
+		} `json:"rows"`
+	} `json:"data"`
+
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *DeviceListResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
 }

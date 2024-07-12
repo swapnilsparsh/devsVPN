@@ -528,11 +528,12 @@ func (c *CmdConnect) Run() (retError error) {
 					var destPort port
 					if len(c.multihopExitSvr) == 0 {
 						// port
-						destPort, err = getPort(c.port, allowedPortsWg)
-						if err != nil {
-							printAllowedPorts(allowedPortsWg, allowedPortsOvpn, v2rayCfg)
-							return err
-						}
+						// destPort, err = getPort(c.port, allowedPortsWg)
+						// if err != nil {
+						// 	printAllowedPorts(allowedPortsWg, allowedPortsOvpn, v2rayCfg)
+						// 	return err
+						// }
+						destPort = port{port: s.Hosts[0].EndpointPort, tcp: false}
 						fmt.Printf("[WireGuard] Connecting to: %s, %s (%s) %s %s...\n", s.City, s.CountryCode, s.Country, s.Gateway, destPort.String())
 					} else {
 						if exitSvrWg == nil {

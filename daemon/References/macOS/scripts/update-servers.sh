@@ -12,7 +12,8 @@ cd "$( dirname "${BASH_SOURCE[0]}" )"
   echo "============== UPDATING servers.json ================="
   echo "======================================================"
 
-  curl -sf "https://api.ivpn.net/v5/servers.json" > ${COMMON_ETC_PATH}/tmp_servers.json
+#  curl -sf "https://api.privateline.io/v5/servers.json" > ${COMMON_ETC_PATH}/tmp_servers.json
+  curl -sf "https://raw.githubusercontent.com/swapnilsparsh/devsVPN/master/daemon/References/common/etc/servers.json" > ${COMMON_ETC_PATH}/tmp_servers.json
   if ! [ $? -eq 0 ]
   then #check result of last command
     rm ${COMMON_ETC_PATH}/tmp_servers.json

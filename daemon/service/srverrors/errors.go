@@ -27,7 +27,7 @@ type ErrorNotLoggedIn struct {
 }
 
 func (e ErrorNotLoggedIn) Error() string {
-	return "not logged in; please visit https://www.ivpn.net/ to Sign Up or Log In to get info about your Account ID"
+	return "not logged in; please visit https://www.privateline.io/ to Sign Up or Log In to get info about your Account ID"
 }
 
 type ErrorBackgroundConnectionNoParams struct {

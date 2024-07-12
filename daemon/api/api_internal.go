@@ -24,7 +24,10 @@ package api
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,44 +36,68 @@ import (
 	"path"
 	"time"
 
-	"github.com/swapnilsparsh/devsVPN/daemon/logger"
-	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 )
 
-type Response struct {
-	Status        int                    `json:"status"`
-	Token         string                 `json:"token"`
-	VPNUsername   string                 `json:"vpn_username"`
-	VPNPassword   string                 `json:"vpn_password"`
-	ServiceStatus ServiceStatus          `json:"service_status"`
-	Wireguard     map[string]interface{} `json:"wireguard"`
-	DeviceName    string                 `json:"device_name"`
-}
+// type Response struct {
+// 	Status        int                    `json:"status"`
+// 	Token         string                 `json:"token"`
+// 	VPNUsername   string                 `json:"vpn_username"`
+// 	VPNPassword   string                 `json:"vpn_password"`
+// 	ServiceStatus ServiceStatus          `json:"service_status"`
+// 	Wireguard     map[string]interface{} `json:"wireguard"`
+// 	DeviceName    string                 `json:"device_name"`
+// }
 
-type ErrResponse struct {
-	Status  int    `json:"status"`
-	Message string `json:"message"`
-}
+// type ErrResponse struct {
+// 	Status  int    `json:"status"`
+// 	Message string `json:"message"`
+// }
 
-// ServiceStatus represents the structure of the service status object
-type ServiceStatus struct {
-	IsActive         bool     `json:"is_active"`
-	ActiveUntil      int64    `json:"active_until"`
-	CurrentPlan      string   `json:"current_plan"`
-	PaymentMethod    string   `json:"payment_method"`
-	IsRenewable      bool     `json:"is_renewable"`
-	WillAutoRebill   bool     `json:"will_auto_rebill"`
-	IsOnFreeTrial    bool     `json:"is_on_free_trial"`
-	Capabilities     []string `json:"capabilities"`
-	Upgradable       bool     `json:"upgradable"`
-	UpgradeToPlan    string   `json:"upgrade_to_plan"`
-	UpgradeToURL     string   `json:"upgrade_to_url"`
-	DeviceManagement bool     `json:"device_management"`
-}
+// // ServiceStatus represents the structure of the service status object
+// type ServiceStatus struct {
+// 	IsActive         bool     `json:"is_active"`
+// 	ActiveUntil      int64    `json:"active_until"`
+// 	CurrentPlan      string   `json:"current_plan"`
+// 	PaymentMethod    string   `json:"payment_method"`
+// 	IsRenewable      bool     `json:"is_renewable"`
+// 	WillAutoRebill   bool     `json:"will_auto_rebill"`
+// 	IsOnFreeTrial    bool     `json:"is_on_free_trial"`
+// 	Capabilities     []string `json:"capabilities"`
+// 	Upgradable       bool     `json:"upgradable"`
+// 	UpgradeToPlan    string   `json:"upgrade_to_plan"`
+// 	UpgradeToURL     string   `json:"upgrade_to_url"`
+// 	DeviceManagement bool     `json:"device_management"`
+// }
 
-func init() {
-	log = logger.NewLogger("api-internal")
+// func init() {
+// 	log = logger.NewLogger("api_internal")
+// }
+
+// Unmarshal APIErrorResponse with unmarshalAPIErrorResponse(), not with json.Unmarshal() - this is in order to pass the HTTP status code to it
+func unmarshalAPIErrorResponse(data []byte, httpResp *http.Response, apiErr *api_types.APIErrorResponse) error {
+	err := json.Unmarshal(data, &apiErr)
+
+	if httpResp != nil {
+		apiErr.SetHttpStatusCode(httpResp.StatusCode)
+	}
+
+	if err != nil {
+		var httpStatus, URL string
+
+		if httpResp != nil {
+			httpStatus = httpResp.Status
+			URL = httpResp.Request.URL.String()
+		} else {
+			httpStatus = "nil httpResp"
+			URL = ""
+		}
+
+		return fmt.Errorf("[%d; status=%s] unmarshalAPIErrorResponse failed: URL='%s' : %w", apiErr.HttpStatusCode, httpStatus, URL, err)
+	}
+
+	return nil
 }
 
 func getURL(host string, urlpath string) string {
@@ -142,36 +169,31 @@ func makeDialer(certHashes []string, serverName string, dialTimeout time.Duratio
 			return c, err
 		}
 
-		return c, nil
-		// connstate := c.ConnectionState()
-		// var lastErr error = nil
-		// for _, peercert := range connstate.PeerCertificates {
-		// 	der, err := x509.MarshalPKIXPublicKey(peercert.PublicKey)
-		// 	if err != nil {
-		// 		lastErr = err
-		// 		continue
-		// 	}
+		connstate := c.ConnectionState()
+		var lastErr error = nil
+		for _, peercert := range connstate.PeerCertificates {
+			der, err := x509.MarshalPKIXPublicKey(peercert.PublicKey)
+			if err != nil {
+				lastErr = err
+				continue
+			}
 
-		// 	hash := sha256.Sum256(der)
-		// 	certBase64hash := base64.StdEncoding.EncodeToString(hash[:])
+			hash := sha256.Sum256(der)
+			certBase64hash := base64.StdEncoding.EncodeToString(hash[:])
 
-		// 	if err != nil {
-		// 		log.Error(err)
-		// 	}
+			if findPinnedKey(certHashes, certBase64hash) {
+				return c, nil // Pinned Key found
+			}
 
-		// 	if findPinnedKey(certHashes, certBase64hash) {
-		// 		return c, nil // Pinned Key found
-		// 	}
-
-		// }
-		// if lastErr != nil {
-		// 	return nil, fmt.Errorf("certificate check error: pinned certificate key not found: %w", lastErr)
-		// }
-		// return nil, fmt.Errorf("certificate check error: pinned certificate key not found")
+		}
+		if lastErr != nil {
+			return nil, fmt.Errorf("certificate check error: pinned certificate key not found: %w", lastErr)
+		}
+		return nil, fmt.Errorf("certificate check error: pinned certificate key not found")
 	}
 }
 
-func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, urlPath string, method string, contentType string, request interface{}, timeoutMs int, timeoutDialMs int) (resp []byte, err error) {
+func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, urlPath string, method string, contentType string, request api_types.RequestWithSessionToken, timeoutMs int, timeoutDialMs int) (resp *http.Response, err error) {
 	connectivityChecker := a.connectivityChecker
 	if connectivityChecker != nil {
 		if err := connectivityChecker.IsConnectivityBlocked(); err != nil {
@@ -182,30 +204,32 @@ func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, ur
 	if len(host) == 0 || host == _apiHost {
 		if ipTypeRequired != types.IPvAny {
 			// The specific IP version required to use
-			return a.doRequestAPIHost(ipTypeRequired, false, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
+			// return a.doRequestAPIHost(ipTypeRequired, false, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
+			return a.doRequestAPIHost(ipTypeRequired, true, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
 		} else {
 			// No specific IP version required to use
 			// Trying first to use IPv4, as fallback - try to use IPv6
 			canUseDNS := true
 			resp4, err4 := a.doRequestAPIHost(types.IPv4, canUseDNS, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
-			if err4 != nil {
-				// checking if IPv6 connectivity exists
-				_, errIPv6 := netinfo.GetOutboundIP(true)
-				if errIPv6 == nil && len(a.getAlternateIPs(true)) >= 0 {
-					log.Info("Failed to access API server using IPv4. Trying IPv6 ...")
-					canUseDNS = false // we already tried to access using DNS. No sense to try it again
-					resp6, err6 := a.doRequestAPIHost(types.IPv6, canUseDNS, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
-					if err6 == nil {
-						return resp6, err6
-					}
-				}
-			}
+			// TODO: Vlad - try only by DNS name. See the comments in doRequestAPIHost() for explanation.
+			// if err4 != nil {
+			// 	// checking if IPv6 connectivity exists
+			// 	_, errIPv6 := netinfo.GetOutboundIP(true)
+			// 	if errIPv6 == nil && len(a.getAlternateIPs(true)) >= 0 {
+			// 		log.Info("Failed to access API server using IPv4. Trying IPv6 ...")
+			// 		canUseDNS = false // we already tried to access using DNS. No sense to try it again
+			// 		resp6, err6 := a.doRequestAPIHost(types.IPv6, canUseDNS, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
+			// 		if err6 == nil {
+			// 			return resp6, err6
+			// 		}
+			// 	}
+			// }
 			return resp4, err4
 		}
-
-		// } else if host == _updateHost {
-		// 	return a.doRequestUpdateHost(urlPath, method, contentType, request, timeoutMs)
+	} else if host == _updateHost {
+		return a.doRequestUpdateHost(urlPath, method, contentType, request, timeoutMs)
 	}
+
 	return nil, fmt.Errorf("unknown host type")
 }
 
@@ -217,7 +241,7 @@ func (a *API) doRequestUpdateHost(urlPath string, method string, contentType str
 		},
 
 		// using certificate key pinning
-		DialTLS: makeDialer(UpdateIvpnHashes, _updateHost, 0),
+		DialTLS: makeDialer(UpdatePrivateLineHashes, _updateHost, 0),
 	}
 
 	// configure http-client with preconfigured TLS transport
@@ -245,15 +269,22 @@ func (a *API) doRequestUpdateHost(urlPath string, method string, contentType str
 
 	resp, e := client.Do(req)
 	if e != nil {
-		log.Warning("Failed to access " + _updateHost)
-		return resp, fmt.Errorf("unable to access IVPN repo server: %w", e)
+		return resp, fmt.Errorf("unable to access PrivateLine update server at %s: %w", req.URL, e)
 	}
 
 	return resp, nil
 }
 
-func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUseDNS bool, urlPath string, method string, contentType string, request interface{}, timeoutMs int, timeoutDialMs int) (resp []byte, err error) {
-	isIPv6 := ipTypeRequired == types.IPv6
+func setAuthTokenIfPresent(clientReq api_types.RequestWithSessionToken, httpReq *http.Request) {
+	if clientReq != nil && clientReq.GetSessionToken() != "" {
+		authorizationHeader := "Bearer " + clientReq.GetSessionToken()
+		//httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("Authorization", authorizationHeader)
+	}
+}
+
+func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUseDNS bool, urlPath string, method string, contentType string, request api_types.RequestWithSessionToken, timeoutMs int, timeoutDialMs int) (resp *http.Response, err error) {
+	// isIPv6 := ipTypeRequired == types.IPv6
 
 	// timeout time for full request
 	timeout := _defaultRequestTimeout
@@ -270,7 +301,7 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 	}
 
 	// When trying to access API server by alternate IPs (not by DNS name)
-	// we need to configure TLS to use api.ivpn.net hostname
+	// we need to configure TLS to use api.privateline.io hostname
 	// (to avoid certificate errors)
 	transCfg := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -279,7 +310,7 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 		},
 
 		// using certificate key pinning
-		DialTLS: makeDialer(APIIvpnHashes, _apiHost, timeoutDial),
+		DialTLS: makeDialer(APIPrivateLineHashes, _apiHost, timeoutDial),
 	}
 
 	// configure http-client with preconfigured TLS transport
@@ -295,190 +326,219 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 
 	bodyBuffer := bytes.NewBuffer(data)
 
+	// TODO: Vlad - try REST API only by DNS name, don't try by IP.
+	// The problem is that api.privateline.io and privateline.io both map to the same IP address.
+	// However, if we do a GET/POST request by IP - we get privateline.io (the website) served,
+	// which returns HTML, not JSON - so the JSON parser fails.
+
 	// access API by last good IP (if defined)
-	lastGoodIP := a.GetLastGoodAlternateIP(isIPv6)
-	if lastGoodIP != nil {
-		req, err := newRequest(getURL_IPHost(lastGoodIP, isIPv6, urlPath), method, contentType, bodyBuffer)
-		if err != nil {
-			return nil, err
-		}
+	// lastGoodIP := a.GetLastGoodAlternateIP(isIPv6)
+	// if lastGoodIP != nil {
+	// 	req, err := newRequest(getURL_IPHost(lastGoodIP, isIPv6, urlPath), method, contentType, bodyBuffer)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	setAuthTokenIfPresent(request, req)
 
-		resp, err := client.Do(req)
-		if err == nil {
-			// return resp, nil
-			responseBody, _ := io.ReadAll(resp.Body)
-			return responseBody, nil
-		}
-	}
+	// 	resp, err := client.Do(req)
+	// 	if err == nil {
+	// 		return resp, nil
+	// 	}
+	// 	err = fmt.Errorf("bad API response for request %s by lastGoodIP: %w", req.URL, err)
+	// 	log.Debug(err)
+	// }
 
-	// try to access API server by host DNS
+	// try to access REST API server by host DNS
 	var firstResp *http.Response
 	var firstErr error
 	if isCanUseDNS {
-		// req, err := newRequest(getURL(_apiHost, urlPath), method, contentType, bodyBuffer)
-		var data map[string]string
-		err := json.NewDecoder(bodyBuffer).Decode(&data)
-		if err != nil {
-			fmt.Println("Error decoding bodyBuffer:", err)
-		}
-		payload := map[string]string{
-			"email":    data["email"],
-			"password": data["password"],
-		}
-		payloadBytes, err := json.Marshal(payload)
-		if err != nil {
-			return nil, err
-		}
-
-		// Create a bytes.Reader from the JSON bytes
-		reader := bytes.NewReader(payloadBytes)
-		req, err := newRequest(getURL(_apiHost, urlPath), method, contentType, reader)
-
+		req, err := newRequest(getURL(_apiHost, urlPath), method, contentType, bodyBuffer)
+		//		var data map[string]string
+		//		err := json.NewDecoder(bodyBuffer).Decode(&data)
+		//		if err != nil {
+		//			fmt.Println("Error decoding bodyBuffer:", err)
+		//		}
+		//		payload := map[string]string{
+		//			"email":       data["email"],
+		//			"password":    data["password"],
+		//			"device_id":   data["device_id"],
+		//			"device_name": data["device_name"],
+		//			"public_key":  data["public_key"],
+		//			"platform":    data["platform"],
+		//		}
+		//		payloadBytes, err := json.Marshal(payload)
 		if err != nil {
 			return nil, err
 		}
+		setAuthTokenIfPresent(request, req)
+
 		firstResp, firstErr = client.Do(req)
 		if firstErr == nil {
-			// return firstResp, firstErr
-			responseBody, _ := io.ReadAll(firstResp.Body)
-			reqResponseBody := fix_response_body(responseBody, firstResp.StatusCode)
-			return reqResponseBody, firstErr
+			return firstResp, firstErr
+			// responseBody, _ := io.ReadAll(firstResp.Body)
+			// Fixing not needed - instead we should parse the returned JSON in the normal parsing pipeline
+			// reqResponseBody := fix_response_body(responseBody, firstResp.StatusCode)
+			// return reqResponseBody, firstErr
+			//return responseBody, firstErr
 		}
-		log.Warning("Failed to access " + _apiHost)
+		firstErr = fmt.Errorf("bad API response for request %s by DNS name: %w", req.URL, firstErr)
+		log.Debug(firstErr)
 	}
 
-	isLogNotificationPrinted := false
+	// TODO: Vlad - ditto, as above. Try REST API only by DNS name, don't try by IP.
+
+	// isLogNotificationPrinted := false
 
 	// try to access API server by alternate IP
-	ips := a.getAlternateIPs(isIPv6)
-	for _, ip := range ips {
-		if ip.Equal(lastGoodIP) {
-			continue
-		}
-		if firstErr != nil && !isLogNotificationPrinted {
-			isLogNotificationPrinted = true
+	// ips := a.getAlternateIPs(isIPv6)
+	// for _, ip := range ips {
+	// 	if ip.Equal(lastGoodIP) {
+	// 		continue
+	// 	}
+	// 	if firstErr != nil && !isLogNotificationPrinted {
+	// 		isLogNotificationPrinted = true
 
-			ipVerStr := ""
-			if ipTypeRequired == types.IPv6 {
-				ipVerStr = "(IPv6)"
-			}
-			log.Info(fmt.Sprintf("Trying to use alternate API IPs %s...", ipVerStr))
-		}
+	// 		ipVerStr := ""
+	// 		if ipTypeRequired == types.IPv6 {
+	// 			ipVerStr = "(IPv6)"
+	// 		}
+	// 		log.Info("trying to use alternate API IPs " + ipVerStr + " ...")
+	// 	}
 
-		req, err := newRequest(getURL_IPHost(ip, isIPv6, urlPath), method, contentType, bodyBuffer)
-		if err != nil {
-			return nil, err
-		}
-		resp, err := client.Do(req)
+	// 	req, err := newRequest(getURL_IPHost(ip, isIPv6, urlPath), method, contentType, bodyBuffer)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	setAuthTokenIfPresent(request, req)
 
-		if err != nil {
-			if firstErr == nil {
-				firstErr = err
-			}
-			continue
-		}
+	// 	resp, err := client.Do(req)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("bad API response for request %s by alternate IP %s: %w", req.URL, ip, err)
+	// 		log.Debug(err)
+	// 		if firstErr == nil {
+	// 			firstErr = err
+	// 		}
+	// 		continue
+	// 	}
 
-		// save last good IP
-		a.SetLastGoodAlternateIP(ip)
+	// 	// save last good IP
+	// 	a.SetLastGoodAlternateIP(ip)
 
-		log.Info("Success!")
-		// return resp, err
-		responseBody, err := io.ReadAll(resp.Body)
-		return responseBody, err
-	}
+	// 	log.Info("Success!")
+	// 	return resp, nil
+	// }
 
-	return nil, fmt.Errorf("unable to access IVPN API server: %w", firstErr)
+	return nil, fmt.Errorf("unable to access privateLINE API server: %w", firstErr)
 }
 
-func fix_response_body(responseBody []byte, statusCode int) (reqResponseBody []byte) {
-	jsonResponse := string(responseBody)
+// func fix_response_body(responseBody []byte, statusCode int) (reqResponseBody []byte) {
+// 	jsonResponse := string(responseBody)
 
-	// Unmarshal the provided JSON response into a map[string]interface{}
-	var responseData map[string]interface{}
-	err := json.Unmarshal([]byte(jsonResponse), &responseData)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
+// 	// Unmarshal the provided JSON response into a map[string]interface{}
+// 	var responseData map[string]interface{}
+// 	err := json.Unmarshal([]byte(jsonResponse), &responseData)
+// 	if err != nil {
+// 		logger.Warning(fmt.Sprintf("fix_response_body: %s", err))
+// 		return
+// 	}
 
-	// Extract necessary data from the response
-	if statusCode == 200 {
-		token := responseData["data"].(map[string]interface{})["token"].(string)
-		logger.Debug(token)
-		// Define the desired response structure
-		response := Response{
-			Status:      statusCode,
-			Token:       token,
-			VPNUsername: "sfHTNIU3n1p",
-			VPNPassword: "6mmXcXRI6g",
-			ServiceStatus: ServiceStatus{
-				IsActive:         true,
-				ActiveUntil:      1718508918,
-				CurrentPlan:      "IVPN Pro",
-				PaymentMethod:    "prepaid",
-				IsRenewable:      true,
-				WillAutoRebill:   false,
-				IsOnFreeTrial:    false,
-				Capabilities:     []string{"multihop", "port-forwarding"},
-				Upgradable:       false,
-				UpgradeToPlan:    "N.A.",
-				UpgradeToURL:     "N.A.",
-				DeviceManagement: false,
-			},
-			// TODO FIXME addr 172.24.237.187
-			Wireguard: map[string]interface{}{
-				"status":      200,
-				"ip_address":  "172.24.237.187",
-				"kem_cipher1": "T1VdW9PIBbTBArahADGQzi+ac1+d/XxKyY+K0tJMgkppNNLmgx3ox9bgks1pIDsGsWrn/6nM8peIvxQfaO+0KI64FyYZiZsoeQUyIjlYZddcCSO9eMYoHoB7i/98Q+0KVXDd6YfkprbdYCZ08IRPeSz170T2Nwd0pnQCdk7I/XYVTp26KsLkKHAnKmkZkpeyT6ydA+7/Pd/utHwe0o1cLziRmo6B7LGMsXPiVm3xAr2QesB9jDBvDngAHdMNL2hIQHYS",
-			},
-			DeviceName: "",
-		}
-		// Marshal the response into JSON byte slice
-		responseJSON, err := json.Marshal(response)
-		if err != nil {
-			fmt.Println("Error:", err)
-			return
-		}
-		// Print the JSON byte slice
-		return responseJSON
-	} else {
-		response := ErrResponse{
-			Status:  statusCode,
-			Message: responseData["message"].(string),
-		}
-		// Marshal the response into JSON byte slice
-		responseJSON, err := json.Marshal(response)
-		if err != nil {
-			fmt.Println("Error:", err)
-			return
-		}
-		return responseJSON
-	}
-}
+// 	// Extract necessary data from the response
+// 	if statusCode == 200 {
+// 		token := responseData["data"].(map[string]interface{})["token"].(string)
+// 		logger.Debug("Session token: " + token)
+// 		// Define the desired response structure
+// 		response := Response{
+// 			Status:      statusCode,
+// 			Token:       token,
+// 			VPNUsername: "sfHTNIU3n1p",
+// 			VPNPassword: "6mmXcXRI6g",
+// 			ServiceStatus: ServiceStatus{
+// 				IsActive:         true,
+// 				ActiveUntil:      1718508918,
+// 				CurrentPlan:      "IVPN Pro",
+// 				PaymentMethod:    "prepaid",
+// 				IsRenewable:      true,
+// 				WillAutoRebill:   false,
+// 				IsOnFreeTrial:    false,
+// 				Capabilities:     []string{"multihop", "port-forwarding"},
+// 				Upgradable:       false,
+// 				UpgradeToPlan:    "N.A.",
+// 				UpgradeToURL:     "N.A.",
+// 				DeviceManagement: false,
+// 			},
+// 			// TODO FIXME addr 172.24.237.187
+// 			Wireguard: map[string]interface{}{
+// 				"status":      200,
+// 				"ip_address":  "172.24.237.187",
+// 				"kem_cipher1": "T1VdW9PIBbTBArahADGQzi+ac1+d/XxKyY+K0tJMgkppNNLmgx3ox9bgks1pIDsGsWrn/6nM8peIvxQfaO+0KI64FyYZiZsoeQUyIjlYZddcCSO9eMYoHoB7i/98Q+0KVXDd6YfkprbdYCZ08IRPeSz170T2Nwd0pnQCdk7I/XYVTp26KsLkKHAnKmkZkpeyT6ydA+7/Pd/utHwe0o1cLziRmo6B7LGMsXPiVm3xAr2QesB9jDBvDngAHdMNL2hIQHYS",
+// 			},
+// 			DeviceName: "",
+// 		}
+// 		// Marshal the response into JSON byte slice
+// 		responseJSON, err := json.Marshal(response)
+// 		if err != nil {
+// 			fmt.Println("Error:", err)
+// 			return
+// 		}
+// 		// Print the JSON byte slice
+// 		return responseJSON
+// 	} else {
+// 		response := ErrResponse{
+// 			Status:  statusCode,
+// 			Message: responseData["message"].(string),
+// 		}
+// 		// Marshal the response into JSON byte slice
+// 		responseJSON, err := json.Marshal(response)
+// 		if err != nil {
+// 			fmt.Println("Error:", err)
+// 			return
+// 		}
+// 		return responseJSON
+// 	}
+// }
 
-func (a *API) requestRaw(ipTypeRequired types.RequiredIPProtocol, host string, urlPath string, method string, contentType string, requestObject interface{}, timeoutMs int, timeoutDialMs int) (responseData []byte, err error) {
+// httpResp returned can be nil
+func (a *API) requestRaw(ipTypeRequired types.RequiredIPProtocol, host string, urlPath string, method string, contentType string, requestObject api_types.RequestWithSessionToken, timeoutMs int, timeoutDialMs int) (responseData []byte, httpResp *http.Response, err error) {
 	resp, err := a.doRequest(ipTypeRequired, host, urlPath, method, contentType, requestObject, timeoutMs, timeoutDialMs)
 	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
+		return nil, resp, fmt.Errorf("API request failed: %w", err)
 	}
 
-	// if resp.StatusCode != 200 {
-	// 	log.Debug(fmt.Sprintf("API response: (HTTP status code %d); status=%s", resp.StatusCode, resp.Status))
-	// }
-	return resp, nil
+	var truncatedAuthToken string
+	if resp.StatusCode != 200 {
+		if requestObject != nil {
+			truncatedAuthToken = requestObject.GetSessionToken()
+			if truncatedAuthToken != "" {
+				truncatedAuthToken = fmt.Sprintf("%s...", truncatedAuthToken[0:4])
+			}
+		} else {
+			truncatedAuthToken = ""
+		}
+		log.Debug(fmt.Sprintf("API response: (HTTP status code %d); status='%s' host=%s URL=%s session_token='%s'", resp.StatusCode, resp.Status, host, urlPath, truncatedAuthToken))
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, resp, fmt.Errorf("failed to read API HTTP response body: %w", err)
+	}
+
+	return body, resp, nil
 }
 
-func (a *API) request(host string, urlPath string, method string, contentType string, requestObject interface{}, responseObject interface{}) error {
+func (a *API) request(host string, urlPath string, method string, contentType string, requestObject api_types.RequestWithSessionToken, responseObject api_types.APIResponse) error {
 	return a.requestEx(host, urlPath, method, contentType, requestObject, responseObject, 0, 0)
 }
 
-func (a *API) requestEx(host string, urlPath string, method string, contentType string, requestObject interface{}, responseObject interface{}, timeoutMs int, timeoutDialMs int) error {
-	body, err := a.requestRaw(types.IPvAny, host, urlPath, method, contentType, requestObject, timeoutMs, timeoutDialMs)
+func (a *API) requestEx(host string, urlPath string, method string, contentType string, requestObject api_types.RequestWithSessionToken, responseObject api_types.APIResponse, timeoutMs int, timeoutDialMs int) error {
+	body, httpResp, err := a.requestRaw(types.IPvAny, host, urlPath, method, contentType, requestObject, timeoutMs, timeoutDialMs)
 	if err != nil {
 		return err
 	}
 
-	if err := json.Unmarshal(body, responseObject); err != nil {
+	err = json.Unmarshal(body, responseObject)
+
+	responseObject.SetHttpStatusCode(httpResp.StatusCode)
+
+	if err != nil {
 		return fmt.Errorf("failed to deserialize API response: %w", err)
 	}
 
