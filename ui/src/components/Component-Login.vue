@@ -195,7 +195,7 @@ export default {
         // }
 
         this.isProcessing = true;
-        console.log({ accountid: this.accountID, email: this.email, password: this.password });
+        // console.log({ accountid: this.accountID, email: this.email, password: this.password });
         if (!(this.email != undefined && this.email != null && this.email != '')) {
           sender.showMessageBoxSync({
             type: "error",

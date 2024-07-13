@@ -8,6 +8,7 @@
               <!-- ARROW LEFT -->
               <imgArrowLeft />
             </button>
+            <!-- ========== TODOC1: Setting ============ -->
             <div class="Header settingsHeader">Settings</div>
           </div>
 
@@ -55,7 +56,7 @@
                 }"
               >
                 PrivateLINE Firewall
-              </button>
+              </button> -->
               <button
                 v-if="isLoggedIn && isSplitTunnelVisible"
                 class="noBordersBtn tabTitleBtn"
@@ -66,7 +67,7 @@
               >
                 Split Tunnel
               </button>
-              <button
+              <!-- <button
                 v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
                 v-on:click="onView('networks')"
@@ -75,9 +76,9 @@
                 }"
               >
                 WiFi control
-              </button>
+              </button> -->
 
-              <button
+              <!-- <button
                 v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
                 v-on:click="onView('antitracker')"
@@ -86,8 +87,8 @@
                 }"
               >
                 AntiTracker
-              </button>
-              <button
+              </button> -->
+              <!-- <button
                 v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
                 v-on:click="onView('dns')"
@@ -96,9 +97,9 @@
                 }"
               >
                 DNS
-              </button>
+              </button> -->
 
-              <button
+              <!-- <button
                 v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
                 v-on:click="onView('advanced')"

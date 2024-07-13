@@ -12,72 +12,46 @@
                 {{ textAddAppFromInstalledAppsHeader }}
               </div>
 
-              <button
-                class="noBordersBtn opacityOnHoverLight settingsGrayTextColor"
-                style="pointer-events: auto"
-                v-on:click="showAddApplicationPopup(false)"
-              >
+              <button class="noBordersBtn opacityOnHoverLight settingsGrayTextColor" style="pointer-events: auto"
+                v-on:click="showAddApplicationPopup(false)">
                 CANCEL
               </button>
             </div>
 
             <!-- filter -->
-            <input
-              ref="installedAppsFilterInput"
-              id="filter"
-              class="styled"
-              placeholder="Search for app"
-              v-model="filterAppsToAdd"
-              v-bind:style="{
+            <input ref="installedAppsFilterInput" id="filter" class="styled" placeholder="Search for app"
+              v-model="filterAppsToAdd" v-bind:style="{
                 backgroundImage: 'url(' + searchImageInstalledApps + ')',
-              }"
-              style="margin: 0px; margin-bottom: 10px"
-            />
+              }" style="margin: 0px; margin-bottom: 10px" />
             <div class="horizontalLine" />
 
             <!--all apps-->
-            <div
-              style="
+            <div style="
                 overflow: auto;
                 position: relative;
                 height: 320px;
                 max-height: 320px;
-              "
-            >
+              ">
               <!-- No applications that are fit the filter -->
-              <div
-                v-if="!filteredAppsToAdd || filteredAppsToAdd.length == 0"
-                style="text-align: center; width: 100%; margin-top: 100px"
-              >
+              <div v-if="!filteredAppsToAdd || filteredAppsToAdd.length == 0"
+                style="text-align: center; width: 100%; margin-top: 100px">
                 <div class="settingsGrayTextColor">
                   No applications that are fit the filter:
                 </div>
                 <div>
-                  '<span
-                    class="settingsGrayTextColor"
-                    style="
+                  '<span class="settingsGrayTextColor" style="
                       display: inline-block;
                       font-weight: bold;
                       overflow: hidden;
                       white-space: nowrap;
                       text-overflow: ellipsis;
                       max-width: 300px;
-                    "
-                    >{{ filterAppsToAdd }}</span
-                  >'
+                    ">{{ filterAppsToAdd }}</span>'
                 </div>
               </div>
 
-              <div
-                v-else
-                v-for="app of filteredAppsToAdd"
-                v-bind:key="app.AppBinaryPath"
-              >
-                <div
-                  v-on:click="addApp(app.AppBinaryPath)"
-                  class="flexRow grayedOnHover"
-                  style="padding-top: 4px"
-                >
+              <div v-else v-for="app of filteredAppsToAdd" v-bind:key="app.AppBinaryPath">
+                <div v-on:click="addApp(app.AppBinaryPath)" class="flexRow grayedOnHover" style="padding-top: 4px">
                   <binaryInfoControl :app="app" style="width: 100%" />
                 </div>
               </div>
@@ -86,24 +60,15 @@
             <div class="horizontalLine" />
 
             <div>
-              <button
-                class="settingsButton flexRow grayedOnHover"
-                style="
+              <button class="settingsButton flexRow grayedOnHover" style="
                   margin-top: 10px;
                   margin-bottom: 10px;
                   height: 40px;
                   width: 100%;
-                "
-                v-on:click="addApp(null)"
-              >
+                " v-on:click="addApp(null)">
                 <div class="flexRowRestSpace"></div>
                 <div class="flexRow">
-                  <img
-                    width="24"
-                    height="24"
-                    style="margin: 8px"
-                    src="@/assets/plus.svg"
-                  />
+                  <img width="24" height="24" style="margin: 8px" src="@/assets/plus.svg" />
                 </div>
                 <div class="flexRow settingsGrayTextColor">
                   {{ textAddAppManuallyButton }}
@@ -117,20 +82,12 @@
     </div>
 
     <div class="param">
-      <input
-        type="checkbox"
-        id="isSTEnabledLocal"
-        v-model="isSTEnabledLocal"
-        @change="applyChanges"
-      />
+      <input type="checkbox" id="isSTEnabledLocal" v-model="isSTEnabledLocal" @change="applyChanges" />
       <label class="defColor" for="isSTEnabledLocal">Split Tunnel</label>
-      <button
-        class="noBordersBtn flexRow"
-        title="Help"
-        v-on:click="$refs.helpSTEnabledLocal.showModal()"
-      >
+      <button class="noBordersBtn flexRow" title="Help" v-on:click="$refs.helpSTEnabledLocal.showModal()">
         <img src="@/assets/question.svg" />
       </button>
+      <!-- ============= TODO SPLIT Tunnel ================= -->
       <ComponentDialog ref="helpSTEnabledLocal" header="Info">
         <div>
           <p>
@@ -158,10 +115,8 @@
           </div>
           <div class="settingsGrayLongDescriptionFont">
             For more information refer to the
-            <linkCtrl
-              label="Split Tunnel Uses and Limitations"
-              url="https://www.ivpn.net/knowledgebase/general/split-tunnel-uses-and-limitations"
-            />
+            <linkCtrl label="Split Tunnel Uses and Limitations"
+              url="https://www.ivpn.net/knowledgebase/general/split-tunnel-uses-and-limitations" />
             webpage
           </div>
         </div>
@@ -176,21 +131,10 @@
     <div v-show="isSplitTunnelInverseSupported">
       <!-- Inverse mode -->
       <div class="param">
-        <input
-          :disabled="!isSTEnabledLocal"
-          type="checkbox"
-          id="stInversedLocal"
-          v-model="stInversedLocal"
-          @change="onSTInversedChange"
-        />
-        <label class="defColor" for="stInversedLocal"
-          >Inverse mode (BETA)</label
-        >
-        <button
-          class="noBordersBtn flexRow"
-          title="Help"
-          v-on:click="$refs.helpStInversedLocal.showModal()"
-        >
+        <input :disabled="!isSTEnabledLocal" type="checkbox" id="stInversedLocal" v-model="stInversedLocal"
+          @change="onSTInversedChange" />
+        <label class="defColor" for="stInversedLocal">Inverse mode (BETA)</label>
+        <button class="noBordersBtn flexRow" title="Help" v-on:click="$refs.helpStInversedLocal.showModal()">
           <img src="@/assets/question.svg" />
         </button>
         <ComponentDialog ref="helpStInversedLocal" header="Info">
@@ -215,21 +159,11 @@
       <div style="margin-left: 16px">
         <!-- Allow connectivity for Split Tunnel apps when VPN is disabled -->
         <div class="param">
-          <input
-            :disabled="!stInversedLocal || !isSTEnabledLocal"
-            type="checkbox"
-            id="stAllowWhenNoVpnLocal"
-            v-model="stAllowWhenNoVpnLocal"
-            @change="applyChanges"
-          />
+          <input :disabled="!stInversedLocal || !isSTEnabledLocal" type="checkbox" id="stAllowWhenNoVpnLocal"
+            v-model="stAllowWhenNoVpnLocal" @change="applyChanges" />
           <label class="defColor" for="stAllowWhenNoVpnLocal">
-            Allow connectivity for Split Tunnel apps when VPN is disabled</label
-          >
-          <button
-            class="noBordersBtn flexRow"
-            title="Help"
-            v-on:click="$refs.helpStAllowWhenNoVpnLocal.showModal()"
-          >
+            Allow connectivity for Split Tunnel apps when VPN is disabled</label>
+          <button class="noBordersBtn flexRow" title="Help" v-on:click="$refs.helpStAllowWhenNoVpnLocal.showModal()">
             <img src="@/assets/question.svg" />
           </button>
           <ComponentDialog ref="helpStAllowWhenNoVpnLocal" header="Info">
@@ -251,21 +185,11 @@
 
         <!-- Block DNS servers not specified by the IVPN application -->
         <div class="param">
-          <input
-            :disabled="!stInversedLocal || !isSTEnabledLocal"
-            type="checkbox"
-            id="stBlockNonVpnDnsLocal"
-            v-model="stBlockNonVpnDnsLocal"
-            @change="applyChanges"
-          />
-          <label class="defColor" for="stBlockNonVpnDnsLocal"
-            >Block DNS servers not specified by the IVPN application</label
-          >
-          <button
-            class="noBordersBtn flexRow"
-            title="Help"
-            v-on:click="$refs.helpStInversedAnyDns.showModal()"
-          >
+          <input :disabled="!stInversedLocal || !isSTEnabledLocal" type="checkbox" id="stBlockNonVpnDnsLocal"
+            v-model="stBlockNonVpnDnsLocal" @change="applyChanges" />
+          <label class="defColor" for="stBlockNonVpnDnsLocal">Block DNS servers not specified by the IVPN
+            application</label>
+          <button class="noBordersBtn flexRow" title="Help" v-on:click="$refs.helpStInversedAnyDns.showModal()">
             <img src="@/assets/question.svg" />
           </button>
           <ComponentDialog ref="helpStInversedAnyDns" header="Info">
@@ -299,22 +223,15 @@
     <div style="height: 100%">
       <!-- HEADER: Applications -->
       <div class="flexRow" style="margin-top: 12px; margin-bottom: 12px">
-        <div
-          class="flexRowRestSpace settingsBoldFont settingsDefaultTextColor"
-          style="margin-top: 0px; margin-bottom: 0px; white-space: nowrap"
-        >
+        <div class="flexRowRestSpace settingsBoldFont settingsDefaultTextColor"
+          style="margin-top: 0px; margin-bottom: 0px; white-space: nowrap">
           {{ textApplicationsHeader }}
         </div>
 
         <!-- ADD APP BUTTON -->
         <div>
-          <button
-            class="settingsButton"
-            v-bind:class="{ opacityOnHoverLight: IsEnabled === true }"
-            :disabled="IsEnabled !== true"
-            style="min-width: 156px"
-            v-on:click="showAddApplicationPopup(true)"
-          >
+          <button class="settingsButton" v-bind:class="{ opacityOnHoverLight: IsEnabled === true }"
+            :disabled="IsEnabled !== true" style="min-width: 156px" v-on:click="showAddApplicationPopup(true)">
             {{ textAddAppButton }}
           </button>
         </div>
@@ -325,52 +242,35 @@
         <!-- Configured apps view -->
 
         <!-- No applications in Split Tunnel configuration -->
-        <div
-          v-if="isNoConfiguredApps"
-          style="
+        <div v-if="isNoConfiguredApps" style="
             text-align: center;
             width: 100%;
             margin-top: 35px;
             padding: 50px;
-          "
-        >
+          ">
           <div class="settingsGrayTextColor">
             {{ textNoAppInSplittunConfig }}
           </div>
         </div>
 
         <!-- Configured apps list -->
-        <div
-          v-if="!isShowAppAddPopup && !isNoConfiguredApps"
-          :style="`overflow: auto; width: 100%; height: ${
-            $refs.footer.offsetTop - $refs.appsListParent.offsetTop
-          }px;`"
-        >
-          <spinner
-            :loading="isLoadingAllApps"
-            style="
+        <div v-if="!isShowAppAddPopup && !isNoConfiguredApps" :style="`overflow: auto; width: 100%; height: ${$refs.footer.offsetTop - $refs.appsListParent.offsetTop
+          }px;`">
+          <spinner :loading="isLoadingAllApps" style="
               position: absolute;
               background: transparent;
               width: 100%;
               height: 100%;
-            "
-          />
+            " />
 
-          <div
-            v-for="app of filteredApps"
-            v-bind:key="app.RunningApp ? app.RunningApp.Pid : app.AppBinaryPath"
-          >
+          <div v-for="app of filteredApps" v-bind:key="app.RunningApp ? app.RunningApp.Pid : app.AppBinaryPath">
             <div class="flexRow grayedOnHover" style="padding-top: 4px">
               <!-- APP INFO  -->
               <binaryInfoControl :app="app" style="width: 100%" />
               <!-- APP REMOVE BUTTON -->
               <div>
-                <button
-                  class="noBordersBtn opacityOnHover"
-                  v-on:click="removeApp(app)"
-                  style="pointer-events: auto"
-                  title="Remove"
-                >
+                <button class="noBordersBtn opacityOnHover" v-on:click="removeApp(app)" style="pointer-events: auto"
+                  title="Remove">
                   <img width="24" height="24" src="@/assets/minus.svg" />
                 </button>
               </div>
@@ -387,11 +287,8 @@
 
       <div class="flexRow" style="margin-top: 15px">
         <div class="flexRowRestSpace" />
-        <button
-          class="settingsButton opacityOnHoverLight"
-          v-on:click="onResetToDefaultSettings"
-          style="white-space: nowrap"
-        >
+        <button class="settingsButton opacityOnHoverLight" v-on:click="onResetToDefaultSettings"
+          style="white-space: nowrap">
           Reset to default settings
         </button>
       </div>
@@ -1014,6 +911,7 @@ button.link {
   @extend .settingsLinkText;
   font-size: inherit;
 }
+
 label {
   margin-left: 1px;
 }
@@ -1033,7 +931,8 @@ button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-button:disabled + label {
+
+button:disabled+label {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -1042,13 +941,15 @@ input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-input:disabled + label {
+
+input:disabled+label {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
 $popup-background: var(--background-color);
 $shadow: 0px 3px 12px rgba(var(--shadow-color-rgb), var(--shadow-opacity));
+
 .appsSelectionPopup {
   position: absolute;
   z-index: 1;
