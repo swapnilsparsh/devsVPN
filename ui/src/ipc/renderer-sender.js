@@ -109,6 +109,9 @@ export default {
       // confirmation2FA
     );
   },
+
+  DeviceLimitReached: async () => { return await invoke("renderer-request-DeviceLimitReached"); },
+
   Logout: async (
     needToResetSettings,
     needToDisableFirewall,

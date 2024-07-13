@@ -106,6 +106,8 @@ const daemonRequests = Object.freeze({
   WiFiCurrentNetwork: "WiFiCurrentNetwork",
 
   ParanoidModeSetPasswordReq: "ParanoidModeSetPasswordReq",
+
+  DeviceLimitReached: "DeviceLimitReached",
 });
 
 const daemonResponses = Object.freeze({
@@ -139,6 +141,8 @@ const daemonResponses = Object.freeze({
   WiFiCurrentNetworkResp: "WiFiCurrentNetworkResp",
 
   ServiceExitingResp: "ServiceExitingResp",
+
+  DeviceLimitReachedResp: "DeviceLimitReachedResp",
 });
 
 export const AppUpdateInfoType = Object.freeze({
@@ -932,6 +936,13 @@ async function Login(email, password
 
   // Returning whole response object (even in case of error)
   // it contains details about error
+  return resp;
+}
+
+async function DeviceLimitReached() {
+  let resp = await sendRecv({
+    Command: daemonRequests.DeviceLimitReached,
+  });
   return resp;
 }
 
@@ -1948,4 +1959,5 @@ export default {
 
   SetParanoidModePassword,
   SetLocalParanoidModePassword,
+  DeviceLimitReached,
 };

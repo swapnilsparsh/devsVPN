@@ -233,6 +233,9 @@ export default {
           // this.captcha,
           // confirmation2FA ? confirmation2FA : this.confirmation2FA
         );
+        console.log("resp", resp);
+        const limitResponse = await sender.DeviceLimitReached();
+        console.log("limitResponse", limitResponse);
         // this.isForceLogoutRequested = false;
 
         // const oldConfirmation2FA = this.confirmation2FA;

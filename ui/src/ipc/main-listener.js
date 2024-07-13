@@ -67,6 +67,12 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "renderer-request-DeviceLimitReached",
+  async () => {
+    return await client.DeviceLimitReached();
+  });
+
+ipcMain.handle(
   "renderer-request-logout",
   async (
     event,
