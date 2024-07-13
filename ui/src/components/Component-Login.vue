@@ -223,6 +223,15 @@ export default {
           // this.captcha,
           // confirmation2FA ? confirmation2FA : this.confirmation2FA
         );
+        if(resp.APIErrorMessage != ''){
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Failed to login",
+            detail: resp.APIErrorMessage,
+          });
+
+        }
         // this.isForceLogoutRequested = false;
 
         // const oldConfirmation2FA = this.confirmation2FA;
