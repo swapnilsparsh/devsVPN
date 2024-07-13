@@ -87,7 +87,7 @@ export function InitTray(
         let f = path.join(trayIconsDir, "windows", "/");
         iconConnected = nativeImage.createFromPath(f + "connected.ico");
         iconDisconnected = nativeImage.createFromPath(f + "disconnected.ico");
-        iconPaused = nativeImage.createFromPath(f + "paused.ico");
+        iconPaused = nativeImage.createFromPath(f + "connecting.ico");
         iconsConnecting.push(nativeImage.createFromPath(f + "connecting.ico"));
         // lightTheme
         iconConnected_ForLightTheme = nativeImage.createFromPath(
@@ -96,7 +96,7 @@ export function InitTray(
         iconDisconnected_ForLightTheme = nativeImage.createFromPath(
           f + "disconnected.ico"
         );
-        iconPaused_ForLightTheme = nativeImage.createFromPath(f + "paused.ico");
+        iconPaused_ForLightTheme = nativeImage.createFromPath(f + "connecting.ico");
         iconsConnecting_ForLightTheme.push(
           nativeImage.createFromPath(f + "connecting.ico")
         );
@@ -107,7 +107,7 @@ export function InitTray(
         const f = path.join(trayIconsDir, "linux", "/");
         iconConnected = nativeImage.createFromPath(f + "connected.png");
         iconDisconnected = nativeImage.createFromPath(f + "disconnected.png");
-        iconPaused = nativeImage.createFromPath(f + "paused.png");
+        iconPaused = nativeImage.createFromPath(f + "connecting.png");
         iconsConnecting.push(nativeImage.createFromPath(f + "connecting.png"));
 
         // lightTheme
@@ -117,7 +117,7 @@ export function InitTray(
         iconDisconnected_ForLightTheme = nativeImage.createFromPath(
           f + "disconnected.png"
         );
-        iconPaused_ForLightTheme = nativeImage.createFromPath(f + "paused.png");
+        iconPaused_ForLightTheme = nativeImage.createFromPath(f + "connecting.png");
         iconsConnecting_ForLightTheme.push(
           nativeImage.createFromPath(f + "connecting.png")
         );
@@ -126,16 +126,14 @@ export function InitTray(
     case PlatformEnum.macOS:
       {
         const f = path.join(trayIconsDir, "mac", "/");
-        iconPaused = nativeImage.createFromPath(f + "template.png");
-        iconConnected = nativeImage.createFromPath(f + "connectedTemplate.png");
-        iconDisconnected = nativeImage.createFromPath(
-          f + "template.png"
-        );
+        iconPaused = nativeImage.createFromPath(f + "connecting.png");
+        iconConnected = nativeImage.createFromPath(f + "connected.png");
+        iconDisconnected = nativeImage.createFromPath(f + "disconnected.png");
         // const c1 = nativeImage.createFromPath(f + "icon-1Template.png");
         // const c2 = nativeImage.createFromPath(f + "icon-2Template.png");
         // const c3 = nativeImage.createFromPath(f + "icon-3Template.png");
         // const c4 = nativeImage.createFromPath(f + "icon-4Template.png");
-        iconsConnecting.push(iconDisconnected);
+        iconsConnecting.push(iconPaused);
       }
       break;
   }

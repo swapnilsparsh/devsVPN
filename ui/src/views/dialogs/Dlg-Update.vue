@@ -29,7 +29,7 @@
               <!-- NOTHING TO UPDATE-->
               <div v-if="!isHasUpgrade">
                 <div>
-                  <div class="big_text">You have the newest IVPN version!</div>
+                  <div class="big_text">You have the newest privateLINE version!</div>
                   <div class="small_text">
                     <div v-if="versionDaemon == versionUI">
                       v{{ versionDaemon }}
@@ -47,9 +47,9 @@
               <div v-else>
                 <div class="big_text">
                   <div v-if="versionLatestIsBeta">
-                    New IVPN beta version available
+                    New privateLINE beta version available
                   </div>
-                  <div v-else>New IVPN version available</div>
+                  <div v-else>New privateLINE version available</div>
                 </div>
 
                 <!-- info: new version -->

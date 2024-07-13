@@ -4,7 +4,7 @@
 
     <div v-if="isInitialization" class="main small_text"></div>
     <div class="main" v-else-if="isDaemonInstalling">
-      Installing IVPN Daemon ...
+      Installing privateLINE Daemon ...
       <div class="small_text" style="margin-top: 10px">
         Please follow the instructions in the dialog
       </div>
@@ -12,10 +12,10 @@
     <div v-else-if="isConnecting" class="main small_text">Connecting ...</div>
     <div v-else class="flexColumn">
       <div class="main">
-        <div class="large_text">Error connecting to IVPN daemon</div>
+        <div class="large_text">Error connecting to privateLINE daemon</div>
         <div v-if="daemonIsOldVersionError">
           <div class="small_text">
-            Unsupported IVPN daemon version v{{ currDaemonVer }} (minimum
+            Unsupported privateLINE daemon version v{{ currDaemonVer }} (minimum
             required v{{ minRequiredVer }}).
           </div>
           <div class="small_text">
@@ -34,7 +34,7 @@
             running and try to reconnect.
           </div>
           <div v-if="isMacOS" class="small_text">
-            Ensure that the <span>'IVPN'</span> background item is enabled in
+            Ensure that the <span>'PrivateLINE'</span> background item is enabled in
             your system settings. If it's not enabled, please turn it on and
             then reboot your system. (<span
               >General -> Login Items -> Allow in the Background</span

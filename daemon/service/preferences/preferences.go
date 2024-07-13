@@ -150,7 +150,8 @@ func (p *Preferences) SetSession(accountInfo AccountStatus,
 	wgPublicKey string,
 	wgPrivateKey string,
 	wgLocalIP string,
-	wgPreSharedKey string) {
+	wgPreSharedKey string,
+	deviceID string) {
 
 	if len(session) == 0 || len(accountID) == 0 {
 		p.Account = AccountStatus{}
@@ -158,7 +159,7 @@ func (p *Preferences) SetSession(accountInfo AccountStatus,
 		p.Account = accountInfo
 	}
 
-	p.setSession(accountID, session, deviceName, vpnUser, vpnPass, wgPublicKey, wgPrivateKey, wgLocalIP, wgPreSharedKey)
+	p.setSession(accountID, session, deviceName, vpnUser, vpnPass, wgPublicKey, wgPrivateKey, wgLocalIP, wgPreSharedKey, deviceID)
 	p.SavePreferences()
 }
 
@@ -306,7 +307,8 @@ func (p *Preferences) setSession(accountID string,
 	wgPublicKey string,
 	wgPrivateKey string,
 	wgLocalIP string,
-	wgPreSharedKey string) {
+	wgPreSharedKey string,
+	deviceID string) {
 
 	p.Session = SessionStatus{
 		AccountID:          strings.TrimSpace(accountID),
@@ -314,7 +316,8 @@ func (p *Preferences) setSession(accountID string,
 		DeviceName:         strings.TrimSpace(deviceName),
 		OpenVPNUser:        strings.TrimSpace(vpnUser),
 		OpenVPNPass:        strings.TrimSpace(vpnPass),
-		WGKeysRegenInerval: p.Session.WGKeysRegenInerval} // keep 'WGKeysRegenInerval' from previous Session object
+		WGKeysRegenInerval: p.Session.WGKeysRegenInerval, // keep 'WGKeysRegenInerval' from previous Session object
+		DeviceID:           deviceID}
 
 	if p.Session.WGKeysRegenInerval <= 0 {
 		p.Session.WGKeysRegenInerval = DefaultWGKeysInterval
