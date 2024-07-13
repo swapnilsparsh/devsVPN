@@ -455,13 +455,15 @@ func (a *API) SessionStatus(session string) (
 
 func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, err error) {
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
+	device := runtime.GOOS
 	resp := &types.DeviceListResponse{}
-	if err := a.request(_apiHost, _deviceListPath+"?search=&page=1&limit=100", "GET", "application/json", request, resp); err != nil {
+	if err := a.request(_apiHost, _deviceListPath+"?search="+device+"&page=1&limit=100", "GET", "application/json", request, resp); err != nil {
 		return nil, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
 		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
+	log.Debug("Device list fetched successfully", resp)
 	return resp, nil
 
 }

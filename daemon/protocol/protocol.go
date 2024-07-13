@@ -127,6 +127,13 @@ type Service interface {
 		rawResponse string,
 		err error)
 
+	DeviceLimitReached() (apiCode int,
+		apiErrorMsg string,
+		accountInfo preferences.AccountStatus,
+		Data types.DeviceListResponse,
+		rawResponse string,
+		err error)
+
 	SessionDelete(isCanDeleteSessionLocally bool) error
 	RequestSessionStatus() (
 		apiCode int,
@@ -943,6 +950,52 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				APIErrorMessage: apiErrMsg,
 				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				Account:         accountInfo,
+				RawResponse:     rawResponse}
+		}
+
+		// send response
+		p.sendResponse(conn, &resp, reqCmd.Idx)
+
+		// notify all clients about changed session status
+		p.notifyClients(p.createHelloResponse())
+
+	case "DeviceLimitReached":
+		var req types.DeviceListRequest
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		// validate AccountID value
+		// matched, err := regexp.MatchString("^(i-....-....-....)|(ivpn[a-zA-Z0-9]{7,8})$", req.AccountID)
+		// if err != nil {
+		// 	p.sendError(conn, fmt.Sprintf("[daemon] Account ID validation failed: %s", err), reqCmd.Idx)
+		// 	break
+		// }
+		// if !matched {
+		// 	p.sendError(conn, "[daemon] Your account ID has to be in 'i-XXXX-XXXX-XXXX' or 'ivpnXXXXXXXX' format.", reqCmd.Idx)
+		// 	break
+		// }
+
+		var resp types.DeviceListResponse
+		apiCode, apiErrMsg, accountInfo, rawResponse, data, err := p._service.DeviceLimitReached()
+		if err != nil {
+			if apiCode == 0 {
+				// if apiCode == 0 - it is not API error. Sending error response
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			// sending API error info
+			resp = types.DeviceListResponse{
+				APIStatus: apiCode,
+			}
+		} else {
+			// Success. Sending session info
+			resp = types.DeviceListResponse{
+				APIStatus:       apiCode,
+				APIErrorMessage: apiErrMsg,
+				Account:         accountInfo,
+				Data:            data.Data,
 				RawResponse:     rawResponse}
 		}
 

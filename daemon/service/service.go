@@ -1788,6 +1788,226 @@ func (s *Service) SessionNew(email string, password string) (
 	return apiCode, "", accountInfo, rawResponse, nil
 }
 
+func (s *Service) DeviceLimitReached() (
+	apiCode int,
+	apiErrorMsg string,
+	accountInfo preferences.AccountStatus,
+	rawResponse string,
+	err error) {
+
+	// Temporary allow API server access (If Firewall is enabled)
+	// Otherwise, there will not be any possibility to Login (because all connectivity is blocked)
+	// fwStatus, _ := s.KillSwitchState()
+	// if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
+	// 	s.SetKillSwitchAllowAPIServers(true)
+	// }
+	// defer func() {
+	// 	if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
+	// 		// restore state for 'AllowAPIServers' configuration (previously, was enabled)
+	// 		s.SetKillSwitchAllowAPIServers(false)
+	// 	}
+	// }()
+
+	// // delete current session (if exists)
+	// isCanDeleteSessionLocally := true
+	// if err := s.SessionDelete(isCanDeleteSessionLocally); err != nil {
+	// 	log.Error("Creating new session -> Failed to delete active session: ", err)
+	// }
+
+	// // Generate keys for Key Encapsulation Mechanism using post-quantum cryptographic algorithms
+	// var kemKeys api_types.KemPublicKeys
+	// kemHelper, err := kem.CreateHelper(platform.KemHelperBinaryPath(), kem.GetDefaultKemAlgorithms())
+	// if err != nil {
+	// 	log.Error("Failed to generate KEM keys: ", err)
+	// } else {
+	// 	kemKeys.KemPublicKey_Kyber1024, err = kemHelper.GetPublicKey(kem.AlgName_Kyber1024)
+	// 	if err != nil {
+	// 		log.Error(err)
+	// 	}
+	// 	kemKeys.KemPublicKey_ClassicMcEliece348864, err = kemHelper.GetPublicKey(kem.AlgName_ClassicMcEliece348864)
+	// 	if err != nil {
+	// 		log.Error(err)
+	// 	}
+	// }
+
+	// log.Info("Logging in...")
+	// defer func() {
+	// 	if err != nil {
+	// 		log.Error("Logging in - FAILED: ", err)
+	// 	} else {
+	// 		log.Info("Logging in - SUCCESS")
+	// 	}
+	// }()
+
+	// var (
+	// 	publicKey  string
+	// 	privateKey string
+
+	// 	wgPresharedKey        string
+	// 	sessionNewSuccessResp *api_types.SessionNewResponse
+	// 	errorLimitResp        *api_types.SessionNewErrorLimitResponse
+	// 	apiErr                *api_types.APIErrorResponse
+	// 	connectDevSuccessResp *api_types.ConnectDeviceResponse
+	// 	rawRespStr            string // RAW response
+	// )
+
+	// for {
+	// 	// generate new keys for WireGuard
+	// 	publicKey, privateKey, err = wireguard.GenerateKeys(platform.WgToolBinaryPath())
+	// 	if err != nil {
+	// 		log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
+	// 	}
+
+	// 	sessionNewSuccessResp, errorLimitResp, apiErr, rawRespStr, err = s._api.SessionNew(email, password)
+	// 	rawResponse = rawRespStr
+
+	// 	apiCode = 0
+	// 	if apiErr != nil {
+	// 		apiCode = apiErr.HttpStatusCode
+	// 	}
+
+	// 	if err != nil {
+	// 		// if SessionsLimit response
+	// 		if errorLimitResp != nil {
+	// 			accountInfo = s.createAccountStatus(errorLimitResp.SessionLimitData)
+	// 			return apiCode, apiErr.Message, accountInfo, rawResponse, err
+	// 		}
+
+	// 		// in case of other API error
+	// 		if apiErr != nil {
+	// 			return apiCode, apiErr.Message, accountInfo, rawResponse, err
+	// 		}
+
+	// 		// not API error
+	// 		return apiCode, "", accountInfo, rawResponse, err
+	// 	}
+
+	// 	if sessionNewSuccessResp == nil {
+	// 		return apiCode, "", accountInfo, rawResponse, fmt.Errorf("unexpected error when creating a new session")
+	// 	}
+
+	// 	//the /user/login API does not return the KEM ciphers yet
+	// 	// if kemHelper != nil {
+	// 	// 	if len(sessionNewSuccessResp.WireGuard.KemCipher_Kyber1024) == 0 && len(sessionNewSuccessResp.WireGuard.KemCipher_ClassicMcEliece348864) == 0 {
+	// 	// 		log.Warning("The server did not respond with KEM ciphers. The WireGuard PresharedKey has not been initialized!")
+	// 	// 	} else {
+	// 	// 		if err := kemHelper.SetCipher(kem.AlgName_Kyber1024, sessionNewSuccessResp.WireGuard.KemCipher_Kyber1024); err != nil {
+	// 	// 			log.Error(err)
+	// 	// 		}
+	// 	// 		if err := kemHelper.SetCipher(kem.AlgName_ClassicMcEliece348864, sessionNewSuccessResp.WireGuard.KemCipher_ClassicMcEliece348864); err != nil {
+	// 	// 			log.Error(err)
+	// 	// 		}
+
+	// 	// 		wgPresharedKey, err = kemHelper.CalculatePresharedKey()
+	// 	// 		if err != nil {
+	// 	// 			log.Error(fmt.Sprintf("Failed to decode KEM ciphers! (%s). Retry Log-in without WireGuard PresharedKey...", err))
+	// 	// 			kemHelper = nil
+	// 	// 			kemKeys = api_types.KemPublicKeys{}
+	// 	// 			if err := s.SessionDelete(true); err != nil {
+	// 	// 				log.Error("Creating new session (retry 2) -> Failed to delete active session: ", err)
+	// 	// 			}
+	// 	// 			continue
+	// 	// 		}
+	// 	// 	}
+	// 	// }
+	// 	break
+	// }
+
+	// // generate the stable (anonymized) device ID, and device name based on it
+	// deviceID, err := helpers.StableMachineID()
+	// if err != nil {
+	// 	return 0, "", accountInfo, rawResponse, fmt.Errorf("failed to generate machine ID: %w", err)
+	// }
+	// deviceName := "PL Connect - " + deviceID[:8]
+
+	// // now do the Connect Device API call
+	// connectDevSuccessResp, apiErr, rawRespStr, err = s._api.ConnectDevice(deviceID, deviceName, publicKey, sessionNewSuccessResp.Data.Token)
+	// rawResponse = rawRespStr
+
+	// apiCode = 0
+	// if apiErr != nil {
+	// 	apiCode = apiErr.HttpStatusCode
+	// }
+
+	// if err != nil {
+	// 	// in case of other API error
+	// 	if apiErr != nil {
+	// 		return apiCode, apiErr.Message, accountInfo, rawResponse, err
+	// 	}
+	// 	log.Error("rawResponse: " + rawResponse)
+
+	// 	// not API error
+	// 	return apiCode, "", accountInfo, rawResponse, err
+	// }
+
+	// if connectDevSuccessResp == nil {
+	// 	return apiCode, "", accountInfo, rawResponse, fmt.Errorf("unexpected error when registering a device")
+	// }
+
+	// localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
+
+	// // get account status info
+	// // accountInfo = s.createAccountStatus(sessionNewSuccessResp.ServiceStatus)
+
+	// s.setCredentials(accountInfo,
+	// 	email,
+	// 	sessionNewSuccessResp.Data.Token,
+	// 	deviceName,
+	// 	email,
+	// 	password,
+	// 	publicKey,
+	// 	privateKey,
+	// 	localIP,
+	// 	0,
+	// 	wgPresharedKey,
+	// 	deviceID)
+
+	// endpointPortStr := strings.Split(connectDevSuccessResp.Data[1].Peer.Endpoint, ":")[1]
+	// endpointPort, err := strconv.Atoi(endpointPortStr)
+	// if err != nil {
+	// 	log.Error(fmt.Sprintf("Error parsing endpoint port '%s' as number: %v", endpointPortStr, err))
+	// 	return apiCode, "", accountInfo, "", err
+	// }
+	// hostValue := api_types.WireGuardServerHostInfo{
+	// 	HostInfoBase: api_types.HostInfoBase{
+	// 		EndpointIP:   strings.Split(connectDevSuccessResp.Data[1].Peer.Endpoint, ":")[0],
+	// 		EndpointPort: endpointPort,
+	// 	},
+	// 	LocalIP:    localIP,
+	// 	PublicKey:  connectDevSuccessResp.Data[1].Peer.PublicKey,
+	// 	DnsServers: connectDevSuccessResp.Data[0].Interface.DNS,
+	// 	AllowedIPs: connectDevSuccessResp.Data[1].Peer.AllowedIPs,
+	// }
+
+	// // propagate the Wireguard device configuration we received to Preferences
+	// prefs := s._preferences
+
+	// prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
+	// prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
+
+	// // TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
+	// firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
+	// if firstDnsSrv != "" {
+	// 	prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
+	// } else {
+	// 	log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
+	// 	return apiCode, "", accountInfo, "", err
+	// }
+
+	// // propagate our prefs changes to Preferences and to settings.json
+	// s.setPreferences(prefs)
+
+	// log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
+
+	// // Apply SplitTunnel configuration. It is applicable for Inverse mode of SplitTunnel
+	// if err := s.splitTunnelling_ApplyConfig(); err != nil {
+	// 	log.Error(fmt.Errorf("splitTunnelling_ApplyConfig failed: %v", err))
+	// 	return apiCode, "", accountInfo, "", err
+	// }
+	fmt.Println("================================ DeviceLimitFunctionReached ================================")
+	return apiCode, "", accountInfo, rawResponse, nil
+}
+
 // SessionDelete removes session info
 func (s *Service) SessionDelete(isCanDeleteSessionLocally bool) error {
 	sessionNeedToDeleteOnBackend := true
