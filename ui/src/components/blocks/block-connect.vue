@@ -215,6 +215,7 @@ export default {
       return "connected";
     },
     isConnected: function () {
+                                                                                                                                                                                         
       return this.$store.getters["vpnState/isConnected"];
     },
     pauseConnectionTill: function () {
