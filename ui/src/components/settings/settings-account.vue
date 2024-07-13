@@ -172,7 +172,7 @@ export default {
       let needToDisableFirewall = true;
       let needToResetSettings = false;
       const mes = "Do you really want to log out privateLINE account?";
-      // const mesResetSettings = "Reset application settings to defaults";
+      const mesResetSettings = "Reset application settings to defaults";
 
       if (isNeedPromptFirewallStatus == true) {
         // LOGOUT message: Firewall is enabled
@@ -182,27 +182,27 @@ export default {
             message: mes,
             detail:
               "The Firewall is enabled. All network access will be blocked.",
-            // checkboxLabel: mesResetSettings,
+            checkboxLabel: mesResetSettings,
             buttons: ["Turn Firewall off and log out", "Log out", "Cancel"],
           },
           true
         );
         if (ret.response == 2) return; // cancel
         if (ret.response != 0) needToDisableFirewall = false;
-        // needToResetSettings = ret.checkboxChecked;
+        needToResetSettings = ret.checkboxChecked;
       } else {
         // LOGOUT message: Firewall is disabled
         let ret = await sender.showMessageBox(
           {
             type: "question",
             message: mes,
-            // checkboxLabel: mesResetSettings,
+            checkboxLabel: mesResetSettings,
             buttons: ["Log out", "Cancel"],
           },
           true
         );
         if (ret.response == 1) return; // cancel
-        // needToResetSettings = ret.checkboxChecked;
+        needToResetSettings = ret.checkboxChecked;
       }
 
       // LOGOUT
@@ -215,36 +215,7 @@ export default {
           isCanDeleteSessionLocally
         );
       } catch (e) {
-        this.isProcessing = false;
         console.error(e);
-
-        try {
-          let ret = sender.showMessageBoxSync({
-            type: "error",
-            message:
-              "Unable to contact server to log out. Please check Internet connectivity.\nDo you want to force log out?",
-            detail:
-              "This device will continue to count towards your device limit.",
-            buttons: ["Force log out", "Cancel"],
-          });
-          if (ret == 1) return; // Cancel
-
-          this.isProcessing = true;
-          // FORCE LOGOUT
-          const isCanDeleteSessionLocally = true;
-          await sender.Logout(
-            needToResetSettings,
-            needToDisableFirewall,
-            isCanDeleteSessionLocally
-          );
-        } catch (e) {
-          sender.showMessageBoxSync({
-            type: "error",
-            message: "Failed to log out.",
-            detail: e,
-            buttons: ["OK"],
-          });
-        }
       } finally {
         this.isProcessing = false;
       }
