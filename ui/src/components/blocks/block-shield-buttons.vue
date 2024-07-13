@@ -316,7 +316,6 @@ export default {
       this.stAllowWhenNoVpnLocal = this.IsAllowWhenNoVpn;
     },
     async applyChanges() {
-      console.log("Split Tunnel in As Shield")
       let fwState = this.$store.state.vpnState.firewallState;
       let oldInverseMode = this.IsEnabled && this.IsInversed;
       let newInverseMode = this.isSTEnabledLocal && this.stInversedLocal;
