@@ -248,7 +248,7 @@ CreatePackage "deb"
 
 echo '---------------------------'
 echo "RPM package..."
-echo "\033[0;33mTODO:\033[0m Disabling for now, until we start shipping .rpm - this cuts Linux build time in half"
+echo "\033[0;93mTODO:\033[0m Disabling for now, until we start shipping .rpm - this cuts Linux build time in half"
 #CreatePackage "rpm"
 
 echo '---------------------------'
