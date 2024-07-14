@@ -2,6 +2,7 @@
   <div class="left_panel_block" style="margin-top: 26px">
     <div style="display: flex; justify-content: space-between">
       <div align="left">
+        <!-- ======== TODOC2: Your Status is ========== -->
         <div class="small_text">Your status is</div>
         <div>
           <div class="large_text">
@@ -210,11 +211,12 @@ export default {
       return this.$store.state.settings.minimizedUI;
     },
     protectedText: function () {
-      if (this.$store.getters["vpnState/isPaused"]) return "paused";
-      if (this.isChecked !== true || this.isCanResume) return "disconnected";
-      return "connected";
+      if (this.$store.getters["vpnState/isPaused"]) return "Paused";
+      if (this.isChecked !== true || this.isCanResume) return "Disconnected";
+      return "Connected";
     },
     isConnected: function () {
+                                                                                                                                                                                         
       return this.$store.getters["vpnState/isConnected"];
     },
     pauseConnectionTill: function () {
