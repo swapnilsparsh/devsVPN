@@ -127,7 +127,14 @@ type Service interface {
 		rawResponse string,
 		err error)
 
+	AccountInfo() (apiCode int,
+		apiErrorMsg string,
+		accountStatus preferences.AccountStatus,
+		rawResponse string,
+		err error)
+
 	SessionDelete(isCanDeleteSessionLocally bool) error
+
 	RequestSessionStatus() (
 		apiCode int,
 		apiErrorMsg string,
@@ -943,6 +950,54 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				APIErrorMessage: apiErrMsg,
 				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				Account:         accountInfo,
+				RawResponse:     rawResponse}
+		}
+
+		// send response
+		p.sendResponse(conn, &resp, reqCmd.Idx)
+
+		// notify all clients about changed session status
+		p.notifyClients(p.createHelloResponse())
+
+	case "AccountInfo":
+		var req types.DeviceListRequest
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		// validate AccountID value
+		// matched, err := regexp.MatchString("^(i-....-....-....)|(ivpn[a-zA-Z0-9]{7,8})$", req.AccountID)
+		// if err != nil {
+		// 	p.sendError(conn, fmt.Sprintf("[daemon] Account ID validation failed: %s", err), reqCmd.Idx)
+		// 	break
+		// }
+		// if !matched {
+		// 	p.sendError(conn, "[daemon] Your account ID has to be in 'i-XXXX-XXXX-XXXX' or 'ivpnXXXXXXXX' format.", reqCmd.Idx)
+		// 	break
+		// }
+
+		var resp types.AccountInfoResponse
+		apiCode, apiErrMsg, accountStatus, rawResponse, err := p._service.AccountInfo()
+		if err != nil {
+			if apiCode == 0 {
+				// if apiCode == 0 - it is not API error. Sending error response
+				err := fmt.Errorf("apiErrorMsg='%s': %w", apiErrMsg, err)
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			// sending API error info
+			resp = types.AccountInfoResponse{
+				APIStatus:       apiCode,
+				APIErrorMessage: apiErrMsg,
+			}
+		} else {
+			// Success. Sending session info
+			resp = types.AccountInfoResponse{
+				APIStatus:       apiCode,
+				APIErrorMessage: apiErrMsg,
+				AccountStatus:   accountStatus,
+				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				RawResponse:     rawResponse}
 		}
 

@@ -223,6 +223,11 @@ export default {
           // this.captcha,
           // confirmation2FA ? confirmation2FA : this.confirmation2FA
         );
+
+        //console.log("resp", resp);
+        //const accountInfoResponse = await sender.AccountInfo();
+        //console.log("accountInfoResponse", accountInfoResponse);
+
         if(resp.APIErrorMessage != ''){
           sender.showMessageBoxSync({
             type: "error",
@@ -232,6 +237,7 @@ export default {
           });
 
         }
+
         // this.isForceLogoutRequested = false;
 
         // const oldConfirmation2FA = this.confirmation2FA;

@@ -236,6 +236,20 @@ type SessionNew struct {
 	// Confirmation2FA string
 }
 
+type SessionTokenStruct struct {
+	// non-serializable vars to pass to httpRequest creation stage
+	SessionToken string // bearer token for authorization
+}
+
+type DeviceListRequest struct {
+	RequestBase
+	SessionTokenStruct
+}
+
+func (req DeviceListRequest) GetSessionToken() string {
+	return req.SessionToken
+}
+
 // SessionDelete logout from current device
 type SessionDelete struct {
 	RequestBase

@@ -67,6 +67,12 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "renderer-request-AccountInfo",
+  async () => {
+    return await client.AccountInfo();
+  });
+
+ipcMain.handle(
   "renderer-request-logout",
   async (
     event,

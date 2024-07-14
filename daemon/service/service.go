@@ -1794,6 +1794,17 @@ func (s *Service) SessionNew(email string, password string) (
 	return apiCode, "", accountInfo, rawResponse, nil
 }
 
+func (s *Service) AccountInfo() (
+	apiCode int,
+	apiErrorMsg string,
+	accountStatus preferences.AccountStatus,
+	rawResponse string,
+	err error) {
+	// TODO FIXME: Swapnil, Vlad: this function is a stub for now
+	log.Debug("================================ AccountInfo function Reached ================================")
+	return 200, "", s.Preferences().Account, "FIXME stub", nil
+}
+
 // SessionDelete removes session info
 func (s *Service) SessionDelete(isCanDeleteSessionLocally bool) error {
 	sessionNeedToDeleteOnBackend := true
