@@ -13,7 +13,7 @@
       <button class="hopButton" v-bind:class="{
         hopButtonActive: !IsEnabled,
       }" v-on:click="ChangeShield(false)">
-        Full Shield
+        Total Shield
       </button>
 
       <div />
