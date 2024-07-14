@@ -110,7 +110,7 @@ export default {
     );
   },
 
-  DeviceLimitReached: async () => { return await invoke("renderer-request-DeviceLimitReached"); },
+  AccountInfo: async () => { return await invoke("renderer-request-AccountInfo"); },
 
   Logout: async (
     needToResetSettings,

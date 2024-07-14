@@ -234,8 +234,8 @@ export default {
           // confirmation2FA ? confirmation2FA : this.confirmation2FA
         );
         console.log("resp", resp);
-        const limitResponse = await sender.DeviceLimitReached();
-        console.log("limitResponse", limitResponse);
+        const accountInfoResponse = await sender.AccountInfo();
+        console.log("accountInfoResponse", accountInfoResponse);
         // this.isForceLogoutRequested = false;
 
         // const oldConfirmation2FA = this.confirmation2FA;

@@ -107,7 +107,7 @@ const daemonRequests = Object.freeze({
 
   ParanoidModeSetPasswordReq: "ParanoidModeSetPasswordReq",
 
-  DeviceLimitReached: "DeviceLimitReached",
+  AccountInfo: "AccountInfo",
 });
 
 const daemonResponses = Object.freeze({
@@ -142,7 +142,7 @@ const daemonResponses = Object.freeze({
 
   ServiceExitingResp: "ServiceExitingResp",
 
-  DeviceLimitReachedResp: "DeviceLimitReachedResp",
+  AccountInfoResp: "AccountInfoResp",
 });
 
 export const AppUpdateInfoType = Object.freeze({
@@ -939,9 +939,9 @@ async function Login(email, password
   return resp;
 }
 
-async function DeviceLimitReached() {
+async function AccountInfo() {
   let resp = await sendRecv({
-    Command: daemonRequests.DeviceLimitReached,
+    Command: daemonRequests.AccountInfo,
   });
   return resp;
 }
@@ -1959,5 +1959,5 @@ export default {
 
   SetParanoidModePassword,
   SetLocalParanoidModePassword,
-  DeviceLimitReached,
+  AccountInfo,
 };

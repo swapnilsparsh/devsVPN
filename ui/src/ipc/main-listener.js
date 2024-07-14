@@ -67,9 +67,9 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
-  "renderer-request-DeviceLimitReached",
+  "renderer-request-AccountInfo",
   async () => {
-    return await client.DeviceLimitReached();
+    return await client.AccountInfo();
   });
 
 ipcMain.handle(

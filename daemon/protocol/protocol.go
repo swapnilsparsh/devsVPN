@@ -127,14 +127,14 @@ type Service interface {
 		rawResponse string,
 		err error)
 
-	DeviceLimitReached() (apiCode int,
+	AccountInfo() (apiCode int,
 		apiErrorMsg string,
-		accountInfo preferences.AccountStatus,
-		Data types.DeviceListResponse,
+		accountStatus preferences.AccountStatus,
 		rawResponse string,
 		err error)
 
 	SessionDelete(isCanDeleteSessionLocally bool) error
+
 	RequestSessionStatus() (
 		apiCode int,
 		apiErrorMsg string,
@@ -959,7 +959,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		// notify all clients about changed session status
 		p.notifyClients(p.createHelloResponse())
 
-	case "DeviceLimitReached":
+	case "AccountInfo":
 		var req types.DeviceListRequest
 		if err := json.Unmarshal(messageData, &req); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
@@ -977,25 +977,27 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		// 	break
 		// }
 
-		var resp types.DeviceListResponse
-		apiCode, apiErrMsg, accountInfo, rawResponse, data, err := p._service.DeviceLimitReached()
+		var resp types.AccountInfoResponse
+		apiCode, apiErrMsg, accountStatus, rawResponse, err := p._service.AccountInfo()
 		if err != nil {
 			if apiCode == 0 {
 				// if apiCode == 0 - it is not API error. Sending error response
+				err := fmt.Errorf("apiErrorMsg='%s': %w", apiErrMsg, err)
 				p.sendErrorResponse(conn, reqCmd, err)
 				break
 			}
 			// sending API error info
-			resp = types.DeviceListResponse{
-				APIStatus: apiCode,
+			resp = types.AccountInfoResponse{
+				APIStatus:       apiCode,
+				APIErrorMessage: apiErrMsg,
 			}
 		} else {
 			// Success. Sending session info
-			resp = types.DeviceListResponse{
+			resp = types.AccountInfoResponse{
 				APIStatus:       apiCode,
 				APIErrorMessage: apiErrMsg,
-				Account:         accountInfo,
-				Data:            data.Data,
+				AccountStatus:   accountStatus,
+				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				RawResponse:     rawResponse}
 		}
 
