@@ -566,7 +566,7 @@ async function processResponse(response) {
           await messageBox({
             type: "error",
             buttons: ["OK"],
-            message: `IVPN daemon notifies of an error that occurred earlier`,
+            message: `privateLINE daemon notifies of an error that occurred earlier`,
             detail: obj.ErrorMessage,
           });
         }, 3000);

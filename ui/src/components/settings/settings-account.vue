@@ -208,44 +208,14 @@ export default {
       // LOGOUT
       try {
         this.isProcessing = true;
-
-        const isCanDeleteSessionLocally = false;
+        const isCanDeleteSessionLocally = true;
         await sender.Logout(
           needToResetSettings,
           needToDisableFirewall,
           isCanDeleteSessionLocally
         );
       } catch (e) {
-        this.isProcessing = false;
         console.error(e);
-
-        try {
-          let ret = sender.showMessageBoxSync({
-            type: "error",
-            message:
-              "Unable to contact server to log out. Please check Internet connectivity.\nDo you want to force log out?",
-            detail:
-              "This device will continue to count towards your device limit.",
-            buttons: ["Force log out", "Cancel"],
-          });
-          if (ret == 1) return; // Cancel
-
-          this.isProcessing = true;
-          // FORCE LOGOUT
-          const isCanDeleteSessionLocally = true;
-          await sender.Logout(
-            needToResetSettings,
-            needToDisableFirewall,
-            isCanDeleteSessionLocally
-          );
-        } catch (e) {
-          sender.showMessageBoxSync({
-            type: "error",
-            message: "Failed to log out.",
-            detail: e,
-            buttons: ["OK"],
-          });
-        }
       } finally {
         this.isProcessing = false;
       }
