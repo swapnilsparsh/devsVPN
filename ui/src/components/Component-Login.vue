@@ -18,64 +18,35 @@
 
           <div style="height: 21px" />
 
-          <input
-            class="styledBig"
-            ref="accountid"
-            style="text-align: left"
-            placeholder="Enter your Email"
-            v-model="email"
-            v-on:keyup="keyup($event)"
-          />
+          <input class="styledBig" ref="accountid" style="text-align: left" placeholder="Enter your Email"
+            v-model="email" v-on:keyup="keyup($event)" />
           <div style="height: 10px" />
           <div style="position: relative; display: flex; align-items: center">
-            <input
-              class="styledBig"
-              ref="password"
-              style="text-align: left"
-              placeholder="Enter your Password"
-              v-model="password"
-              :type="passwordType"
-              v-on:keyup="keyup($event)"
-            />
-            <img
-              src="@/assets/eye-close.svg"
-              @click="toggleEye"
-              alt="Eye Image"
-              style="
+            <input class="styledBig" ref="password" style="text-align: left" placeholder="Enter your Password"
+              v-model="password" :type="passwordType" v-on:keyup="keyup($event)" />
+            <img src="@/assets/eye-close.svg" @click="toggleEye" alt="Eye Image" style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              "
-              v-if="showPassword"
-            />
-            <img
-              src="@/assets/eye-open.svg"
-              @click="toggleEye"
-              alt="Eye Image"
-              style="
+              " v-if="showPassword" />
+            <img src="@/assets/eye-open.svg" @click="toggleEye" alt="Eye Image" style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              "
-              v-else
-            />
+              " v-else />
           </div>
         </div>
-        <div
-          class="medium_text"
-          style="
+        <div class="medium_text" style="
             color: #0078d7;
             width: 100%;
             text-align: right;
             font-weight: 500;
             cursor: pointer;
-          "
-          v-on:click="ForgotPassword"
-        >
+          " v-on:click="ForgotPassword">
           Forgot Password?
         </div>
 
@@ -224,7 +195,26 @@ export default {
         // }
 
         this.isProcessing = true;
-        console.log({ accountid: this.accountID, password: this.password });
+        // console.log({ accountid: this.accountID, email: this.email, password: this.password });
+        if (!(this.email != undefined && this.email != null && this.email != '')) {
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Failed to login",
+            detail: `Please enter email address`,
+          });
+          return
+        }
+        if (!(this.password != undefined && this.password != null && this.password != '')) {
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Failed to login",
+            detail: `Please enter password`,
+          });
+          return
+        }
+
         const resp = await sender.Login(
           this.email,
           this.password
@@ -233,9 +223,16 @@ export default {
           // this.captcha,
           // confirmation2FA ? confirmation2FA : this.confirmation2FA
         );
-        console.log("resp", resp);
-        const limitResponse = await sender.DeviceLimitReached();
-        console.log("limitResponse", limitResponse);
+
+        if(resp.APIErrorMessage != ''){
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Failed to login",
+            detail: resp.APIErrorMessage,
+          });
+
+        }
         // this.isForceLogoutRequested = false;
 
         // const oldConfirmation2FA = this.confirmation2FA;
@@ -289,13 +286,13 @@ export default {
         //   }
         // }
       } catch (e) {
-        // console.error(e);
-        // sender.showMessageBoxSync({
-        //   type: "error",
-        //   buttons: ["OK"],
-        //   message: "Failed to login",
-        //   detail: `${e}`,
-        // });
+        console.error(e);
+        sender.showMessageBoxSync({
+          type: "error",
+          buttons: ["OK"],
+          message: "Failed to login",
+          detail: `${e}`,
+        });
       } finally {
         this.isProcessing = false;
       }

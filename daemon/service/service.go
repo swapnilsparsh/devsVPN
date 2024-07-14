@@ -1404,6 +1404,12 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 	prefs.SplitTunnelAllowWhenNoVpn = isAllowWhenNoVpn
 	s.setPreferences(prefs)
 
+	// ======================== Split Tunnel Service value As Passed from Frontend START ============================
+	fmt.Print("\n=======================Split Tunnel Service value As Passed from Frontend START================================\n")
+	fmt.Print(isEnabled, isInversed, isAnyDns, isAllowWhenNoVpn, reset)
+	fmt.Print("\n========================Split Tunnel Service value As Passed from Frontend END===============================\n")
+	// ======================== Split Tunnel Service value As Passed from Frontend END ==============================
+
 	ret := s.splitTunnelling_ApplyConfig()
 	if ret != nil {
 		// if error - restore old preferences and apply configuration
