@@ -248,7 +248,8 @@ CreatePackage "deb"
 
 echo '---------------------------'
 echo "RPM package..."
-CreatePackage "rpm"
+echo "\033[0;33mTODO:\033[0m Disabling for now, until we start shipping .rpm - this cuts Linux build time in half"
+#CreatePackage "rpm"
 
 echo '---------------------------'
 echo "Copying compiled pachages to '$OUT_DIR'..."
