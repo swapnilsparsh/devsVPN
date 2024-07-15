@@ -211,9 +211,9 @@ export default {
       return this.$store.state.settings.minimizedUI;
     },
     protectedText: function () {
-      if (this.$store.getters["vpnState/isPaused"]) return "paused";
-      if (this.isChecked !== true || this.isCanResume) return "disconnected";
-      return "connected";
+      if (this.$store.getters["vpnState/isPaused"]) return "Paused";
+      if (this.isChecked !== true || this.isCanResume) return "Disconnected";
+      return "Connected";
     },
     isConnected: function () {
                                                                                                                                                                                          

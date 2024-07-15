@@ -1735,12 +1735,13 @@ func (s *Service) SessionNew(email string, password string) (
 	// get account status info
 	// accountInfo = s.createAccountStatus(sessionNewSuccessResp.ServiceStatus)
 
+	// we must not save the account password to settings.json on disk
 	s.setCredentials(accountInfo,
 		email,
 		sessionNewSuccessResp.Data.Token,
 		deviceName,
 		email,
-		password,
+		"",
 		publicKey,
 		privateKey,
 		localIP,
@@ -1792,6 +1793,17 @@ func (s *Service) SessionNew(email string, password string) (
 	}
 
 	return apiCode, "", accountInfo, rawResponse, nil
+}
+
+func (s *Service) AccountInfo() (
+	apiCode int,
+	apiErrorMsg string,
+	accountStatus preferences.AccountStatus,
+	rawResponse string,
+	err error) {
+	// TODO FIXME: Swapnil, Vlad: this function is a stub for now
+	log.Debug("================================ AccountInfo function Reached ================================")
+	return 200, "", s.Preferences().Account, "FIXME stub", nil
 }
 
 // SessionDelete removes session info

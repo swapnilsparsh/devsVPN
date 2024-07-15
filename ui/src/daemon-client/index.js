@@ -106,6 +106,8 @@ const daemonRequests = Object.freeze({
   WiFiCurrentNetwork: "WiFiCurrentNetwork",
 
   ParanoidModeSetPasswordReq: "ParanoidModeSetPasswordReq",
+
+  AccountInfo: "AccountInfo",
 });
 
 const daemonResponses = Object.freeze({
@@ -139,6 +141,8 @@ const daemonResponses = Object.freeze({
   WiFiCurrentNetworkResp: "WiFiCurrentNetworkResp",
 
   ServiceExitingResp: "ServiceExitingResp",
+
+  AccountInfoResp: "AccountInfoResp",
 });
 
 export const AppUpdateInfoType = Object.freeze({
@@ -566,7 +570,7 @@ async function processResponse(response) {
           await messageBox({
             type: "error",
             buttons: ["OK"],
-            message: `IVPN daemon notifies of an error that occurred earlier`,
+            message: `privateLINE daemon notifies of an error that occurred earlier`,
             detail: obj.ErrorMessage,
           });
         }, 3000);
@@ -932,6 +936,13 @@ async function Login(email, password
 
   // Returning whole response object (even in case of error)
   // it contains details about error
+  return resp;
+}
+
+async function AccountInfo() {
+  let resp = await sendRecv({
+    Command: daemonRequests.AccountInfo,
+  });
   return resp;
 }
 
@@ -1948,4 +1959,5 @@ export default {
 
   SetParanoidModePassword,
   SetLocalParanoidModePassword,
+  AccountInfo,
 };

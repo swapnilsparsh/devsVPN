@@ -207,6 +207,15 @@ type SessionStatusResp struct {
 	DeviceName      string
 }
 
+type AccountInfoResponse struct {
+	CommandBase
+	APIStatus       int
+	APIErrorMessage string
+	Session         SessionResp
+	AccountStatus   preferences.AccountStatus
+	RawResponse     string
+}
+
 // KillSwitchStatusResp returns kill-switch status
 type KillSwitchStatusResp struct {
 	CommandBase

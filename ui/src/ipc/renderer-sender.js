@@ -109,6 +109,9 @@ export default {
       // confirmation2FA
     );
   },
+
+  AccountInfo: async () => { return await invoke("renderer-request-AccountInfo"); },
+
   Logout: async (
     needToResetSettings,
     needToDisableFirewall,
