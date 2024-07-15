@@ -1735,12 +1735,13 @@ func (s *Service) SessionNew(email string, password string) (
 	// get account status info
 	// accountInfo = s.createAccountStatus(sessionNewSuccessResp.ServiceStatus)
 
+	// we must not save the account password to settings.json on disk
 	s.setCredentials(accountInfo,
 		email,
 		sessionNewSuccessResp.Data.Token,
 		deviceName,
 		email,
-		password,
+		"",
 		publicKey,
 		privateKey,
 		localIP,
