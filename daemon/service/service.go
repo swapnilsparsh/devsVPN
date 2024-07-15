@@ -2056,6 +2056,10 @@ func (s *Service) WireGuardSaveNewKeys(wgPublicKey string, wgPrivateKey string, 
 
 // WireGuardSetKeysRotationInterval change WG key rotation interval
 func (s *Service) WireGuardSetKeysRotationInterval(interval int64) {
+	// TODO FIXME: Vlad - for now effectively disable updating Wireguard keys, key rotation
+	// Set it to 100 years
+	interval = 100 * 365 * 86400
+
 	s._preferences.Session.WGKeysRegenInerval = time.Second * time.Duration(interval)
 	s._preferences.SavePreferences()
 
