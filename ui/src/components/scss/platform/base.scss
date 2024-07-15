@@ -1,7 +1,7 @@
 div.horizontalLine {
     background: rgba(139, 154, 171, 0.17);
     height: 1px;
-    border:0px;
+    border: 0px;
     width: 100%;
 
     margin-left: auto;
@@ -15,6 +15,7 @@ div.hopButtonsBase {
     justify-content: space-between;
     align-items: center;
 }
+
 div.hopButtonsSeparatorBase {
     width: inherit;
 }
@@ -25,26 +26,84 @@ button.hopButtonBase {
     line-height: 13px;
     text-align: center;
     letter-spacing: 0.5px;
-  
+
     border: none;
     background-color: inherit;
-  
+
     cursor: pointer;
     display: inline-block;
     outline-width: 0;
-  
+
     opacity: 0.5;
-  }
+}
+
 button.hopButtonActiveBase {
     @extend .hopButtonBase;
     font-weight: 500;
     opacity: 1;
-  }
+}
 
-  // === INPUT ===
+// === INPUT ===
 input.styledBase {
     width: 100%;
-    box-sizing:border-box;
+    box-sizing: border-box;
     padding-left: 10px;
     padding-right: 10px;
 }
+
+
+// ==================== Shield and Total Shield Buttons START====================
+div.horizontalLine {
+    background: rgba(139, 154, 171, 0.17);
+    height: 1px;
+    border: 0px;
+    width: 100%;
+
+    margin-left: auto;
+    margin-right: auto;
+}
+
+// === HOP BUTTONS ===
+div.shieldButtonsBase {
+    min-height: 43px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+div.shieldButtonsSeparatorBase {
+    width: inherit;
+}
+
+button.shieldButtonBase {
+    height: 100%;
+    font-size: 11px;
+    line-height: 13px;
+    text-align: center;
+    letter-spacing: 0.5px;
+
+    border: none;
+    background-color: inherit;
+
+    cursor: pointer;
+    display: inline-block;
+    outline-width: 0;
+
+    opacity: 0.5;
+}
+
+button.shieldButtonActiveBase {
+    @extend .hopButtonBase;
+    font-weight: 500;
+    opacity: 1;
+}
+
+// === INPUT ===
+input.styledBase {
+    width: 100%;
+    box-sizing: border-box;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+// ==================== Shield and Total Shield Buttons END====================

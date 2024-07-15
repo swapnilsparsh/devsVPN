@@ -1,19 +1,19 @@
 <template>
   <div>
-    <div class="hopButtons">
+    <div class="shieldButtons">
       <div />
-      <button class="hopButton" v-bind:class="{
-        hopButtonActive: IsEnabled,
+      <button class="shieldButton" v-bind:class="{
+        shieldButtonActive: IsEnabled,
       }" v-on:click="ChangeShield(true)">
         Shield
       </button>
 
       <div />
 
-      <button class="hopButton" v-bind:class="{
-        hopButtonActive: !IsEnabled,
+      <button class="shieldButton" v-bind:class="{
+        shieldButtonActive: !IsEnabled,
       }" v-on:click="ChangeShield(false)">
-        Full Shield
+        Total Shield
       </button>
 
       <div />
