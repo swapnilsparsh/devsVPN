@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.5.0
 	github.com/parsiya/golnk v0.0.0-20221103095132-740a4c27c4ff
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/net v0.20.0
+	golang.org/x/net v0.23.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.16.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
