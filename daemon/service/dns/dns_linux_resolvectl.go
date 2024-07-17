@@ -252,7 +252,7 @@ func rctl_startDnsChangeMonitor() {
 // rctl_configOk - returns true if OS DNS configuration ie expected for VPN interface
 func rctl_configOk() (bool, error) {
 	// Example of 'resolvectl status ...' output:
-	//	Link 5 (wgivpn)
+	//	Link 5 (wgprivateline)
 	//		  Current Scopes: DNS
 	//	DefaultRoute setting: yes
 	//		   LLMNR setting: yes

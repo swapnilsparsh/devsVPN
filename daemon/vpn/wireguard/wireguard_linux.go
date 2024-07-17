@@ -90,7 +90,7 @@ func (wg *WireGuard) init() error {
 
 	// It can happen that ivpn-daemon was not correctly stopped during WireGuard connection
 	// (e.g. process was terminated)
-	// In such situation, the 'wgivpn' keeps active.
+	// In such situation, the 'wgprivateline' keeps active.
 	// We should close it in this case. Otherwise, new connection would not be established
 	wgInterfaceName := filepath.Base(wg.configFilePath)
 	wgInterfaceName = strings.TrimSuffix(wgInterfaceName, path.Ext(wgInterfaceName))
@@ -98,11 +98,11 @@ func (wg *WireGuard) init() error {
 	i, _ := net.InterfaceByName(wgInterfaceName)
 	if i != nil {
 		log.Info(fmt.Sprintf("Stopping WireGuard interface ('%s' expected to be stopped before the new connection)...", wgInterfaceName))
-		err := shell.Exec(log, "ip", "link", "set", "down", wgInterfaceName) // command: sudo ip link set down wgivpn
+		err := shell.Exec(log, "ip", "link", "set", "down", wgInterfaceName) // command: sudo ip link set down wgprivateline
 		if err != nil {
 			log.Warning(err)
 		}
-		err = shell.Exec(log, "ip", "link", "delete", wgInterfaceName) // command: sudo ip link delete wgivpn
+		err = shell.Exec(log, "ip", "link", "delete", wgInterfaceName) // command: sudo ip link delete wgprivateline
 		if err != nil {
 			log.Warning(err)
 		}
