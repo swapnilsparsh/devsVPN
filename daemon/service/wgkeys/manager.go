@@ -197,7 +197,9 @@ func (m *KeysManager) GenerateKeys() error {
 // 1) If no active WG keys defined - new keys will be generated + key rotation will be started
 // 2) If active WG key defined - key will be updated only if it is a time to do it
 func (m *KeysManager) UpdateKeysIfNecessary() (retErr error) {
-	return m.generateKeys(true)
+	//return m.generateKeys(true)
+	// TODO FIXME: Vlad - disable updating Wireguard keys for now
+	return nil
 }
 
 func createKemHelper() (*kem.KemHelper, error) {
