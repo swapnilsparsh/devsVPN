@@ -1,4 +1,7 @@
 #! /bin/bash
+
+# Copyright (c) 2024 privateLINE, LLC.
+
 OURDIR=$(dirname $0)
 cd "$OURDIR/../../../"			|| { RET=$?; >&2 echo "ERROR $RET cd"; exit $RET; }
 

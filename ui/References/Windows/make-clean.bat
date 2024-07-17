@@ -1,5 +1,7 @@
 @echo off
 
+REM Copyright (c) 2024 privateLINE, LLC.
+
 REM To run this script automatically on Windows shutdown:
 REM		See:
 REM			https://stackoverflow.com/questions/12434863/executing-a-batch-script-on-windows-shutdown
@@ -7,6 +9,8 @@ REM			https://superuser.com/questions/773651/run-a-script-just-before-shutdown-o
 REM		Open Group Policy (gpedit.msc)
 REM		Add under:
 REM			Local Computer Policy / Computer Configuration / Windows Settings / Scripts (Startup/Shutdown) / Shutdown
+REM			Local Computer Policy / User Configuration / Windows Settings / Scripts (Logon/Logoff) / Logoff
+REM		Ensure SYSTEM, owning user have read, read/execute permissions.
 
 cd /d "%~dp0\..\..\.."
 

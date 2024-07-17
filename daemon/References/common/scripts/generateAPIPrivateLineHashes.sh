@@ -1,5 +1,7 @@
 #! /bin/bash
 
+# Copyright (c) 2024 privateLINE, LLC.
+
 # !!! IMPORTANT !!!: Don't just trust the downloaded certificates blindly. Verify that downloaded certificates match the actual, expected certificates - ask Deepak.
 
 # Fetches the TLS certificates and calculates the base64-encoded SHA-256 hashes of their public keys.
