@@ -67,7 +67,7 @@ func doOsInitForBuild() (warnings []string, errors []error, logInfo []string) {
 	settingsFile = path.Join(tmpDir, "settings.json")
 	openvpnConfigFile = path.Join(tmpDir, "openvpn.cfg")
 	openvpnProxyAuthFile = path.Join(tmpDir, "proxyauth.txt")
-	wgConfigFilePath = path.Join(tmpDir, "wgivpn.conf")
+	wgConfigFilePath = path.Join(tmpDir, "wgprivateline.conf")
 
 	return nil, nil, logInfo
 }
