@@ -1,5 +1,6 @@
 <template>
   <div>
+    <div class="small_text">Connection type</div>
     <div class="shieldButtons">
       <div />
       <button class="shieldButton" v-bind:class="{
@@ -724,5 +725,12 @@ $shadow: 0px 3px 12px rgba(var(--shadow-color-rgb), var(--shadow-opacity));
   //border-radius: 8px;
   background-color: $popup-background;
   box-shadow: $shadow;
+}
+.small_text {
+  font-size: 14px;
+  line-height: 17px;
+  letter-spacing: -0.3px;
+  color: var(--text-color-details);
+  margin-left: 20px;
 }
 </style>

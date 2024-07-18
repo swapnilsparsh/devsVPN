@@ -35,7 +35,7 @@
             :isProgress="isInProgress"
             :onPauseResume="onPauseResume"
           />
-          <div class="horizontalLine hopButtonsSeparator" />
+          <!-- <div class="horizontalLine shieldButtonsSeparator" /> -->
         </div>
 
         <div
@@ -43,15 +43,14 @@
           class="scrollableColumnContainer"
           @scroll="recalcScrollButtonVisiblity()"
         >
-          <div v-if="isMultihopAllowed">
-            <!-- +++++ Removed hop buttons +++++ -->
-            <!-- <HopButtonsBlock /> -->
+          <!-- <div v-if="isMultihopAllowed">
+            <HopButtonsBlock />
             <div class="horizontalLine hopButtonsSeparator" />
-          </div>
+          </div> -->
           <!-- ============ TODOC2: Shield and Full Shield Button ================ -->
           <div>
             <ShiledButtonsBlock />
-            <div class="horizontalLine hopButtonsSeparator" />
+            <div class="horizontalLine shieldButtonsSeparator" />
           </div>
 
           <SelectedServerBlock :onShowServersPressed="onShowServersPressed" />
