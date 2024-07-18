@@ -49,7 +49,7 @@
           </div> -->
           <!-- ============ TODOC2: Shield and Full Shield Button ================ -->
           <div>
-            <ShiledButtonsBlock />
+            <ShieldButtonsBlock />
             <div class="horizontalLine shieldButtonsSeparator" />
           </div>
 
@@ -91,7 +91,7 @@ import ConnectBlock from "./blocks/block-connect.vue";
 import ConnectionDetailsBlock from "./blocks/block-connection-details.vue";
 import SelectedServerBlock from "@/components/blocks/block-selected-server.vue";
 import HopButtonsBlock from "./blocks/block-hop-buttons.vue";
-import ShiledButtonsBlock from "./blocks/block-shield-buttons.vue/";
+import ShieldButtonsBlock from "./blocks/block-shield-buttons.vue/";
 
 const sender = window.ipcSender;
 import { VpnStateEnum, VpnTypeEnum } from "@/store/types";
@@ -135,7 +135,7 @@ export default {
     ConnectBlock,
     SelectedServerBlock,
     ConnectionDetailsBlock,
-    ShiledButtonsBlock
+    ShieldButtonsBlock
   },
   mounted() {
     this.recalcScrollButtonVisiblity();
