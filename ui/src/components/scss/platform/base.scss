@@ -63,12 +63,13 @@ div.horizontalLine {
     margin-right: auto;
 }
 
-// === HOP BUTTONS ===
+// === Shield BUTTONS ===
 div.shieldButtonsBase {
     min-height: 43px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 5px 20px 5px 20px;
 }
 
 div.shieldButtonsSeparatorBase {
@@ -90,12 +91,17 @@ button.shieldButtonBase {
     outline-width: 0;
 
     opacity: 0.5;
+    padding: 10px;
+    width:100%;
 }
 
 button.shieldButtonActiveBase {
     @extend .hopButtonBase;
     font-weight: 500;
     opacity: 1;
+    background-color: #0467F6;
+    color: #ffffff !important;
+    border-radius: 5px;
 }
 
 // === INPUT ===
