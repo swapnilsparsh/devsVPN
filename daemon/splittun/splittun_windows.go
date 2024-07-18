@@ -30,6 +30,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -174,12 +175,16 @@ func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpn
 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
 	isFunctionalityNotAvailable := splitTunErr != nil || (isStInversed && splitTunInversedErr != nil)
 	if isFunctionalityNotAvailable {
+		_, file, line, _ := runtime.Caller(0)
+		log.Warning(fmt.Sprintf("%s:%d: functionality not available", file, line))
 		return nil
 	}
 
 	if err := isInitialised(); err != nil {
 		return err
 	}
+
+	// TODO: Vlad - patch in here
 
 	// If: (VPN not connected + inverse split-tunneling enabled + isStInverseAllowWhenNoVpn==false) --> we need to set blackhole IP addresses for tunnel interface
 	// This will forward all traffic of split-tunnel apps to 'nowhere' (in fact, it will block all traffic of split-tunnel apps)
@@ -324,6 +329,7 @@ func applyInverseSplitTunRoutingRules(isVpnEnabled, isStInversed, isStEnabled bo
 }
 
 func doApplyInverseRoutes(isIPv6, enable bool) error {
+	// TODO: Vlad - make a copy for our needs	doApplyFullTunnelRoutes
 	if routeBinaryPath == "" {
 		return fmt.Errorf("route.exe location not specified")
 	}
@@ -481,6 +487,7 @@ func disconnect(logging bool) (err error) {
 }
 
 func stopAndClean() (err error) {
+	// TODO: Vlad - patch this func
 	defer catchPanic(&err)
 
 	log.Info("Split-Tunnelling: StopAndClean...")
@@ -502,6 +509,7 @@ func stopAndClean() (err error) {
 }
 
 func start() (err error) {
+	// TODO: Vlad - patch this func
 	defer catchPanic(&err)
 
 	log.Info("Split-Tunnelling: Start...")
