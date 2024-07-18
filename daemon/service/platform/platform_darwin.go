@@ -24,6 +24,8 @@ package platform
 
 import (
 	"path"
+
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 )
 
 var (
@@ -38,7 +40,7 @@ func doInitConstants() {
 	paranoidModeSecretFile = "/Library/Application Support/IVPN/eaa"
 
 	logDir := "/Library/Logs/"
-	logFile = path.Join(logDir, "IVPN Agent.log")
+	logFile = path.Join(logDir, helpers.ServiceName)
 }
 
 func doOsInit() (warnings []string, errors []error, logInfo []string) {
