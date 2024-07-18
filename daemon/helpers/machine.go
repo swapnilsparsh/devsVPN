@@ -1,3 +1,5 @@
+// Copyright (c) 2024 privateLINE, LLC.
+
 package helpers
 
 import (
