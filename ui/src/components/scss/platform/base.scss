@@ -99,9 +99,9 @@ button.shieldButtonActiveBase {
     @extend .hopButtonBase;
     font-weight: 500;
     opacity: 1;
-    background-color: #0467F6;
+    background-color: var(--connection-switch-color);
     color: #ffffff !important;
-    border-radius: 5px;
+    border-radius: 12px;
 }
 
 // === INPUT ===

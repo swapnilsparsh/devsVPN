@@ -297,6 +297,12 @@ export default {
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
           this.stAllowWhenNoVpnLocal,
         );
+        // Change switch connection color based on shield and total shield button selected
+        if (value) {
+          document.documentElement.style.setProperty('--connection-switch-color', '#4EAF51');
+        } else {
+          document.documentElement.style.setProperty('--connection-switch-color', '#0766FF');
+        }
       } catch (e) {
         processError(e);
       }
