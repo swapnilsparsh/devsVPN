@@ -50,7 +50,7 @@ $switchAnimationPieBorder: #449cf8;
 $switchBackground: #ff6258; //#d1d7e3;
 // $switchBackground: #d1d7e3; //#d1d7e3;
 $switchDot: var(--background-color); // #fff;
-$switchActive: #449cf8;
+$switchActive: var(--connection-switch-color);
 // $switchActive: #449cf8;
 
 .switch {
