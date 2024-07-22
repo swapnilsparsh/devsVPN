@@ -247,7 +247,7 @@ if (gotTheLock && isAllowedToStart) {
           label: "Learn More",
           click: async () => {
             const { shell } = require("electron");
-            await shell.openExternal("https://www.ivpn.net/knowledgebase");
+            await shell.openExternal("https://www.privateline.io");
           },
         },
       ],

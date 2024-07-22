@@ -36,11 +36,11 @@
       <ComponentDialog ref="helpCanApplyInBackground" header="Info">
         <div>
           <p>
-            By enabling this feature the IVPN daemon will apply the WiFi control
-            settings before the IVPN app has been launched. This enables the
+            By enabling this feature the privateLINE daemon will apply the WiFi control
+            settings before the privateLINE app has been launched. This enables the
             WiFi control settings to be applied as quickly as possible as the
             daemon is started early in the operating system boot process and
-            before the IVPN app (The GUI).
+            before the privateLINE app (The GUI).
           </p>
         </div>
       </ComponentDialog>
@@ -147,7 +147,7 @@
           <ComponentDialog ref="helpUnTrustedBlockLan" header="Info">
             <div>
               <p>
-                When enabled, it overrides the IVPN Firewall option 'Allow LAN
+                When enabled, it overrides the privateLINE Firewall option 'Allow LAN
                 traffic' when connected to an untrusted network.
               </p>
             </div>

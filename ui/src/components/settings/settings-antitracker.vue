@@ -3,10 +3,9 @@
     <div class="settingsTitle">ANTITRACKER SETTINGS</div>
 
     <div class="defColor" style="margin-bottom: 24px">
-      When AntiTracker is enabled, IVPN blocks ads, malicious websites, and
-      third-party trackers using our private DNS servers.
-      <linkCtrl label="Learn more" url="https://www.ivpn.net/antitracker" />
-      about how IVPN AntiTracker is implemented.
+      When AntiTracker is enabled, privateLINE blocks ads, malicious websites, and
+      third-party trackers using our private DNS servers. Learn more
+      about how privateLINE AntiTracker is implemented.
     </div>
 
     <div class="flexRow paramBlock" style="margin-bottom: 12px">
@@ -35,11 +34,7 @@
       AntiTracker experience.
     </div>
     <div class="fwDescription">
-      <linkCtrl
-        label="Learn more"
-        url="https://www.ivpn.net/knowledgebase/general/antitracker-plus-lists-explained/"
-      />
-      about AntiTracker block lists.
+      Learn more about AntiTracker block lists.
     </div>
 
     <div class="param">
@@ -57,11 +52,7 @@
     </div>
     <div class="fwDescription">
       To better understand how this may impact your experience please refer to
-      our
-      <linkCtrl
-        label="hardcore mode FAQ"
-        url="https://www.ivpn.net/antitracker/hardcore"
-      />.
+      our.
     </div>
   </div>
 </template>

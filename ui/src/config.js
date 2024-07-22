@@ -18,7 +18,7 @@ export default {
 
   // shellOpenExternal(...) allows only URLs started with this prefix
   URLsAllowedPrefixes: ["https://privateline.io/", "x-apple.systempreferences:"],
-  URLApps: "https://www.ivpn.net/apps/",
+  URLApps: "https://privateline.io/downloads/",
 
   IsDebug,
   GetResourcesPath,

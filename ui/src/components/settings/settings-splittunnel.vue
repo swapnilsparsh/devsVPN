@@ -114,10 +114,7 @@
             </p>
           </div>
           <div class="settingsGrayLongDescriptionFont">
-            For more information refer to the
-            <linkCtrl label="Split Tunnel Uses and Limitations"
-              url="https://www.ivpn.net/knowledgebase/general/split-tunnel-uses-and-limitations" />
-            webpage
+            For more information refer to the webpage
           </div>
         </div>
       </ComponentDialog>
@@ -146,7 +143,7 @@
               the default connection.
             </p>
             <div class="settingsGrayLongDescriptionFont">
-              The IVPN Firewall is not functional when this feature is enabled.
+              The privateLINE Firewall is not functional when this feature is enabled.
             </div>
           </div>
         </ComponentDialog>
@@ -183,11 +180,11 @@
           </ComponentDialog>
         </div>
 
-        <!-- Block DNS servers not specified by the IVPN application -->
+        <!-- Block DNS servers not specified by the privateLINE application -->
         <div class="param">
           <input :disabled="!stInversedLocal || !isSTEnabledLocal" type="checkbox" id="stBlockNonVpnDnsLocal"
             v-model="stBlockNonVpnDnsLocal" @change="applyChanges" />
-          <label class="defColor" for="stBlockNonVpnDnsLocal">Block DNS servers not specified by the IVPN
+          <label class="defColor" for="stBlockNonVpnDnsLocal">Block DNS servers not specified by the privateLINE
             application</label>
           <button class="noBordersBtn flexRow" title="Help" v-on:click="$refs.helpStInversedAnyDns.showModal()">
             <img src="@/assets/question.svg" />
@@ -195,8 +192,8 @@
           <ComponentDialog ref="helpStInversedAnyDns" header="Info">
             <div>
               <p>
-                When this option is enabled, only DNS requests directed to IVPN
-                DNS servers or user-defined custom DNS servers within the IVPN
+                When this option is enabled, only DNS requests directed to privateLINE
+                DNS servers or user-defined custom DNS servers within the privateLINE
                 app settings will be allowed. All other DNS requests on port 53
                 will be blocked.
               </p>
@@ -206,7 +203,7 @@
                 DNS configuration.
               </p>
               <div class="settingsGrayLongDescriptionFont">
-                The IVPN AntiTracker and custom DNS are not functional when this
+                The privateLINE AntiTracker and custom DNS are not functional when this
                 feature is disabled.
               </div>
               <div class="settingsGrayLongDescriptionFont">
@@ -452,7 +449,7 @@ export default {
             {
               type: "warning",
               message: `Turning off Firewall for Inverse Split Tunnel mode`,
-              detail: `The Inverse Split Tunnel mode requires disabling the IVPN Firewall.${extraMessage}\nWould you like to proceed?`,
+              detail: `The Inverse Split Tunnel mode requires disabling the privateLINE Firewall.${extraMessage}\nWould you like to proceed?`,
               buttons: ["Disable Firewall", "Cancel"],
             },
             true,
@@ -497,9 +494,9 @@ export default {
           let ret = await sender.showMessageBoxSync(
             {
               type: "question",
-              message: `The IVPN Firewall is not enabled`,
+              message: `The privateLINE Firewall is not enabled`,
               detail:
-                "The Inverse Split Tunnel mode has been disabled successfully. You can now use the Firewall.\n\nWould you like to enable the IVPN Firewall?",
+                "The Inverse Split Tunnel mode has been disabled successfully. You can now use the Firewall.\n\nWould you like to enable the privateLINE Firewall?",
               buttons: ["Enable Firewall", "Cancel"],
             },
             true,
@@ -522,7 +519,7 @@ export default {
             message: `Enabling Inverse mode for Split Tunnel`,
             detail:
               "By enabling Inverse Split Tunnel, only specified apps will use the VPN tunnel while the rest of your system will keep using the default connection, bypassing the VPN tunnel.\n\
-Note! The IVPN Firewall is not functional when this feature is enabled.\n\n\
+Note! The privateLINE Firewall is not functional when this feature is enabled.\n\n\
 Do you want to enable Inverse mode for Split Tunnel?",
             buttons: ["Enable", "Cancel"],
           },

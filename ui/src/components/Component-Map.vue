@@ -530,7 +530,7 @@ export default {
       } else this.isDarkTheme = scheme === ColorTheme.dark;
     },
     onAccountRenew() {
-      sender.shellOpenExternal(`https://www.ivpn.net/account`);
+      sender.shellOpenExternal(`https://www.account.privateline.io`);
     },
     // ================= CONNECTION ====================
     async disconnect() {

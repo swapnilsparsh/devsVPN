@@ -12,7 +12,7 @@
     <div class="settingsBoldFont">Enhanced App Authentication</div>
     <div class="settingsParamProps settingsDescription">
       Enhanced App Authentication (EAA) implements an additional authentication
-      factor between the IVPN app (UI) and the daemon that manages the VPN
+      factor between the privateLINE app (UI) and the daemon that manages the VPN
       tunnel. This prevents a malicious app from being able to manipulate the
       VPN tunnel without the users permission. You will be required to manually
       enter the EAA password when starting the app.
