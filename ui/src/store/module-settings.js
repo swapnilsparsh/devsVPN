@@ -160,7 +160,7 @@ const getDefaultState = () => {
 
     // UI
     showGatewaysWithoutIPv6: true,
-    minimizedUI: false,
+    minimizedUI: true,
     minimizeToTray: true,
     showAppInSystemDock: false,
     serversSortType: ServersSortTypeEnum.City,
