@@ -339,7 +339,7 @@ export default {
             {
               type: "warning",
               message: `Turning off Firewall for Inverse Split Tunnel mode`,
-              detail: `The Inverse Split Tunnel mode requires disabling the IVPN Firewall.${extraMessage}\nWould you like to proceed?`,
+              detail: `The Inverse Split Tunnel mode requires disabling the privateLINE Firewall.${extraMessage}\nWould you like to proceed?`,
               buttons: ["Disable Firewall", "Cancel"],
             },
             true,
@@ -384,9 +384,9 @@ export default {
           let ret = await sender.showMessageBoxSync(
             {
               type: "question",
-              message: `The IVPN Firewall is not enabled`,
+              message: `The privateLINE Firewall is not enabled`,
               detail:
-                "The Inverse Split Tunnel mode has been disabled successfully. You can now use the Firewall.\n\nWould you like to enable the IVPN Firewall?",
+                "The Inverse Split Tunnel mode has been disabled successfully. You can now use the Firewall.\n\nWould you like to enable the privateLINE Firewall?",
               buttons: ["Enable Firewall", "Cancel"],
             },
             true,
@@ -409,7 +409,7 @@ export default {
             message: `Enabling Inverse mode for Split Tunnel`,
             detail:
               "By enabling Inverse Split Tunnel, only specified apps will use the VPN tunnel while the rest of your system will keep using the default connection, bypassing the VPN tunnel.\n\
-Note! The IVPN Firewall is not functional when this feature is enabled.\n\n\
+Note! The privateLINE Firewall is not functional when this feature is enabled.\n\n\
 Do you want to enable Inverse mode for Split Tunnel?",
             buttons: ["Enable", "Cancel"],
           },

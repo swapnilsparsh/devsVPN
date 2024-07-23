@@ -93,7 +93,7 @@
 
       <div class="proAcountDescriptionBlock" v-if="IsCanUpgradeToPro">
         <p>
-          <strong>IVPN PRO</strong> gives you more possibilities to stay safe
+          <strong>privateLINE PRO</strong> gives you more possibilities to stay safe
           and protected:
         </p>
 
@@ -224,7 +224,7 @@ export default {
       await sender.SessionStatus();
     },
     upgrade() {
-      sender.shellOpenExternal(`https://www.ivpn.net/account`);
+      sender.shellOpenExternal(`https://www.account.privateline.io`);
     },
     addMoreTime() {
       sender.shellOpenExternal(`https://privateline.io/`);
