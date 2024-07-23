@@ -134,7 +134,7 @@ export default {
     onUpgrade: function () {
       if (isValidURL(this.UpgradeToURL))
         sender.shellOpenExternal(this.UpgradeToURL);
-      else sender.shellOpenExternal(`https://www.account.privateline.io`);
+      else sender.shellOpenExternal(`https://account.privateline.io`);
     },
     onContactSupport: function () {
       sender.shellOpenExternal(`https://privateline.io/support`);
