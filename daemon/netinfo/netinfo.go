@@ -73,10 +73,22 @@ func GetMulticastAddresses() []net.IPNet {
 	return append([]net.IPNet{}, _multicastAddresses...)
 }
 
-// DefaultGatewayIP - returns: default gatewat IP
+// DefaultGatewayIP - returns: default gateway IP
 func DefaultGatewayIP() (defGatewayIP net.IP, err error) {
+	defGatewayIPs, err := DefaultGatewayIPs()
+	if err != nil {
+		return nil, err
+	} else if len(defGatewayIPs) > 0 {
+		return defGatewayIPs[0], nil
+	} else {
+		return nil, fmt.Errorf("doDefaultGatewayIPs() failed")
+	}
+}
+
+// DefaultGatewayIPs - returns all default gateway IPs
+func DefaultGatewayIPs() (defGatewayIPs []net.IP, err error) {
 	// method should be implemented in platform-specific file
-	return doDefaultGatewayIP()
+	return doDefaultGatewayIPs()
 }
 
 func GetOutboundIP(isIPv6 bool) (net.IP, error) {

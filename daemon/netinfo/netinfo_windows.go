@@ -31,8 +31,8 @@ import (
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
 
-// doDefaultGatewayIP - returns: default gateway IP
-func doDefaultGatewayIP() (defGatewayIP net.IP, err error) {
+// doDefaultGatewayIPs - returns: all default gateway IPs
+func doDefaultGatewayIPs() (defGatewayIPs []net.IP, err error) {
 	routes, err := getWindowsIPv4Routes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get routes: %w", err)
@@ -45,19 +45,41 @@ func doDefaultGatewayIP() (defGatewayIP net.IP, err error) {
 		// 0.0.0.0 		128.0.0.0      	10.59.44.1   	10.59.44.2  	15 <- route to virtual VPN interface !!!
 		zeroBytes := []byte{0, 0, 0, 0}
 		if bytes.Equal(route.DwForwardDest[:], zeroBytes) && bytes.Equal(route.DwForwardMask[:], zeroBytes) { // Network == 0.0.0.0 && Netmask == 0.0.0.0
-			return net.IPv4(route.DwForwardNextHop[0],
-					route.DwForwardNextHop[1],
-					route.DwForwardNextHop[2],
-					route.DwForwardNextHop[3]),
-				nil
+			defGatewayIPs = append(defGatewayIPs, net.IPv4(route.DwForwardNextHop[0],
+				route.DwForwardNextHop[1],
+				route.DwForwardNextHop[2],
+				route.DwForwardNextHop[3]))
 		}
 	}
 
-	return nil, fmt.Errorf("failed to determine default route")
+	if len(defGatewayIPs) > 0 {
+		return defGatewayIPs, nil
+	} else {
+		return nil, fmt.Errorf("failed to determine default route")
+	}
 }
 
-// DefaultGatewayEx returns the interface that has the default route for the given address family.
+// DefaultGatewayEx returns one of the interfaces that has the default route for the given address family.
+// If there are multiple such interfaces, metric is not taken into account.
 func DefaultGatewayEx(isIpv6 bool) (defGatewayIP net.IP, inf *net.Interface, err error) {
+	defGatewaysAndIfaces, err := DefaultRoutesEx(isIpv6)
+	if err != nil {
+		return nil, nil, err
+	} else if len(defGatewaysAndIfaces) > 0 {
+		return defGatewaysAndIfaces[0].route.NextHop.Addr().AsSlice(), defGatewaysAndIfaces[0].iface, nil
+	} else {
+		return nil, nil, fmt.Errorf("DefaultGatewaysEx() failed")
+	}
+}
+
+type gatewayAndInterface struct {
+	//	defGatewayIP net.IP
+	route winipcfg.MibIPforwardRow2
+	iface *net.Interface
+}
+
+// DefaultRoutesEx returns all routes (with interfaces) that have the default route for the given address family.
+func DefaultRoutesEx(isIpv6 bool) (defRoutesAndInterfaces []gatewayAndInterface, err error) {
 	family := winipcfg.AddressFamily(windows.AF_INET)
 	if isIpv6 {
 		family = winipcfg.AddressFamily(windows.AF_INET6)
@@ -65,38 +87,32 @@ func DefaultGatewayEx(isIpv6 bool) (defGatewayIP net.IP, inf *net.Interface, err
 
 	routes, err := winipcfg.GetIPForwardTable2(family)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get network interfaces: %w", err)
+		return nil, fmt.Errorf("failed to get network interfaces: %w", err)
 	}
 
-	const NOMETRIC = ^uint32(0)
-	var (
-		bestIf      net.Interface
-		bestMetric  uint32 = NOMETRIC
-		bestNextHop net.IP
-	)
 	for _, route := range routes {
 		if route.DestinationPrefix.PrefixLength != 0 {
 			continue // skip non-default routes
 		}
-		for _, ifs := range ifaces {
-			if uint32(ifs.Index) != route.InterfaceIndex || ifs.Flags&net.FlagUp == 0 || ifs.Flags&net.FlagLoopback == 1 {
+		for _, iface := range ifaces {
+			if uint32(iface.Index) != route.InterfaceIndex || iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback == 1 {
 				continue // skip down and loopback interfaces
 			}
-			if route.Metric < bestMetric {
-				bestIf = ifs
-				bestMetric = route.Metric
-				bestNextHop = route.NextHop.Addr().AsSlice()
-			}
+
+			// gatewayIP := route.NextHop.Addr().AsSlice()
+			entry := gatewayAndInterface{route, &iface}
+			defRoutesAndInterfaces = append(defRoutesAndInterfaces, entry)
 		}
 	}
 
-	if bestMetric == NOMETRIC {
-		return nil, nil, fmt.Errorf(fmt.Sprintf("unable to determine default %v route", family))
+	if len(defRoutesAndInterfaces) > 0 {
+		return defRoutesAndInterfaces, nil
+	} else {
+		return nil, fmt.Errorf("no default routes found for family %v", family)
 	}
-	return bestNextHop, &bestIf, nil
 }

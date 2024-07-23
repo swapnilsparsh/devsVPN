@@ -26,25 +26,23 @@ import (
 	"fmt"
 	"net"
 	"regexp"
-	"strconv"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
 
-// doDefaultGatewayIP - returns: default gateway
-func doDefaultGatewayIP() (defGatewayIP net.IP, err error) {
-	defGatewayIP = nil
+var outRegexp = regexp.MustCompile("default[ a-z]*([0-9.]*)(?:.*metric ([0-9]*))?")
+
+// doDefaultGatewayIPs - returns: all default gateways
+func doDefaultGatewayIPs() (defGatewayIPs []net.IP, err error) {
+
 	// Expected output of "/sbin/ip route" command:
-	// (if more then one default gateways - use  one with smaller metric value)
 	//
-	// default via 192.168.1.1 dev enp0s3 proto dhcp metric 100
+	// default via 192.168.1.1 dev enp0s3 proto dhcp src 192.168.1.100 metric 100
+	// default via 192.168.1.1 dev wlx1234 proto dhcp src 192.168.1.101 metric 600
 	// 192.168.1.0/24 dev enp0s3 proto kernel scope link src 192.168.1.57 metric 100
 	// 192.168.122.0/24 dev virbr0 proto kernel scope link src 192.168.122.1 linkdown
 	//
 	// Note that metric value is optional, e.g.:	default via 192.168.1.1 dev eth0 onlink
-
-	metric := -1
-	outRegexp := regexp.MustCompile("default[ a-z]*([0-9.]*)(?:.*metric ([0-9]*))?")
 
 	outParse := func(text string, isError bool) {
 		if !isError {
@@ -56,30 +54,17 @@ func doDefaultGatewayIP() (defGatewayIP net.IP, err error) {
 			if gw == nil {
 				return
 			}
-
-			currMetric := 0
-			if len(columns) >= 3 && len(columns[2]) > 0 {
-				if currMetric, err = strconv.Atoi(columns[2]); err != nil {
-					currMetric = 0
-				}
-			}
-
-			if metric == -1 || metric > currMetric {
-				defGatewayIP = gw
-				metric = currMetric
-			}
+			defGatewayIPs = append(defGatewayIPs, gw)
 		}
 	}
 
 	retErr := shell.ExecAndProcessOutput(log, outParse, "", "/sbin/ip", "route")
 
-	if retErr == nil {
-		if defGatewayIP == nil {
-			retErr = fmt.Errorf("Unable to obtain default gateway IP")
-		}
-	} else {
-		log.Error("Failed to obtain local gateway: ", retErr.Error())
+	if retErr != nil {
+		return nil, fmt.Errorf("Failed to obtain local gateways: %w", retErr)
+	} else if len(defGatewayIPs) <= 0 {
+		return nil, fmt.Errorf("No default gateways found")
 	}
 
-	return defGatewayIP, retErr
+	return defGatewayIPs, nil
 }

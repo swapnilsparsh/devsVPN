@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"path"
 	"runtime"
@@ -40,6 +41,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"golang.org/x/sys/windows"
+	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
 
 var (
@@ -69,13 +71,15 @@ var (
 	appliedNextHopIpv4 net.IP
 	appliedNextHopIpv6 net.IP
 
-	routeBinaryPath string = "route"
-)
+	// map from INET type (IPv4 or IPv6) to default routes (all zeroes)
+	defaultRoutesByIpFamily map[winipcfg.AddressFamily]winipcfg.IPAddressPrefix
+	// and address sizes by IP family in bits: 32 for IPv4 and 128 for IPv6
+	addrSizesByIpFamily = map[winipcfg.AddressFamily]uint8{
+		windows.AF_INET:  32,
+		windows.AF_INET6: 128,
+	}
 
-// 'blackhole' IP addresses. Used for forwarding all traffic of split-tunnel apps to 'nowhere' (in fact, to block traffic)
-const (
-	BlackHoleIPv4 = "192.0.2.255" // RFC 5737 - IPv4 Address Blocks Reserved for Documentation
-	BlackHoleIPv6 = "0100::1"     // RFC 6666 - A Discard Prefix for IPv6
+	routeBinaryPath string = "route"
 )
 
 type ConfigApps struct {
@@ -145,6 +149,18 @@ func implInitialize() error {
 		break
 	}
 
+	// init the default routes map
+	var defaultRoutePrefixIPv4ipAddrPfx, defaultRoutePrefixIPv6ipAddrPfx winipcfg.IPAddressPrefix
+	if err := defaultRoutePrefixIPv4ipAddrPfx.SetPrefix(defaultRoutePrefixIPv4); err != nil {
+		return err
+	}
+	if err := defaultRoutePrefixIPv6ipAddrPfx.SetPrefix(defaultRoutePrefixIPv6); err != nil {
+		return err
+	}
+
+	defaultRoutesByIpFamily[windows.AF_INET] = defaultRoutePrefixIPv4ipAddrPfx
+	defaultRoutesByIpFamily[windows.AF_INET6] = defaultRoutePrefixIPv6ipAddrPfx
+
 	return funcNotAvailableError
 }
 
@@ -167,6 +183,15 @@ func implFuncNotAvailableError() (generalStError, inversedStError error) {
 }
 
 func implReset() error {
+	for endpointType, endpoint := range lastConfiguredEndpoints { // reset both IPv4 and IPv6, if present
+		if endpoint == nil {
+			continue
+		}
+		if err := doApplySplitFullTunnelRoutes(endpointType, true, false, *endpoint); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -184,7 +209,10 @@ func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpn
 		return err
 	}
 
-	// TODO: Vlad - patch in here
+	if err := doApplySplitFullTunnelRoutes(windows.AF_INET, isStEnabled, isVpnEnabled, addrConfig.IPv4Endpoint); err != nil {
+		return err
+	}
+	return doApplySplitFullTunnelRoutes(windows.AF_INET6, isStEnabled, isVpnEnabled, addrConfig.IPv6Endpoint)
 
 	// If: (VPN not connected + inverse split-tunneling enabled + isStInverseAllowWhenNoVpn==false) --> we need to set blackhole IP addresses for tunnel interface
 	// This will forward all traffic of split-tunnel apps to 'nowhere' (in fact, it will block all traffic of split-tunnel apps)
@@ -329,7 +357,6 @@ func applyInverseSplitTunRoutingRules(isVpnEnabled, isStInversed, isStEnabled bo
 }
 
 func doApplyInverseRoutes(isIPv6, enable bool) error {
-	// TODO: Vlad - make a copy for our needs	doApplyFullTunnelRoutes
 	if routeBinaryPath == "" {
 		return fmt.Errorf("route.exe location not specified")
 	}
@@ -395,6 +422,43 @@ func doApplyInverseRoutes(isIPv6, enable bool) error {
 		}
 		masksApplied = append(masksApplied, mask)
 	}
+	return nil
+}
+
+// TODO FIXME: Vlad - write out descr
+// TODO FIXME: Vlad - process isVpnEnabled logic. Ensure we get called if VPN gets enabled/disabled.
+func doApplySplitFullTunnelRoutes(ipFamily winipcfg.AddressFamily, isStEnabled bool, isVpnEnabled bool, wgEndpoint netip.Addr) error {
+	var wgEndpointDestPrefix, changeFromDestPrefix, changeToDestPrefix winipcfg.IPAddressPrefix
+
+	// Add replacement logic vars
+	wgEndpointPrefixNetip := netip.PrefixFrom(wgEndpoint, int(addrSizesByIpFamily[ipFamily]))
+	if err := wgEndpointDestPrefix.SetPrefix(wgEndpointPrefixNetip); err != nil {
+		return err
+	}
+
+	if !isVpnEnabled || isStEnabled { // if VPN is disabled, or if enabling split tunnel - we reset full tunnel (total shield) customized routes back to default routes
+		changeFromDestPrefix = wgEndpointDestPrefix            // ... then change from our Wireguard endpoint on the matching routes
+		changeToDestPrefix = defaultRoutesByIpFamily[ipFamily] // ... back to all-zeros default route destination
+	} else { // if enabling full tunnel (total shield), and VPN is enabled
+		changeFromDestPrefix = defaultRoutesByIpFamily[ipFamily] // ... then change from all-zeros default route destination
+		changeToDestPrefix = wgEndpointDestPrefix                // ... to allow only our Wireguard endpoint on the given route
+		lastConfiguredEndpoints[ipFamily] = &wgEndpoint          // save the last configured Wireguard VPN endpoint
+	}
+
+	routes, err := winipcfg.GetIPForwardTable2(ipFamily)
+	if err != nil {
+		return err
+	}
+
+	for _, route := range routes {
+		if route.DestinationPrefix.RawPrefix.Addr() == changeFromDestPrefix.RawPrefix.Addr() {
+			route.DestinationPrefix = changeToDestPrefix
+			if err = route.Set(); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
