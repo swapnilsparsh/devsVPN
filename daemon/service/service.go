@@ -1484,7 +1484,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	var ipv4Endpoint netip.Addr
 	var err error
 	if ipv4Endpoint, err = netip.ParseAddr(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts[0].EndpointIP); err != nil {
-		return err
+		return fmt.Errorf("error netip.ParseAddr: %w", err)
 	}
 
 	addressesCfg := splittun.ConfigAddresses{

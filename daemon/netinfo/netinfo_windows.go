@@ -87,7 +87,7 @@ func DefaultRoutesEx(isIpv6 bool) (defRoutesAndInterfaces []gatewayAndInterface,
 
 	routes, err := winipcfg.GetIPForwardTable2(family)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error from GetIPForwardTable2(): %w", err)
 	}
 
 	ifaces, err := net.Interfaces()

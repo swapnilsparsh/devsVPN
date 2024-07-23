@@ -77,7 +77,7 @@ func GetMulticastAddresses() []net.IPNet {
 func DefaultGatewayIP() (defGatewayIP net.IP, err error) {
 	defGatewayIPs, err := DefaultGatewayIPs()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error from DefaultGatewayIPs: %w", err)
 	} else if len(defGatewayIPs) > 0 {
 		return defGatewayIPs[0], nil
 	} else {

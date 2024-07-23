@@ -23,6 +23,7 @@
 package splittun
 
 import (
+	"fmt"
 	"net"
 	"net/netip"
 	"sync"
@@ -96,7 +97,7 @@ func Initialize() error {
 	log.Info("Initializing Split-Tunnelling")
 	err := implInitialize()
 	if err != nil {
-		return err
+		return fmt.Errorf("error in implInitialize(): %w", err)
 	}
 
 	return nil
@@ -127,6 +128,7 @@ func ApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabl
 
 	retErr := implApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled, addrConfig, splitTunnelApps)
 	if retErr != nil {
+		retErr = fmt.Errorf("error in implApplyConfig(): %w", retErr)
 		log.Error(retErr)
 	}
 	return retErr

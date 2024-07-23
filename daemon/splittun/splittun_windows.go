@@ -152,10 +152,10 @@ func implInitialize() error {
 	// init the default routes map
 	var defaultRoutePrefixIPv4ipAddrPfx, defaultRoutePrefixIPv6ipAddrPfx winipcfg.IPAddressPrefix
 	if err := defaultRoutePrefixIPv4ipAddrPfx.SetPrefix(defaultRoutePrefixIPv4); err != nil {
-		return err
+		return fmt.Errorf("error SetPrefix(defaultRoutePrefixIPv4): %w", err)
 	}
 	if err := defaultRoutePrefixIPv6ipAddrPfx.SetPrefix(defaultRoutePrefixIPv6); err != nil {
-		return err
+		return fmt.Errorf("error SetPrefix(defaultRoutePrefixIPv6): %w", err)
 	}
 
 	defaultRoutesByIpFamily[windows.AF_INET] = defaultRoutePrefixIPv4ipAddrPfx
@@ -188,7 +188,7 @@ func implReset() error {
 			continue
 		}
 		if err := doApplySplitFullTunnelRoutes(endpointType, true, false, *endpoint); err != nil {
-			return err
+			return fmt.Errorf("error in doApplySplitFullTunnelRoutes(): %w", err)
 		}
 	}
 
@@ -197,6 +197,7 @@ func implReset() error {
 
 func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// Check if functionality available
+	var err error
 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
 	isFunctionalityNotAvailable := splitTunErr != nil || (isStInversed && splitTunInversedErr != nil)
 	if isFunctionalityNotAvailable {
@@ -205,14 +206,22 @@ func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpn
 		return nil
 	}
 
-	if err := isInitialised(); err != nil {
-		return err
+	if err = isInitialised(); err != nil {
+		return fmt.Errorf("erorr in isInitialised(): %w", err)
 	}
 
-	if err := doApplySplitFullTunnelRoutes(windows.AF_INET, isStEnabled, isVpnEnabled, addrConfig.IPv4Endpoint); err != nil {
+	if addrConfig.IPv4Endpoint.IsValid() {
+		if err = doApplySplitFullTunnelRoutes(windows.AF_INET, isStEnabled, isVpnEnabled, addrConfig.IPv4Endpoint); err != nil {
+			return fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv4): %w", err)
+		}
+	}
+	if addrConfig.IPv6Endpoint.IsValid() {
+		if err = doApplySplitFullTunnelRoutes(windows.AF_INET6, isStEnabled, isVpnEnabled, addrConfig.IPv6Endpoint); err != nil {
+			err = fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv6): %w", err)
+		}
 		return err
 	}
-	return doApplySplitFullTunnelRoutes(windows.AF_INET6, isStEnabled, isVpnEnabled, addrConfig.IPv6Endpoint)
+	return nil
 
 	// If: (VPN not connected + inverse split-tunneling enabled + isStInverseAllowWhenNoVpn==false) --> we need to set blackhole IP addresses for tunnel interface
 	// This will forward all traffic of split-tunnel apps to 'nowhere' (in fact, it will block all traffic of split-tunnel apps)
@@ -433,7 +442,7 @@ func doApplySplitFullTunnelRoutes(ipFamily winipcfg.AddressFamily, isStEnabled b
 	// Add replacement logic vars
 	wgEndpointPrefixNetip := netip.PrefixFrom(wgEndpoint, int(addrSizesByIpFamily[ipFamily]))
 	if err := wgEndpointDestPrefix.SetPrefix(wgEndpointPrefixNetip); err != nil {
-		return err
+		return fmt.Errorf("error in SetPrefix(wgEndpointPrefixNetip): %w", err)
 	}
 
 	if !isVpnEnabled || isStEnabled { // if VPN is disabled, or if enabling split tunnel - we reset full tunnel (total shield) customized routes back to default routes
@@ -447,14 +456,18 @@ func doApplySplitFullTunnelRoutes(ipFamily winipcfg.AddressFamily, isStEnabled b
 
 	routes, err := winipcfg.GetIPForwardTable2(ipFamily)
 	if err != nil {
-		return err
+		return fmt.Errorf("error in GetIPForwardTable2(): %w", err)
 	}
 
 	for _, route := range routes {
 		if route.DestinationPrefix.RawPrefix.Addr() == changeFromDestPrefix.RawPrefix.Addr() {
-			route.DestinationPrefix = changeToDestPrefix
-			if err = route.Set(); err != nil {
-				return err
+			changedRoute := route
+			changedRoute.DestinationPrefix = changeToDestPrefix
+			if err = route.Delete(); err != nil {
+				return fmt.Errorf("error in MibIPforwardRow2.Delete(): %w", err)
+			}
+			if err = changedRoute.Create(); err != nil {
+				return fmt.Errorf("error in MibIPforwardRow2.Create(): %w", err)
 			}
 		}
 	}
