@@ -6,7 +6,7 @@
       <div class="param">
         <input type="checkbox" id="dnsIsCustom" v-model="dnsIsCustom" />
         <label class="defColor" for="dnsIsCustom"
-          >Use custom DNS server when connected to IVPN</label
+          >Use custom DNS server when connected to privateLINE</label
         >
       </div>
 
@@ -144,9 +144,9 @@
         >
       </div>
       <div class="paramProps fwDescription">
-        By default IVPN manages DNS resolvers using the 'systemd-resolved'
+        By default privateLINE manages DNS resolvers using the 'systemd-resolved'
         daemon which is the correct method for systems based on Systemd. This
-        option enables you to override this behavior and allow the IVPN app to
+        option enables you to override this behavior and allow the privateLINE app to
         directly modify the '/etc/resolv.conf' file.
       </div>
     </div>
@@ -220,8 +220,8 @@ export default {
       sender.showMessageBoxSync({
         type: "info",
         buttons: ["OK"],
-        message: "You are now connected to IVPN",
-        detail: "You can change this settings only when IVPN is disconnected.",
+        message: "You are now connected to privateLINE",
+        detail: "You can change this settings only when privateLINE is disconnected.",
       });
 
       return false;

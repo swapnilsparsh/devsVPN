@@ -3,7 +3,7 @@
     <div id="innerColumn">
       <div style="text-align: center" id="title">Diagnostic logs</div>
       <div style="text-align: center">
-        The information in the tabs shown below will be submitted to IVPN for
+        The information in the tabs shown below will be submitted to privateLINE for
         further analysis
       </div>
 
@@ -219,7 +219,7 @@ export default {
         sender.showMessageBoxSync({
           type: "info",
           buttons: ["OK"],
-          message: "Report sent to IVPN",
+          message: "Report sent to privateLINE",
           detail: `Report ID: ${id}`,
         });
       }

@@ -3,7 +3,7 @@ import { Platform, PlatformEnum } from "@/platform/platform";
 
 // initialize application auto-launcher
 var AutoLaunch = require("auto-launch");
-let launcherOptions = { name: "IVPN", isHidden: true }; // isHidden is in use by Windows and Linux implementation (see function: WasOpenedAtLogin())
+let launcherOptions = { name: "privateLINE", isHidden: true }; // isHidden is in use by Windows and Linux implementation (see function: WasOpenedAtLogin())
 var autoLauncher = null;
 
 if (Platform() === PlatformEnum.Linux) {

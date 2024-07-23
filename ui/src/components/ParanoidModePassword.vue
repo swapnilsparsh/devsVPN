@@ -33,7 +33,7 @@
         class="noBordersTextBtn settingsLinkText"
         v-on:click="visitWebsite"
       >
-        www.ivpn.net
+        www.privateline.io
       </button>-->
     </div>
   </div>
@@ -89,7 +89,7 @@ export default {
       }
     },
     visitWebsite() {
-      sender.shellOpenExternal(`https://www.ivpn.net`);
+      sender.shellOpenExternal(`https://www.privateline.io`);
     },
   },
   computed: {},
