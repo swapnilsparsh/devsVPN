@@ -72,7 +72,7 @@ var (
 	appliedNextHopIpv6 net.IP
 
 	// map from INET type (IPv4 or IPv6) to default routes (all zeroes)
-	defaultRoutesByIpFamily map[winipcfg.AddressFamily]winipcfg.IPAddressPrefix
+	defaultRoutesByIpFamily = map[winipcfg.AddressFamily]winipcfg.IPAddressPrefix{}
 	// and address sizes by IP family in bits: 32 for IPv4 and 128 for IPv6
 	addrSizesByIpFamily = map[winipcfg.AddressFamily]uint8{
 		windows.AF_INET:  32,
