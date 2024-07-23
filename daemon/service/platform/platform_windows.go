@@ -46,7 +46,7 @@ func doInitConstants() {
 		fmt.Println("!!! WARNING !!! Non-standard service port file: ", servicePortFile)
 	}
 
-	logFile = path.Join(installDir, "log/IVPN Agent.log")
+	logFile = path.Join(installDir, "log/privateline-connect-svc.log")
 
 	openvpnUserParamsFile = path.Join(installDir, "mutable/ovpn_extra_params.txt")
 	paranoidModeSecretFile = path.Join(installDir, "etc/eaa") // file located in 'etc' will not be removed during app upgrade
