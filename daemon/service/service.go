@@ -1489,9 +1489,24 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 
 	sInf := s.GetVpnSessionInfo()
 
-	var ipv4Endpoint netip.Addr
-	var err error
-	if ipv4Endpoint, err = netip.ParseAddr(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts[0].EndpointIP); err != nil {
+	var (
+		err          error
+		ipv4Endpoint netip.Addr
+		endpointIP   string
+		servers      *api_types.ServersInfoResponse
+	)
+
+	if len(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) > 0 {
+		endpointIP = prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts[0].EndpointIP
+	} else {
+		servers, err = s._serversUpdater.GetServers()
+		if err != nil {
+			return fmt.Errorf("error in GetServers(): %w", err)
+		}
+		endpointIP = servers.WireguardServers[0].Hosts[0].EndpointIP
+	}
+
+	if ipv4Endpoint, err = netip.ParseAddr(endpointIP); err != nil {
 		return fmt.Errorf("error netip.ParseAddr: %w", err)
 	}
 
