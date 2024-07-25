@@ -118,6 +118,32 @@ func GetOutboundIPEx(addr net.IP) (net.IP, error) {
 	return localAddr.IP, nil
 }
 
+func GetOutboundIPPrivateLine(internalAddr bool) (net.IP, error) {
+	if internalAddr { // internal addr of privateline.io
+		return GetOutboundIPExPrivateLine(net.ParseIP("10.0.7.7"))
+	} else { // external addr of privateline.io
+		return GetOutboundIPExPrivateLine(net.ParseIP("155.130.218.68"))
+	}
+}
+
+func GetOutboundIPExPrivateLine(addr net.IP) (net.IP, error) {
+	addrStr := ""
+	if addr.To4() != nil { // IPv4
+		addrStr = addr.String() + ":80"
+	} else {
+		return nil, fmt.Errorf("error: IPv4 address expected. Received %v", addr)
+	}
+
+	conn, err := net.Dial("tcp", addrStr)
+	if err != nil {
+		return net.IP{}, err
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.TCPAddr)
+	return localAddr.IP, nil
+}
+
 // InterfaceByIPAddr - Get network interface object by it's local IP address
 func InterfaceByIPAddr(localAddr net.IP) (*net.Interface, error) {
 	ifaces, err := net.Interfaces()

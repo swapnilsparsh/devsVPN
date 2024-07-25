@@ -188,17 +188,21 @@ func (s *Service) init() error {
 	go func() {
 		defer close(_ipStackInitializationWaiter) // ip stack initialized (or timeout)
 		log.Info("Waiting for IP stack initialization ...")
-		endTime := time.Now().Add(time.Minute * 2)
+		endTime := time.Now().Add(time.Minute * 1)
 		for {
-			ipv4, err4 := netinfo.GetOutboundIP(false)
-			ipv6, err6 := netinfo.GetOutboundIP(true)
-			if (!ipv4.IsUnspecified() && err4 == nil) || (!ipv6.IsUnspecified() && err6 == nil) {
-				log.Info("IP stack initializaed")
+			ipv4extAddr, errExt := netinfo.GetOutboundIPPrivateLine(false)
+			ipv4IntAddr, errInt := netinfo.GetOutboundIPPrivateLine(true)
+			if (!ipv4extAddr.IsUnspecified() && errExt == nil) || (!ipv4IntAddr.IsUnspecified() && errInt == nil) {
+				log.Info("IP stack initialized")
 
 				// Save IP addresses of the current outbound interface (can be used, for example, for Split-Tunneling)
 				ipInfo := s.GetVpnSessionInfo()
-				ipInfo.OutboundIPv4 = ipv4
-				ipInfo.OutboundIPv6 = ipv6
+				if ipv4IntAddr != nil {
+					ipInfo.OutboundIPv4 = ipv4IntAddr
+				} else {
+					ipInfo.OutboundIPv4 = ipv4extAddr
+				}
+				ipInfo.OutboundIPv6 = net.ParseIP(splittun.BlackHoleIPv6)
 				s.SetVpnSessionInfo(ipInfo)
 
 				return
@@ -1458,9 +1462,13 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 
 	prefs := s.Preferences()
 
-	if !prefs.Session.IsLoggedIn() {
-		return srverrors.ErrorNotLoggedIn{}
-	}
+	// Vlad: disabling IsLoggedIn check. If the service crashed while in full tunnel, and left the machine w/o default routes,
+	// then (if we're not connecting to VPN on start) we absolutely must restore the default routes on start, regardless of the
+	// state we're starting from.
+	//
+	// if !prefs.Session.IsLoggedIn() {
+	// 	return srverrors.ErrorNotLoggedIn{}
+	// }
 
 	// Network changes detection must be disabled for Inverse SplitTunneling
 	if prefs.IsInverseSplitTunneling() {

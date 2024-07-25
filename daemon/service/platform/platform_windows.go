@@ -86,7 +86,7 @@ func doOsInit() (warnings []string, errors []error, logInfo []string) {
 	serversFile = path.Join(settingsDirCommon, "servers.json")
 	openvpnConfigFile = path.Join(settingsDir, "openvpn.cfg")
 	openvpnProxyAuthFile = path.Join(settingsDir, "proxyauth.txt")
-	wgConfigFilePath = path.Join(settingsDir, "IVPN.conf") // will be used also for WireGuard service name (e.g. "WireGuardTunnel$IVPN")
+	wgConfigFilePath = path.Join(settingsDir, "privateLINE.conf") // will be used also for WireGuard service name (e.g. "WireGuardTunnel$privateLINE")
 
 	openVpnBinaryPath = path.Join(_installDir, "OpenVPN", _archDir, "openvpn.exe")
 	openvpnCaKeyFile = path.Join(settingsDirCommon, "ca.crt")

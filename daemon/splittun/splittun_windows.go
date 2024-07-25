@@ -33,6 +33,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -64,6 +65,8 @@ var (
 )
 
 var (
+	mutexSplittunWin sync.Mutex
+
 	isDriverConnected bool
 
 	// If defined, route rules were applied for inverse split tunneling.
@@ -79,7 +82,8 @@ var (
 		windows.AF_INET6: 128,
 	}
 
-	routeBinaryPath string = "route"
+	routeBinaryPath      string = "route"
+	powershellBinaryPath string = "powershell"
 )
 
 type ConfigApps struct {
@@ -99,6 +103,7 @@ func implInitialize() error {
 		log.Error("!!! ERROR !!! Unable to determine 'SYSTEMROOT' environment variable!")
 	} else {
 		routeBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "route.exe"), "/", "\\")
+		powershellBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "WindowsPowerShell", "v1.0", "powershell.exe"), "/", "\\")
 	}
 
 	wfpDllPath := platform.WindowsWFPDllPath()
@@ -196,6 +201,14 @@ func implReset() error {
 }
 
 func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+	// Lock this function as well, suspecting race conditions
+	mutexSplittunWin.Lock()
+	defer func() {
+		log.Debug("implApplyConfig() completed")
+		mutexSplittunWin.Unlock()
+	}()
+	log.Debug("implApplyConfig() started")
+
 	// Check if functionality available
 	var err error
 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
@@ -207,21 +220,31 @@ func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpn
 	}
 
 	if err = isInitialised(); err != nil {
-		return fmt.Errorf("erorr in isInitialised(): %w", err)
+		return fmt.Errorf("error in isInitialised(): %w", err)
 	}
+
+	// Disabling default IPv6 routes doesn't work on win10 - Windows enables them back. Instead we disable/enable IPv6 on all adapters.
+	// if addrConfig.IPv6Endpoint.IsValid() {
+	// 	if err = doApplySplitFullTunnelRoutes(windows.AF_INET6, isStEnabled, isVpnEnabled, addrConfig.IPv6Endpoint); err != nil {
+	// 		err = log.ErrorE(fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv6): %w", err), 0)
+	// 	}
+	// }
+	ipv6ResponseChan := make(chan error)
+	go enableDisableIPv6(isStEnabled || !isVpnEnabled, ipv6ResponseChan) // fork the powershell invocation 1st, it's probably the slower path
 
 	if addrConfig.IPv4Endpoint.IsValid() {
 		if err = doApplySplitFullTunnelRoutes(windows.AF_INET, isStEnabled, isVpnEnabled, addrConfig.IPv4Endpoint); err != nil {
-			return fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv4): %w", err)
+			err = fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv4): %w", err)
 		}
 	}
-	if addrConfig.IPv6Endpoint.IsValid() {
-		if err = doApplySplitFullTunnelRoutes(windows.AF_INET6, isStEnabled, isVpnEnabled, addrConfig.IPv6Endpoint); err != nil {
-			err = fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv6): %w", err)
-		}
+
+	ipv6Err := <-ipv6ResponseChan
+
+	if err != nil {
 		return err
+	} else {
+		return ipv6Err
 	}
-	return nil
 
 	// If: (VPN not connected + inverse split-tunneling enabled + isStInverseAllowWhenNoVpn==false) --> we need to set blackhole IP addresses for tunnel interface
 	// This will forward all traffic of split-tunnel apps to 'nowhere' (in fact, it will block all traffic of split-tunnel apps)
@@ -453,26 +476,46 @@ func doApplySplitFullTunnelRoutes(ipFamily winipcfg.AddressFamily, isStEnabled b
 		changeToDestPrefix = wgEndpointDestPrefix                // ... to allow only our Wireguard endpoint on the given route
 		lastConfiguredEndpoints[ipFamily] = &wgEndpoint          // save the last configured Wireguard VPN endpoint
 	}
+	//log.Debug(fmt.Sprintf("doApplySplitFullTunnelRoutes(): ipFamily=%#v, changeFromDestPrefix=%#v, changeToDestPrefix=%#v", ipFamily, changeFromDestPrefix, changeToDestPrefix))
 
 	routes, err := winipcfg.GetIPForwardTable2(ipFamily)
 	if err != nil {
 		return fmt.Errorf("error in GetIPForwardTable2(): %w", err)
 	}
 
-	for _, route := range routes {
+	for _, route := range routes { // TODO: print the whole route table before the loop via "route print"
+		//log.Debug(fmt.Sprintf("doApplySplitFullTunnelRoutes(): route=%#v", route))
 		if route.DestinationPrefix.RawPrefix.Addr() == changeFromDestPrefix.RawPrefix.Addr() {
 			changedRoute := route
 			changedRoute.DestinationPrefix = changeToDestPrefix
+			//log.Debug(fmt.Sprintf("doApplySplitFullTunnelRoutes(): changedRoute=%#v", changedRoute))
 			if err = route.Delete(); err != nil {
-				return fmt.Errorf("error in MibIPforwardRow2.Delete(): %w", err)
+				return fmt.Errorf("error in MibIPforwardRow2.Delete(). route=%#v. Error=%w", route, err)
 			}
 			if err = changedRoute.Create(); err != nil {
-				return fmt.Errorf("error in MibIPforwardRow2.Create(): %w", err)
+				//return fmt.Errorf("error in MibIPforwardRow2.Create(): %w", err)
+				log.Warning(fmt.Errorf("MibIPforwardRow2.Create() failed, duplicate route already exists - skipping route creation. changedRoute='%#v'. Error=%w", changedRoute, err))
 			}
 		}
 	}
 
 	return nil
+}
+
+// We either disable IPv6 on all network interfaces for full tunnel (total shield), or enable it back for split tunnel.
+func enableDisableIPv6(enable bool, responseChan chan error) {
+	cmd := []string{"-NoProfile", "", "-Name", "\"*\"", "-ComponentID", "ms_tcpip6"}
+	if enable {
+		cmd[1] = "Enable-NetAdapterBinding"
+	} else {
+		cmd[1] = "Disable-NetAdapterBinding"
+	}
+
+	if err := shell.Exec(log, powershellBinaryPath, cmd...); err != nil {
+		responseChan <- log.ErrorE(fmt.Errorf("failed to change IPv6 bindings (isStEnabled=%v): %w", enable, err), 0)
+	} else {
+		responseChan <- nil
+	}
 }
 
 func catchPanic(err *error) {

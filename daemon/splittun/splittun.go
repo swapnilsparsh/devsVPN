@@ -119,19 +119,23 @@ func Reset() error {
 // ApplyConfig control split-tunnel functionality
 func ApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	mutex.Lock()
-	defer mutex.Unlock()
+	defer func() {
+		log.Debug("ApplyConfig() completed")
+		mutex.Unlock()
+	}()
+	log.Debug(fmt.Sprintf("ApplyConfig() started: isStEnabled=%t, isVpnEnabled=%t", isStEnabled, isVpnEnabled))
+	// TODO: Vlad - don't leave PrintStack calls enabled in production builds beyond the MVP
+	logger.PrintStackToStderr()
 
 	if !isVpnEnabled {
 		addrConfig.IPv4Tunnel = nil
 		addrConfig.IPv6Tunnel = nil
 	}
 
-	retErr := implApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled, addrConfig, splitTunnelApps)
-	if retErr != nil {
-		retErr = fmt.Errorf("error in implApplyConfig(): %w", retErr)
-		log.Error(retErr)
+	if retErr := implApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled, addrConfig, splitTunnelApps); retErr != nil {
+		return log.ErrorE(fmt.Errorf("error in implApplyConfig(): %w", retErr), 0)
 	}
-	return retErr
+	return nil
 }
 
 // AddPid add process to Split-Tunnel environment
