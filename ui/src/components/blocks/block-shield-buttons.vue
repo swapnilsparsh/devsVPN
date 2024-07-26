@@ -4,7 +4,7 @@
     <div class="shieldButtons">
       <div />
       <button class="shieldButton" v-bind:class="{
-        shieldButtonActive: IsEnabled,
+        shieldButtonActiveGreen: IsEnabled,
       }" v-on:click="ChangeShield(true)">
         Shield
       </button>
@@ -12,7 +12,7 @@
       <div />
 
       <button class="shieldButton" v-bind:class="{
-        shieldButtonActive: !IsEnabled,
+        shieldButtonActiveBlue: !IsEnabled,
       }" v-on:click="ChangeShield(false)">
         Total Shield
       </button>
@@ -49,7 +49,7 @@ export default {
 
   data: function () {
     return {
-      isSTEnabledLocal: false,
+      isSTEnabledLocal: true,
       stInversedLocal: false,
       stAnyDnsLocal: false,
       stBlockNonVpnDnsLocal: true,
@@ -206,6 +206,12 @@ export default {
   },
 
   async mounted() {
+    if (this.IsEnabled) {
+      document.documentElement.style.setProperty('--connection-switch-color', '#4EAF51')
+    } else {
+      document.documentElement.style.setProperty('--connection-switch-color', '#0766FF');
+    }
+
     this.isSTEnabledLocal = this.IsEnabled;
     this.stInversedLocal = this.IsInversed;
     this.stBlockNonVpnDnsLocal = !this.IsAnyDns;
@@ -239,6 +245,12 @@ export default {
 
   watch: {
     IsEnabled() {
+      if (this.IsEnabled) {
+        document.documentElement.style.setProperty('--connection-switch-color', '#4EAF51')
+      } else {
+        document.documentElement.style.setProperty('--connection-switch-color', '#0766FF');
+      }
+
       this.isSTEnabledLocal = this.IsEnabled;
     },
     IsInversed() {

@@ -41,10 +41,10 @@ button.hopButton {
     @extend .shieldButtonBase;
 }
 button.shieldButtonActive {
-    @extend .shieldButtonActiveBase;
+    @extend .shieldButtonActiveBaseGreen;
 }
 div.shieldButtonsSeparator {
-    @extend .shieldButtonActiveBase;
+    @extend .shieldButtonActiveBaseGreen;
 }
 
 // === INPUT ===
