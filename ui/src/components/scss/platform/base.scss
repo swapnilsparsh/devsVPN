@@ -95,11 +95,20 @@ button.shieldButtonBase {
     width:100%;
 }
 
-button.shieldButtonActiveBase {
+button.shieldButtonActiveBaseGreen {
     @extend .hopButtonBase;
     font-weight: 500;
     opacity: 1;
-    background-color: var(--connection-switch-color);
+    background-color: var(--connection-switch-color-green);
+    color: #ffffff !important;
+    border-radius: 12px;
+}
+
+button.shieldButtonActiveBaseBlue {
+    @extend .hopButtonBase;
+    font-weight: 500;
+    opacity: 1;
+    background-color: var(--connection-switch-color-blue);
     color: #ffffff !important;
     border-radius: 12px;
 }

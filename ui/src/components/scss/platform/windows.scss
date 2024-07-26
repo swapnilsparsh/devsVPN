@@ -64,12 +64,20 @@ button.shieldButton {
     opacity: 1;
     font-weight: 400;
 }
-button.shieldButtonActive {
-    @extend .shieldButtonActiveBase;
+button.shieldButtonActiveBlue {
+    @extend .shieldButtonActiveBaseBlue;
     color: #178FE6;
     opacity: 1;
     font-weight: 400;
 }
+
+button.shieldButtonActiveGreen {
+  @extend .shieldButtonActiveBaseGreen;
+  color: #4EAF51;
+  opacity: 1;
+  font-weight: 400;
+}
+
 
 // === INPUT ===
 input.styled {
