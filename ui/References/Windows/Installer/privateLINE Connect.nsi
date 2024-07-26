@@ -1,8 +1,6 @@
 ; privateLINE Connect Installer
 ; Install script for NSIS 2.x
 
-SetCompressor lzma
-
 ; -----------------
 ; include Modern UI
 ; -----------------
