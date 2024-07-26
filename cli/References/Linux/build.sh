@@ -1,7 +1,12 @@
-#!/bin/sh
+#!/bin/bash
 
 # Usage example:
+#
+#	Release build (slow):
 #   build-packages.sh -v 0.0.1
+#	Debug build (fast):
+#   	build-debug -v 0.0.1
+#
 
 # To be able to build DEB/RPM packages, the 'fpm' tool shall be installed
 # (https://fpm.readthedocs.io/en/latest/installing.html)
@@ -30,6 +35,21 @@
 # Remove BROKEN package (which is unable to uninstall by normal ways)
 #     sudo mv /var/lib/dpkg/info/privateline.* /tmp/
 #     sudo dpkg --remove --force-remove-reinstreq privateline
+declare BUILD_TYPE DEB_COMPRESSION_ARGS RPM_COMPRESSION_ARGS
+
+if [[ $0 =~ .*build-debug ]]; then
+	echo -e "[\033[1;93mDEBUG BUILD\033[0m]"
+	echo -e "No package compression for debug build. Building DEB, but not RPM.\n"
+	BUILD_TYPE=debug
+	DEB_COMPRESSION_ARGS="--deb-compression none"
+	RPM_COMPRESSION_ARGS="--rpm-compression none"
+else
+	echo -e "[\033[1;93mRELEASE BUILD\033[0m]"
+	echo -e "High package compression (slow) for release build. Building DEB, but not RPM.\n"
+	BUILD_TYPE=release
+	DEB_COMPRESSION_ARGS="--deb-compression xz"
+	RPM_COMPRESSION_ARGS="--rpm-compression xz --rpm-compression-level 9"
+fi
 
 cd "$(dirname "$0")"
 
@@ -48,6 +68,7 @@ CheckLastResult()
   fi
 }
 
+ARCH="$( node -e 'console.log(process.arch)' )"
 SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 OUT_DIR="$SCRIPT_DIR/_out_bin"
 
@@ -84,6 +105,7 @@ then
   fi
 fi
 
+echo "Architecture: $ARCH"
 echo '---------------------------'
 echo "Building privateLINE Connect Daemon ($DAEMON_REPO_ABS_PATH)...";
 echo '---------------------------'
@@ -211,10 +233,10 @@ CreatePackage()
 
   fpm -d openvpn -d iptables $EXTRA_ARGS \
     --rpm-rpmbuild-define "_build_id_links none" \
-    --deb-no-default-config-files -s dir -t $PKG_TYPE -n privateline -v $VERSION --url https://www.privateline.net --license "GNU GPL3" \
-    --template-scripts --template-value pkg=$PKG_TYPE \
-    --vendor "PRIVATELINE Limited" --maintainer "PRIVATELINE Limited" \
-    --description "$(printf "Client for PRIVATELINE service (https://www.privateline.net)\nCommand line interface v$VERSION. Try 'privateline' from command line.")" \
+    --deb-no-default-config-files -s dir -t $PKG_TYPE -n privateline -v $VERSION --url https://www.privateline.io --license "GNU GPL3" \
+    --template-scripts --template-value pkg=$PKG_TYPE --template-value version=$VERSION \
+    --vendor "privateLINE LLC" --maintainer "privateLINE LLC" \
+    --description "$(printf "Client for privateLINE service (https://www.privateline.io)\nCommand line interface v$VERSION. Try 'privateline-connect-cli' from command line.")" \
     --before-install "$SCRIPT_DIR/package_scripts/before-install.sh" \
     --after-install "$SCRIPT_DIR/package_scripts/after-install.sh" \
     --before-remove "$SCRIPT_DIR/package_scripts/before-remove.sh" \
@@ -222,15 +244,16 @@ CreatePackage()
     $DAEMON_REPO_ABS_PATH/References/Linux/etc=/opt/privateline-connect/ \
     $DAEMON_REPO_ABS_PATH/References/common/etc=/opt/privateline-connect/ \
     $DAEMON_REPO_ABS_PATH/References/Linux/scripts/_out_bin/privateline-connect-svc=/usr/bin/ \
-    $OUT_DIR/privateline=/usr/bin/ \
-    $OUT_DIR/privateline.bash-completion=/opt/privateline-connect/etc/privateline.bash-completion \
-    $OBFSPXY_BIN=/opt/privateline-connect/obfsproxy/obfs4proxy \
-    $V2RAY_BIN=/opt/privateline-connect/v2ray/v2ray \
+    $OUT_DIR/privateline-connect-cli=/usr/bin/ \
+    $OUT_DIR/privateline-connect-cli.bash-completion=/opt/privateline-connect/etc/privateline-connect-cli.bash-completion \
     $WG_QUICK_BIN=/opt/privateline-connect/wireguard-tools/wg-quick \
     $WG_BIN=/opt/privateline-connect/wireguard-tools/wg \
-    ${DNSCRYPT_PROXY_BIN}=/opt/privateline-connect/dnscrypt-proxy/dnscrypt-proxy \
-    ${KEM_HELPER_BIN}=/opt/privateline-connect/kem/kem-helper \
     $TMPDIRSRVC/privateline-connect-svc.dir/usr/share/pleaserun/=/usr/share/pleaserun
+#    ${KEM_HELPER_BIN}=/opt/privateline-connect/kem/kem-helper \
+#    ${DNSCRYPT_PROXY_BIN}=/opt/privateline-connect/dnscrypt-proxy/dnscrypt-proxy \
+#    $OBFSPXY_BIN=/opt/privateline-connect/obfsproxy/obfs4proxy \
+#    $V2RAY_BIN=/opt/privateline-connect/v2ray/v2ray 
+# TODO FIXME: Vlad - disabled bundling kem-helper, dnscrypt-proxy, obfsproxy, v2ray for now
 }
 
 if [ ! -z "$GITHUB_ACTIONS" ]; 
@@ -241,14 +264,17 @@ then
 fi
 
 echo '---------------------------'
-echo "DEB package..."
+echo -e "DEB package...\t(compression settings: '${DEB_COMPRESSION_ARGS}')"
 # to add dependency from another packet add extra arg "-d", example: "-d obfsproxy"
-CreatePackage "deb"
+CreatePackage "deb" "${DEB_COMPRESSION_ARGS}"
 
 echo '---------------------------'
-echo "RPM package..."
-echo "\033[0;93mTODO:\033[0m Disabling for now, until we start shipping .rpm - this cuts Linux build time in half"
-#CreatePackage "rpm"
+#if [[ "${BUILD_TYPE}" == "release" ]]; then
+#	echo -e "RPM package...\t(compression settings: '${RPM_COMPRESSION_ARGS}')"
+#	CreatePackage "rpm" "${RPM_COMPRESSION_ARGS}"
+#else
+	echo -e "RPM package...\t\033[0;93mTODO:\033[0m Disabling .rpm compile for now, until we start shipping .rpm - this cuts Linux build time in half"
+#fi
 
 echo '---------------------------'
 echo "Copying compiled packages to '$OUT_DIR'..."

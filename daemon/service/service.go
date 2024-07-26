@@ -37,7 +37,6 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/api"
 	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
-	"github.com/swapnilsparsh/devsVPN/daemon/kem"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers"
@@ -1637,20 +1636,20 @@ func (s *Service) SessionNew(email string, password string) (
 	}
 
 	// Generate keys for Key Encapsulation Mechanism using post-quantum cryptographic algorithms
-	var kemKeys api_types.KemPublicKeys
-	kemHelper, err := kem.CreateHelper(platform.KemHelperBinaryPath(), kem.GetDefaultKemAlgorithms())
-	if err != nil {
-		log.Error("Failed to generate KEM keys: ", err)
-	} else {
-		kemKeys.KemPublicKey_Kyber1024, err = kemHelper.GetPublicKey(kem.AlgName_Kyber1024)
-		if err != nil {
-			log.Error(err)
-		}
-		kemKeys.KemPublicKey_ClassicMcEliece348864, err = kemHelper.GetPublicKey(kem.AlgName_ClassicMcEliece348864)
-		if err != nil {
-			log.Error(err)
-		}
-	}
+	// var kemKeys api_types.KemPublicKeys
+	// kemHelper, err := kem.CreateHelper(platform.KemHelperBinaryPath(), kem.GetDefaultKemAlgorithms())
+	// if err != nil {
+	// 	log.Error("Failed to generate KEM keys: ", err)
+	// } else {
+	// 	kemKeys.KemPublicKey_Kyber1024, err = kemHelper.GetPublicKey(kem.AlgName_Kyber1024)
+	// 	if err != nil {
+	// 		log.Error(err)
+	// 	}
+	// 	kemKeys.KemPublicKey_ClassicMcEliece348864, err = kemHelper.GetPublicKey(kem.AlgName_ClassicMcEliece348864)
+	// 	if err != nil {
+	// 		log.Error(err)
+	// 	}
+	// }
 
 	log.Info("Logging in...")
 	defer func() {

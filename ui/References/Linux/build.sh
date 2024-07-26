@@ -1,10 +1,14 @@
-#!/bin/sh
+#!/bin/bash
 
 # Usage example:
-#   build-packages.sh -v 0.0.1
+#
+#	Release build (slow):
+#   	build-packages.sh -v 0.0.1
+#	Debug build (fast):
+#   	build-debug -v 0.0.1
 #
 
-# To be able to build packages the 'fpm' tool shall be installed
+# To be able to build DEB/RPM packages, the 'fpm' tool shall be installed
 # (https://fpm.readthedocs.io/en/latest/installing.html)
 
 # Useful commands (Ubuntu):
@@ -31,6 +35,23 @@
 # Remove BROKEN package (which is unable to uninstall by normal ways)
 #     sudo mv /var/lib/dpkg/info/privateline.* /tmp/
 #     sudo dpkg --remove --force-remove-reinstreq privateline
+
+
+declare BUILD_TYPE DEB_COMPRESSION_ARGS RPM_COMPRESSION_ARGS
+
+if [[ $0 =~ .*build-debug ]]; then
+	echo -e "[\033[1;93mDEBUG BUILD\033[0m]"
+	echo -e "No package compression for debug build. Building DEB, but not RPM.\n"
+	BUILD_TYPE=debug
+	DEB_COMPRESSION_ARGS="--deb-compression none"
+	RPM_COMPRESSION_ARGS="--rpm-compression none"
+else
+	echo -e "[\033[1;93mRELEASE BUILD\033[0m]"
+	echo -e "High package compression (slow) for release build. Building DEB, but not RPM.\n"
+	BUILD_TYPE=release
+	DEB_COMPRESSION_ARGS="--deb-compression xz"
+	RPM_COMPRESSION_ARGS="--rpm-compression xz --rpm-compression-level 9"
+fi
 
 cd "$(dirname "$0")"
 
@@ -60,6 +81,8 @@ PRIVATELINE_DESKTOP_UI2_SOURCES="$SCRIPT_DIR/../../"
 # ---------------------------------------------------------
 # version info variables
 VERSION=""
+DATE="$(date "+%Y-%m-%d")"
+COMMIT="$(git rev-list -1 HEAD)"
 
 # reading version info from arguments
 while getopts ":v:" opt; do
@@ -76,7 +99,7 @@ then
   VERSION="$(awk -F: '/"version"/ { gsub(/[" ,\n\r]/, "", $2); print $2 }' ../../package.json)"
   if [ -n "$VERSION" ]
   then
-    echo "[ ] You are going to compile PrivateLine Connect UI v${VERSION}"
+    echo "[ ] You are going to compile PrivateLine Connect UI v${VERSION} (commit:${COMMIT})"
     read -p "Press enter to continue" yn
   else    
     echo "Usage:"
@@ -87,7 +110,7 @@ fi
 
 echo "Architecture: $ARCH"
 echo "======================================================"
-echo "============ Building UI binary ======================"
+echo "======= Building privateLINE Connect UI binary ======="
 echo "======================================================"
 
 if [ -d $APP_UNPACKED_DIR ]; then
@@ -230,8 +253,8 @@ CreatePackage()
     --rpm-rpmbuild-define "_build_id_links none" \
     --deb-no-default-config-files -s dir -t $PKG_TYPE -n privateline-connect-ui -v $VERSION --url https://www.privateline.io --license "GNU GPL3" \
     --template-scripts --template-value pkg=$PKG_TYPE --template-value version=$VERSION \
-    --vendor "PrivateLine Limited" --maintainer "PrivateLine Limited" \
-    --description "$(printf "UI client for PrivateLine service (https://www.privateline.io)\nGraphical interface v$VERSION.")" \
+    --vendor "privateLINE LLC" --maintainer "privateLINE LLC" \
+    --description "$(printf "UI client for privateLINE service (https://www.privateline.io)\nGraphical interface v$VERSION.")" \
     --before-install "$SCRIPT_DIR/package_scripts/before-install.sh" \
     --after-install "$SCRIPT_DIR/package_scripts/after-install.sh" \
     --before-remove "$SCRIPT_DIR/package_scripts/before-remove.sh" \
@@ -241,18 +264,28 @@ CreatePackage()
     $APP_BIN_DIR=/opt/privateline-connect/ui/
 }
 
+if [ ! -z "$GITHUB_ACTIONS" ]; 
+then
+  echo "! GITHUB_ACTIONS detected ! It is just a build test."
+  echo "! Packages creation (DEB/RPM) skipped !"
+  exit 0
+fi
+
 echo '---------------------------'
-echo "DEB package..."
+echo -e "DEB package...\t(compression settings: '${DEB_COMPRESSION_ARGS}')"
 # to add dependency from another packet add extra arg "-d", example: "-d obfsproxy"
-CreatePackage "deb"
+CreatePackage "deb" "${DEB_COMPRESSION_ARGS}"
 
 echo '---------------------------'
-echo "RPM package..."
-echo "\033[0;93mTODO:\033[0m Disabling for now, until we start shipping .rpm - this cuts Linux build time in half"
-#CreatePackage "rpm"
+#if [[ "${BUILD_TYPE}" == "release" ]]; then
+#	echo -e "RPM package...\t(compression settings: '${RPM_COMPRESSION_ARGS}')"
+#	CreatePackage "rpm" "${RPM_COMPRESSION_ARGS}"
+#else
+	echo -e "RPM package...\t\033[0;93mTODO:\033[0m Disabling .rpm compile for now, until we start shipping .rpm - this cuts Linux build time in half"
+#fi
 
 echo '---------------------------'
-echo "Copying compiled pachages to '$OUT_DIR'..."
+echo "Copying compiled packages to '$OUT_DIR'..."
 mkdir -p $OUT_DIR
 yes | cp -f $TMPDIR/*.* $OUT_DIR
 
