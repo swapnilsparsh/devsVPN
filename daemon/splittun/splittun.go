@@ -126,8 +126,8 @@ func ApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabl
 		mutex.Unlock()
 	}()
 	log.Debug(fmt.Sprintf("ApplyConfig() started: isStEnabled=%t, isVpnEnabled=%t", isStEnabled, isVpnEnabled))
-	// TODO: Vlad - don't leave PrintStack calls enabled in production builds beyond the MVP
-	logger.PrintStackToStderr()
+	// don't leave PrintStack calls enabled in production builds beyond the MVP
+	// logger.PrintStackToStderr()
 
 	if !isVpnEnabled {
 		addrConfig.IPv4Tunnel = nil
