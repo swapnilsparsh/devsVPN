@@ -191,7 +191,19 @@ goto :success
 	cd %SCRIPTDIR%\Installer
 
 	SET OUT_FILE="%INSTALLER_OUT_DIR%\privateLINE-Connect-v%APPVER%.exe"
-	%MAKENSIS% /DPRODUCT_VERSION=%APPVER% /DOUT_FILE=%OUT_FILE% /DSOURCE_DIR=%INSTALLER_TMP_DIR% "privateLINE Connect.nsi"
+	
+	REM If this is a release build, then compress. If a debug build (called via build-debug.bat), then don't compress in order to build faster.
+	echo:
+	IF [%COMPRESS%] == [off] (
+		echo COMPRESS=off
+		echo:
+		%MAKENSIS% /DPRODUCT_VERSION=%APPVER% /DOUT_FILE=%OUT_FILE% /DSOURCE_DIR=%INSTALLER_TMP_DIR% "/XSetCompress off" "privateLINE Connect.nsi"
+	) ELSE (
+		echo COMPRESS=lzma
+		echo:
+		%MAKENSIS% /DPRODUCT_VERSION=%APPVER% /DOUT_FILE=%OUT_FILE% /DSOURCE_DIR=%INSTALLER_TMP_DIR% "/XSetCompress auto" "/XSetCompressor /SOLID /FINAL lzma" "privateLINE Connect.nsi"
+	)
+
 	IF not ERRORLEVEL 0 (
 		ECHO [!] Error: failed to create installer
 		EXIT /B 1

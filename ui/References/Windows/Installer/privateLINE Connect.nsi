@@ -1,8 +1,6 @@
 ; privateLINE Connect Installer
 ; Install script for NSIS 2.x
 
-SetCompressor lzma
-
 ; -----------------
 ; include Modern UI
 ; -----------------
@@ -33,7 +31,8 @@ ${StrLoc}
 !define PATHDIR "$INSTDIR\cli"
 
 !define DEVCON_BASENAME "devcon.exe"
-!define PRODUCT_TAP_WIN_COMPONENT_ID "tapivpn"
+;  Vlad - disabled installation/uninstallation of TAP driver for now
+;!define PRODUCT_TAP_WIN_COMPONENT_ID "tapivpn"
 ;!define DRIVER_SPLIT_TUNNEL_ID "root\ivpn-split-tunnel"
 
 ; The following variables will be set from the build.bat script
@@ -383,6 +382,8 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${PRODUCT_NAME}.lnk" "$INSTDIR\ui\privateline-connect-ui.exe"
 
   ; ============ TAP driver ======================================================================
+; Vlad - disabled installation/uninstallation of TAP driver for now
+/*
   DetailPrint "Installing TAP Driver..."
 
   ; check if TUN/TAP driver is installed
@@ -426,6 +427,7 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
     MessageBox MB_OK "An error occurred installing the TAP device driver."
     Abort
   ${EndIf}
+ */
 
   ; ============ Split-Tunnel driver ==========================================================
   /*
@@ -544,13 +546,16 @@ Section "Uninstall"
   ; removing firewall rules
   nsExec::ExecToLog '"$INSTDIR\privateline-connect-cli.exe" firewall disable'
 
+;  Vlad - disabled installation/uninstallation of TAP driver for now
+/*
   ; uninstall TUN/TAP driver
   DetailPrint "Removing TUN/TAP device..."
   nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" remove ${PRODUCT_TAP_WIN_COMPONENT_ID}'
   Pop $R0 # return value/error/timeout
   DetailPrint "${DEVCON_BASENAME} remove returned: $R0"
+*/
 
-  ;; uninstall Split-Tunnell driver
+  ; uninstall Split-Tunnel driver
   ;DetailPrint "Removing Split-Tunnell driver..."
   ;nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" remove ${DRIVER_SPLIT_TUNNEL_ID}'
   ;Pop $R0 # return value/error/timeout

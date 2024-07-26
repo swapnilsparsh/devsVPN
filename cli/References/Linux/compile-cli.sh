@@ -4,8 +4,8 @@ cd "$(dirname "$0")"
 
 SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 OUT_DIR="$SCRIPT_DIR/_out_bin"
-OUT_FILE="$OUT_DIR/privateline"
-OUT_BASH_COMPLETION_SCRIPT=$OUT_DIR/privateline.bash-completion
+OUT_FILE="$OUT_DIR/privateline-connect-cli"
+OUT_BASH_COMPLETION_SCRIPT=$OUT_DIR/privateline-connect-cli.bash-completion
 
 set -e
 

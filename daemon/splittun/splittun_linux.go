@@ -89,8 +89,8 @@ func implInitialize() error {
 		funcNotAvailableError = err
 	}
 
-	// Ensure that ST is disable on daemon startup
-	enable(false, false, false, false, false)
+	// Ensure that ST is enabled on daemon startup
+	enable(true, false, false, false, false)
 
 	// Register network change detector
 	//
@@ -138,11 +138,13 @@ func implReset() error {
 }
 
 func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
-	// If VPN does not support IPv6 - block IPv6 connectivity for 'splitted' apps in inverse mode
-	vpnNoIPv6 := false
-	if isVpnEnabled && len(addrConfig.IPv6Tunnel) == 0 {
-		vpnNoIPv6 = true
-	}
+	// Vlad: block IPv6 unconditionally for now
+	vpnNoIPv6 := true
+	// // If VPN does not support IPv6 - block IPv6 connectivity for 'splitted' apps in inverse mode
+	//vpnNoIPv6 := false
+	//if isVpnEnabled && len(addrConfig.IPv6Tunnel) == 0 {
+	//	vpnNoIPv6 = true
+	//}
 
 	err := enable(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled, vpnNoIPv6)
 	if err != nil {

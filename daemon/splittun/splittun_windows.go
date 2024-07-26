@@ -510,6 +510,9 @@ func enableDisableIPv6(enable bool /*, responseChan chan error*/) {
 	mutexIPv6PowerShell.Lock()
 	defer mutexIPv6PowerShell.Unlock()
 
+	// don't leave PrintStack calls enabled in production builds beyond the MVP
+	// logger.PrintStackToStderr()
+
 	cmd := []string{"-NoProfile", "", "-Name", "\"*\"", "-ComponentID", "ms_tcpip6"}
 	if enable {
 		cmd[1] = "Enable-NetAdapterBinding"
@@ -614,7 +617,7 @@ func disconnect(logging bool) (err error) {
 }
 
 func stopAndClean() (err error) {
-	// TODO: Vlad - patch this func
+	// TODO: Vlad - patch this func?
 	defer catchPanic(&err)
 
 	log.Info("Split-Tunnelling: StopAndClean...")
@@ -636,7 +639,7 @@ func stopAndClean() (err error) {
 }
 
 func start() (err error) {
-	// TODO: Vlad - patch this func
+	// TODO: Vlad - patch this func?
 	defer catchPanic(&err)
 
 	log.Info("Split-Tunnelling: Start...")
