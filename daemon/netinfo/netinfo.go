@@ -73,10 +73,22 @@ func GetMulticastAddresses() []net.IPNet {
 	return append([]net.IPNet{}, _multicastAddresses...)
 }
 
-// DefaultGatewayIP - returns: default gatewat IP
+// DefaultGatewayIP - returns: default gateway IP
 func DefaultGatewayIP() (defGatewayIP net.IP, err error) {
+	defGatewayIPs, err := DefaultGatewayIPs()
+	if err != nil {
+		return nil, fmt.Errorf("error from DefaultGatewayIPs: %w", err)
+	} else if len(defGatewayIPs) > 0 {
+		return defGatewayIPs[0], nil
+	} else {
+		return nil, fmt.Errorf("doDefaultGatewayIPs() failed")
+	}
+}
+
+// DefaultGatewayIPs - returns all default gateway IPs
+func DefaultGatewayIPs() (defGatewayIPs []net.IP, err error) {
 	// method should be implemented in platform-specific file
-	return doDefaultGatewayIP()
+	return doDefaultGatewayIPs()
 }
 
 func GetOutboundIP(isIPv6 bool) (net.IP, error) {
@@ -103,6 +115,32 @@ func GetOutboundIPEx(addr net.IP) (net.IP, error) {
 	defer conn.Close()
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP, nil
+}
+
+func GetOutboundIPPrivateLine(internalAddr bool) (net.IP, error) {
+	if internalAddr { // internal addr of privateline.io
+		return GetOutboundIPExPrivateLine(net.ParseIP("10.0.7.7"))
+	} else { // external addr of privateline.io
+		return GetOutboundIPExPrivateLine(net.ParseIP("155.130.218.68"))
+	}
+}
+
+func GetOutboundIPExPrivateLine(addr net.IP) (net.IP, error) {
+	addrStr := ""
+	if addr.To4() != nil { // IPv4
+		addrStr = addr.String() + ":80"
+	} else {
+		return nil, fmt.Errorf("error: IPv4 address expected. Received %v", addr)
+	}
+
+	conn, err := net.Dial("tcp", addrStr)
+	if err != nil {
+		return net.IP{}, err
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.TCPAddr)
 	return localAddr.IP, nil
 }
 

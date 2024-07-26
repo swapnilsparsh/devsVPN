@@ -161,8 +161,8 @@ const getDefaultState = () => {
     // UI
     showGatewaysWithoutIPv6: true,
     minimizedUI: false,
-    minimizeToTray: true,
-    showAppInSystemDock: false,
+    minimizeToTray: false,
+    showAppInSystemDock: true,
     serversSortType: ServersSortTypeEnum.City,
     colorTheme: ColorTheme.system,
     colorThemeTrayIcon: ColorThemeTrayIcon.auto,

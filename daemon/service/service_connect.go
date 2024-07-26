@@ -765,7 +765,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						if netInterface, err := netinfo.InterfaceByIPAddr(state.ClientIP); err != nil {
 							log.Error(fmt.Sprintf("Unable to initialize routing change detection. Failed to get interface '%s'", state.ClientIP.String()))
 						} else {
-							if err := s._netChangeDetector.Init(routingChangeChan, routingUpdateChan, netInterface); err != nil {
+							if err := s._netChangeDetector.Init(routingChangeChan, routingUpdateChan, netInterface, s.splitTunnelling_ApplyConfig); err != nil {
 								log.Error(fmt.Errorf("failed to init route change detection: %w", err))
 							}
 							if s._preferences.IsInverseSplitTunneling() {

@@ -35,6 +35,7 @@ import (
 	"time"
 
 	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/eaa"
@@ -257,7 +258,7 @@ func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Servic
 	}
 	startedOnPort <- openedPort
 
-	log.Info(fmt.Sprintf("IVPN service started: %d [...%s]", openedPort, fmt.Sprintf("%016x", secret)[12:]))
+	log.Info(fmt.Sprintf("%s service started: %d [...%s]", helpers.ServiceName, openedPort, fmt.Sprintf("%016x", secret)[12:]))
 	defer func() {
 		listener.Close()
 		log.Info("Listener closed")

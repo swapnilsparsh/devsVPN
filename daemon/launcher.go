@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/api"
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netchange"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
@@ -59,7 +60,7 @@ func init() {
 	log = logger.NewLogger("launch")
 }
 
-// IProtocol - interface of communication protocol with IVPN application
+// IProtocol - interface of communication protocol with privateLINE UI or CLI application
 type IProtocol interface {
 	Start(secret uint64, startedOnPort chan<- int, serv protocol.Service) error
 	Stop()
@@ -72,7 +73,8 @@ func Launch() {
 
 	// Logging enabled from command line argument ('-logging').
 	// Logging can be enabled from command line or from previously saved daemon preferences
-	isLoggingEnabledArgument := false
+	// TODO: Vlad - enabling logging from get-go for the time being
+	isLoggingEnabledArgument := true
 	// Cleanup requested ('-cleanup'). Do not start server.
 	isCleanupArgument := false
 
@@ -92,7 +94,8 @@ func Launch() {
 
 	if isLoggingEnabledArgument {
 		logger.Enable(true)
-		logger.Info("Logging enabled (forced by command line argument)")
+		logger.Info("Logging enabled at build time")
+		// logger.Info("Logging enabled (forced by command line argument)")
 	} else {
 		// initialize logging according to service preferences
 		var prefs preferences.Preferences
@@ -131,15 +134,15 @@ func Launch() {
 	}
 
 	defer func() {
-		log.Info("IVPN daemon stopped.")
+		log.Info(helpers.ServiceName + " daemon stopped.")
 		// OS-specific service finalizer
 		doStopped()
 	}()
 
 	tzName, tzOffsetSec := time.Now().Zone()
 
-	log.Info(fmt.Sprintf("Starting IVPN daemon [%s,%s] [timezone: %s %d (%dh)] [pid: %d; ppid: %d; arch: %dbit]",
-		runtime.GOOS, runtime.GOARCH,
+	log.Info(fmt.Sprintf("Starting %s daemon [%s,%s] [timezone: %s %d (%dh)] [pid: %d; ppid: %d; arch: %dbit]",
+		helpers.ServiceName, runtime.GOOS, runtime.GOARCH,
 		tzName, tzOffsetSec, tzOffsetSec/(60*60),
 		os.Getpid(), os.Getppid(), strconv.IntSize))
 

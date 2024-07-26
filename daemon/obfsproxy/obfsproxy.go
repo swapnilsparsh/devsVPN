@@ -182,7 +182,7 @@ func (p *Obfsproxy) Stop() {
 
 func (p *Obfsproxy) start() (port int, command *startedCmd, err error) {
 
-	ptStateDir := path.Join(platform.LogDir(), "ivpn-obfsproxy-state")
+	ptStateDir := path.Join(platform.LogDir(), "privateline-obfsproxy-state")
 
 	// obfsproxy command
 	cmd := exec.Command(p.binaryPath)

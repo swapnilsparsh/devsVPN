@@ -25,10 +25,11 @@
 
 # Split Tunneling cgroup parameters
 _cgroup_name=privateline-exclude
-_cgroup_classid=0x4956504e      # Anything from 0x00000001 to 0xFFFFFFFF
+_cgroup_classid=0x70561e1d      # Anything from 0x00000001 to 0xFFFFFFFF
+
 _cgroup_folder=/sys/fs/cgroup/net_cls/${_cgroup_name}
 
-# Routing tabel configuration for packets coming from Split-Tunneling environment
+# Routing table configuration for packets coming from Split-Tunneling environment
 _routing_table_name=privateline-exclude-tbl
 _routing_table_weight=17            # Anything from 1 to 252
 

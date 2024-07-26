@@ -23,10 +23,14 @@
 package splittun
 
 import (
+	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"golang.org/x/sys/windows"
+	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
 
 var log *logger.Logger
@@ -35,8 +39,25 @@ func init() {
 	log = logger.NewLogger("spltun")
 }
 
+// 'blackhole' IP addresses. Used for forwarding all traffic of split-tunnel apps to 'nowhere' (in fact, to block traffic)
+const (
+	BlackHoleIPv4 = "192.0.2.255" // RFC 5737 - IPv4 Address Blocks Reserved for Documentation
+	BlackHoleIPv6 = "0100::1"     // RFC 6666 - A Discard Prefix for IPv6
+)
+
 var (
 	mutex sync.Mutex
+
+	// all-zeroes for default routes
+	defaultRoutePrefixIPv4 = netip.MustParsePrefix("0.0.0.0/0")
+	defaultRoutePrefixIPv6 = netip.MustParsePrefix("::/0")
+
+	// last known Wireguard VPN endpoints - we'll need them to reset the changed routes back to default routes (dest 0.0.0.0/0)
+	// these are protected by the above mutex
+	lastConfiguredEndpoints = map[winipcfg.AddressFamily]*netip.Addr{
+		windows.AF_INET:  nil,
+		windows.AF_INET6: nil,
+	}
 )
 
 type ConfigAddresses struct {
@@ -44,6 +65,11 @@ type ConfigAddresses struct {
 	IPv4Tunnel net.IP // VpnLocalIPv4
 	IPv6Public net.IP // OutboundIPv6
 	IPv6Tunnel net.IP // VpnLocalIPv6
+
+	// PrivateLine Wireguard VPN endpoint
+	// Storing them as netip.Addr and not net.IP, because netip.Addr allows == comparison
+	IPv4Endpoint netip.Addr
+	IPv6Endpoint netip.Addr
 }
 
 func (c ConfigAddresses) IsEmpty() bool {
@@ -71,7 +97,7 @@ func Initialize() error {
 	log.Info("Initializing Split-Tunnelling")
 	err := implInitialize()
 	if err != nil {
-		return err
+		return fmt.Errorf("error in implInitialize(): %w", err)
 	}
 
 	return nil
@@ -93,18 +119,23 @@ func Reset() error {
 // ApplyConfig control split-tunnel functionality
 func ApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	mutex.Lock()
-	defer mutex.Unlock()
+	defer func() {
+		log.Debug("ApplyConfig() completed")
+		mutex.Unlock()
+	}()
+	log.Debug(fmt.Sprintf("ApplyConfig() started: isStEnabled=%t, isVpnEnabled=%t", isStEnabled, isVpnEnabled))
+	// TODO: Vlad - don't leave PrintStack calls enabled in production builds beyond the MVP
+	logger.PrintStackToStderr()
 
 	if !isVpnEnabled {
 		addrConfig.IPv4Tunnel = nil
 		addrConfig.IPv6Tunnel = nil
 	}
 
-	retErr := implApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled, addrConfig, splitTunnelApps)
-	if retErr != nil {
-		log.Error(retErr)
+	if retErr := implApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled, addrConfig, splitTunnelApps); retErr != nil {
+		return log.ErrorE(fmt.Errorf("error in implApplyConfig(): %w", retErr), 0)
 	}
-	return retErr
+	return nil
 }
 
 // AddPid add process to Split-Tunnel environment

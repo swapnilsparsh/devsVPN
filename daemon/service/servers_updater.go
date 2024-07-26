@@ -98,7 +98,7 @@ func (s *serversUpdater) StartUpdater() error {
 		for {
 			updateDelay := time.Hour
 			if _, err := s.updateServers(); err != nil {
-				log.Error(err)
+				log.Warning(err)
 				if isFirstIteration {
 					// The first try to update can be failed because of daemon is starting on OS boot
 					// There could be not all connectivity initialized

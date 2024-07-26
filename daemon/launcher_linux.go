@@ -29,6 +29,7 @@ import (
 	"log/syslog"
 	"os"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service"
 )
 
@@ -36,7 +37,7 @@ func doPrepareToRun() error {
 
 	// Create syslog writter
 	// and initialize channel to receive log messages from service
-	sysLogWriter, err := syslog.New(syslog.LOG_ERR, "ivpn-service")
+	sysLogWriter, err := syslog.New(syslog.LOG_ERR, helpers.ServiceName)
 	if err != nil {
 		log.Error("Failed to initialize syslog: ", err)
 	} else {

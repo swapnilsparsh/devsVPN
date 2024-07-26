@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -245,6 +246,10 @@ func (l *Logger) Panic(v ...interface{}) {
 		return
 	}
 	_panic(l.pref, v...)
+}
+
+func PrintStackToStderr() {
+	debug.PrintStack()
 }
 
 // Enable - enable\disable logger
