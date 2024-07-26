@@ -29,8 +29,6 @@ import (
 	"sync"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
-	"golang.org/x/sys/windows"
-	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
 
 var log *logger.Logger
@@ -39,8 +37,12 @@ func init() {
 	log = logger.NewLogger("spltun")
 }
 
-// 'blackhole' IP addresses. Used for forwarding all traffic of split-tunnel apps to 'nowhere' (in fact, to block traffic)
 const (
+	// constants copied from Windows definitions
+	AF_INET  uint16 = 2  // IPv4
+	AF_INET6 uint16 = 23 // IPv6
+
+	// 'blackhole' IP addresses. Used for forwarding all traffic of split-tunnel apps to 'nowhere' (in fact, to block traffic)
 	BlackHoleIPv4 = "192.0.2.255" // RFC 5737 - IPv4 Address Blocks Reserved for Documentation
 	BlackHoleIPv6 = "0100::1"     // RFC 6666 - A Discard Prefix for IPv6
 )
@@ -48,16 +50,16 @@ const (
 var (
 	mutex sync.Mutex
 
+	// last known Wireguard VPN endpoints - we'll need them to reset the changed routes back to default routes (dest 0.0.0.0/0)
+	// these are protected by the above mutex
+	lastConfiguredEndpoints = map[uint16]*netip.Addr{
+		AF_INET:  nil,
+		AF_INET6: nil,
+	}
+
 	// all-zeroes for default routes
 	defaultRoutePrefixIPv4 = netip.MustParsePrefix("0.0.0.0/0")
 	defaultRoutePrefixIPv6 = netip.MustParsePrefix("::/0")
-
-	// last known Wireguard VPN endpoints - we'll need them to reset the changed routes back to default routes (dest 0.0.0.0/0)
-	// these are protected by the above mutex
-	lastConfiguredEndpoints = map[winipcfg.AddressFamily]*netip.Addr{
-		windows.AF_INET:  nil,
-		windows.AF_INET6: nil,
-	}
 )
 
 type ConfigAddresses struct {

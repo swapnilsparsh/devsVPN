@@ -75,9 +75,9 @@ var (
 	appliedNextHopIpv6 net.IP
 
 	// map from INET type (IPv4 or IPv6) to default routes (all zeroes)
-	defaultRoutesByIpFamily = map[winipcfg.AddressFamily]winipcfg.IPAddressPrefix{}
+	defaultRoutesByIpFamily = map[uint16]winipcfg.IPAddressPrefix{}
 	// and address sizes by IP family in bits: 32 for IPv4 and 128 for IPv6
-	addrSizesByIpFamily = map[winipcfg.AddressFamily]uint8{
+	addrSizesByIpFamily = map[uint16]uint8{
 		windows.AF_INET:  32,
 		windows.AF_INET6: 128,
 	}
@@ -461,7 +461,7 @@ func doApplyInverseRoutes(isIPv6, enable bool) error {
 
 // TODO FIXME: Vlad - write out descr
 // TODO FIXME: Vlad - process isVpnEnabled logic. Ensure we get called if VPN gets enabled/disabled.
-func doApplySplitFullTunnelRoutes(ipFamily winipcfg.AddressFamily, isStEnabled bool, isVpnEnabled bool, wgEndpoint netip.Addr) error {
+func doApplySplitFullTunnelRoutes(ipFamily uint16, isStEnabled bool, isVpnEnabled bool, wgEndpoint netip.Addr) error {
 	var wgEndpointDestPrefix, changeFromDestPrefix, changeToDestPrefix winipcfg.IPAddressPrefix
 
 	// Add replacement logic vars
@@ -480,7 +480,7 @@ func doApplySplitFullTunnelRoutes(ipFamily winipcfg.AddressFamily, isStEnabled b
 	}
 	//log.Debug(fmt.Sprintf("doApplySplitFullTunnelRoutes(): ipFamily=%#v, changeFromDestPrefix=%#v, changeToDestPrefix=%#v", ipFamily, changeFromDestPrefix, changeToDestPrefix))
 
-	routes, err := winipcfg.GetIPForwardTable2(ipFamily)
+	routes, err := winipcfg.GetIPForwardTable2(winipcfg.AddressFamily(ipFamily))
 	if err != nil {
 		return fmt.Errorf("error in GetIPForwardTable2(): %w", err)
 	}
