@@ -1,17 +1,18 @@
 <template>
   <div>
-    <div class="hopButtons">
+    <div class="small_text">Connection type</div>
+    <div class="shieldButtons">
       <div />
-      <button class="hopButton" v-bind:class="{
-        hopButtonActive: IsEnabled,
+      <button class="shieldButton" v-bind:class="{
+        shieldButtonActiveGreen: IsEnabled,
       }" v-on:click="ChangeShield(true)">
         Shield
       </button>
 
       <div />
 
-      <button class="hopButton" v-bind:class="{
-        hopButtonActive: !IsEnabled,
+      <button class="shieldButton" v-bind:class="{
+        shieldButtonActiveBlue: !IsEnabled,
       }" v-on:click="ChangeShield(false)">
         Total Shield
       </button>
@@ -48,7 +49,7 @@ export default {
 
   data: function () {
     return {
-      isSTEnabledLocal: false,
+      isSTEnabledLocal: true,
       stInversedLocal: false,
       stAnyDnsLocal: false,
       stBlockNonVpnDnsLocal: true,
@@ -205,6 +206,12 @@ export default {
   },
 
   async mounted() {
+    if (this.IsEnabled) {
+      document.documentElement.style.setProperty('--connection-switch-color', '#4EAF51')
+    } else {
+      document.documentElement.style.setProperty('--connection-switch-color', '#0766FF');
+    }
+
     this.isSTEnabledLocal = this.IsEnabled;
     this.stInversedLocal = this.IsInversed;
     this.stBlockNonVpnDnsLocal = !this.IsAnyDns;
@@ -238,6 +245,12 @@ export default {
 
   watch: {
     IsEnabled() {
+      if (this.IsEnabled) {
+        document.documentElement.style.setProperty('--connection-switch-color', '#4EAF51')
+      } else {
+        document.documentElement.style.setProperty('--connection-switch-color', '#0766FF');
+      }
+
       this.isSTEnabledLocal = this.IsEnabled;
     },
     IsInversed() {
@@ -296,6 +309,12 @@ export default {
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
           this.stAllowWhenNoVpnLocal,
         );
+        // Change switch connection color based on shield and total shield button selected
+        if (value) {
+          document.documentElement.style.setProperty('--connection-switch-color', '#4EAF51');
+        } else {
+          document.documentElement.style.setProperty('--connection-switch-color', '#0766FF');
+        }
       } catch (e) {
         processError(e);
       }
@@ -724,5 +743,12 @@ $shadow: 0px 3px 12px rgba(var(--shadow-color-rgb), var(--shadow-opacity));
   //border-radius: 8px;
   background-color: $popup-background;
   box-shadow: $shadow;
+}
+.small_text {
+  font-size: 14px;
+  line-height: 17px;
+  letter-spacing: -0.3px;
+  color: var(--text-color-details);
+  margin-left: 20px;
 }
 </style>

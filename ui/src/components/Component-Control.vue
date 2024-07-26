@@ -35,7 +35,7 @@
             :isProgress="isInProgress"
             :onPauseResume="onPauseResume"
           />
-          <div class="horizontalLine hopButtonsSeparator" />
+          <!-- <div class="horizontalLine shieldButtonsSeparator" /> -->
         </div>
 
         <div
@@ -43,15 +43,14 @@
           class="scrollableColumnContainer"
           @scroll="recalcScrollButtonVisiblity()"
         >
-          <div v-if="isMultihopAllowed">
-            <!-- +++++ Removed hop buttons +++++ -->
-            <!-- <HopButtonsBlock /> -->
+          <!-- <div v-if="isMultihopAllowed">
+            <HopButtonsBlock />
             <div class="horizontalLine hopButtonsSeparator" />
-          </div>
+          </div> -->
           <!-- ============ TODOC2: Shield and Full Shield Button ================ -->
           <div>
-            <ShiledButtonsBlock />
-            <div class="horizontalLine hopButtonsSeparator" />
+            <ShieldButtonsBlock />
+            <div class="horizontalLine shieldButtonsSeparator" />
           </div>
 
           <SelectedServerBlock :onShowServersPressed="onShowServersPressed" />
@@ -92,7 +91,7 @@ import ConnectBlock from "./blocks/block-connect.vue";
 import ConnectionDetailsBlock from "./blocks/block-connection-details.vue";
 import SelectedServerBlock from "@/components/blocks/block-selected-server.vue";
 import HopButtonsBlock from "./blocks/block-hop-buttons.vue";
-import ShiledButtonsBlock from "./blocks/block-shield-buttons.vue/";
+import ShieldButtonsBlock from "./blocks/block-shield-buttons.vue/";
 
 const sender = window.ipcSender;
 import { VpnStateEnum, VpnTypeEnum } from "@/store/types";
@@ -136,7 +135,7 @@ export default {
     ConnectBlock,
     SelectedServerBlock,
     ConnectionDetailsBlock,
-    ShiledButtonsBlock
+    ShieldButtonsBlock
   },
   mounted() {
     this.recalcScrollButtonVisiblity();

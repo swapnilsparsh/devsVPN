@@ -20,6 +20,20 @@ button.hopButtonActive {
 div.hopButtonsSeparator {
     @extend .hopButtonActiveBase;
 }
+
+// === SHIELD BUTTONS ===
+div.shieldButtons {
+    @extend .shieldButtonsBase;
+}
+button.shieldButton {
+    @extend .shieldButtonBase;
+}
+button.shieldButtonActive {
+    @extend .shieldButtonActiveBaseGreen;
+}
+div.shieldButtonsSeparator {
+    @extend .shieldButtonActiveBaseGreen;
+}
 // === INPUT ===
 input.styled {
     @extend .styledBase;

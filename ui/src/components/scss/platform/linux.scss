@@ -33,6 +33,20 @@ div.hopButtonsSeparator {
     @extend .hopButtonActiveBase;
 }
 
+// === SHIELD BUTTONS ===
+div.shieldButtons {
+    @extend .shieldButtonsBase;
+}
+button.hopButton {
+    @extend .shieldButtonBase;
+}
+button.shieldButtonActive {
+    @extend .shieldButtonActiveBaseGreen;
+}
+div.shieldButtonsSeparator {
+    @extend .shieldButtonActiveBaseGreen;
+}
+
 // === INPUT ===
 input.styled {
     @extend .styledBase;

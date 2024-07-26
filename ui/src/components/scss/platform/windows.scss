@@ -40,6 +40,45 @@ button.hopButtonActive {
     opacity: 1;
     font-weight: 400;
 }
+
+// === SHIELD BUTTONS ===
+div.shieldButtons {
+    @extend .shieldButtonsBase;
+    min-height: 36px;
+}
+div.shieldButtonsSeparator {
+    @extend .shieldButtonsSeparatorBase;
+    // margin-left: 20px;
+    // margin-right: 20px;
+}
+button.shieldButton {
+    @extend .shieldButtonBase;
+    // text-transform: lowercase;
+    text-transform: capitalize;
+    font-size: 14px;
+    line-height: 18px;
+    text-align: center;
+    letter-spacing: -0.375px;
+    color: #36495D;
+
+    opacity: 1;
+    font-weight: 400;
+}
+button.shieldButtonActiveBlue {
+    @extend .shieldButtonActiveBaseBlue;
+    color: #178FE6;
+    opacity: 1;
+    font-weight: 400;
+}
+
+button.shieldButtonActiveGreen {
+  @extend .shieldButtonActiveBaseGreen;
+  color: #4EAF51;
+  opacity: 1;
+  font-weight: 400;
+}
+
+
 // === INPUT ===
 input.styled {
     @extend .styledBase;
