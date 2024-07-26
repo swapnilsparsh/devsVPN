@@ -65,7 +65,7 @@ var (
 )
 
 var (
-	mutexSplittunWin sync.Mutex
+	mutexSplittunWin, mutexIPv6PowerShell sync.Mutex
 
 	isDriverConnected bool
 
@@ -229,8 +229,10 @@ func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpn
 	// 		err = log.ErrorE(fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv6): %w", err), 0)
 	// 	}
 	// }
-	ipv6ResponseChan := make(chan error)
-	go enableDisableIPv6(isStEnabled || !isVpnEnabled, ipv6ResponseChan) // fork the powershell invocation 1st, it's probably the slower path
+
+	// ipv6ResponseChan := make(chan error)
+	// fork the powershell invocation in the background and forget about it, it takes 6.8-6.9 seconds on my laptop
+	go enableDisableIPv6(isStEnabled || !isVpnEnabled /*, ipv6ResponseChan*/)
 
 	if addrConfig.IPv4Endpoint.IsValid() {
 		if err = doApplySplitFullTunnelRoutes(windows.AF_INET, isStEnabled, isVpnEnabled, addrConfig.IPv4Endpoint); err != nil {
@@ -238,13 +240,13 @@ func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpn
 		}
 	}
 
-	ipv6Err := <-ipv6ResponseChan
+	// ipv6Err := <-ipv6ResponseChan
 
-	if err != nil {
-		return err
-	} else {
-		return ipv6Err
-	}
+	// if err != nil {
+	return err
+	// } else {
+	// 	return ipv6Err
+	// }
 
 	// If: (VPN not connected + inverse split-tunneling enabled + isStInverseAllowWhenNoVpn==false) --> we need to set blackhole IP addresses for tunnel interface
 	// This will forward all traffic of split-tunnel apps to 'nowhere' (in fact, it will block all traffic of split-tunnel apps)
@@ -503,7 +505,11 @@ func doApplySplitFullTunnelRoutes(ipFamily winipcfg.AddressFamily, isStEnabled b
 }
 
 // We either disable IPv6 on all network interfaces for full tunnel (total shield), or enable it back for split tunnel.
-func enableDisableIPv6(enable bool, responseChan chan error) {
+// Running the PowerShell asynchronously (fork and forget) - flipping to Enable or Disable on cmdline takes 6.8-6.9 seconds on my laptop
+func enableDisableIPv6(enable bool /*, responseChan chan error*/) {
+	mutexIPv6PowerShell.Lock()
+	defer mutexIPv6PowerShell.Unlock()
+
 	cmd := []string{"-NoProfile", "", "-Name", "\"*\"", "-ComponentID", "ms_tcpip6"}
 	if enable {
 		cmd[1] = "Enable-NetAdapterBinding"
@@ -512,10 +518,11 @@ func enableDisableIPv6(enable bool, responseChan chan error) {
 	}
 
 	if err := shell.Exec(log, powershellBinaryPath, cmd...); err != nil {
-		responseChan <- log.ErrorE(fmt.Errorf("failed to change IPv6 bindings (isStEnabled=%v): %w", enable, err), 0)
-	} else {
+		// responseChan <- log.ErrorE(fmt.Errorf("failed to change IPv6 bindings (isStEnabled=%v): %w", enable, err), 0)
+		log.Error(fmt.Errorf("failed to change IPv6 bindings (isStEnabled=%v): %w", enable, err), 0)
+	} /* else {
 		responseChan <- nil
-	}
+	}*/
 }
 
 func catchPanic(err *error) {
