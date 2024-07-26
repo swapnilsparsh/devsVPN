@@ -24,9 +24,9 @@
       <div
         v-if="!isInfoAvailableIPv4 && !isInfoAvailableIPv6"
         style="text-align: center"
-        class="descriptipn"
+        class="description"
       >
-        Failed to load connection info
+        <!-- Failed to load connection info
         <div>
           <button
             class="noBordersBtn"
@@ -35,7 +35,7 @@
           >
             <img width="10" height="10" src="@/assets/refresh.svg" />
           </button>
-        </div>
+        </div> -->
       </div>
       <!-- connection info -->
       <div v-if="isInfoAvailableIPv4 || isInfoAvailableIPv6">
@@ -198,7 +198,7 @@ div.row {
 div.leftColumn {
   min-width: 100px;
 }
-div.descriptipn {
+div.description {
   @extend .leftColumn;
   opacity: 0.5;
 }
