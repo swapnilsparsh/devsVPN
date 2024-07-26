@@ -82,6 +82,8 @@ export default {
       return this.$store.getters["account/isLoggedIn"];
     },
     currentViewComponent: function () {
+      this.$store.dispatch("settings/minimizedUI", true);
+
       const daemonConnection = this.$store.state.daemonConnectionState;
       if (
         daemonConnection == null ||
