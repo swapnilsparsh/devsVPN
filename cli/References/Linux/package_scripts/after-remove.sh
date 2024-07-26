@@ -68,7 +68,7 @@ uninstall_bash_completion() {
     # get bash completion folder (according to https://github.com/scop/bash-completion)
     bash_competion_folder=$(pkg-config --variable=completionsdir bash-completion 2>&1) 
     if [ $? -eq 0 ] && [ ! -z $bash_competion_folder ] ; then
-      completion_file=${bash_competion_folder}/privateline
+      completion_file=${bash_competion_folder}/privateline-connect-cli
       if [ -f ${completion_file} ] ; then
         echo "[+] Uninstalling bash completion ('${completion_file}')"
         rm "${completion_file}"    

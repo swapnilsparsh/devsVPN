@@ -47,9 +47,9 @@ install_bash_completion() {
     # get bash completion folder (according to https://github.com/scop/bash-completion)
     bash_competion_folder=$(pkg-config --variable=completionsdir bash-completion 2>&1) 
     if [ $? -eq 0 ] && [ ! -z $bash_competion_folder ] ; then
-      completion_file=${bash_competion_folder}/privateline
+      completion_file=${bash_competion_folder}/privateline-connect-cli
       echo "[+] Installing bash completion (into '${completion_file}')"
-      silent cp "$PRIVATELINE_ETC/privateline.bash-completion" "${completion_file}"
+      silent cp "$PRIVATELINE_ETC/privateline-connect-cli.bash-completion" "${completion_file}"
       silent chmod 644 "${completion_file}"
     else
       echo "[ ] Installing bash completion - SKIPPED"
@@ -62,7 +62,7 @@ silent chmod 0600 $PRIVATELINE_ETC/servers.json  # can read/wrire only owner (ro
 silent chmod 0700 $PRIVATELINE_ETC/*.sh          # can execute only owner (root)
 silent chmod 0700 $PRIVATELINE_ETC/*.up          # can execute only owner (root)
 silent chmod 0700 $PRIVATELINE_ETC/*.down        # can execute only owner (root)
-silent chmod 0755 /usr/bin/privateline           # can change only owner (root)
+silent chmod 0755 /usr/bin/privateline-connect-cli   # can change only owner (root)
 silent chmod 0755 /usr/bin/privateline-connect-svc   # can change only owner (root)
 silent chmod 0755 $PRIVATELINE_OPT/obfsproxy/obfs4proxy          # can change only owner (root)
 silent chmod 0755 $PRIVATELINE_OPT/v2ray/v2ray                   # can change only owner (root)
@@ -91,6 +91,7 @@ else
 fi
 # Patch .service file in place to add "--logging" command-line parameter
 sed -i -e "s/ExecStart=\/usr\/bin\/privateline-connect-svc/ExecStart=\/usr\/bin\/privateline-connect-svc --logging/" /etc/systemd/system/privateline-connect-svc.service
+silent chmod 0644 /etc/systemd/system/privateline-connect-svc.service
 
 if $NEED_TO_SAVE_INSTRUCTIONS == true ; then
     echo $INSTALL_OUTPUT > $INSTRUCTIONS_FILE
@@ -119,18 +120,18 @@ if [ -f $FILE_ACCID_TO_UPGRADE ]; then
   silent rm $FILE_ACCID_TO_UPGRADE
 
   echo "[+] Disabling firewall (after-install: old-style) ..."
-  /usr/bin/privateline firewall -off || echo "[-] Failed to disable firewall"
+  /usr/bin/privateline-connect-cli firewall -off || echo "[-] Failed to disable firewall"
 
   if [ ! -z "$ACCID" ]; then
     # giving a chance for a daemon to fully start
     sleep 1
     echo "[+] Logging in (after-install: old-style) ..."
-    /usr/bin/privateline login $ACCID #||  echo "[-] Finishing installation: Failed to to re-login (try#1)"
+    /usr/bin/privateline-connect-cli login $ACCID #||  echo "[-] Finishing installation: Failed to to re-login (try#1)"
     if [ ! $? -eq 0 ]; then
       echo "[-] Finishing installation: Failed to to re-login (try#1)"
       echo "[ ] Retry ..."
       sleep 3
-      /usr/bin/privateline login $ACCID ||  echo "[-] Finishing installation: Failed to to re-login (try#2)"
+      /usr/bin/privateline-connect-cli login $ACCID ||  echo "[-] Finishing installation: Failed to to re-login (try#2)"
     fi
   fi
 fi
