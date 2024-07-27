@@ -37,8 +37,8 @@ func TestPrintRoutes(t *testing.T) {
 	}
 }
 
-func TestGetDefaultGateway(t *testing.T) {
-	gw, err := doDefaultGatewayIP()
+func TestGetDefaultGateways(t *testing.T) {
+	gw, err := doDefaultGatewayIPs()
 	if err != nil {
 		t.Fail()
 	}

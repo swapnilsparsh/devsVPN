@@ -40,6 +40,9 @@ type osSpecificProperties struct {
 }
 
 func (d *Detector) isRoutingChanged() (bool, error) {
+	// TODO FIXME: Vlad - refactor for MVP 1.0
+	return false, nil
+
 	infToProtect := d.interfaceToProtect
 	if infToProtect == nil {
 		err := errors.New("failed to check route change. Initial interface not defined")

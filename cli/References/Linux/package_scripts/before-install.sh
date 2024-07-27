@@ -5,10 +5,10 @@ echo "[*] Before install (<%= version %> : <%= pkg %> : $1)"
 # Skip installation if 'privateline' snap pachage already installed
 snap list privateline > /dev/null 2>&1 && echo "[!] INSTALLATION CANCELED: The snap package 'privateline' is already installed. Please, uninstall the 'privateline' snap package first." && exit 1
 
-PRIVATELINE_BIN="/usr/bin/privateline"
-if [ ! -f ${PRIVATELINE_BIN} ] && [ -f /usr/local/bin/privateline ]; then
+PRIVATELINE_BIN="/usr/bin/privateline-connect-cli"
+if [ ! -f ${PRIVATELINE_BIN} ] && [ -f /usr/local/bin/privateline-connect-cli ]; then
   # old installation path (used till v3.3.20)
-  PRIVATELINE_BIN="/usr/local/bin/privateline"
+  PRIVATELINE_BIN="/usr/local/bin/privateline-connect-cli"
   echo "[ ] Detected old installation path: '$PRIVATELINE_BIN'"
 fi
 

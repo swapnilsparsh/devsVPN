@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"reflect"
 	"strconv"
@@ -36,7 +37,6 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/api"
 	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
-	"github.com/swapnilsparsh/devsVPN/daemon/kem"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers"
@@ -187,17 +187,21 @@ func (s *Service) init() error {
 	go func() {
 		defer close(_ipStackInitializationWaiter) // ip stack initialized (or timeout)
 		log.Info("Waiting for IP stack initialization ...")
-		endTime := time.Now().Add(time.Minute * 2)
+		endTime := time.Now().Add(time.Minute * 1)
 		for {
-			ipv4, err4 := netinfo.GetOutboundIP(false)
-			ipv6, err6 := netinfo.GetOutboundIP(true)
-			if (!ipv4.IsUnspecified() && err4 == nil) || (!ipv6.IsUnspecified() && err6 == nil) {
-				log.Info("IP stack initializaed")
+			ipv4extAddr, errExt := netinfo.GetOutboundIPPrivateLine(false)
+			ipv4IntAddr, errInt := netinfo.GetOutboundIPPrivateLine(true)
+			if (!ipv4extAddr.IsUnspecified() && errExt == nil) || (!ipv4IntAddr.IsUnspecified() && errInt == nil) {
+				log.Info("IP stack initialized")
 
 				// Save IP addresses of the current outbound interface (can be used, for example, for Split-Tunneling)
 				ipInfo := s.GetVpnSessionInfo()
-				ipInfo.OutboundIPv4 = ipv4
-				ipInfo.OutboundIPv6 = ipv6
+				if ipv4IntAddr != nil {
+					ipInfo.OutboundIPv4 = ipv4IntAddr
+				} else {
+					ipInfo.OutboundIPv4 = ipv4extAddr
+				}
+				ipInfo.OutboundIPv6 = net.ParseIP(splittun.BlackHoleIPv6)
 				s.SetVpnSessionInfo(ipInfo)
 
 				return
@@ -1234,8 +1238,8 @@ func (s *Service) Preferences() preferences.Preferences {
 func (s *Service) ResetPreferences() error {
 	s._preferences = *preferences.Create()
 
-	// erase ST config
-	s.SplitTunnelling_SetConfig(false, false, false, false, true)
+	// erase ST config -  split tunnel config by default
+	s.SplitTunnelling_SetConfig(true, false, false, false, true)
 	return nil
 }
 
@@ -1423,7 +1427,7 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 }
 func (s *Service) splitTunnelling_Reset() error {
 	prefs := s._preferences
-	prefs.IsSplitTunnel = false
+	prefs.IsSplitTunnel = true // Split tunnel config by default
 	prefs.SplitTunnelInversed = false
 	prefs.SplitTunnelAnyDns = false
 	prefs.SplitTunnelAllowWhenNoVpn = false
@@ -1432,7 +1436,7 @@ func (s *Service) splitTunnelling_Reset() error {
 
 	splittun.Reset()
 
-	// Apply configuration. Function will set (prefs.IsSplitTunnel = false) in case if error.
+	// Apply configuration
 	return s.splitTunnelling_ApplyConfig()
 }
 
@@ -1457,9 +1461,13 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 
 	prefs := s.Preferences()
 
-	if !prefs.Session.IsLoggedIn() {
-		return srverrors.ErrorNotLoggedIn{}
-	}
+	// Vlad: disabling IsLoggedIn check. If the service crashed while in full tunnel, and left the machine w/o default routes,
+	// then (if we're not connecting to VPN on start) we absolutely must restore the default routes on start, regardless of the
+	// state we're starting from.
+	//
+	// if !prefs.Session.IsLoggedIn() {
+	// 	return srverrors.ErrorNotLoggedIn{}
+	// }
 
 	// Network changes detection must be disabled for Inverse SplitTunneling
 	if prefs.IsInverseSplitTunneling() {
@@ -1479,11 +1487,38 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	}
 
 	sInf := s.GetVpnSessionInfo()
+
+	var (
+		err          error
+		ipv4Endpoint netip.Addr
+		endpointIP   string
+		servers      *api_types.ServersInfoResponse
+	)
+
+	if len(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) > 0 {
+		endpointIP = prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts[0].EndpointIP
+	} else {
+		servers, err = s._serversUpdater.GetServers()
+		if err != nil {
+			return fmt.Errorf("error in GetServers(): %w", err)
+		}
+		endpointIP = servers.WireguardServers[0].Hosts[0].EndpointIP
+	}
+
+	if ipv4Endpoint, err = netip.ParseAddr(endpointIP); err != nil {
+		return fmt.Errorf("error netip.ParseAddr: %w", err)
+	}
+
 	addressesCfg := splittun.ConfigAddresses{
 		IPv4Tunnel: sInf.VpnLocalIPv4,
 		IPv4Public: sInf.OutboundIPv4,
 		IPv6Tunnel: sInf.VpnLocalIPv6,
-		IPv6Public: sInf.OutboundIPv6}
+		IPv6Public: sInf.OutboundIPv6,
+
+		IPv4Endpoint: ipv4Endpoint,
+		// TODO: Vlad - since we don't have any IPv6 endpoint for our Wireguard VPN, hardcoding a blackhole address here
+		IPv6Endpoint: netip.MustParseAddr(splittun.BlackHoleIPv6),
+	}
 
 	// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servrers or to manually defined server
 	if err := firewall.SingleDnsRuleOff(); err != nil { // disable custom DNS rule (if exists)
@@ -1601,20 +1636,20 @@ func (s *Service) SessionNew(email string, password string) (
 	}
 
 	// Generate keys for Key Encapsulation Mechanism using post-quantum cryptographic algorithms
-	var kemKeys api_types.KemPublicKeys
-	kemHelper, err := kem.CreateHelper(platform.KemHelperBinaryPath(), kem.GetDefaultKemAlgorithms())
-	if err != nil {
-		log.Error("Failed to generate KEM keys: ", err)
-	} else {
-		kemKeys.KemPublicKey_Kyber1024, err = kemHelper.GetPublicKey(kem.AlgName_Kyber1024)
-		if err != nil {
-			log.Error(err)
-		}
-		kemKeys.KemPublicKey_ClassicMcEliece348864, err = kemHelper.GetPublicKey(kem.AlgName_ClassicMcEliece348864)
-		if err != nil {
-			log.Error(err)
-		}
-	}
+	// var kemKeys api_types.KemPublicKeys
+	// kemHelper, err := kem.CreateHelper(platform.KemHelperBinaryPath(), kem.GetDefaultKemAlgorithms())
+	// if err != nil {
+	// 	log.Error("Failed to generate KEM keys: ", err)
+	// } else {
+	// 	kemKeys.KemPublicKey_Kyber1024, err = kemHelper.GetPublicKey(kem.AlgName_Kyber1024)
+	// 	if err != nil {
+	// 		log.Error(err)
+	// 	}
+	// 	kemKeys.KemPublicKey_ClassicMcEliece348864, err = kemHelper.GetPublicKey(kem.AlgName_ClassicMcEliece348864)
+	// 	if err != nil {
+	// 		log.Error(err)
+	// 	}
+	// }
 
 	log.Info("Logging in...")
 	defer func() {
@@ -1634,7 +1669,6 @@ func (s *Service) SessionNew(email string, password string) (
 		errorLimitResp        *api_types.SessionNewErrorLimitResponse
 		apiErr                *api_types.APIErrorResponse
 		connectDevSuccessResp *api_types.ConnectDeviceResponse
-		rawRespStr            string // RAW response
 	)
 
 	for {
@@ -1644,8 +1678,7 @@ func (s *Service) SessionNew(email string, password string) (
 			log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
 		}
 
-		sessionNewSuccessResp, errorLimitResp, apiErr, rawRespStr, err = s._api.SessionNew(email, password)
-		rawResponse = rawRespStr
+		sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(email, password)
 
 		apiCode = 0
 		if apiErr != nil {
@@ -1707,8 +1740,7 @@ func (s *Service) SessionNew(email string, password string) (
 	deviceName := "PL Connect - " + deviceID[:8]
 
 	// now do the Connect Device API call
-	connectDevSuccessResp, apiErr, rawRespStr, err = s._api.ConnectDevice(deviceID, deviceName, publicKey, sessionNewSuccessResp.Data.Token)
-	rawResponse = rawRespStr
+	connectDevSuccessResp, apiErr, rawResponse, err = s._api.ConnectDevice(deviceID, deviceName, publicKey, sessionNewSuccessResp.Data.Token)
 
 	apiCode = 0
 	if apiErr != nil {
@@ -1780,6 +1812,11 @@ func (s *Service) SessionNew(email string, password string) (
 		log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
 		return apiCode, "", accountInfo, "", err
 	}
+
+	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
+
+	// init to split tunnel by default
+	prefs.IsSplitTunnel = true
 
 	// propagate our prefs changes to Preferences and to settings.json
 	s.setPreferences(prefs)
@@ -2057,6 +2094,10 @@ func (s *Service) WireGuardSaveNewKeys(wgPublicKey string, wgPrivateKey string, 
 
 // WireGuardSetKeysRotationInterval change WG key rotation interval
 func (s *Service) WireGuardSetKeysRotationInterval(interval int64) {
+	// TODO FIXME: Vlad - for now effectively disable updating Wireguard keys, key rotation
+	// Set it to 100 years
+	interval = 100 * 365 * 86400
+
 	s._preferences.Session.WGKeysRegenInerval = time.Second * time.Duration(interval)
 	s._preferences.SavePreferences()
 

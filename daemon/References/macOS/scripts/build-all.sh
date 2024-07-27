@@ -212,4 +212,4 @@ fi
 
 CGO_CFLAGS=-mmacosx-version-min=10.10 CGO_LDFLAGS=-mmacosx-version-min=10.10 go build -tags "${BUILDTAGS_NOWIFI} ${BUILDTAGS_USE_LIBVPN} ${BUILDTAGS_DEBUG}" -o "IVPN Agent" -trimpath -ldflags "-s -w -X github.com/swapnilsparsh/devsVPN/daemon/version._version=$VERSION -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=$COMMIT -X github.com/swapnilsparsh/devsVPN/daemon/version._time=$DATE"
 
-echo "Cpmpiled daemon binary: '$(pwd)/IVPN Agent'"
+echo "Compiled daemon binary: '$(pwd)/IVPN Agent'"

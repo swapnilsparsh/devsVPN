@@ -7,7 +7,7 @@
 # Usage:
 #   Install the privateline CLI package first: https://www.privateline.net/apps-linux/
 #
-#   $ bash-completion-generator-privateline-cli.sh > privateline.bash
+#   $ bash-completion-generator-privateline-connect-cli.sh > privateline.bash
 #   $ source privateline.bash
 #   $ sudo mv privateline.bash /usr/share/bash-completion/completions/privateline
 #   $ sudo chown root:root /usr/share/bash-completion/completions/privateline
@@ -20,8 +20,8 @@
 # exit on error
 set -e
 
-# By default, the source command is `privateline`. 
-# Also you can specify custom path to PRIVATELINE CLI binary in the first argument to this script (e.g. `bash-completion-generator-privateline-cli.sh /usr/local/bin/privateline`)
+# By default, the source command is `privateline-connect-cli`. 
+# Also you can specify custom path to PRIVATELINE CLI binary in the first argument to this script (e.g. `bash-completion-generator-privateline-connect-cli.sh /usr/local/bin/privateline-connect-cli`)
 cli="privateline-connect-cli"
 if [ ! -z "$1" ]
 then
@@ -35,14 +35,14 @@ if ! command -v "$cli" > /dev/null 2>&1; then
 fi
 
 # print header
-echo "# bash completion for privateline"
+echo "# bash completion for privateline-connect-cli"
 echo ""
-echo "_privateline()"
+echo "_privateline-connect-cli()"
 echo "{"
 echo '    local cur opts'
 echo '    COMPREPLY=()'
 echo '    cur="${COMP_WORDS[COMP_CWORD]}" # current word'
-echo '    cmd="${COMP_WORDS[1]}"          # next word after "privateline", e.g.: $ privateline <cmd> ...'
+echo '    cmd="${COMP_WORDS[1]}"          # next word after "privateline-connect-cli", e.g.: $ privateline-connect-cli <cmd> ...'
 echo ""
 
 # determine command list and print list
@@ -73,7 +73,7 @@ echo ""
 echo '   COMPREPLY=($(compgen -W "${opts}" -- ${cur}))'
 echo "   return 0"
 echo "}"
-echo "complete -F _privateline privateline"
+echo "complete -F _privateline-connect-cli privateline-connect-cli"
 echo ""
 
 exit 0

@@ -9,7 +9,7 @@ if [ "$1" = "remove" -o "$1" = "0" ]; then
 fi
 
 echo "[+] Trying to disconnect (before-remove) ..."
-/usr/bin/privateline disconnect || echo "[-] Failed to disconnect"
+/usr/bin/privateline-connect-cli disconnect || echo "[-] Failed to disconnect"
 
 # Erasing Split Tunnel leftovers
 # (we can not do it in 'after-remove' script, because it is executed after package/files removal)
@@ -27,11 +27,11 @@ fi
 
 if [ $_IS_REMOVE = 1 ]; then
     echo "[+] Disabling firewall persistency (before-remove) ..."
-    /usr/bin/privateline firewall -persistent_off  
+    /usr/bin/privateline-connect-cli firewall -persistent_off  
 
     echo "[+] Disabling firewall (before-remove) ..."
-    /usr/bin/privateline firewall -off || echo "[-] Failed to disable firewall"
+    /usr/bin/privateline-connect-cli firewall -off || echo "[-] Failed to disable firewall"
 
     echo "[+] Logging out (before-remove) ..."
-    /usr/bin/privateline logout || echo "[-] Failed to log out"    
+    yes | /usr/bin/privateline-connect-cli logout || echo "[-] Failed to log out"    
 fi

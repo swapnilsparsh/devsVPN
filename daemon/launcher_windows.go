@@ -28,14 +28,12 @@ package main
 import (
 	"fmt"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
 )
-
-// ServiceName -  name of the service
-const _serviceName = "privateline-connect-svc"
 
 var _evtlog *eventlog.Log
 var _stopped chan struct{}
@@ -64,7 +62,7 @@ const (
 	// More values: https://learn.microsoft.com/en-us/windows/win32/termserv/wm-wtssession-change
 )
 
-// Prepare to start IVPN service for Windows
+// Prepare to start privateline-connect-svc service for Windows
 func doPrepareToRun() error {
 	isService, err := svc.IsWindowsService()
 	if err != nil {
@@ -141,7 +139,7 @@ func doCheckIsAdmin() bool {
 
 func runWindowsService() {
 	var err error
-	_evtlog, err = eventlog.Open(_serviceName)
+	_evtlog, err = eventlog.Open(helpers.ServiceName)
 	if err != nil {
 		log.Warning(fmt.Sprintf("Unable to initialize windows event log: %v", err))
 		_evtlog = nil
@@ -168,27 +166,27 @@ func runWindowsService() {
 		}
 	}()
 
-	log.Info(fmt.Sprintf("starting %s service", _serviceName))
+	log.Info(fmt.Sprintf("starting %s service", helpers.ServiceName))
 	if _evtlog != nil {
-		_evtlog.Info(1, fmt.Sprintf("starting %s service", _serviceName))
+		_evtlog.Info(1, fmt.Sprintf("starting %s service", helpers.ServiceName))
 	}
 
 	// create stop-detection channel
 	_stopped = make(chan struct{}, 1)
 
 	// run windows-service-handler (func (m *ivpnservice) Execute(...))
-	err = svc.Run(_serviceName, &ivpnservice{})
+	err = svc.Run(helpers.ServiceName, &ivpnservice{})
 	if err != nil {
-		log.Error(fmt.Sprintf("%s service failed: %v", _serviceName, err))
+		log.Error(fmt.Sprintf("%s service failed: %v", helpers.ServiceName, err))
 		if _evtlog != nil {
-			_evtlog.Error(1, fmt.Sprintf("%s service failed: %v", _serviceName, err))
+			_evtlog.Error(1, fmt.Sprintf("%s service failed: %v", helpers.ServiceName, err))
 		}
 		return
 	}
 
-	log.Info(fmt.Sprintf("%s service stopped", _serviceName))
+	log.Info(fmt.Sprintf("%s service stopped", helpers.ServiceName))
 	if _evtlog != nil {
-		_evtlog.Info(1, fmt.Sprintf("%s service stopped", _serviceName))
+		_evtlog.Info(1, fmt.Sprintf("%s service stopped", helpers.ServiceName))
 	}
 }
 

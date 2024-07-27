@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/service"
 )
 
 var log *logger.Logger
@@ -60,6 +61,8 @@ type Detector struct {
 
 	// Must be implemented (AND USED) in correspond file for concrete platform. Must contain platform-specified properties (or can be empty struct)
 	props osSpecificProperties
+
+	routingChangeCallback service.RoutingChangeCallbackFunc
 }
 
 // Create - create new network change detector
@@ -84,7 +87,7 @@ func Create() *Detector {
 // Start - start route change detector (asynchronous)
 //
 //	'routingUpdateChan' is the channel for notifying when there were some routing changes (but 'interfaceToProtect' is still is the default route or 'interfaceToProtect' not defined)
-func (d *Detector) Init(routingChangeChan chan<- struct{}, routingUpdateChan chan<- struct{}, currentDefaultInterface *net.Interface) error {
+func (d *Detector) Init(routingChangeChan chan<- struct{}, routingUpdateChan chan<- struct{}, currentDefaultInterface *net.Interface, callback service.RoutingChangeCallbackFunc) error {
 	// Ensure that detector is stopped
 	d.Stop()
 
@@ -94,6 +97,9 @@ func (d *Detector) Init(routingChangeChan chan<- struct{}, routingUpdateChan cha
 	// set notification channel (it is important to do it after we are ensure that timer is stopped)
 	d.routingChangeNotifyChan = routingChangeChan
 	d.routingUpdateNotifyChan = routingUpdateChan
+
+	// Callback function to be called when routing info changes
+	d.routingChangeCallback = callback
 
 	// save current default interface
 	d.interfaceToProtect = currentDefaultInterface
@@ -151,7 +157,9 @@ func (d *Detector) Stop() error {
 // Must be called when routing change detected (called from platform-specific sources)
 // It notifies about routing change with delay 'd.DelayBeforeNotify()'. This reduces amount of multiple consecutive notifications
 func (d *Detector) routingChangeDetected() {
+	//log.Debug("net_change_detector.go routingChangeDetected()")
 	d.timerNotifyAfterDelay.Reset(d.delayBeforeNotify)
+	go d.routingChangeCallback()
 }
 
 // Immediately notify about routing change.

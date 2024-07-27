@@ -48,12 +48,15 @@ type IServersUpdater interface {
 	UpdateNotifierChannel() chan struct{}
 }
 
+// Return won't be checked
+type RoutingChangeCallbackFunc func() error
+
 // INetChangeDetector - object is detecting routing changes on a PC
 type INetChangeDetector interface {
 	// Init - Initialise route change detector
 	//    'routingChangeChan' is the channel for notifying when the default routing is NOT over the 'interfaceToProtect' anymore
 	//    'routingUpdateChan' is the channel for notifying when there were some routing changes but 'interfaceToProtect' is still is the default route
-	Init(routingChangeChan chan<- struct{}, routingUpdateChan chan<- struct{}, currentDefaultInterface *net.Interface) error
+	Init(routingChangeChan chan<- struct{}, routingUpdateChan chan<- struct{}, currentDefaultInterface *net.Interface, routingChangeCallback RoutingChangeCallbackFunc) error
 	UnInit() error
 	Start() error // Start - Starts route change detector (asynchronous)
 	Stop() error
