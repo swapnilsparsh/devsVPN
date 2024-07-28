@@ -64,6 +64,13 @@ div.horizontalLine {
 }
 
 // === Shield BUTTONS ===
+div.shieldButtonsGroup {
+    display: flex;
+    border: 1px solid var(--shield-button-border-color);
+    width: 100%;
+    border-radius: 12px
+}
+
 div.shieldButtonsBase {
     min-height: 43px;
     display: flex;
@@ -92,7 +99,7 @@ button.shieldButtonBase {
 
     opacity: 0.5;
     padding: 10px;
-    width:100%;
+    width: 100%;
 }
 
 button.shieldButtonActiveBaseGreen {

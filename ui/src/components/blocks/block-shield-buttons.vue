@@ -2,23 +2,21 @@
   <div>
     <div class="small_text">Connection type</div>
     <div class="shieldButtons">
-      <div />
-      <button class="shieldButton" v-bind:class="{
-        shieldButtonActiveGreen: IsEnabled,
-      }" v-on:click="ChangeShield(true)">
-        Shield
-      </button>
+      <div class="shieldButtonsGroup">
+        <button class="shieldButton" v-bind:class="{
+          shieldButtonActiveGreen: IsEnabled,
+        }" v-on:click="ChangeShield(true)">
+          Shield
+        </button>
 
-      <div />
-
-      <button class="shieldButton" v-bind:class="{
-        shieldButtonActiveBlue: !IsEnabled,
-      }" v-on:click="ChangeShield(false)">
-        Total Shield
-      </button>
-
-      <div />
+        <button class="shieldButton" v-bind:class="{
+          shieldButtonActiveBlue: !IsEnabled,
+        }" v-on:click="ChangeShield(false)">
+          Total Shield
+        </button>
+      </div>
     </div>
+
   </div>
 </template>
 
@@ -744,6 +742,7 @@ $shadow: 0px 3px 12px rgba(var(--shadow-color-rgb), var(--shadow-opacity));
   background-color: $popup-background;
   box-shadow: $shadow;
 }
+
 .small_text {
   font-size: 14px;
   line-height: 17px;
