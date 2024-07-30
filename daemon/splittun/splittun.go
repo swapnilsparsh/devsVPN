@@ -25,7 +25,6 @@ package splittun
 import (
 	"fmt"
 	"net"
-	"net/netip"
 	"sync"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
@@ -52,14 +51,20 @@ var (
 
 	// last known Wireguard VPN endpoints - we'll need them to reset the changed routes back to default routes (dest 0.0.0.0/0)
 	// these are protected by the above mutex
-	lastConfiguredEndpoints = map[uint16]*netip.Addr{
+	lastConfiguredEndpoints = map[uint16]*net.IP{
 		AF_INET:  nil,
 		AF_INET6: nil,
 	}
 
+	// and address sizes by IP family in bits: 32 for IPv4 and 128 for IPv6
+	addrSizesByIpFamily = map[uint16]uint8{
+		AF_INET:  32,
+		AF_INET6: 128,
+	}
+
 	// all-zeroes for default routes
-	defaultRoutePrefixIPv4 = netip.MustParsePrefix("0.0.0.0/0")
-	defaultRoutePrefixIPv6 = netip.MustParsePrefix("::/0")
+	defaultRouteIPv4 = "0.0.0.0/0"
+	defaultRouteIPv6 = "::/0"
 )
 
 type ConfigAddresses struct {
@@ -69,9 +74,8 @@ type ConfigAddresses struct {
 	IPv6Tunnel net.IP // VpnLocalIPv6
 
 	// PrivateLine Wireguard VPN endpoint
-	// Storing them as netip.Addr and not net.IP, because netip.Addr allows == comparison
-	IPv4Endpoint netip.Addr
-	IPv6Endpoint netip.Addr
+	IPv4Endpoint net.IP
+	IPv6Endpoint net.IP
 }
 
 func (c ConfigAddresses) IsEmpty() bool {
@@ -112,10 +116,14 @@ func GetFuncNotAvailableError() (generalStError, inversedStError error) {
 }
 
 func Reset() error {
-	mutex.Lock()
-	defer mutex.Unlock()
+	// Vlad: do nothing
+	log.Debug("splittun.Reset() is disabled")
+	return nil
 
-	return implReset()
+	// mutex.Lock()
+	// defer mutex.Unlock()
+
+	// return implReset()
 }
 
 // ApplyConfig control split-tunnel functionality

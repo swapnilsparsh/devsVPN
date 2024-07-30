@@ -34,20 +34,20 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers/windows/winsock2"
 )
 
-// structure contains properties required for for macOS implementation
+// structure contains properties required for for Windows implementation
 type osSpecificProperties struct {
 	overlapped syscall.Overlapped
 }
 
 func (d *Detector) isRoutingChanged() (bool, error) {
-	// TODO FIXME: Vlad - refactor for MVP 1.0
-	return false, nil
-
-	infToProtect := d.interfaceToProtect
+	infToProtect := d.interfaceToProtect // it's nil in MVP 1.0
 	if infToProtect == nil {
 		err := errors.New("failed to check route change. Initial interface not defined")
-		log.Error(err)
+		log.Debug(err)
 		return false, nil
+	} else {
+		err := log.ErrorE(fmt.Errorf("d.interfaceToProtect is not nil, it's an unexpected condition in MVP 1.0 codebase"), 0)
+		return false, err
 	}
 
 	// define IP addresses to which the default route will be checked
