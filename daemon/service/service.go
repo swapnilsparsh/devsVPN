@@ -1654,6 +1654,23 @@ func (s *Service) SessionNew(email string, password string) (
 	log.Info("Logging in...")
 	defer func() {
 		if err != nil {
+			log.Debug("================================ Error Reached ================================", err)
+			log.Debug("================================ API Code: ================================", apiCode)
+
+			var customMessage string
+			switch apiCode {
+			case 426:
+				log.Debug("================================ 426: ================================", err)
+				customMessage = fmt.Sprintf("We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices. %s", err)
+			case 412:
+				log.Debug("================================ 412: ================================", err)
+				customMessage = fmt.Sprintf("We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices. %s", err)
+			default:
+				log.Debug("================================ Default error ================================", err)
+				customMessage = fmt.Sprintf("Logging in - FAILED: %s", err)
+			}
+
+			log.Warning(customMessage)
 			log.Error("Logging in - FAILED: ", err)
 		} else {
 			log.Info("Logging in - SUCCESS")
