@@ -51,6 +51,7 @@ type SessionNewRequest struct {
 	// Confirmation2FA string `json:"confirmation,omitempty"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	SsoLogin bool   `json:"ssologin"`
 }
 
 func (req SessionNewRequest) GetSessionToken() string {
