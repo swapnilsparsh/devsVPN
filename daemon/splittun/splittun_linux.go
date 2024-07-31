@@ -52,7 +52,7 @@ var (
 	fullTunnelEnabled            bool   = false
 
 	// map from INET type (IPv4 or IPv6) to default routes (all zeroes)
-	defaultRoutesByIpFamily = map[uint16]*net.IPNet{}
+	DefaultRoutesByIpFamily = map[uint16]*net.IPNet{}
 )
 
 // Information about added running process to the ST (by implAddPid())
@@ -106,12 +106,12 @@ func implInitialize() error {
 	if _, defaultRouteIPv4IPNet, err := net.ParseCIDR(defaultRouteIPv4); err != nil {
 		return log.ErrorE(fmt.Errorf("error net.ParseCIDR(%s): %w", defaultRouteIPv4, err), 0)
 	} else {
-		defaultRoutesByIpFamily[AF_INET] = defaultRouteIPv4IPNet
+		DefaultRoutesByIpFamily[AF_INET] = defaultRouteIPv4IPNet
 	}
 	if _, defaultRouteIPv6IPNet, err := net.ParseCIDR(defaultRouteIPv6); err != nil {
 		return log.ErrorE(fmt.Errorf("error net.ParseCIDR(%s): %w", defaultRouteIPv6, err), 0)
 	} else {
-		defaultRoutesByIpFamily[AF_INET6] = defaultRouteIPv6IPNet
+		DefaultRoutesByIpFamily[AF_INET6] = defaultRouteIPv6IPNet
 	}
 
 	// Register network change detector - we're using net_change_detector_linux now
@@ -202,8 +202,10 @@ func enableDisableSplitTunnelIPv4(enableFullTunnel bool, wgEndpoint net.IP, resp
 		dstNew *net.IPNet
 	)
 
+	defaultRoute := DefaultRoutesByIpFamily[AF_INET]
+
 	if enableFullTunnel { // if enabling full tunnel (total shield)
-		dstOld = defaultRoutesByIpFamily[AF_INET].IP // ... then change from all-zeros default route destination
+		dstOld = defaultRoute.IP // ... then change from all-zeros default route destination
 
 		wgEndpointCIDR := fmt.Sprintf("%s/%d", wgEndpoint, addrSizesByIpFamily[AF_INET])
 		if _, wgEndpointIPNet, err := net.ParseCIDR(wgEndpointCIDR); err != nil {
@@ -215,8 +217,8 @@ func enableDisableSplitTunnelIPv4(enableFullTunnel bool, wgEndpoint net.IP, resp
 
 		lastConfiguredEndpoints[AF_INET] = &wgEndpoint // save the last configured Wireguard VPN endpoint
 	} else {
-		dstOld = wgEndpoint                       // ... then change from our Wireguard endpoint on the matching routes
-		dstNew = defaultRoutesByIpFamily[AF_INET] // ... back to all-zeros default route destination
+		dstOld = wgEndpoint   // ... then change from our Wireguard endpoint on the matching routes
+		dstNew = defaultRoute // ... back to all-zeros default route destination
 	}
 	if dstOld.Equal(dstNew.IP) {
 		responseChan <- log.ErrorE(fmt.Errorf("unexpected condition: dstOld == dstNew.IP == %s", dstOld), 0)
@@ -230,7 +232,7 @@ func enableDisableSplitTunnelIPv4(enableFullTunnel bool, wgEndpoint net.IP, resp
 	}
 
 	for _, routeOld := range routes {
-		if routeOld.Dst.IP.Equal(dstOld) {
+		if (routeOld.Dst == nil && dstOld.Equal(defaultRoute.IP)) || (routeOld.Dst != nil && dstOld.Equal(routeOld.Dst.IP)) {
 			routeNew := routeOld
 			if err := netlink.RouteDel(&routeOld); err != nil {
 				responseChan <- log.ErrorE(fmt.Errorf("error in netlink.RouteDel(). routeOld=%#v. Error=%w", routeOld, err), 0)
@@ -254,7 +256,7 @@ func enableDisableSplitTunnelIPv6(enableFullTunnel bool, responseChan chan<- err
 		disableIPv6 = "=0"
 	}
 
-	for _, argPfx := range []string{"net.ipv6.conf.all.disable_ipv6", "net.ipv6.conf.default.disable_ipv6=1"} {
+	for _, argPfx := range []string{"net.ipv6.conf.all.disable_ipv6", "net.ipv6.conf.default.disable_ipv6"} {
 		arg := argPfx + disableIPv6
 		_, outErrText, _, _, err := shell.ExecAndGetOutput(log, 1024, "", sysctlPath, "-w", arg)
 		if err != nil {

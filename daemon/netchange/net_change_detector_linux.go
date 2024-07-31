@@ -26,15 +26,17 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
 // structure contains properties required for for Linux implementation
 type osSpecificProperties struct {
-	routeUpdateChanMutex sync.Mutex // protects routeUpdateChan
-	routeUpdateChan      chan netlink.RouteUpdate
+	stopChanMutex sync.Mutex // protects stopChan
+	stopChan      chan bool
 
+	routeUpdateChan        chan netlink.RouteUpdate
 	routeSubscribeDoneChan chan struct{}
 }
 
@@ -45,19 +47,23 @@ func (d *Detector) isRoutingChanged() (bool, error) {
 
 func (d *Detector) doStart() {
 	log.Info("Route change detector started")
-	d.props.routeUpdateChanMutex.Lock() // initialization critical section - we don't want any race conditions
-	d.props.routeUpdateChan = make(chan netlink.RouteUpdate)
-	d.props.routeUpdateChanMutex.Unlock()
 
+	d.props.stopChanMutex.Lock()
+	d.props.stopChan = make(chan bool)
+	d.props.stopChanMutex.Unlock()
+
+	d.props.routeUpdateChan = make(chan netlink.RouteUpdate)
 	d.props.routeSubscribeDoneChan = make(chan struct{})
 
 	defer func() {
-		close(d.props.routeSubscribeDoneChan)
-
-		d.props.routeUpdateChanMutex.Lock()
-		close(d.props.routeUpdateChan)
+		close(d.props.routeSubscribeDoneChan) // this will also close routeUpdateChan
+		d.props.routeSubscribeDoneChan = nil
 		d.props.routeUpdateChan = nil
-		d.props.routeUpdateChanMutex.Unlock()
+
+		d.props.stopChanMutex.Lock()
+		close(d.props.stopChan)
+		d.props.stopChan = nil
+		d.props.stopChanMutex.Unlock()
 
 		log.Info("Route change detector stopped")
 	}()
@@ -68,18 +74,21 @@ func (d *Detector) doStart() {
 	}
 
 	for {
-		routeUpdate := <-d.props.routeUpdateChan
-		if routeUpdate.Type == unix.RTM_F_NOTIFY { // stop signal
+		select {
+		case <-d.props.stopChan:
 			return
+		case routeUpdate := <-d.props.routeUpdateChan: // handle only new routes with nil or 0.0.0.0 destinations
+			if routeUpdate.Type == unix.RTM_NEWROUTE && (routeUpdate.Dst == nil || splittun.DefaultRoutesByIpFamily[splittun.AF_INET].IP.Equal(routeUpdate.Dst.IP)) {
+				d.routingChangeDetected()
+			}
 		}
-		d.routingChangeDetected()
 	}
 }
 
-func (d *Detector) doStop() { // Legitimate types returned on route changes are RTM_NEWROUTE or RTM_DELROUTE. Send an out-of-band message to signal stop.
-	d.props.routeUpdateChanMutex.Lock()
-	if d.props.routeUpdateChan != nil {
-		d.props.routeUpdateChan <- netlink.RouteUpdate{Type: unix.RTM_F_NOTIFY}
+func (d *Detector) doStop() {
+	d.props.stopChanMutex.Lock()
+	if d.props.stopChan != nil {
+		d.props.stopChan <- true
 	}
-	d.props.routeUpdateChanMutex.Unlock()
+	d.props.stopChanMutex.Unlock()
 }
