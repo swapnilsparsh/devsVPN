@@ -69,6 +69,7 @@
             :onShowFirewallConfig="onFirewallSettings"
             :onShowAntiTrackerConfig="onAntiTrackerSettings"
           />
+          <ConnectionDetails/>
 
           <transition name="fade">
             <button
@@ -92,6 +93,7 @@ import ConnectionDetailsBlock from "./blocks/block-connection-details.vue";
 import SelectedServerBlock from "@/components/blocks/block-selected-server.vue";
 import HopButtonsBlock from "./blocks/block-hop-buttons.vue";
 import ShieldButtonsBlock from "./blocks/block-shield-buttons.vue/";
+import ConnectionDetails from "./Connection-Details.vue";
 
 const sender = window.ipcSender;
 import { VpnStateEnum, VpnTypeEnum } from "@/store/types";
@@ -135,7 +137,8 @@ export default {
     ConnectBlock,
     SelectedServerBlock,
     ConnectionDetailsBlock,
-    ShieldButtonsBlock
+    ShieldButtonsBlock,
+    ConnectionDetails,
   },
   mounted() {
     this.recalcScrollButtonVisiblity();

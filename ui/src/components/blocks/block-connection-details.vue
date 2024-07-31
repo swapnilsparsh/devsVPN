@@ -99,7 +99,7 @@
       <div v-if="$store.state.settings.minimizedUI">
         <div class="horizontalLine" />
 
-        <GeolocationInfoControl class="blockWithMrgings" />
+        <!-- <GeolocationInfoControl class="blockWithMrgings" /> -->
       </div>
     </transition>
   </div>
