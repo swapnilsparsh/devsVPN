@@ -218,7 +218,6 @@ export default {
   },
   
   ProfileData: async () => {
-    console.log("in main sender");
     return await invoke("renderer-request-ProfileData");
   },
 

@@ -5,15 +5,21 @@
     <div class="flexColumn">
       <spinner :loading="isProcessing" />
 
-      <div class="flexRowSpace">
+      <div class="flexRowSpace" style="align-items: flex-start;">
         <div class="flexColumn">
-          <!-- <div class="settingsGrayDescriptionFont">Account ID</div>
 
-          <div class="settingsBigBoldFont" id="accountID">
-            <label class="settingsBigBoldFont selectable">
-              {{ this.$store.state.account.session.AccountID }}
-            </label>
-          </div> -->
+          <div>
+            <img
+              v-if="!hasProfile"
+              src="@/assets/avtar.svg"
+              style="height: 100px; width: 100px"
+            />
+            <img
+              v-else
+              :src="this.$store.state.account.userDetails.profile"
+              style="height: 100px; width: 100px; border-radius: 100%; border:5px solid #fff;margin-bottom:10px;"
+            />
+          </div>
 
           <div>
             <spinner :loading="isProcessing" />
@@ -39,7 +45,7 @@
             <div class="flexRow paramBlockDetailedConfig">
               <div class="defColor paramName">Account Created on:</div>
               <div class="detailedParamValue">
-                {{ this.$store.state.account.userDetails.createdAt }}
+                {{ formattedCreatedAt }}
               </div>
             </div>
 
@@ -52,21 +58,6 @@
                     : "Needed"
                 }}
               </div>
-            </div>
-          </div>
-
-          <div>
-            <div
-              class="statusButtonActive"
-              v-if="IsAccountStateExists && IsActive"
-            >
-              ACTIVE
-            </div>
-            <div
-              class="statusButtonNotActive"
-              v-if="IsAccountStateExists && !IsActive"
-            >
-              NOT ACTIVE
             </div>
           </div>
         </div>
@@ -82,21 +73,21 @@
       </div>
 
       <!-- ACCOUNT EXPIRATION TEXT -->
-      <div
+      <!-- <div
         style="margin-bottom: 12px; color: darkorange"
         v-if="$store.getters['account/messageAccountExpiration']"
       >
         {{ $store.getters["account/messageAccountExpiration"] }}
-      </div>
+      </div> -->
       <!-- FREE TRIAL EXPIRATION TEXT -->
-      <div
+      <!-- <div
         style="margin-bottom: 12px; color: darkorange"
         v-if="$store.getters['account/messageFreeTrial']"
       >
         {{ $store.getters["account/messageFreeTrial"] }}
-      </div>
+      </div> -->
 
-      <div class="subscriptionDetails" v-if="IsAccountStateExists">
+      <!-- <div class="subscriptionDetails" v-if="IsAccountStateExists">
         <div class="settingsBoldFont" style="margin-bottom: 16px">
           Subscription details:
         </div>
@@ -130,9 +121,9 @@
             </button>
           </div>
         </div>
-      </div>
+      </div> -->
 
-      <div class="proAcountDescriptionBlock" v-if="IsCanUpgradeToPro">
+      <!-- <div class="proAcountDescriptionBlock" v-if="IsCanUpgradeToPro">
         <p>
           <strong>privateLINE PRO</strong> gives you more possibilities to stay
           safe and protected:
@@ -147,7 +138,7 @@
           Use <strong>Multi-Hop</strong> connections
         </div>
         <p>Login to the website to change subscription plan</p>
-      </div>
+      </div> -->
     </div>
 
     <div class="flexRow">
@@ -159,6 +150,7 @@
 <script>
 import spinner from "@/components/controls/control-spinner.vue";
 import { dateDefaultFormat } from "@/helpers/helpers";
+import { getDateInShortMonthFormat } from "../../helpers/renderer";
 
 import qrcode from "qrcode-generator";
 
@@ -267,7 +259,6 @@ export default {
     },
     async profileData() {
       const resp = await sender.ProfileData();
-      console.log({ profileData: resp });
     },
     upgrade() {
       sender.shellOpenExternal(`https://www.account.privateline.io`);
@@ -277,6 +268,15 @@ export default {
     },
   },
   computed: {
+    hasProfile() {
+      return this.$store.state.account.userDetails.profile;
+    },
+    createdAt() {
+      return this.$store.state.account.userDetails.createdAt;
+    },
+    formattedCreatedAt() {
+      return getDateInShortMonthFormat(this.createdAt);
+    },
     IsAccountStateExists: function () {
       return this.$store.getters["account/isAccountStateExists"];
     },
@@ -306,6 +306,14 @@ export default {
         this.$store.state.account.accountStatus.CurrentPlan.toLowerCase() !=
           "ivpn pro"
       );
+    },
+  },
+  watch: {
+    "$store.state.account.userDetails": {
+      handler(newValue) {
+        this.isProcessing = Object.keys(newValue).length === 0 ? true : false;
+      },
+      immediate: true, // Run the watcher immediately on component creation
     },
   },
 };

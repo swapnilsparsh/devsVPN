@@ -77,7 +77,8 @@ export function GetTimeLeftText(endTime /*Date()*/) {
   return `${two(h)} : ${two(m)} : ${two(s)}`;
 }
 
-export function getDateInShortMonthFormat(date) {
-  const options = { month: "short", day: "numeric", year: "numeric" };
+export function getDateInShortMonthFormat(dateString) {
+  const date = new Date(dateString);
+  const options = { day: "numeric", month: "short", year: "numeric" };
   return date.toLocaleDateString("en-US", options);
 }
