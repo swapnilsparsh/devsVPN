@@ -1078,9 +1078,9 @@ async function GeoLookup() {
   store.commit("locationIPv6", null);
 
   // IPv4 request...
-  doGeoLookup(_geoLookupLastRequestId);
+//  doGeoLookup(_geoLookupLastRequestId);
   // IPv6 request ...
-  doGeoLookup(_geoLookupLastRequestId, true);
+//  doGeoLookup(_geoLookupLastRequestId, true);
 }
 
 async function doGeoLookup(requestID, isIPv6, isRetryTry) {
