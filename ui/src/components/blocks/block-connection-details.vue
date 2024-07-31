@@ -66,10 +66,11 @@
 
     <!-- SPLIT TUNNEL -->
     <transition name="fade">
-      <div v-if="isLinux && IsSplitTunnelEnabled">
+      <!-- TODO: Vlad - SplitTunnelControl disabled for MVP 1.0 -->
+      <!-- <div v-if="isLinux && IsSplitTunnelEnabled">
         <div class="horizontalLine" />
         <SplitTunnelControl class="leftPanelBlock" />
-      </div>
+      </div> -->
     </transition>
 
     <!-- WIFI -->
@@ -111,7 +112,8 @@ import { Platform, PlatformEnum } from "@/platform/platform";
 import OnOffButtonControl from "@/components/controls/control-config-on-off-button.vue";
 import SelectButtonControl from "@/components/controls/control-config-to-select-button.vue";
 import GeolocationInfoControl from "@/components/controls/control-geolocation-info.vue";
-import SplitTunnelControl from "@/components/controls/control-split-tunnel.vue";
+// TODO: Vlad - SplitTunnelControl disabled for MVP 1.0
+//import SplitTunnelControl from "@/components/controls/control-split-tunnel.vue";
 
 const sender = window.ipcSender;
 import { enumValueName } from "@/helpers/helpers";
@@ -131,7 +133,8 @@ export default {
     OnOffButtonControl,
     SelectButtonControl,
     GeolocationInfoControl,
-    SplitTunnelControl,
+// TODO: Vlad - SplitTunnelControl disabled for MVP 1.0
+//    SplitTunnelControl,
   },
   props: [
     "onShowPorts",
