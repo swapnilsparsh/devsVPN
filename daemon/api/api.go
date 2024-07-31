@@ -315,6 +315,7 @@ func (a *API) SessionNew(email string, password string) (
 	request := &types.SessionNewRequest{
 		Email:    email,
 		Password: password,
+		SsoLogin: true,
 		// AccountID:       accountID,
 		// PublicKey:       wgPublicKey,
 		// KemPublicKeys:   kemKeys,
