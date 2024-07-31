@@ -5,6 +5,9 @@ export default {
 
   // STATE
   state: {
+    //userData
+    userDetails: {},
+
     // Session info
     session: {
       AccountID: "",
@@ -35,6 +38,9 @@ export default {
   },
 
   mutations: {
+    userDetails(state, userData) {
+      state.userDetails = userData;
+    },
     session(state, sessionInfo) {
       state.session = sessionInfo;
 
@@ -64,7 +70,7 @@ export default {
       // (to be sure that account info belongs to correct session)
       if (accState.SessionToken)
         state.accountStatus.SessionTokenLastPart = getLastPartOfSessionToken(
-          accState.SessionToken,
+          accState.SessionToken
         );
 
       // convert capabilities to lower case

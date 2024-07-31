@@ -76,7 +76,7 @@ const (
 	SessionCheckInterval time.Duration = time.Hour * 1
 )
 
-// Service - IVPN service
+// Service - PrivateLINE service
 type Service struct {
 	_evtReceiver       IServiceEventsReceiver
 	_api               *api.API
@@ -1841,6 +1841,18 @@ func (s *Service) AccountInfo() (
 	// TODO FIXME: Swapnil, Vlad: this function is a stub for now
 	log.Debug("================================ AccountInfo function Reached ================================")
 	return 200, "", s.Preferences().Account, "FIXME stub", nil
+}
+
+func (s *Service) ProfileData() (
+	apiCode int,
+	response *api_types.ProfileDataResponse,
+	err error) {
+	var (
+		profileDataResponse *api_types.ProfileDataResponse
+	)
+	log.Debug("================================ Profile Data function Reached ================================")
+	profileDataResponse, err = s._api.ProfileData(s.Preferences().Session.Session)
+	return 200, profileDataResponse, err
 }
 
 // SessionDelete removes session info

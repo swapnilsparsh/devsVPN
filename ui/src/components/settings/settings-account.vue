@@ -1,19 +1,60 @@
 <template>
   <div class="flexColumn">
-    <div class="settingsTitle">ACCOUNT SETTINGS</div>
+    <div class="settingsTitle">ACCOUNT DETAILS</div>
 
     <div class="flexColumn">
       <spinner :loading="isProcessing" />
 
       <div class="flexRowSpace">
         <div class="flexColumn">
-          <div class="settingsGrayDescriptionFont">Account ID</div>
+          <!-- <div class="settingsGrayDescriptionFont">Account ID</div>
 
           <div class="settingsBigBoldFont" id="accountID">
             <label class="settingsBigBoldFont selectable">
               {{ this.$store.state.account.session.AccountID }}
             </label>
+          </div> -->
+
+          <div>
+            <spinner :loading="isProcessing" />
+            <div class="flexRow paramBlockDetailedConfig">
+              <div class="defColor paramName">Name:</div>
+              <div class="detailedParamValue">
+                {{ this.$store.state.account.userDetails.name }}
+              </div>
+            </div>
+            <div class="flexRow paramBlockDetailedConfig">
+              <div class="defColor paramName">Email:</div>
+              <div class="detailedParamValue">
+                {{ this.$store.state.account.userDetails.email }}
+              </div>
+            </div>
+            <div class="flexRow paramBlockDetailedConfig">
+              <div class="defColor paramName">Phone:</div>
+              <div class="detailedParamValue">
+                {{ this.$store.state.account.userDetails.phone }}
+              </div>
+            </div>
+
+            <div class="flexRow paramBlockDetailedConfig">
+              <div class="defColor paramName">Account Created on:</div>
+              <div class="detailedParamValue">
+                {{ this.$store.state.account.userDetails.createdAt }}
+              </div>
+            </div>
+
+            <div class="flexRow paramBlockDetailedConfig">
+              <div class="defColor paramName">Account verification:</div>
+              <div class="detailedParamValue">
+                {{
+                  this.$store.state.account.userDetails.isVerified
+                    ? "Done"
+                    : "Needed"
+                }}
+              </div>
+            </div>
           </div>
+
           <div>
             <div
               class="statusButtonActive"
@@ -93,8 +134,8 @@
 
       <div class="proAcountDescriptionBlock" v-if="IsCanUpgradeToPro">
         <p>
-          <strong>privateLINE PRO</strong> gives you more possibilities to stay safe
-          and protected:
+          <strong>privateLINE PRO</strong> gives you more possibilities to stay
+          safe and protected:
         </p>
 
         <div>
@@ -152,6 +193,7 @@ export default {
     this.$refs.qrcode.innerHTML = qr.createSvgTag(3, 10);
 
     this.accountStatusRequest();
+    this.profileData();
   },
   methods: {
     async logOut() {
@@ -222,6 +264,10 @@ export default {
     },
     async accountStatusRequest() {
       await sender.SessionStatus();
+    },
+    async profileData() {
+      const resp = await sender.ProfileData();
+      console.log({ profileData: resp });
     },
     upgrade() {
       sender.shellOpenExternal(`https://www.account.privateline.io`);
@@ -356,5 +402,28 @@ export default {
   letter-spacing: 1px;
 
   color: #8b9aab;
+}
+
+div.param {
+  @extend .flexRow;
+  margin-top: 3px;
+}
+div.paramBlockDetailedConfig {
+  @extend .flexRow;
+  margin-top: 2px;
+}
+.defColor {
+  @extend .settingsDefaultTextColor;
+}
+div.paramName {
+  min-width: 161px;
+  max-width: 161px;
+}
+div.detailedParamValue {
+  opacity: 0.7;
+  overflow-wrap: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+  letter-spacing: 0.1px;
 }
 </style>

@@ -52,12 +52,15 @@ ipcMain.handle("renderer-request-refresh-storage", async () => {
 
 ipcMain.handle(
   "renderer-request-login",
-  async (event, email, password,
+  async (
+    event,
+    email,
+    password
     // force, captchaID, captcha, confirmation2FA
   ) => {
     return await client.Login(
       email,
-      password,
+      password
       // force,
       // captchaID,
       // captcha,
@@ -66,11 +69,9 @@ ipcMain.handle(
   }
 );
 
-ipcMain.handle(
-  "renderer-request-AccountInfo",
-  async () => {
-    return await client.AccountInfo();
-  });
+ipcMain.handle("renderer-request-AccountInfo", async () => {
+  return await client.AccountInfo();
+});
 
 ipcMain.handle(
   "renderer-request-logout",
@@ -174,6 +175,10 @@ ipcMain.handle(
   }
 );
 
+ipcMain.handle("renderer-request-ProfileData", async (event, pid, execCmd) => {
+  return await client.ProfileData(pid, execCmd);
+});
+
 ipcMain.handle("renderer-request-GetInstalledApps", async () => {
   return await client.GetInstalledApps();
 });
@@ -261,8 +266,9 @@ ipcMain.handle("renderer-request-get-diagnostic-logs", async () => {
   let accInfo = "";
   try {
     const acc = s.account;
-    accInfo = `${acc.accountStatus.CurrentPlan} (${acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
-      })`;
+    accInfo = `${acc.accountStatus.CurrentPlan} (${
+      acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
+    })`;
     if (acc.session.WgPublicKey)
       accInfo += `; wgKeys=OK ${acc.session.WgKeyGenerated}`;
     else accInfo += "; wgKeys=EMPTY";

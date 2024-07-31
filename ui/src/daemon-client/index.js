@@ -68,6 +68,7 @@ const daemonRequests = Object.freeze({
   SessionNew: "SessionNew",
   SessionDelete: "SessionDelete",
   SessionStatus: "SessionStatus",
+  ProfileData: "ProfileData",
 
   WiFiSettings: "WiFiSettings",
   ConnectSettings: "ConnectSettings",
@@ -143,6 +144,7 @@ const daemonResponses = Object.freeze({
   ServiceExitingResp: "ServiceExitingResp",
 
   AccountInfoResp: "AccountInfoResp",
+  ProfileDataResp: "ProfileDataResp",
 });
 
 export const AppUpdateInfoType = Object.freeze({
@@ -208,14 +210,15 @@ function getNextRequestNo() {
 function send(request, reqNo) {
   if (socket == null) throw Error("Unable to send request (socket is closed)");
 
-  if (!request.ProtocolSecret)
-    request.ProtocolSecret = ParanoidModeSecret;
+  if (!request.ProtocolSecret) request.ProtocolSecret = ParanoidModeSecret;
 
   if (!request.Command)
     throw Error('Unable to send request ("Command" parameter not defined)');
 
   if (typeof request.Command === "undefined")
-    throw Error('Unable to send request. Unknown command: "' + request.Command + '"');
+    throw Error(
+      'Unable to send request. Unknown command: "' + request.Command + '"'
+    );
 
   if (typeof reqNo === "undefined") reqNo = getNextRequestNo();
 
@@ -233,7 +236,9 @@ function send(request, reqNo) {
     request.Password = passwordBak;
     serialized = toJson(request);
   }
-  log.debug(`==> ${request.Command}  [${request.Idx}] ${request.Command == "APIRequest" ? request.APIPath : ""}`);
+  log.debug(
+    `==> ${request.Command}  [${request.Idx}] ${request.Command == "APIRequest" ? request.APIPath : ""}`
+  );
 
   socket.write(`${serialized}\n`);
 }
@@ -251,7 +256,9 @@ function addWaiter(waiter, timeoutMs) {
         for (let i = 0; i < waiters.length; i += 1) {
           if (waiters[i] === waiter) {
             waiters.splice(i, 1);
-            reject(new Error("Response timeout (no response from the daemon)."));
+            reject(
+              new Error("Response timeout (no response from the daemon).")
+            );
             break;
           }
         }
@@ -371,7 +378,7 @@ async function processResponse(response) {
     if (obj.Command == "APIResponse")
       log.debug(
         `<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` +
-        (obj.Error ? " Error!" : "")
+          (obj.Error ? " Error!" : "")
       );
     else log.debug(`<== ${obj.Command} [${obj.Idx}]`);
   } else log.error(`<== ${response}`);
@@ -919,7 +926,9 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
   });
 }
 
-async function Login(email, password
+async function Login(
+  email,
+  password
   //  force, captchaID, captcha, confirmation2FA
 ) {
   let resp = await sendRecv({
@@ -944,6 +953,18 @@ async function AccountInfo() {
     Command: daemonRequests.AccountInfo,
   });
   return resp;
+}
+
+async function ProfileData() {
+  let resp = await sendRecv({
+    Command: daemonRequests.ProfileData,
+  });
+
+  const profileData = resp.RawResponse.data;
+
+  store.commit(`account/userDetails`, profileData);
+
+  return profileData;
 }
 
 async function Logout(
@@ -1960,4 +1981,5 @@ export default {
   SetParanoidModePassword,
   SetLocalParanoidModePassword,
   AccountInfo,
+  ProfileData,
 };
