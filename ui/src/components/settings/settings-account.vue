@@ -5,19 +5,24 @@
     <div class="flexColumn">
       <spinner :loading="isProcessing" />
 
-      <div class="flexRowSpace" style="align-items: flex-start;">
+      <div class="flexRowSpace" style="align-items: flex-start">
         <div class="flexColumn">
-
           <div>
             <img
-              v-if="!hasProfile"
+              v-if="!profileImage"
               src="@/assets/avtar.svg"
               style="height: 100px; width: 100px"
             />
             <img
               v-else
-              :src="this.$store.state.account.userDetails.profile"
-              style="height: 100px; width: 100px; border-radius: 100%; border:5px solid #fff;margin-bottom:10px;"
+              :src="profileImage"
+              style="
+                height: 100px;
+                width: 100px;
+                border-radius: 100%;
+                border: 5px solid #fff;
+                margin-bottom: 10px;
+              "
             />
           </div>
 
@@ -268,8 +273,9 @@ export default {
     },
   },
   computed: {
-    hasProfile() {
-      return this.$store.state.account.userDetails.profile;
+    profileImage() {
+      const profile = this.$store.state.account.userDetails.profile;
+      return profile ? `https://api.privateline.io/uploads/${profile}` : "";
     },
     createdAt() {
       return this.$store.state.account.userDetails.createdAt;
