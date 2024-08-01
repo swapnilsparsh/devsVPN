@@ -95,13 +95,15 @@ export default {
     return invoke("renderer-request-refresh-storage");
   },
 
-  Login: async (email, password,
+  Login: async (
+    email,
+    password
     //  force, captchaID, captcha, confirmation2FA
   ) => {
     return await invoke(
       "renderer-request-login",
       email,
-      password,
+      password
       // accountID,
       // force,
       // captchaID,
@@ -110,7 +112,9 @@ export default {
     );
   },
 
-  AccountInfo: async () => { return await invoke("renderer-request-AccountInfo"); },
+  AccountInfo: async () => {
+    return await invoke("renderer-request-AccountInfo");
+  },
 
   Logout: async (
     needToResetSettings,
@@ -211,6 +215,10 @@ export default {
 
   SetUserPrefs: async (userPrefs) => {
     return await invoke("renderer-request-SetUserPrefs", userPrefs);
+  },
+  
+  ProfileData: async () => {
+    return await invoke("renderer-request-ProfileData");
   },
 
   SetAutoconnectOnLaunch: async (

@@ -53,7 +53,7 @@
       </div>
     </div>
 
-    <div class="param">
+    <!-- <div class="param">
       <input
         type="checkbox"
         id="connectSelectedMapLocation"
@@ -62,14 +62,14 @@
       <label class="defColor" for="connectSelectedMapLocation"
         >Connect to location when selecting it on map screen</label
       >
-    </div>
+    </div> -->
 
-    <div class="param">
+    <!-- <div class="param">
       <input type="checkbox" id="showHosts" v-model="showHosts" />
       <label class="defColor" for="showHosts"
         >Enable selection of individual servers in server selection list</label
       >
-    </div>
+    </div> -->
 
     <div class="settingsBoldFont">View:</div>
     <div class="flexRow param">
@@ -325,7 +325,7 @@ export default {
               "Warning: On application start 'Autoconnect on application launch' will not be applied until the EAA password is entered.",
             buttons: ["Enable", "Cancel"],
           },
-          true,
+          true
         );
         if (ret == 1) {
           // cancel
@@ -344,7 +344,7 @@ export default {
               'This option requires "Launch at login" to be enabled.\nDo you want to enable both options?',
             buttons: ["Enable", "Cancel"],
           },
-          true,
+          true
         );
         if (ret == 1) {
           // Cancel
@@ -490,7 +490,7 @@ export default {
       set(value) {
         let settingsUpdates = Object.assign(
           {},
-          this.$store.state.settings.updates,
+          this.$store.state.settings.updates
         );
         settingsUpdates.isBetaProgram = value;
 
