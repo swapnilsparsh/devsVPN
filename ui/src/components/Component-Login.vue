@@ -228,14 +228,27 @@ export default {
         //const accountInfoResponse = await sender.AccountInfo();
         //console.log("accountInfoResponse", accountInfoResponse);
 
-        if(resp.APIErrorMessage != ''){
+        if (resp.APIStatus === 426) {
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Failed to login",
+            detail: "We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
+          });
+        }else if(resp.APIStatus === 412){
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Failed to login",
+            detail: "We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
+          });
+        }else if (resp.APIErrorMessage != ''){
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
             detail: resp.APIErrorMessage,
           });
-
         }
 
         // this.isForceLogoutRequested = false;

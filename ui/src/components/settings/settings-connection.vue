@@ -12,7 +12,7 @@
     <div class="settingsBoldFont">VPN protocol:</div>
 
     <div>
-      <div class="settingsRadioBtn">
+      <!-- <div class="settingsRadioBtn">
         <input
           type="radio"
           id="openvpn"
@@ -22,7 +22,7 @@
           @click="onVpnChange"
         />
         <label class="defColor" for="openvpn">OpenVPN</label>
-      </div>
+      </div> -->
 
       <div class="settingsRadioBtn">
         <input
@@ -829,7 +829,7 @@ export default {
 
       t.setSeconds(
         t.getSeconds() +
-          this.$store.state.account.session.WgKeysRegenIntervalSec,
+          this.$store.state.account.session.WgKeysRegenIntervalSec
       );
 
       let now = new Date();
@@ -936,7 +936,7 @@ export default {
 
           // try to use currently selected port
           let curPort = ports.find(
-            (p) => p.port === this.port.port && p.type === this.port.type,
+            (p) => p.port === this.port.port && p.type === this.port.type
           );
           if (curPort) {
             if (curPort.type === PortTypeEnum.TCP)
@@ -946,11 +946,11 @@ export default {
           // get first port definition for each protocol
           if (!portsByProtoHash.tcp)
             portsByProtoHash.tcp = ports.find(
-              (p) => p.type === PortTypeEnum.TCP,
+              (p) => p.type === PortTypeEnum.TCP
             );
           if (!portsByProtoHash.udp)
             portsByProtoHash.udp = ports.find(
-              (p) => p.type === PortTypeEnum.UDP,
+              (p) => p.type === PortTypeEnum.UDP
             );
 
           if (portsByProtoHash.tcp || portsByProtoHash.udp) {
@@ -970,7 +970,7 @@ export default {
               : `${enumValueName(PortTypeEnum, p.type)} ${p.port}`,
           key: `${enumValueName(PortTypeEnum, p.type)} ${p.port}`,
           port: p,
-        }),
+        })
       );
       return ret;
     },
