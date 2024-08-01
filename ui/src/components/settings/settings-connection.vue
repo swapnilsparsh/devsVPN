@@ -9,10 +9,10 @@
 
     <div class="settingsTitle">CONNECTION SETTINGS</div>
 
-    <div class="settingsBoldFont">VPN protocol:</div>
+    <!-- <div class="settingsBoldFont">VPN protocol:</div> -->
 
-    <div>
-      <!-- <div class="settingsRadioBtn">
+    <!-- <div>
+      <div class="settingsRadioBtn">
         <input
           type="radio"
           id="openvpn"
@@ -22,7 +22,7 @@
           @click="onVpnChange"
         />
         <label class="defColor" for="openvpn">OpenVPN</label>
-      </div> -->
+      </div>
 
       <div class="settingsRadioBtn">
         <input
@@ -35,10 +35,10 @@
         />
         <label class="defColor" for="wireguard">Wireguard</label>
       </div>
-    </div>
+    </div> -->
 
     <!-- IPv6 -->
-    <div>
+    <!-- <div>
       <div class="param">
         <input
           type="checkbox"
@@ -62,7 +62,7 @@
           >Show servers without IPv6 support</label
         >
       </div>
-    </div>
+    </div> -->
 
     <!-- OpenVPN -->
     <div v-if="isOpenVPN">
@@ -253,7 +253,7 @@
 
     <!-- Wireguard -->
     <div v-show="!isOpenVPN">
-      <div class="settingsBoldFont">Wireguard configuration:</div>
+      <!-- <div class="settingsBoldFont">Wireguard configuration:</div>
 
       <div
         v-bind:class="{ disabled: prefferedPorts.length <= 1 }"
@@ -360,7 +360,7 @@
             </div>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <div v-if="IsAccountActive">
         <div class="settingsBoldFont">Wireguard key information:</div>
@@ -426,13 +426,13 @@
           </div>
         </ComponentDialog>
 
-        <button
+        <!-- <button
           class="settingsButton paramBlock"
           style="margin-top: 10px; height: 24px"
           v-on:click="onWgKeyRegenerate"
         >
           Regenerate
-        </button>
+        </button> -->
       </div>
     </div>
 

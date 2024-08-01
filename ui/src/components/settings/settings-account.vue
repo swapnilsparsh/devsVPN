@@ -67,7 +67,7 @@
           </div>
         </div>
 
-        <div ref="qrcode" class="qrcode"></div>
+        <!-- <div ref="qrcode" class="qrcode"></div> -->
       </div>
 
       <div v-if="$store?.state?.account?.session?.DeviceName">
@@ -187,7 +187,7 @@ export default {
 
     qr.addData(accId);
     qr.make();
-    this.$refs.qrcode.innerHTML = qr.createSvgTag(3, 10);
+    // this.$refs.qrcode.innerHTML = qr.createSvgTag(3, 10);
 
     this.accountStatusRequest();
     this.profileData();
