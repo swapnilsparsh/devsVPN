@@ -228,7 +228,7 @@ export default {
         //const accountInfoResponse = await sender.AccountInfo();
         //console.log("accountInfoResponse", accountInfoResponse);
 
-        if (resp.APIStatus === 429) {
+        if (resp.APIStatus === 426) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
