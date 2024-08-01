@@ -208,16 +208,16 @@ func enableDisableSplitTunnelIPv4(enableFullTunnel bool, wgEndpoint net.IP, resp
 		dstOld = defaultRoute.IP // ... then change from all-zeros default route destination
 
 		wgEndpointCIDR := fmt.Sprintf("%s/%d", wgEndpoint, addrSizesByIpFamily[AF_INET])
-		if _, wgEndpointIPNet, err := net.ParseCIDR(wgEndpointCIDR); err != nil {
+		_, wgEndpointIPNet, err := net.ParseCIDR(wgEndpointCIDR)
+		if err != nil {
 			responseChan <- log.ErrorE(fmt.Errorf("error in net.ParseCIDR(%s): %w", wgEndpointCIDR, err), 0)
 			return
-		} else { // if enabling split tunnel - we reset full tunnel (total shield) customized routes back to default routes
-			dstNew = wgEndpointIPNet // ... to allow only our Wireguard endpoint on the given route
 		}
+		dstNew = wgEndpointIPNet // ... to allow only our Wireguard endpoint through the given gateway
 
 		lastConfiguredEndpoints[AF_INET] = &wgEndpoint // save the last configured Wireguard VPN endpoint
-	} else {
-		dstOld = wgEndpoint   // ... then change from our Wireguard endpoint on the matching routes
+	} else { // if enabling split tunnel - we reset full tunnel (total shield) customized routes back to default routes
+		dstOld = wgEndpoint   // ... we change the destination on the given gateway from our Wireguard endpoint
 		dstNew = defaultRoute // ... back to all-zeros default route destination
 	}
 	if dstOld.Equal(dstNew.IP) {
