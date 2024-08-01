@@ -128,6 +128,11 @@ type Service interface {
 		rawResponse string,
 		err error)
 
+	ProfileData() (
+		apiCode int,
+		rawResponse *api_types.ProfileDataResponse,
+		err error)
+
 	AccountInfo() (apiCode int,
 		apiErrorMsg string,
 		accountStatus preferences.AccountStatus,
@@ -951,6 +956,47 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				APIErrorMessage: apiErrMsg,
 				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				Account:         accountInfo,
+				RawResponse:     rawResponse}
+		}
+
+		// send response
+		p.sendResponse(conn, &resp, reqCmd.Idx)
+
+		// notify all clients about changed session status
+		p.notifyClients(p.createHelloResponse())
+
+	case "ProfileData":
+
+		log.Info("Profile API Reached========================")
+		var req types.ProfileDataRequest
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			log.Info("Error in Unmarshal========================")
+			break
+		}
+
+		var resp types.ProfileDataResp
+		apiCode, rawResponse, err := p._service.ProfileData()
+		log.Info("Response for Profile data ============> ", rawResponse)
+
+		if err != nil {
+			if apiCode == 0 {
+				// if apiCode == 0 - it is not API error. Sending error response
+				err := fmt.Errorf("apiErrorMsg=: %w", err)
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			// sending API error info
+			resp = types.ProfileDataResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+			}
+		} else {
+			// Success. Sending session info
+			resp = types.ProfileDataResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				RawResponse:     rawResponse}
 		}
 

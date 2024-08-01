@@ -215,3 +215,30 @@ type DeviceListResponse struct {
 func (resp *DeviceListResponse) SetHttpStatusCode(newHttpStatusCode int) {
 	resp.HttpStatusCode = newHttpStatusCode
 }
+
+type ProfileDataResponse struct {
+	Message string `json:"message"`
+	Data    struct {
+		Id           int    `json:"id"`
+		UserType     string `json:"user_type"`
+		Name         string `json:"name"`
+		Phone        string `json:"phone"`
+		Email        string `json:"email"`
+		IsVerified   bool   `json:"isVerified"`
+		ProfilePhoto string `json:"profile"`
+		IsActive     bool   `json:"isActive"`
+		IsSuspended  bool   `json:"isSuspended"`
+		IsDeleted    bool   `json:"isDeleted"`
+		LastLogin    string `josn:"last_login"`
+		TempToken    string `json:"temp_token"`
+		Login        int    `json:"login"`
+		CreatedAt    string `json:"createdAt"`
+		UpdatedAt    string `json:"updatedAt"`
+	} `json:"data"`
+
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *ProfileDataResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
+}

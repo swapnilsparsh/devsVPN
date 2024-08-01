@@ -188,8 +188,25 @@ func CreateSessionResp(s preferences.SessionStatus) SessionResp {
 		WgUsePresharedKey:  len(s.WGPresharedKey) > 0}
 }
 
+type ProfileDataResp struct {
+	CommandBase
+	APIStatus       int
+	APIErrorMessage error
+	Session         SessionResp
+	RawResponse     *api_types.ProfileDataResponse
+}
+
 // SessionNewResp - information about created session (or error info)
 type SessionNewResp struct {
+	CommandBase
+	APIStatus       int
+	APIErrorMessage string
+	Session         SessionResp
+	Account         preferences.AccountStatus
+	RawResponse     string
+}
+
+type AccountInfo struct {
 	CommandBase
 	APIStatus       int
 	APIErrorMessage string

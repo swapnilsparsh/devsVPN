@@ -56,6 +56,7 @@ const (
 	_sessionStatusPath = "/session/status"
 	_sessionDeletePath = "/user/remove-device"
 	_deviceListPath    = "/user/device-list"
+	_profileDataPath   = "/user/profile"
 	_wgKeySetPath      = _apiPathPrefix + "/session/wg/set"
 	_geoLookupPath     = _apiPathPrefix + "/geo-lookup"
 )
@@ -465,6 +466,23 @@ func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, 
 		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
 	log.Debug(fmt.Sprintf("Device list fetched successfully: %#v", resp))
+	return resp, nil
+}
+
+func (a *API) ProfileData(session string) (
+	*types.ProfileDataResponse,
+	error,
+) {
+	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
+
+	resp := &types.ProfileDataResponse{}
+	if err := a.request(_apiHost, _profileDataPath, "GET", "application/json", request, resp); err != nil {
+		return nil, err
+	}
+	if resp.HttpStatusCode != types.CodeSuccess {
+		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
+	}
+	log.Debug(fmt.Sprintf("Profile Data fetched successfully: %#v", resp))
 	return resp, nil
 }
 
