@@ -242,6 +242,13 @@ export default {
             message: "Failed to login",
             detail: "We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
           });
+        }else if (resp.APIErrorMessage == 'Device limit of 5 reached'){
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Failed to login",
+            detail: resp.APIErrorMessage + ". You can remove the device from your privateLINE account and try again.",
+          });
         }else if (resp.APIErrorMessage != ''){
           sender.showMessageBoxSync({
             type: "error",
