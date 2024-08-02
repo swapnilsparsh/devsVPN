@@ -9,6 +9,9 @@
               minimizedButtonsPanelRightElements: isWindowHasFrame,
             }"
           >
+            <button v-on:click="onPrivateLine()" title="privateLINE">
+              <img src="@/assets/logo.png" style="width: 22px; height: 22px" />
+            </button>
             <button v-on:click="onAccountSettings()" title="Account settings">
               <img src="@/assets/user.svg" />
             </button>
@@ -112,6 +115,9 @@ export default {
   },
 
   methods: {
+    onPrivateLine: function () {
+      sender.shellOpenExternal(`https://privateline.io/`);
+    },
     onAccountSettings: function () {
       //if (this.$store.state.settings.minimizedUI)
       sender.ShowAccountSettings();
