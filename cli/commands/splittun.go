@@ -225,7 +225,6 @@ func (c *SplitTun) Init() {
 	// 	Note! The privateLINE AntiTracker and custom DNS are not functional when this feature is disabled.
 	// 	Note! This functionality only applies in Inverse Total Shield mode when the VPN is connected.`)
 
-	// TODO FIXME: Vlad - check on/off functionality here
 	c.BoolVar(&c.on, "off", false, "Disable Total Shield mode")
 
 	c.BoolVar(&c.off, "on", false, "Enable Total Shield mode: allow only traffic to privateLINE services, block traffic to the internet")
