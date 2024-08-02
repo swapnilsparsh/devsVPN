@@ -12,8 +12,8 @@
       </div>
 
       <div class="buttons">
-        <!-- <div class="buttonWithPopup" style="margin-right: 17px">
-          <transition name="fade">
+        <div class="buttonWithPopup" style="margin-right: 17px">
+          <!-- <transition name="fade">
             <div v-if="isCanPause || isCanResume">
               <button
                 v-if="isCanPause"
@@ -36,7 +36,7 @@
             </div>
           </transition> -->
 
-          <!-- Popup
+          <!-- Popup -->
           <div
             class="popup"
             v-bind:class="{
@@ -79,7 +79,7 @@
               </div>
             </div>
           </div>
-        </div> -->
+        </div>
 
         <div style="min-width: 50px; margin-left: auto; margin-right: 0">
           <SwitchProgress
