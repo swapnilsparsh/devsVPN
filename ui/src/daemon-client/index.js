@@ -935,6 +935,7 @@ async function Login(
     Command: daemonRequests.SessionNew,
     Email: email,
     Password: password,
+    StableDeviceID: false,
     // ForceLogin: force,
     // CaptchaID: captchaID,
     // Captcha: captcha,

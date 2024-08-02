@@ -226,8 +226,9 @@ type ResumeConnection struct {
 // IVPN client apps have to set force to true only when customer clicks Log all other clients button.
 type SessionNew struct {
 	RequestBase
-	Email    string
-	Password string
+	Email          string
+	Password       string
+	StableDeviceID bool
 	// AccountID  string
 	// ForceLogin bool
 
