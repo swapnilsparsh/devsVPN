@@ -15,7 +15,7 @@
             }}
           </div>
           <div style="min-height: 4px" />
-          <div class="flexRow">
+          <!-- <div class="flexRow">
             <serverNameControl
               class="serverName"
               style="max-width: 245px"
@@ -27,6 +27,22 @@
               :isRandomServer="isRandomServer"
               :isShowPingPicture="!(isFastestServer || isRandomServer)"
             />
+          </div> -->
+          <div class="flexRow">
+            <div class="serverName" style="max-width: 245px" >
+              PrivateLINE Network
+            </div>
+            <!-- <serverNameControl
+              class="serverName"
+              style="max-width: 245px"
+              SecondLineMaxWidth="245px"
+              :isLargeText="true"
+              :server="this.server"
+              :serverHostName="this.serverHostName"
+              :isFastestServer="isFastestServer"
+              :isRandomServer="isRandomServer"
+              :isShowPingPicture="!(isFastestServer || isRandomServer)"
+            /> -->
           </div>
         </div>
 

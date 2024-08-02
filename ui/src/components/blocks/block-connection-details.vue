@@ -56,13 +56,13 @@
     <!-- PROTOCOL -->
     <!-- <div class="horizontalLine" /> -->
 
-    <SelectButtonControl
+    <!-- <SelectButtonControl
       class="leftPanelBlock"
       :click="onShowPorts"
       v-bind:text="portProtocolText"
       description="Protocol/Port"
       title="Connection settings"
-    />
+    /> -->
 
     <!-- SPLIT TUNNEL -->
     <transition name="fade">

@@ -3,15 +3,27 @@
         <!-- Wireguard -->
         <div v-show="true" class="connectionDetailWrap">
             <div v-if="true">
-                <div class="settingsBoldFont">Wireguard key information:</div>
-
-                <spinner :loading="isProcessing" />
+                <!-- <div class="settingsBoldFont">Wireguard key information:</div> -->
+                <div style="height: 16px;"></div>
+                <!-- <spinner :loading="isProcessing" /> -->
+                <div class="flexRow paramBlockDetailedConfig">
+                    <div class="defColor paramName">Protocol:</div>
+                    <div class="detailedParamValue">
+                        {{ 'Wiregaurd' }}
+                    </div>
+                </div>
                 <div class="flexRow paramBlockDetailedConfig">
                     <div class="defColor paramName">Local IP Address:</div>
                     <div class="detailedParamValue">
                         {{ this.$store.state.account.session.WgLocalIP }}
                     </div>
                 </div>
+                <!-- <div class="flexRow paramBlockDetailedConfig">
+                    <div class="defColor paramName">Port:</div>
+                    <div class="detailedParamValue">
+                        {{ 'Port' }}
+                    </div>
+                </div> -->
                 <div class="flexRow paramBlockDetailedConfig">
                     <div class="defColor paramName">Public key:</div>
                     <div class="detailedParamValue">
@@ -24,19 +36,19 @@
                         {{ wgKeysGeneratedDateStr }}
                     </div>
                 </div>
-                <div class="flexRow paramBlockDetailedConfig">
+                <!-- <div class="flexRow paramBlockDetailedConfig">
                     <div class="defColor paramName">Scheduled rotation date:</div>
                     <div class="detailedParamValue">
                         {{ wgKeysWillBeRegeneratedStr }}
                     </div>
-                </div>
+                </div> -->
                 <div class="flexRow paramBlockDetailedConfig">
                     <div class="defColor paramName">Expiration date:</div>
                     <div class="detailedParamValue">
                         {{ wgKeysExpirationDateStr }}
                     </div>
                 </div>
-                <div class="flexRow paramBlockDetailedConfig">
+                <!-- <div class="flexRow paramBlockDetailedConfig">
                     <div class="defColor paramName">Quantum Resistance:</div>
                     <div class="detailedParamValue">
                         {{ wgQuantumResistanceStr }}
@@ -45,7 +57,7 @@
                         v-on:click="this.$refs.infoWgQuantumResistance.showModal()">
                         <img src="@/assets/question.svg" />
                     </button>
-                </div>
+                </div> -->
                 <ComponentDialog ref="infoWgQuantumResistance" header="Info">
                     <div>
                         <p>
@@ -216,13 +228,13 @@ div.detailedParamValue {
     user-select: text;
     letter-spacing: 0.1px;
     overflow-wrap: anywhere;
-    font-size: 10px;
+    font-size: 11px;
     padding: 2px 0px 2px 0px;
 }
 
 div.paramName {
-    min-width: 161px;
-    max-width: 161px;
-    font-size: 10px
+    min-width: 120px;
+    max-width:120px;
+    font-size: 11px
 }
 </style>
