@@ -13,7 +13,7 @@
 
       <div class="buttons">
         <div class="buttonWithPopup" style="margin-right: 17px">
-          <transition name="fade">
+          <!-- <transition name="fade">
             <div v-if="isCanPause || isCanResume">
               <button
                 v-if="isCanPause"
@@ -34,7 +34,7 @@
                 <img src="@/assets/resume.svg" style="margin-left: 2px" />
               </button>
             </div>
-          </transition>
+          </transition> -->
 
           <!-- Popup -->
           <div
