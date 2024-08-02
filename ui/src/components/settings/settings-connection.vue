@@ -1,17 +1,14 @@
 <template>
   <div>
     <ComponentDialog ref="addCustomPortDlg" noCloseButtons>
-      <ComponentAddCustomPort
-        style="margin: 0px"
-        :onClose="onCloseAddCustomPortDlg"
-      />
+      <ComponentAddCustomPort style="margin: 0px" :onClose="onCloseAddCustomPortDlg" />
     </ComponentDialog>
 
     <div class="settingsTitle">CONNECTION SETTINGS</div>
 
-    <div class="settingsBoldFont">VPN protocol:</div>
+    <!-- <div class="settingsBoldFont">VPN protocol:</div> -->
 
-    <div>
+    <!-- <div>
       <div class="settingsRadioBtn">
         <input
           type="radio"
@@ -35,10 +32,10 @@
         />
         <label class="defColor" for="wireguard">Wireguard</label>
       </div>
-    </div>
+    </div> -->
 
     <!-- IPv6 -->
-    <div>
+    <!-- <div>
       <div class="param">
         <input
           type="checkbox"
@@ -62,72 +59,41 @@
           >Show servers without IPv6 support</label
         >
       </div>
-    </div>
+    </div> -->
 
     <!-- OpenVPN -->
     <div v-if="isOpenVPN">
       <div class="settingsBoldFont">OpenVPN configuration:</div>
 
-      <div
-        class="flexRow paramBlock"
-        v-bind:class="{ disabled: prefferedPorts.length <= 1 }"
-      >
+      <div class="flexRow paramBlock" v-bind:class="{ disabled: prefferedPorts.length <= 1 }">
         <div class="defColor paramName">Preferred port:</div>
         <select v-model="port">
-          <option
-            v-for="item in prefferedPorts"
-            :value="item.port"
-            :key="item.key"
-          >
+          <option v-for="item in prefferedPorts" :value="item.port" :key="item.key">
             {{ item.text }}
           </option>
-          <option
-            v-if="isShowAddPortOption"
-            key="keyAddCustomPort"
-            value="valueAddCustomPort"
-          >
+          <option v-if="isShowAddPortOption" key="keyAddCustomPort" value="valueAddCustomPort">
             Add custom port ...
           </option>
         </select>
       </div>
 
       <div :title="tooltipOptionEditRequiresDisconnection">
-        <div
-          v-bind:class="{
-            disabled:
-              connectionUseObfsproxy || V2RayType !== 0 || !isDisconnected,
-          }"
-        >
+        <div v-bind:class="{
+          disabled:
+            connectionUseObfsproxy || V2RayType !== 0 || !isDisconnected,
+        }">
           <div class="flexRow paramBlock">
             <div class="defColor paramName">Network proxy:</div>
             <div class="settingsRadioBtnProxy">
-              <input
-                type="radio"
-                id="proxyNone"
-                name="proxy"
-                v-model="ovpnProxyType"
-                value=""
-              />
+              <input type="radio" id="proxyNone" name="proxy" v-model="ovpnProxyType" value="" />
               <label class="defColor" for="proxyNone">None</label>
             </div>
             <div class="settingsRadioBtnProxy">
-              <input
-                type="radio"
-                id="proxyHTTP"
-                name="proxy"
-                v-model="ovpnProxyType"
-                value="http"
-              />
+              <input type="radio" id="proxyHTTP" name="proxy" v-model="ovpnProxyType" value="http" />
               <label class="defColor" for="proxyHTTP">HTTP</label>
             </div>
             <div class="settingsRadioBtnProxy">
-              <input
-                type="radio"
-                id="proxySocks"
-                name="proxy"
-                v-model="ovpnProxyType"
-                value="socks"
-              />
+              <input type="radio" id="proxySocks" name="proxy" v-model="ovpnProxyType" value="socks" />
               <label class="defColor" for="proxySocks">Socks</label>
             </div>
           </div>
@@ -136,33 +102,19 @@
             <div class="flexRow">
               <div class="paramBlockText">
                 <div>Server:</div>
-                <input
-                  class="settingsTextInput proxyParam"
-                  placeholder="0.0.0.0"
-                  v-model="ovpnProxyServer"
-                />
+                <input class="settingsTextInput proxyParam" placeholder="0.0.0.0" v-model="ovpnProxyServer" />
               </div>
               <div class="paramBlockText">
                 <div>Port:</div>
-                <input
-                  class="settingsTextInput proxyParam"
-                  v-model="ovpnProxyPort"
-                />
+                <input class="settingsTextInput proxyParam" v-model="ovpnProxyPort" />
               </div>
               <div class="paramBlockText">
                 <div>Login:</div>
-                <input
-                  class="settingsTextInput proxyParam"
-                  v-model="ovpnProxyUser"
-                />
+                <input class="settingsTextInput proxyParam" v-model="ovpnProxyUser" />
               </div>
               <div class="paramBlockText">
                 <div>Password:</div>
-                <input
-                  type="password"
-                  class="settingsTextInput proxyParam"
-                  v-model="ovpnProxyPass"
-                />
+                <input type="password" class="settingsTextInput proxyParam" v-model="ovpnProxyPass" />
               </div>
             </div>
           </div>
@@ -180,21 +132,13 @@
             <div>
               <div class="flexRow">
                 <select v-model="obfuscationType">
-                  <option
-                    v-for="item in obfuscationTypes"
-                    :value="item"
-                    :key="item.text"
-                  >
+                  <option v-for="item in obfuscationTypes" :value="item" :key="item.text">
                     {{ item.text }}
                   </option>
                 </select>
 
-                <button
-                  style="pointer-events: auto"
-                  class="noBordersBtn flexRow"
-                  title="Help"
-                  v-on:click="onShowHelpObfsproxy"
-                >
+                <button style="pointer-events: auto" class="noBordersBtn flexRow" title="Help"
+                  v-on:click="onShowHelpObfsproxy">
                   <img src="@/assets/question.svg" />
                 </button>
               </div>
@@ -205,14 +149,8 @@
           </div>
 
           <div class="param" v-if="userDefinedOvpnFile">
-            <input
-              type="checkbox"
-              id="openvpnManualConfig"
-              v-model="openvpnManualConfig"
-            />
-            <label class="defColor" for="openvpnManualConfig"
-              >Add additional OpenVPN configuration parameters</label
-            >
+            <input type="checkbox" id="openvpnManualConfig" v-model="openvpnManualConfig" />
+            <label class="defColor" for="openvpnManualConfig">Add additional OpenVPN configuration parameters</label>
           </div>
 
           <div v-if="openvpnManualConfig && userDefinedOvpnFile">
@@ -222,11 +160,7 @@
                 adding parameters may affect the proper functioning and security
                 of the VPN tunnel
               </div>
-              <button
-                style="margin-top: 4px"
-                class="settingsButton"
-                v-on:click="onVPNConfigFileLocation"
-              >
+              <button style="margin-top: 4px" class="settingsButton" v-on:click="onVPNConfigFileLocation">
                 Open configuration file location ...
               </button>
               <!--
@@ -253,7 +187,7 @@
 
     <!-- Wireguard -->
     <div v-show="!isOpenVPN">
-      <div class="settingsBoldFont">Wireguard configuration:</div>
+      <!-- <div class="settingsBoldFont">Wireguard configuration:</div>
 
       <div
         v-bind:class="{ disabled: prefferedPorts.length <= 1 }"
@@ -360,18 +294,30 @@
             </div>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <div v-if="IsAccountActive">
         <div class="settingsBoldFont">Wireguard key information:</div>
 
         <spinner :loading="isProcessing" />
         <div class="flexRow paramBlockDetailedConfig">
+          <div class="defColor paramName">Protocol:</div>
+          <div class="detailedParamValue">
+            {{ 'Wiregaurd' }}
+          </div>
+        </div>
+        <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Local IP Address:</div>
           <div class="detailedParamValue">
             {{ this.$store.state.account.session.WgLocalIP }}
           </div>
         </div>
+        <!-- <div class="flexRow paramBlockDetailedConfig">
+          <div class="defColor paramName">Port:</div>
+          <div class="detailedParamValue">
+            {{ 'Port' }}
+          </div>
+        </div> -->
         <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Public key:</div>
           <div class="detailedParamValue">
@@ -384,19 +330,19 @@
             {{ wgKeysGeneratedDateStr }}
           </div>
         </div>
-        <div class="flexRow paramBlockDetailedConfig">
+        <!-- <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Scheduled rotation date:</div>
           <div class="detailedParamValue">
             {{ wgKeysWillBeRegeneratedStr }}
           </div>
-        </div>
+        </div> -->
         <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Expiration date:</div>
           <div class="detailedParamValue">
             {{ wgKeysExpirationDateStr }}
           </div>
         </div>
-        <div class="flexRow paramBlockDetailedConfig">
+        <!-- <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Quantum Resistance:</div>
           <div class="detailedParamValue">
             {{ wgQuantumResistanceStr }}
@@ -408,7 +354,7 @@
           >
             <img src="@/assets/question.svg" />
           </button>
-        </div>
+        </div> -->
         <ComponentDialog ref="infoWgQuantumResistance" header="Info">
           <div>
             <p>
@@ -426,13 +372,13 @@
           </div>
         </ComponentDialog>
 
-        <button
+        <!-- <button
           class="settingsButton paramBlock"
           style="margin-top: 10px; height: 24px"
           v-on:click="onWgKeyRegenerate"
         >
           Regenerate
-        </button>
+        </button> -->
       </div>
     </div>
 
@@ -829,7 +775,7 @@ export default {
 
       t.setSeconds(
         t.getSeconds() +
-          this.$store.state.account.session.WgKeysRegenIntervalSec,
+        this.$store.state.account.session.WgKeysRegenIntervalSec
       );
 
       let now = new Date();
@@ -936,7 +882,7 @@ export default {
 
           // try to use currently selected port
           let curPort = ports.find(
-            (p) => p.port === this.port.port && p.type === this.port.type,
+            (p) => p.port === this.port.port && p.type === this.port.type
           );
           if (curPort) {
             if (curPort.type === PortTypeEnum.TCP)
@@ -946,11 +892,11 @@ export default {
           // get first port definition for each protocol
           if (!portsByProtoHash.tcp)
             portsByProtoHash.tcp = ports.find(
-              (p) => p.type === PortTypeEnum.TCP,
+              (p) => p.type === PortTypeEnum.TCP
             );
           if (!portsByProtoHash.udp)
             portsByProtoHash.udp = ports.find(
-              (p) => p.type === PortTypeEnum.UDP,
+              (p) => p.type === PortTypeEnum.UDP
             );
 
           if (portsByProtoHash.tcp || portsByProtoHash.udp) {
@@ -970,7 +916,7 @@ export default {
               : `${enumValueName(PortTypeEnum, p.type)} ${p.port}`,
           key: `${enumValueName(PortTypeEnum, p.type)} ${p.port}`,
           port: p,
-        }),
+        })
       );
       return ret;
     },
@@ -1021,7 +967,8 @@ div.disabled {
 input:disabled {
   opacity: 0.5;
 }
-input:disabled + label {
+
+input:disabled+label {
   opacity: 0.5;
 }
 
@@ -1044,17 +991,21 @@ div.detailedConfigBlock {
   margin-left: 22px;
   max-width: 325px;
 }
+
 div.detailedConfigBlock input {
   width: 100%;
 }
+
 div.detailedConfigBlock select {
   width: 100%;
 }
+
 div.detailedConfigParamBlock {
   @extend .flexRow;
   margin-top: 10px;
   width: 100%;
 }
+
 div.detailedParamValue {
   opacity: 0.7;
 

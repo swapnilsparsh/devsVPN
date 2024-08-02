@@ -162,7 +162,7 @@
     >
       <!-- FASTEST & RANDOM SERVER -->
       <div v-if="isFavoritesView == false && isFastestServerConfig === false">
-        <div class="flexRow" v-if="!isMultihop">
+        <!-- <div class="flexRow" v-if="!isMultihop">
           <button
             class="serverSelectBtn flexRow"
             v-on:click="onFastestServerClicked()"
@@ -172,14 +172,14 @@
           <button class="noBordersBtn" v-on:click="onFastestServerConfig()">
             <img :src="settingsImage" />
           </button>
-        </div>
+        </div> -->
         <!-- RANDOM -->
-        <button
+        <!-- <button
           class="serverSelectBtn flexRow"
           v-on:click="onRandomServerClicked()"
         >
           <serverNameControl class="serverName" :isRandomServer="true" />
-        </button>
+        </button> -->
       </div>
 
       <!-- SERVERS LIST -->
