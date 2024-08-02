@@ -101,7 +101,7 @@ type DisabledFunctionalityForPlatform struct {
 
 // DisabledFunctionality Some functionality can be not accessible
 // It can happen, for example, if some external binaries not installed
-// (e.g. obfsproxy or WireGaurd on Linux)
+// (e.g. obfsproxy or Wireguard on Linux)
 type DisabledFunctionality struct {
 	WireGuardError          string // WireGuard is not supported on this platform
 	OpenVPNError            string // OpenVPN is not supported on this platform
