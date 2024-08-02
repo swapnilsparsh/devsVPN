@@ -1098,10 +1098,11 @@ async function GeoLookup() {
   store.commit("location", null);
   store.commit("locationIPv6", null);
 
+// TODO: Vlad - SplitTunnelControl disabled for MVP 1.0
   // IPv4 request...
-  doGeoLookup(_geoLookupLastRequestId);
+//  doGeoLookup(_geoLookupLastRequestId);
   // IPv6 request ...
-  doGeoLookup(_geoLookupLastRequestId, true);
+//  doGeoLookup(_geoLookupLastRequestId, true);
 }
 
 async function doGeoLookup(requestID, isIPv6, isRetryTry) {
@@ -1684,6 +1685,9 @@ async function SplitTunnelRemoveApp(Pid, Exec) {
 }
 
 async function GetInstalledApps() {
+  console.error("GetInstalledApps disabled for MVP 1.0");
+  return null;
+
   try {
     let extraArgsJson = "";
     if (Platform() == PlatformEnum.Windows) {

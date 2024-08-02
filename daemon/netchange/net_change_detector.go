@@ -157,7 +157,7 @@ func (d *Detector) Stop() error {
 // Must be called when routing change detected (called from platform-specific sources)
 // It notifies about routing change with delay 'd.DelayBeforeNotify()'. This reduces amount of multiple consecutive notifications
 func (d *Detector) routingChangeDetected() {
-	//log.Debug("net_change_detector.go routingChangeDetected()")
+	log.Debug("net_change_detector.go routingChangeDetected()")
 	d.timerNotifyAfterDelay.Reset(d.delayBeforeNotify)
 	go d.routingChangeCallback()
 }

@@ -762,23 +762,24 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 					case vpn.INITIALISED:
 						// start routing change detection
-						if netInterface, err := netinfo.InterfaceByIPAddr(state.ClientIP); err != nil {
-							log.Error(fmt.Sprintf("Unable to initialize routing change detection. Failed to get interface '%s'", state.ClientIP.String()))
+						// if netInterface, err := netinfo.InterfaceByIPAddr(state.ClientIP); err != nil {
+						// 	log.Error(fmt.Sprintf("Unable to initialize routing change detection. Failed to get interface '%s'", state.ClientIP.String()))
+						// } else {
+						//if err := s._netChangeDetector.Init(routingChangeChan, routingUpdateChan, netInterface, s.splitTunnelling_ApplyConfig); err != nil {
+						if err := s._netChangeDetector.Init(routingChangeChan, routingUpdateChan, nil, s.splitTunnelling_ApplyConfig); err != nil {
+							log.Error(fmt.Errorf("failed to init route change detection: %w", err))
+						}
+						if s._preferences.IsInverseSplitTunneling() {
+							// Inversed split-tunneling: disable monitoring of the default route to the VPN server.
+							// Note: the monitoring must be enabled as soon as the inverse split-tunneling is disabled!
+							log.Info("Disabled the monitoring of the default route to the VPN server due to Inverse Split-Tunnel")
 						} else {
-							if err := s._netChangeDetector.Init(routingChangeChan, routingUpdateChan, netInterface, s.splitTunnelling_ApplyConfig); err != nil {
-								log.Error(fmt.Errorf("failed to init route change detection: %w", err))
-							}
-							if s._preferences.IsInverseSplitTunneling() {
-								// Inversed split-tunneling: disable monitoring of the default route to the VPN server.
-								// Note: the monitoring must be enabled as soon as the inverse split-tunneling is disabled!
-								log.Info("Disabled the monitoring of the default route to the VPN server due to Inverse Split-Tunnel")
-							} else {
-								log.Info("Starting route change detection")
-								if err := s._netChangeDetector.Start(); err != nil {
-									log.Error(fmt.Errorf("failed to start route change detection: %w", err))
-								}
+							log.Info("Starting route change detection")
+							if err := s._netChangeDetector.Start(); err != nil {
+								log.Error(fmt.Errorf("failed to start route change detection: %w", err))
 							}
 						}
+						// }
 
 					case vpn.CONNECTED:
 						// since we are connected - keep connection (reconnect if unexpected disconnection)

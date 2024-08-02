@@ -349,8 +349,8 @@ function doUpdateTrayMenu() {
         id: EnumMenuId.Connect,
       });
     } else {
-      // PAUSE\RESUME
-      if (store.state.vpnState.connectionState === VpnStateEnum.CONNECTED) {
+      // PAUSE\RESUME - TODO: Vlad - disable pause/resume for MVP 1.0
+      /*if (store.state.vpnState.connectionState === VpnStateEnum.CONNECTED) {
         if (store.getters["vpnState/isPaused"]) {
           mainMenu.push({
             label: "Resume",
@@ -424,7 +424,7 @@ function doUpdateTrayMenu() {
             submenu: Menu.buildFromTemplate(pauseSubMenuTemplate),
           });
         }
-      }
+      }*/
       mainMenu.push({
         label: `Disconnect`,
         click: menuItemDisconnect,
@@ -442,39 +442,40 @@ function doUpdateTrayMenu() {
     mainMenu.push({ type: "separator" });
 
     // applications to start in Split Tunnel mode
-    if (Platform() === PlatformEnum.Linux) {
-      try {
-        if (fLaunchStApp && store.state.vpnState.splitTunnelling.IsEnabled) {
-          const appsSubMenuTemplate = [
-            {
-              label: "[ Custom application... ]",
-              click: () => {
-                fLaunchStApp(null);
-              },
-            },
-          ];
-          const apps = store.getters["settings/getAppsToSplitTunnel"];
-          if (apps) {
-            apps.forEach((app) => {
-              appsSubMenuTemplate.push({
-                label: app.AppName ? app.AppName : app.AppBinaryPath,
-                click: async () => {
-                  await fLaunchStApp(app.AppBinaryPath);
-                },
-              });
-            });
-          }
-          mainMenu.push({
-            label: "Split Tunnel: Launch application",
-            type: "submenu",
-            id: EnumMenuId.LaunchStApp,
-            submenu: Menu.buildFromTemplate(appsSubMenuTemplate),
-          });
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
+    // TODO: Vlad - disabling Split Tunnel apps for MVP 1.0
+    // if (Platform() === PlatformEnum.Linux) {
+    //   try {
+    //     if (fLaunchStApp && store.state.vpnState.splitTunnelling.IsEnabled) {
+    //       const appsSubMenuTemplate = [
+    //         {
+    //           label: "[ Custom application... ]",
+    //           click: () => {
+    //             fLaunchStApp(null);
+    //           },
+    //         },
+    //       ];
+    //       const apps = store.getters["settings/getAppsToSplitTunnel"];
+    //       if (apps) {
+    //         apps.forEach((app) => {
+    //           appsSubMenuTemplate.push({
+    //             label: app.AppName ? app.AppName : app.AppBinaryPath,
+    //             click: async () => {
+    //               await fLaunchStApp(app.AppBinaryPath);
+    //             },
+    //           });
+    //         });
+    //       }
+    //       mainMenu.push({
+    //         label: "Split Tunnel: Launch application",
+    //         type: "submenu",
+    //         id: EnumMenuId.LaunchStApp,
+    //         submenu: Menu.buildFromTemplate(appsSubMenuTemplate),
+    //       });
+    //     }
+    //   } catch (e) {
+    //     console.error(e);
+    //   }
+    // }
 
     mainMenu.push({ type: "separator" });
 

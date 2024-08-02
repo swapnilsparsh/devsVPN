@@ -222,7 +222,7 @@ func (p *Protocol) Stop() {
 	}
 }
 
-// Start - starts TCP interface to communicate with IVPN application (server to listen incoming connections)
+// Start - starts TCP interface to communicate with privateLINE application (server to listen incoming connections)
 func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Service) error {
 	if p._service != nil {
 		return errors.New("unable to start protocol communication. It is already initialized")

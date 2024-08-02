@@ -23,7 +23,7 @@
 #  along with the Daemon for privateLINE Connect Desktop. If not, see <https://www.gnu.org/licenses/>.
 #
 
-date "+%Y-%m-%d__%H-%M-%S_%Z" > /tmp/splittun_sh_ran.log
+echo -e "$(date "+%Y-%m-%d__%H-%M-%S_%Z)\t$@" >> /tmp/splittun_sh_ran.log
 
 # Split Tunneling cgroup parameters
 _cgroup_name=privateline-exclude

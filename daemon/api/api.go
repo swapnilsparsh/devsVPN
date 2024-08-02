@@ -543,6 +543,9 @@ func (a *API) WireGuardKeySet(session string, newPublicWgKey string, activePubli
 
 // GeoLookup gets geolocation
 func (a *API) GeoLookup(timeoutMs int, ipTypeRequired protocolTypes.RequiredIPProtocol) (location *types.GeoLookupResponse, rawData []byte, retErr error) {
+	// TODO: Vlad - disabled in MVP 1.0
+	return nil, []byte{}, nil
+
 	// There could be multiple Geolookup requests at the same time.
 	// It doesn't make sense to make multiple requests to the API.
 	// The internal function below reduces the number of similar API calls.

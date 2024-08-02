@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/netip"
 	"os"
 	"reflect"
 	"strconv"
@@ -346,7 +345,7 @@ func (s *Service) UnInitialise() error {
 
 // unInitialise - stop service on logout or daemon is going to stop
 // - disconnect VPN (if connected)
-// - disable Split Tunnel mode
+// - enable Split Tunnel mode
 // - etc. ...
 func (s *Service) unInitialise() error {
 	log.Info("Uninitialising service...")
@@ -373,7 +372,9 @@ func (s *Service) unInitialise() error {
 		log.Error(err)
 		updateRetErr(err)
 	}
-	if err := splittun.ApplyConfig(false, false, false, false, splittun.ConfigAddresses{}, []string{}); err != nil {
+	// Split tunnel enabled by default, out of the box
+	log.Debug("service.go unInitialise() calling splittun.ApplyConfig() with empty splittun.ConfigAddresses")
+	if err := splittun.ApplyConfig(true, false, false, false, splittun.ConfigAddresses{}, []string{}); err != nil {
 		log.Error(err)
 		updateRetErr(err)
 	}
@@ -1352,9 +1353,9 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 	}
 
 	if !prefs.Session.IsLoggedIn() {
-		// SplitTunnel not applicable when logged out.
-		// Sending "disabled" status
-		isEnabled = false
+		// Total Shield (full tunnel) not applicable when logged out
+		// Sending "enabled" status
+		isEnabled = true
 	}
 
 	ret := protocolTypes.SplitTunnelStatus{
@@ -1427,7 +1428,7 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 }
 func (s *Service) splitTunnelling_Reset() error {
 	prefs := s._preferences
-	prefs.IsSplitTunnel = true // Split tunnel config by default
+	prefs.IsSplitTunnel = true // Split tunnel enabled by default, out of the box
 	prefs.SplitTunnelInversed = false
 	prefs.SplitTunnelAnyDns = false
 	prefs.SplitTunnelAllowWhenNoVpn = false
@@ -1489,15 +1490,15 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	sInf := s.GetVpnSessionInfo()
 
 	var (
-		err          error
-		ipv4Endpoint netip.Addr
-		endpointIP   string
-		servers      *api_types.ServersInfoResponse
+		err                        error
+		ipv4Endpoint, ipv6Endpoint net.IP
+		endpointIP                 string
+		servers                    *api_types.ServersInfoResponse
 	)
 
 	if len(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) > 0 {
 		endpointIP = prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts[0].EndpointIP
-	} else {
+	} else { // if we didn't receive Wireguard .conf from the server yet (i.e. if the device is not registered, if we're logged out), then use endpoint from servers.conf
 		servers, err = s._serversUpdater.GetServers()
 		if err != nil {
 			return fmt.Errorf("error in GetServers(): %w", err)
@@ -1505,8 +1506,13 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 		endpointIP = servers.WireguardServers[0].Hosts[0].EndpointIP
 	}
 
-	if ipv4Endpoint, err = netip.ParseAddr(endpointIP); err != nil {
-		return fmt.Errorf("error netip.ParseAddr: %w", err)
+	if ipv4Endpoint = net.ParseIP(endpointIP); ipv4Endpoint == nil {
+		return fmt.Errorf("error net.ParseIP(%s)", endpointIP)
+	}
+
+	// TODO: Vlad - since we don't have any IPv6 endpoint for our Wireguard VPN, hardcoding a blackhole address here
+	if ipv6Endpoint = net.ParseIP(splittun.BlackHoleIPv6); ipv6Endpoint == nil {
+		return fmt.Errorf("error net.ParseIP(%s)", splittun.BlackHoleIPv6)
 	}
 
 	addressesCfg := splittun.ConfigAddresses{
@@ -1516,8 +1522,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 		IPv6Public: sInf.OutboundIPv6,
 
 		IPv4Endpoint: ipv4Endpoint,
-		// TODO: Vlad - since we don't have any IPv6 endpoint for our Wireguard VPN, hardcoding a blackhole address here
-		IPv6Endpoint: netip.MustParseAddr(splittun.BlackHoleIPv6),
+		IPv6Endpoint: ipv6Endpoint,
 	}
 
 	// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servrers or to manually defined server

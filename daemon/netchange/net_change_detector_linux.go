@@ -22,18 +22,73 @@
 
 package netchange
 
-// structure contains properties required for for macOS implementation
+import (
+	"fmt"
+	"sync"
+
+	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+)
+
+// structure contains properties required for for Linux implementation
 type osSpecificProperties struct {
+	stopChanMutex sync.Mutex // protects stopChan
+	stopChan      chan bool
+
+	routeUpdateChan        chan netlink.RouteUpdate
+	routeSubscribeDoneChan chan struct{}
 }
 
 func (d *Detector) isRoutingChanged() (bool, error) {
-	// TODO: not implemented
+	// Not implemented, we don't have a protected interface in MVP 1.0
 	return false, nil
 }
 
 func (d *Detector) doStart() {
-	// TODO: not implemented
+	log.Info("Route change detector started")
+
+	d.props.stopChanMutex.Lock()
+	d.props.stopChan = make(chan bool)
+	d.props.stopChanMutex.Unlock()
+
+	d.props.routeUpdateChan = make(chan netlink.RouteUpdate)
+	d.props.routeSubscribeDoneChan = make(chan struct{})
+
+	defer func() {
+		close(d.props.routeSubscribeDoneChan) // this will also close routeUpdateChan
+		d.props.routeSubscribeDoneChan = nil
+		d.props.routeUpdateChan = nil
+
+		d.props.stopChanMutex.Lock()
+		close(d.props.stopChan)
+		d.props.stopChan = nil
+		d.props.stopChanMutex.Unlock()
+
+		log.Info("Route change detector stopped")
+	}()
+
+	if err := netlink.RouteSubscribe(d.props.routeUpdateChan, d.props.routeSubscribeDoneChan); err != nil {
+		log.Error(fmt.Errorf("error netlink.RouteSubscribe(): %w", err))
+		return
+	}
+
+	for {
+		select {
+		case <-d.props.stopChan:
+			return
+		case routeUpdate := <-d.props.routeUpdateChan: // handle only new routes with nil or 0.0.0.0 destinations
+			if routeUpdate.Type == unix.RTM_NEWROUTE && (routeUpdate.Dst == nil || splittun.DefaultRoutesByIpFamily[splittun.AF_INET].IP.Equal(routeUpdate.Dst.IP)) {
+				d.routingChangeDetected()
+			}
+		}
+	}
 }
 
 func (d *Detector) doStop() {
+	d.props.stopChanMutex.Lock()
+	if d.props.stopChan != nil {
+		d.props.stopChan <- true
+	}
+	d.props.stopChanMutex.Unlock()
 }

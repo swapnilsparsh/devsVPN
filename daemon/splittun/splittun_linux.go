@@ -27,24 +27,32 @@ package splittun
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
+	"sync"
 
-	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers/linux/netlink"
+	"github.com/vishvananda/netlink"
+
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
 
 var (
+	mutexSplittunLin sync.Mutex
+
 	// error describing details if functionality not available
 	funcNotAvailableError        error
 	inverseModeNotAvailableError error
 	stScriptPath                 string
-	isActive                     bool
+	sysctlPath                   string = "/sbin/sysctl"
+	fullTunnelEnabled            bool   = false
+
+	// map from INET type (IPv4 or IPv6) to default routes (all zeroes)
+	DefaultRoutesByIpFamily = map[uint16]*net.IPNet{}
 )
 
 // Information about added running process to the ST (by implAddPid())
@@ -70,36 +78,50 @@ func implInitialize() error {
 
 	// Hardcoded text for detection of inverse mode not available error
 	const inverseModeErrorDetectionText = "Warning: Inverse mode for IVPN Split Tunnel functionality is not applicable."
+	inverseModeNotAvailableError = fmt.Errorf("%s", inverseModeErrorDetectionText)
 	// check if ST functionality accessible
-	outProcessFunc := func(text string, isError bool) {
-		if strings.HasPrefix(text, inverseModeErrorDetectionText) {
-			text = strings.TrimSpace(strings.TrimPrefix(text, "Warning: "))
-			inverseModeNotAvailableError = fmt.Errorf("%s", text)
-			log.Warning(text)
-			return
-		}
-		if isError {
-			log.Error("Split Tunnel test: " + text)
-		} else {
-			log.Info("Split Tunnel test: " + text)
-		}
+	// outProcessFunc := func(text string, isError bool) {
+	// 	if strings.HasPrefix(text, inverseModeErrorDetectionText) {
+	// 		text = strings.TrimSpace(strings.TrimPrefix(text, "Warning: "))
+	// 		inverseModeNotAvailableError = fmt.Errorf("%s", text)
+	// 		log.Warning(text)
+	// 		return
+	// 	}
+	// 	if isError {
+	// 		log.Error("Split Tunnel test: " + text)
+	// 	} else {
+	// 		log.Info("Split Tunnel test: " + text)
+	// 	}
+	// }
+	// err := shell.ExecAndProcessOutput(nil, outProcessFunc, "", stScriptPath, "test")
+	// if err != nil {
+	// 	funcNotAvailableError = err
+	// }
+
+	// Ensure that ST is enabled on daemon startup?
+	// if err := implApplyConfig(true, false, false, false, ConfigAddresses{}, []string{}); err != nil {
+	// 	log.Error(fmt.Errorf("error implApplyConfig() on startup: %w", err))
+	// }
+
+	if _, defaultRouteIPv4IPNet, err := net.ParseCIDR(defaultRouteIPv4); err != nil {
+		return log.ErrorE(fmt.Errorf("error net.ParseCIDR(%s): %w", defaultRouteIPv4, err), 0)
+	} else {
+		DefaultRoutesByIpFamily[AF_INET] = defaultRouteIPv4IPNet
 	}
-	err := shell.ExecAndProcessOutput(nil, outProcessFunc, "", stScriptPath, "test")
-	if err != nil {
-		funcNotAvailableError = err
+	if _, defaultRouteIPv6IPNet, err := net.ParseCIDR(defaultRouteIPv6); err != nil {
+		return log.ErrorE(fmt.Errorf("error net.ParseCIDR(%s): %w", defaultRouteIPv6, err), 0)
+	} else {
+		DefaultRoutesByIpFamily[AF_INET6] = defaultRouteIPv6IPNet
 	}
 
-	// Ensure that ST is enabled on daemon startup
-	enable(true, false, false, false, false)
-
-	// Register network change detector
-	//
+	// Register network change detector - we're using net_change_detector_linux now
+	/*//
 	// The OS is erasing routing rules for ST each time when main network interface disappears
 	// (for example, when reconnecting WiFi)
 	// Therefore, we must monitor changes in network configuration and update ST routing rules.
 	if funcNotAvailableError == nil {
 		onNetChange := make(chan struct{}, 1)
-		if err := netlink.RegisterLanChangeListener(onNetChange); err != nil {
+		if err := netlink_oshelper.RegisterLanChangeListener(onNetChange); err != nil {
 			return err
 		}
 		// Wait for network chnages in sepatate routine
@@ -107,22 +129,20 @@ func implInitialize() error {
 			var timerDelay *time.Timer
 			for {
 				<-onNetChange
-				if isActive {
-					if timerDelay != nil {
-						timerDelay.Stop()
-					}
-					// We can receive many 'lan change' events in a short period of time
-					// but we update routes not more often than once per 2 seconds.
-					timerDelay = time.AfterFunc(time.Second*2, func() {
-						err := shell.Exec(nil, stScriptPath, "update-routes")
-						if err != nil {
-							log.Error("failed to update routes for SplitTunneling functionality")
-						}
-					})
+				if timerDelay != nil {
+					timerDelay.Stop()
 				}
+				// We can receive many 'lan change' events in a short period of time
+				// but we update routes not more often than once per 2 seconds.
+				timerDelay = time.AfterFunc(time.Second*2, func() {
+					//err := shell.Exec(nil, stScriptPath, "update-routes")
+					// if err != nil {
+					// 	log.Error("failed to update routes for SplitTunneling functionality")
+					// }
+				})
 			}
 		}()
-	}
+	}*/
 
 	return funcNotAvailableError
 }
@@ -132,19 +152,20 @@ func implFuncNotAvailableError() (generalStError, inversedStError error) {
 }
 
 func implReset() error {
-	log.Info("Removing all PIDs")
+	// Vlad: parent Reset() call is disabled for now
+	return nil
 
-	return shell.Exec(nil, stScriptPath, "reset")
+	// log.Info("Removing all PIDs")
+	// return shell.Exec(nil, stScriptPath, "reset")
 }
 
+/*
 func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
-	// Vlad: block IPv6 unconditionally for now
-	vpnNoIPv6 := true
-	// // If VPN does not support IPv6 - block IPv6 connectivity for 'splitted' apps in inverse mode
-	//vpnNoIPv6 := false
-	//if isVpnEnabled && len(addrConfig.IPv6Tunnel) == 0 {
-	//	vpnNoIPv6 = true
-	//}
+	// If VPN does not support IPv6 - block IPv6 connectivity for 'splitted' apps in inverse mode
+	vpnNoIPv6 := false
+	if isVpnEnabled && len(addrConfig.IPv6Tunnel) == 0 {
+		vpnNoIPv6 = true
+	}
 
 	err := enable(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled, vpnNoIPv6)
 	if err != nil {
@@ -152,8 +173,108 @@ func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpn
 	}
 	return err
 }
+*/
+
+func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+	mutexSplittunLin.Lock()
+	defer mutexSplittunLin.Unlock()
+
+	fullTunnelEnabled = isVpnEnabled && !isStEnabled
+
+	ipv4RespChan := make(chan error)
+	go enableDisableSplitTunnelIPv4(fullTunnelEnabled, addrConfig.IPv4Endpoint, ipv4RespChan)
+	ipv6RespChan := make(chan error)
+	go enableDisableSplitTunnelIPv6(fullTunnelEnabled, ipv6RespChan)
+
+	err4 := <-ipv4RespChan
+	err6 := <-ipv6RespChan
+
+	if err4 != nil {
+		return err4
+	} else {
+		return err6
+	}
+}
+
+func enableDisableSplitTunnelIPv4(enableFullTunnel bool, wgEndpoint net.IP, responseChan chan<- error) {
+	var (
+		dstOld net.IP
+		dstNew *net.IPNet
+	)
+
+	defaultRoute := DefaultRoutesByIpFamily[AF_INET]
+
+	if enableFullTunnel { // if enabling full tunnel (total shield)
+		dstOld = defaultRoute.IP // ... then change from all-zeros default route destination
+
+		wgEndpointCIDR := fmt.Sprintf("%s/%d", wgEndpoint, addrSizesByIpFamily[AF_INET])
+		_, wgEndpointIPNet, err := net.ParseCIDR(wgEndpointCIDR)
+		if err != nil {
+			responseChan <- log.ErrorE(fmt.Errorf("error in net.ParseCIDR(%s): %w", wgEndpointCIDR, err), 0)
+			return
+		}
+		dstNew = wgEndpointIPNet // ... to allow only our Wireguard endpoint through the given gateway
+
+		lastConfiguredEndpoints[AF_INET] = &wgEndpoint // save the last configured Wireguard VPN endpoint
+	} else { // if enabling split tunnel - we reset full tunnel (total shield) customized routes back to default routes
+		dstOld = wgEndpoint   // ... we change the destination on the given gateway from our Wireguard endpoint
+		dstNew = defaultRoute // ... back to all-zeros default route destination
+	}
+	if dstOld.Equal(dstNew.IP) {
+		responseChan <- log.ErrorE(fmt.Errorf("unexpected condition: dstOld == dstNew.IP == %s", dstOld), 0)
+		return
+	}
+
+	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
+	if err != nil {
+		responseChan <- log.ErrorE(fmt.Errorf("netlink.RouteList failed: %w", err), 0)
+		return
+	}
+
+	for _, routeOld := range routes {
+		if (routeOld.Dst == nil && dstOld.Equal(defaultRoute.IP)) || (routeOld.Dst != nil && dstOld.Equal(routeOld.Dst.IP)) {
+			routeNew := routeOld
+			if err := netlink.RouteDel(&routeOld); err != nil {
+				responseChan <- log.ErrorE(fmt.Errorf("error in netlink.RouteDel(). routeOld=%#v. Error=%w", routeOld, err), 0)
+				return
+			}
+			routeNew.Dst = dstNew
+			if err := netlink.RouteAdd(&routeNew); err != nil {
+				log.Warning(fmt.Errorf("netlink.RouteAdd() failed, duplicate route already exists - skipping route creation. routeNew=%#v. Error=%w", routeNew, err), 0)
+			}
+		}
+	}
+
+	responseChan <- nil
+}
+
+func enableDisableSplitTunnelIPv6(enableFullTunnel bool, responseChan chan<- error) {
+	var disableIPv6 string
+	if enableFullTunnel {
+		disableIPv6 = "=1"
+	} else {
+		disableIPv6 = "=0"
+	}
+
+	for _, argPfx := range []string{"net.ipv6.conf.all.disable_ipv6", "net.ipv6.conf.default.disable_ipv6"} {
+		arg := argPfx + disableIPv6
+		_, outErrText, _, _, err := shell.ExecAndGetOutput(log, 1024, "", sysctlPath, "-w", arg)
+		if err != nil {
+			if len(outErrText) > 0 {
+				err = fmt.Errorf("(%w) %s", err, outErrText)
+			}
+			responseChan <- log.ErrorE(fmt.Errorf("enableDisableSplitTunnelIPv6(enableFullTunnel=%t) failed: arg='%s';. Error=%w", enableFullTunnel, arg, err), 0)
+			return
+		}
+	}
+
+	responseChan <- nil
+}
 
 func implAddPid(pid int, commandToExecute string) error {
+	// Vlad - disabled
+	return nil
+
 	if pid <= 0 {
 		return fmt.Errorf("PID is not defined")
 	}
@@ -175,6 +296,9 @@ func implAddPid(pid int, commandToExecute string) error {
 }
 
 func implRemovePid(pid int) error {
+	// Vlad - disabled
+	return nil
+
 	if pid <= 0 {
 		return fmt.Errorf("PID is not defined")
 	}
@@ -215,6 +339,9 @@ func implRemovePid(pid int) error {
 }
 
 func implGetRunningApps() (allProcesses []RunningApp, err error) {
+	// Vlad - disabled
+	return []RunningApp{}, nil
+
 	// https://man7.org/linux/man-pages/man5/proc.5.html
 
 	// read all PIDs which are active in ST environment
@@ -270,7 +397,7 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 			}
 		}
 		cmdline := string(cmdlineBytes)
-		// TODO: do not forget update prefixes to trim in case if IVPN CLI arguments change name ('exclude' or 'splittun -execute')
+		// TODO: do not forget update prefixes to trim in case if privateLINE CLI arguments change name ('exclude' or 'splittun -execute')
 		cmdline = strings.TrimPrefix(cmdline, "/usr/bin/ivpn exclude ")
 		cmdline = strings.TrimPrefix(cmdline, "/usr/bin/ivpn splittun -execute ")
 		cmdline = strings.TrimPrefix(cmdline, "ivpn exclude ")
@@ -368,13 +495,16 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 }
 
 func isEnabled() (bool, error) {
-	err := shell.Exec(nil, stScriptPath, "status")
-	if err != nil {
-		return false, nil
-	}
-	return true, nil
+	return !fullTunnelEnabled, nil
+
+	// err := shell.Exec(nil, stScriptPath, "status")
+	// if err != nil {
+	// 	return false, nil
+	// }
+	// return true, nil
 }
 
+/*
 func enable(isEnable, isStInversed, isStInverseAllowWhenNoVpn, isVpnConnected, vpnNoIPv6 bool) error {
 	if !isEnable {
 		enabled, err := isEnabled()
@@ -416,6 +546,7 @@ func enable(isEnable, isStInversed, isStInverseAllowWhenNoVpn, isVpnConnected, v
 
 	return nil
 }
+*/
 
 func getRootPid(p RunningApp, allPids map[int]RunningApp) (rootPid int, isKnownRoot bool) {
 	if _, ok := _addedRootProcesses[p.Ppid]; ok {
