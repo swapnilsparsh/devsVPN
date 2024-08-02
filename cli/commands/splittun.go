@@ -141,7 +141,7 @@ func doAddApp(args []string, eaaPass string, isHashedPass bool) error {
 		return fmt.Errorf("the Total Shield functionality is not available")
 	}
 
-	if cfg.IsSplitTunnelEnabled {
+	if cfg.IsEnabled {
 		fmt.Println("Total Shield not enabled")
 		PrintTips([]TipType{TipSplittunEnable})
 		return fmt.Errorf("unable to start command: Total Shield is not enabled")
@@ -275,7 +275,7 @@ func (c *SplitTun) Run() error {
 	}
 
 	if c.reset {
-		cfg.IsSplitTunnelEnabled = false
+		cfg.IsEnabled = true
 		cfg.SplitTunnelApps = make([]string, 0)
 
 		if err = _proto.SetSplitTunnelConfig(false, false, false, false, true); err != nil {
@@ -289,7 +289,7 @@ func (c *SplitTun) Run() error {
 	}
 
 	if c.on || c.off || c.onInverse || c.offInverse || len(c.dnsFirewall) > 0 || len(c.noVpnConnectivity) > 0 {
-		isEnabled := c.on || c.onInverse || cfg.IsSplitTunnelEnabled
+		isEnabled := c.on || c.onInverse || cfg.IsEnabled
 		isInverse := c.onInverse || cfg.IsInversed
 		isAnyDns := !dnsFirewall
 
@@ -331,13 +331,13 @@ func (c *SplitTun) Run() error {
 }
 
 func (c *SplitTun) doShowStatus(cfg types.SplitTunnelStatus, isFull bool) error {
-	w := printSplitTunState(nil, false, isFull, cfg.IsSplitTunnelEnabled, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
+	w := printSplitTunState(nil, false, isFull, cfg.IsEnabled, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
 	w.Flush()
 	return nil
 }
 
 func (c *SplitTun) doShowStatusShort(cfg types.SplitTunnelStatus) error {
-	w := printSplitTunState(nil, true, false, cfg.IsSplitTunnelEnabled, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
+	w := printSplitTunState(nil, true, false, cfg.IsEnabled, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
 	w.Flush()
 	return nil
 }

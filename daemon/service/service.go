@@ -1362,7 +1362,7 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 
 	ret := protocolTypes.SplitTunnelStatus{
 		IsFunctionalityNotAvailable: stErr != nil,
-		IsSplitTunnelEnabled:        isEnabled,
+		IsEnabled:                   isEnabled,
 		IsInversed:                  isInversed,
 		IsAnyDns:                    isAnyDns,
 		IsAllowWhenNoVpn:            isAllowWhenNoVpn,
