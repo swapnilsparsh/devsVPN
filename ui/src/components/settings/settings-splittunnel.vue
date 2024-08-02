@@ -335,7 +335,7 @@ export default {
 
   data: function () {
     return {
-      isSTEnabledLocal: false,
+      isSTEnabledLocal: true,
       stInversedLocal: false,
       stAnyDnsLocal: false,
       stBlockNonVpnDnsLocal: true,
