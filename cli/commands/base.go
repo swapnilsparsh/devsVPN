@@ -155,6 +155,8 @@ func printFirewallState(w *tabwriter.Writer, isEnabled, isPersistent, isAllowLAN
 		extraFwInfo = " (!)"
 	}
 	fmt.Fprintf(w, "Firewall\t:\t%v%s\n", fwState, extraFwInfo)
+	fmt.Fprintf(w, "    Allow internet\t:\t%v\n", isAllowLAN)
+
 	fmt.Fprintf(w, "    Allow LAN\t:\t%v\n", isAllowLAN)
 	if isPersistent {
 		fmt.Fprintf(w, "    Persistent\t:\t%v\n", isPersistent)
@@ -167,7 +169,7 @@ func printFirewallState(w *tabwriter.Writer, isEnabled, isPersistent, isAllowLAN
 	return w
 }
 
-func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isEnabled, isInversed, isAnyDns, isAllowWhenNoVpn bool, apps []string, runningApps []splittun.RunningApp) *tabwriter.Writer {
+func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isSplitTunEnabled, isInversed, isAnyDns, isAllowWhenNoVpn bool, apps []string, runningApps []splittun.RunningApp) *tabwriter.Writer {
 	if w == nil {
 		w = tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	}
@@ -176,11 +178,21 @@ func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isEnable
 		return w
 	}
 
-	state := "Disabled"
+	vpnState, connected, err := _proto.GetVPNState()
+	if err != nil {
+		_ = fmt.Errorf("error in _proto.GetVPNState(): %w", err)
+		return w
+	}
+
+	// whether the routing table changes for Total Shield are actually in effect
+	vpnActive := vpnState == vpn.CONNECTED && !connected.IsPaused
+	totalShieldEffectivelyEnabled := !isSplitTunEnabled && vpnActive
+
+	state := "Enabled"
 	dnsFw := ""
 	allowDefConnectivity := ""
-	if isEnabled {
-		state = "Enabled"
+	if isSplitTunEnabled {
+		state = "Disabled"
 		if isInversed {
 			state += " (INVERSE MODE)"
 
@@ -197,18 +209,34 @@ func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isEnable
 		}
 	}
 
-	fmt.Fprintf(w, "Split Tunnel\t:\t%v\n", state)
+	fmt.Fprintf(w, "Total Shield\t:\t%v\n", state)
 	if len(dnsFw) > 0 {
-		fmt.Fprintf(w, "    Non-IVPN DNS\t:\t%v\n", dnsFw)
+		fmt.Fprintf(w, "    Non-privateLINE DNS\t:\t%v\n", dnsFw)
 	}
 	if len(allowDefConnectivity) > 0 {
 		fmt.Fprintf(w, "    No-VPN connectivity\t:\t%v\n", allowDefConnectivity)
 	}
 
+	// if !isSplitTunEnabled {
+	var canAccessInternet, canAccessPLServers string
+	if totalShieldEffectivelyEnabled {
+		canAccessInternet = "no"
+	} else {
+		canAccessInternet = "yes"
+	}
+	fmt.Fprintf(w, "    Can access internet\t:\t%s\n", canAccessInternet)
+	// fmt.Fprintf(w, "    Can access LAN\t:\t%v\n", true)
+	if vpnActive {
+		canAccessPLServers = "yes"
+	} else {
+		canAccessPLServers = "no"
+	}
+	fmt.Fprintf(w, "    Can access PL servers\t:\t%s\n", canAccessPLServers)
+
 	if !isShortPrint {
 		for i, path := range apps {
 			if i == 0 {
-				fmt.Fprintf(w, "Split Tunnel apps\t:\t%v\n", path)
+				fmt.Fprintf(w, "Total Shield apps\t:\t%v\n", path)
 			} else {
 				fmt.Fprintf(w, "\t\t%v\n", path)
 			}

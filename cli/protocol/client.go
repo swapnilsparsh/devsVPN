@@ -168,12 +168,12 @@ func (c *Client) GetHelloResponse() types.HelloResp {
 }
 
 // SessionNew creates new session
-func (c *Client) SessionNew(email string, password string) (resp types.SessionNewResp, err error) {
+func (c *Client) SessionNew(email string, password string, stableDeviceID bool) (resp types.SessionNewResp, err error) {
 	if err := c.ensureConnected(); err != nil {
 		return resp, err
 	}
 
-	req := types.SessionNew{Email: email, Password: password}
+	req := types.SessionNew{Email: email, Password: password, StableDeviceID: stableDeviceID}
 
 	if err := c.sendRecv(&req, &resp); err != nil {
 		return resp, err
@@ -424,7 +424,7 @@ func (c *Client) SplitTunnelAddApp(execCmd string) (isRequiredToExecuteCommand b
 
 	var respEmpty types.EmptyResp
 	var respAppCmdResp types.SplitTunnelAddAppCmdResp
-	if val, ok := os.LookupEnv("IVPN_STARTED_BY_PARENT"); !ok || val != "IVPN_UI" {
+	if val, ok := os.LookupEnv("PRIVATELINE_STARTED_BY_PARENT"); !ok || val != "PRIVATELINE_UI" {
 		// If the CLI was started by IVPN UI - skip sending 'SplitTunnelAddApp'
 		// It is already done by IVPN UI
 

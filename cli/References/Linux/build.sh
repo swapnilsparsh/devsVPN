@@ -273,7 +273,7 @@ echo '---------------------------'
 #	echo -e "RPM package...\t(compression settings: '${RPM_COMPRESSION_ARGS}')"
 #	CreatePackage "rpm" "${RPM_COMPRESSION_ARGS}"
 #else
-	echo -e "RPM package...\t\033[0;93mTODO:\033[0m Disabling .rpm compile for now, until we start shipping .rpm - this cuts Linux build time in half"
+	echo -e "RPM package...\t\033[0;93mTODO:\033[0m Disabled .rpm compile for now, until we start shipping .rpm - this cuts Linux build time in half"
 #fi
 
 echo '---------------------------'

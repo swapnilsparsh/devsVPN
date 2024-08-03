@@ -48,7 +48,7 @@ func (c *Exclude) Init() {
 	// register special parse function (for -execute)
 	c.SetParseSpecialFunc(c.specialParse)
 
-	c.Initialize("exclude", "Run command in Split Tunnel environment\n(exclude it's traffic from the VPN tunnel)\nIt is short version of 'ivpn splittun -appadd <command>'\nExamples:\n    ivpn exclude firefox\n    ivpn exclude ping 1.1.1.1\n    ivpn exclude /usr/bin/google-chrome")
+	c.Initialize("exclude", "Run command in Total Shield environment\n(exclude it's traffic from the VPN tunnel)\nIt is short version of '"+cliplatform.CliExeName+" totshld -appadd <command>'\nExamples:\n    "+cliplatform.CliExeName+" exclude firefox\n    "+cliplatform.CliExeName+" exclude ping 1.1.1.1\n    "+cliplatform.CliExeName+" exclude /usr/bin/google-chrome")
 	c.DefaultStringVar(&c.execute, "COMMAND")
 	c.StringVar(&c.eaaPassword, "eaa", "", "PASSWORD", "(optional) Enhanced App Authentication password\nPlease, refer to 'eaa' command for details ('ivpn eaa -h')\nExample:\n    ivpn exclude -eaa 'my_password' firefox")
 
@@ -138,22 +138,22 @@ func doAddApp(args []string, eaaPass string, isHashedPass bool) error {
 	}
 
 	if cfg.IsFunctionalityNotAvailable {
-		return fmt.Errorf("the Split Tunneling functionality not available")
+		return fmt.Errorf("the Total Shield functionality is not available")
 	}
 
-	if !cfg.IsEnabled {
-		fmt.Println("Split Tunneling not enabled")
+	if cfg.IsEnabled {
+		fmt.Println("Total Shield not enabled")
 		PrintTips([]TipType{TipSplittunEnable})
-		return fmt.Errorf("unable to start command: Split Tunneling not enabled")
+		return fmt.Errorf("unable to start command: Total Shield is not enabled")
 	}
 
 	pid := os.Getpid()
 	// Set unique environment var for the process.
 	// All child processes will use the same var. It will help us to distinguish processes which belongs to specific command
-	if err := os.Setenv("IVPN_STARTED_ST_ID", strconv.Itoa(pid)); err != nil {
+	if err := os.Setenv("PRIVATELINE_STARTED_ST_ID", strconv.Itoa(pid)); err != nil {
 		return fmt.Errorf("failed to start command (unable to set environment variable): %w", err)
 	}
-	fmt.Printf("Running command in Split Tunneling environment (pid:%d): %v\n", os.Getpid(), strings.Trim(fmt.Sprint(args), "[]"))
+	fmt.Printf("Running command in Total Shield environment (pid:%d): %v\n", os.Getpid(), strings.Trim(fmt.Sprint(args), "[]"))
 	return syscall.Exec(binary, args, os.Environ())
 }
 
@@ -176,10 +176,10 @@ type SplitTun struct {
 }
 
 const (
-	cmd_name_on_inverse          = "inverse_on"
-	cmd_name_off_inverse         = "inverse_off"
-	cmd_name_dns_firewall        = "inverse_restrict_dns"
-	cmd_name_no_vpn_connectivity = "inverse_allow_default_connection"
+// cmd_name_on_inverse          = "inverse_on"
+// cmd_name_off_inverse         = "inverse_off"
+// cmd_name_dns_firewall        = "inverse_restrict_dns"
+// cmd_name_no_vpn_connectivity = "inverse_allow_default_connection"
 )
 
 func (c *SplitTun) Init() {
@@ -187,47 +187,47 @@ func (c *SplitTun) Init() {
 	// register special parse function for '-appadd' (parsing appaddArgs)
 	c.SetParseSpecialFunc(c.specialParse)
 
-	c.Initialize("splittun", "Split Tunnel management\nThis feature allows you to either exclude specific applications' traffic from the VPN tunnel\nor restrict VPN usage to only specified apps.")
+	// c.Initialize("totshld", "Total Shield management\nThis feature allows you to either exclude specific applications' traffic from the VPN tunnel\nor restrict VPN usage to only specified apps.")
+	c.Initialize("totshld", "Total Shield management\nThis feature allows you to block connectivity to the internet and allow connectivity only to privateLINE services.")
 
-	c.BoolVar(&c.status, "status", false, "(default) Show Split Tunnel status and configuration")
+	c.BoolVar(&c.status, "status", false, "(default) Show Total Shield status and configuration")
 
 	if !cliplatform.IsSplitTunRunsApp() {
 		// Windows
-		c.BoolVar(&c.reset, "clean", false, "Erase configuration (remove applications from configuration and disable Split Tunnel)")
-		c.StringVar(&c.appadd, "appadd", "", "PATH", "Add application to configuration (use full path to binary)")
-		c.StringVar(&c.appremove, "appremove", "", "PATH", "Delete application from configuration (use full path to binary)")
+		c.BoolVar(&c.reset, "clean", false, "Erase configuration (remove applications from configuration and disable Total Shield)")
+		// c.StringVar(&c.appadd, "appadd", "", "PATH", "Add application to configuration (use full path to binary)")
+		// c.StringVar(&c.appremove, "appremove", "", "PATH", "Delete application from configuration (use full path to binary)")
 	} else {
 		// Linux
-		c.BoolVar(&c.statusFull, "status_full", false, "(extended status info) Show detailed Split Tunnel status")
-		c.BoolVar(&c.reset, "clean", false, "Erase configuration (remove applications from configuration and disable Split Tunnel)")
-		c.StringVar(&c.appadd, "appadd", "", "COMMAND", "Execute command (binary) in Split Tunnel environment\nInfo: short version of this command is 'ivpn exclude <command>'\nExamples:\n    ivpn splittun -appadd firefox\n    ivpn splittun -appadd ping 1.1.1.1\n    ivpn splittun -appadd /usr/bin/google-chrome")
-		c.StringVar(&c.appremove, "appremove", "", "PID", "Remove application from Split Tunnel environment\n(argument: Process ID)")
+		c.BoolVar(&c.statusFull, "status_full", false, "(extended status info) Show detailed Total Shield status")
+		c.BoolVar(&c.reset, "clean", false, "Erase configuration (remove applications from configuration and disable Total Shield)")
+		// c.StringVar(&c.appadd, "appadd", "", "COMMAND", "Execute command (binary) in Total Shield environment\nInfo: short version of this command is 'ivpn exclude <command>'\nExamples:\n    ivpn totshld -appadd firefox\n    ivpn totshld -appadd ping 1.1.1.1\n    ivpn totshld -appadd /usr/bin/google-chrome")
+		// c.StringVar(&c.appremove, "appremove", "", "PID", "Remove application from Total Shield environment\n(argument: Process ID)")
 	}
 
-	c.BoolVar(&c.onInverse, cmd_name_on_inverse, false,
-		`Enable inverse mode. Only specified applications utilize the VPN connection,
-		while all other traffic circumvents the VPN, using the default connection.`)
-	c.BoolVar(&c.offInverse, cmd_name_off_inverse, false, `Disable inverse mode`)
+	// c.BoolVar(&c.onInverse, cmd_name_on_inverse, false,
+	// 	`Enable inverse mode. Only specified applications utilize the VPN connection,
+	// 	while all other traffic circumvents the VPN, using the default connection.`)
+	// c.BoolVar(&c.offInverse, cmd_name_off_inverse, false, `Disable inverse mode`)
 
-	c.StringVar(&c.noVpnConnectivity, cmd_name_no_vpn_connectivity, "", "[on/off]",
-		`Enabling this feature allows applications within the Split Tunnel environment 
-		to utilize the default network connection when the VPN is disabled,
-		mirroring the behavior of applications outside the Split Tunnel environment.
-		By default, this feature is turned off, and applications within	the Split Tunnel environment
-		won't have access to the default network interface when the VPN is disabled.
-		Note! This functionality only applies in Inverse Split Tunnel mode`)
+	// c.StringVar(&c.noVpnConnectivity, cmd_name_no_vpn_connectivity, "", "[on/off]",
+	// 	`Enabling this feature allows applications within the Total Shield environment
+	// 	to utilize the default network connection when the VPN is disabled,
+	// 	mirroring the behavior of applications outside the Total Shield environment.
+	// 	By default, this feature is turned off, and applications within	the Total Shield environment
+	// 	won't have access to the default network interface when the VPN is disabled.
+	// 	Note! This functionality only applies in Inverse Total Shield mode`)
 
-	c.StringVar(&c.dnsFirewall, cmd_name_dns_firewall, "", "[on/off]",
-		`When this option is enabled, only DNS requests directed to IVPN DNS servers
-		or user-defined custom DNS servers within the IVPN appsettings will be allowed.
-		All other DNS requests on port 53 will be blocked.
-		Note! The IVPN AntiTracker and custom DNS are not functional when this feature is disabled.
-		Note! This functionality only applies in Inverse Split Tunnel mode when the VPN is connected.`)
+	// c.StringVar(&c.dnsFirewall, cmd_name_dns_firewall, "", "[on/off]",
+	// 	`When this option is enabled, only DNS requests directed to privateLINE DNS servers
+	// 	or user-defined custom DNS servers within the privateLINE appsettings will be allowed.
+	// 	All other DNS requests on port 53 will be blocked.
+	// 	Note! The privateLINE AntiTracker and custom DNS are not functional when this feature is disabled.
+	// 	Note! This functionality only applies in Inverse Total Shield mode when the VPN is connected.`)
 
-	c.BoolVar(&c.on, "on", false, "Enable: exclude traffic from specific applications from being routed trough the VPN")
+	c.BoolVar(&c.on, "off", false, "Disable Total Shield mode")
 
-	c.BoolVar(&c.off, "off", false, "Disable Split Tunnel mode")
-
+	c.BoolVar(&c.off, "on", false, "Enable Total Shield mode: allow only traffic to privateLINE services, block traffic to the internet")
 }
 
 func (c *SplitTun) Run() error {
@@ -249,9 +249,9 @@ func (c *SplitTun) Run() error {
 
 	dnsFirewall := !cfg.IsAnyDns
 	if len(c.dnsFirewall) > 0 {
-		if !c.onInverse {
-			return flags.BadParameter{Message: fmt.Sprintf("the '-%s' option is only applicable with '-%s' (Inverse Split Tunnel mode)", cmd_name_dns_firewall, cmd_name_on_inverse)}
-		}
+		// if !c.onInverse {
+		// 	return flags.BadParameter{Message: fmt.Sprintf("the '-%s' option is only applicable with '-%s' (Inverse Split Tunnel mode)", cmd_name_dns_firewall, cmd_name_on_inverse)}
+		// }
 		dnsFirewall, err = helpers.BoolParameterParse(c.dnsFirewall) // [on/off]
 		if err != nil {
 			return err
@@ -260,9 +260,9 @@ func (c *SplitTun) Run() error {
 
 	isAllowWhenNoVpn := cfg.IsAllowWhenNoVpn
 	if len(c.noVpnConnectivity) > 0 {
-		if !c.onInverse {
-			return flags.BadParameter{Message: fmt.Sprintf("the '-%s' option is only applicable with '-%s' (Inverse Split Tunnel mode)", cmd_name_no_vpn_connectivity, cmd_name_on_inverse)}
-		}
+		// if !c.onInverse {
+		// 	return flags.BadParameter{Message: fmt.Sprintf("the '-%s' option is only applicable with '-%s' (Inverse Split Tunnel mode)", cmd_name_no_vpn_connectivity, cmd_name_on_inverse)}
+		// }
 		isAllowWhenNoVpn, err = helpers.BoolParameterParse(c.noVpnConnectivity) // [on/off]
 		if err != nil {
 			return err
@@ -270,11 +270,11 @@ func (c *SplitTun) Run() error {
 	}
 
 	if cfg.IsFunctionalityNotAvailable {
-		return fmt.Errorf("the Split Tunneling functionality not available")
+		return fmt.Errorf("the Total Shield functionality not available")
 	}
 
 	if c.reset {
-		cfg.IsEnabled = false
+		cfg.IsEnabled = true
 		cfg.SplitTunnelApps = make([]string, 0)
 
 		if err = _proto.SetSplitTunnelConfig(false, false, false, false, true); err != nil {
