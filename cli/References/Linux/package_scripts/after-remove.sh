@@ -98,6 +98,9 @@ fi
 #  rm -rf $PRIVATELINE_DIR || echo "[-] Removing '$PRIVATELINE_DIR' folder failed"
 #fi
 
+echo "[+] Removing CLI symlink /usr/bin/pcc"
+rm -f /usr/bin/pcc
+
 echo "[+] Removing mutable data ..."
 PRIVATELINE_TMP="/etc/opt/privateline-connect"
 rm -rf $PRIVATELINE_TMP
