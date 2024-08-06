@@ -30,13 +30,13 @@
         >
           Other
         </button>
-        <button
+        <!-- <button
           v-on:click="onTabSelected('userComment')"
           class="selectableButtonOff"
           v-bind:class="{ selectableButtonOn: activeTabName == 'userComment' }"
         >
           User comment
-        </button>
+        </button> -->
         <button
           style="cursor: auto; flex-grow: 1"
           class="selectableButtonSeparator"
@@ -84,15 +84,16 @@
       </div>
       <div class="flexRow" style="margin-top: 20px">
         <div style="flex-grow: 1" />
-        <button class="slave btn" v-on:click="onCancel">Cancel</button>
+        <!-- <button class="slave btn" v-on:click="onCancel">Cancel</button> -->
+        <button class="slave btn" v-on:click="onCancel">Back</button>
         <div style="width: 10px" />
-        <button
+        <!-- <button
           class="master btn"
           :class="{ btnDisabled: !isLoggingEnabled }"
           v-on:click="onSendLogs"
         >
           Send logs
-        </button>
+        </button> -->
       </div>
     </div>
   </body>
