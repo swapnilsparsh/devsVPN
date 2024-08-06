@@ -23,6 +23,7 @@
 <script>
 
 const sender = window.ipcSender;
+let timerBackgroundCheckOfStatus = 0;
 
 import { Platform, PlatformEnum } from "@/platform/platform";
 

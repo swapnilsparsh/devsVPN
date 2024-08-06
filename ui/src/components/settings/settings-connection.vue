@@ -485,9 +485,9 @@ export default {
       openvpnManualConfig: false,
     };
   },
-  mounted() {
-    SetInputFilterNumbers(this.$refs.mtuInput);
-  },
+  // mounted() {
+  //   SetInputFilterNumbers(this.$refs.mtuInput);
+  // },
   watch: {
     // If port was changed in conneted state - reconnect
     async port(newValue, oldValue) {
