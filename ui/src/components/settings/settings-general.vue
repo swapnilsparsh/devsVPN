@@ -122,8 +122,8 @@
       </div>
     </div> -->
 
-    <div class="settingsBoldFont">Autoconnect:</div>
-    <div class="param">
+    <!-- <div class="settingsBoldFont">Autoconnect:</div> -->
+    <!-- <div class="param">
       <input
         type="checkbox"
         id="connectOnLaunch"
@@ -131,9 +131,9 @@
         v-model="isAutoconnectOnLaunch"
       />
       <label class="defColor" for="connectOnLaunch">On launch</label>
-    </div>
+    </div> -->
 
-    <div
+    <!-- <div
       class="param"
       :title="
         isParanoidMode
@@ -169,7 +169,7 @@
           </p>
         </div>
       </ComponentDialog>
-    </div>
+    </div> -->
 
     <div class="settingsBoldFont">On exit:</div>
     <div class="param">
