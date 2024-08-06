@@ -5,7 +5,7 @@
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <RemoveDriver>True</RemoveDriver>
     <InstallMode>HardwareId</InstallMode>
-    <HardwareIdString>Root\ivpn-split-tunnel</HardwareIdString>
+    <HardwareIdString>Root\privateline-split-tunnel</HardwareIdString>
     <CommandLine />
     <ScriptPath>C:\Program Files (x86)\Windows Kits\10\Testing\Tests\Utilities\DefaultDriverPackageInstallationTask.dll</ScriptPath>
     <DbgengRemoteMachineName>SSD VM WIN10 192.168.1.186</DbgengRemoteMachineName>

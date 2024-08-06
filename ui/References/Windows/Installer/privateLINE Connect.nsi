@@ -33,7 +33,7 @@ ${StrLoc}
 !define DEVCON_BASENAME "devcon.exe"
 ;  Vlad - disabled installation/uninstallation of TAP driver for now
 ;!define PRODUCT_TAP_WIN_COMPONENT_ID "tapivpn"
-;!define DRIVER_SPLIT_TUNNEL_ID "root\ivpn-split-tunnel"
+;!define DRIVER_SPLIT_TUNNEL_ID "root\privateline-split-tunnel"
 
 ; The following variables will be set from the build.bat script
 ; !define PRODUCT_VERSION "2.0-b4"
@@ -456,7 +456,7 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
       ${EndIf}
 
       DetailPrint "Split-Tunnel Driver $R1 (${DRIVER_SPLIT_TUNNEL_ID}) (May require confirmation)"
-      nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" $R1 "$INSTDIR\SplitTunnelDriver\$BitDir\ivpn-split-tunnel.inf" ${DRIVER_SPLIT_TUNNEL_ID}'
+      nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" $R1 "$INSTDIR\SplitTunnelDriver\$BitDir\privateline-split-tunnel.inf" ${DRIVER_SPLIT_TUNNEL_ID}'
       Pop $R0 # return value/error/timeout
 
       IntOp $R5 $R5 | $R0

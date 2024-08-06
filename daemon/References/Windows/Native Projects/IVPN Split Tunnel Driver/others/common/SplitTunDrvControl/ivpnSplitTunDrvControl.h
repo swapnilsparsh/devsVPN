@@ -14,8 +14,8 @@
 #include <tlhelp32.h>
 #include <format>
 
-#include "../../../ivpn-split-tunnel/Public.h"
-#include "../../../ivpn-split-tunnel/QueueIoctlProtocol/Types.h"
+#include "../../../privateline-split-tunnel/Public.h"
+#include "../../../privateline-split-tunnel/QueueIoctlProtocol/Types.h"
 
 namespace splittun 
 {

@@ -166,7 +166,7 @@ void doConfigSetSplitApp()
 
 int main()
 {
-	std::wcout << L"Test console for ivpn-split-tunnel driver" << std::endl;
+	std::wcout << L"Test console for privateline-split-tunnel driver" << std::endl;
 	splittun::RegisterLoggingCallback(Log);
 
 	for (;;)
