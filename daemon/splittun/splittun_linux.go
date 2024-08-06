@@ -435,7 +435,7 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 		if value.ExtIvpnRootPid == 0 {
 			// Could happen a situations when we can not to determine to which command the process belongs.
 			// It occurs when ppid->pid->... sequence not ending by any element from '_addedRootProcesses'.
-			// In such situations, we are trying to read environment variable 'IVPN_STARTED_ST_ID' of that process,
+			// In such situations, we are trying to read environment variable 'PRIVATELINE_STARTED_ST_ID' of that process,
 			// it contains the PID of the initial (root) process.
 			// The IVPN CLI sets this variable for each process it starting in ST environment.
 			pidEnv, err := readProcEnvVarIvpnId(value.Pid)
@@ -446,7 +446,7 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 					value.ExtIvpnRootPid = pidEnv
 				} else {
 					// For the situations when the root process id not exist anymore -
-					// mark as root a process with minimum PID which has correspond value of IVPN_STARTED_ST_ID
+					// mark as root a process with minimum PID which has correspond value of PRIVATELINE_STARTED_ST_ID
 					// Here we are looking for a minimal PID.
 					if minPid, ok := detachedProcessesMinPid[pidEnv]; ok {
 						if minPid > pid {
@@ -463,7 +463,7 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 	}
 
 	// For the situations when the root process id not exist anymore -
-	// mark as root a process with minimum PID which has correspond value of IVPN_STARTED_ST_ID
+	// mark as root a process with minimum PID which has correspond value of PRIVATELINE_STARTED_ST_ID
 	for rootPidEnv, pid := range detachedProcessesMinPid {
 		if diedRootCmd, ok := diedRootPids[rootPidEnv]; ok {
 			proc := retMapAll[pid]
@@ -600,7 +600,7 @@ func readProcEnvVarIvpnId(pid int) (int, error) {
 		if len(cols) != 2 {
 			continue
 		}
-		if cols[0] == "IVPN_STARTED_ST_ID" {
+		if cols[0] == "PRIVATELINE_STARTED_ST_ID" {
 			return strconv.Atoi(cols[1])
 		}
 	}

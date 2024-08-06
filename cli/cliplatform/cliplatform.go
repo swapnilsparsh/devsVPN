@@ -24,6 +24,8 @@ package cliplatform
 
 import "runtime"
 
+const CliExeName string = "privateline-connect-cli"
+
 func IsSplitTunSupported() bool {
 	return runtime.GOOS == "windows" || runtime.GOOS == "linux"
 }

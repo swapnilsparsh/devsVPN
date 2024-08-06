@@ -82,7 +82,7 @@ type SplitTunnelGetStatus struct {
 type SplitTunnelStatus struct {
 	CommandBase
 
-	IsEnabled        bool // is ST enabled
+	IsEnabled        bool // is Split Tunnel enabled
 	IsInversed       bool // Inverse Split Tunnel (only 'splitted' apps use VPN tunnel)
 	IsAnyDns         bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
 	IsAllowWhenNoVpn bool // (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled

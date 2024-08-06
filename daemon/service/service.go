@@ -23,8 +23,10 @@
 package service
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"net"
 	"os"
 	"reflect"
@@ -1614,7 +1616,7 @@ func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountI
 }
 
 // SessionNew creates new session
-func (s *Service) SessionNew(email string, password string) (
+func (s *Service) SessionNew(email string, password string, stableDeviceID bool) (
 	apiCode int,
 	apiErrorMsg string,
 	accountInfo preferences.AccountStatus,
@@ -1691,6 +1693,8 @@ func (s *Service) SessionNew(email string, password string) (
 		errorLimitResp        *api_types.SessionNewErrorLimitResponse
 		apiErr                *api_types.APIErrorResponse
 		connectDevSuccessResp *api_types.ConnectDeviceResponse
+
+		deviceID string
 	)
 
 	for {
@@ -1754,10 +1758,23 @@ func (s *Service) SessionNew(email string, password string) (
 		break
 	}
 
-	// generate the stable (anonymized) device ID, and device name based on it
-	deviceID, err := helpers.StableMachineID()
-	if err != nil {
-		return 0, "", accountInfo, rawResponse, fmt.Errorf("failed to generate machine ID: %w", err)
+	if stableDeviceID { // generate the stable (anonymized) device ID, and device name based on it
+		if deviceID, err = helpers.StableMachineID(); err != nil {
+			return 0, "", accountInfo, rawResponse, fmt.Errorf("failed to generate stable machine ID: %w", err)
+		}
+	} else { // generate a random device ID
+		// Max random value, a 80-bits integer, i.e 2^80 - 1
+		max := new(big.Int)
+		max.Exp(big.NewInt(2), big.NewInt(80), nil).Sub(max, big.NewInt(1))
+
+		// Generate a cryptographically strong pseudo-random between 0 - max
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			return 0, "", accountInfo, rawResponse, fmt.Errorf("failed to generate random machine ID: %w", err)
+		}
+
+		// String representation of n in base 16
+		deviceID = n.Text(16)
 	}
 	deviceName := "PL Connect - " + deviceID[:8]
 

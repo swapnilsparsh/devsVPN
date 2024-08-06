@@ -231,7 +231,7 @@ CreatePackage()
   #   [*] Before remove (3.3.30 : rpm : 0)
   #   [*] After remove (3.3.30 : rpm : 0)
 
-  fpm -d openvpn -d iptables -d resolvconf $EXTRA_ARGS \
+  fpm -d openvpn -d iptables -d "resolvconf | systemd-resolved | openresolv" $EXTRA_ARGS \
     --rpm-rpmbuild-define "_build_id_links none" \
     --deb-no-default-config-files -s dir -t $PKG_TYPE -n privateline -v $VERSION --url https://www.privateline.io --license "GNU GPL3" \
     --template-scripts --template-value pkg=$PKG_TYPE --template-value version=$VERSION \
@@ -273,7 +273,7 @@ echo '---------------------------'
 #	echo -e "RPM package...\t(compression settings: '${RPM_COMPRESSION_ARGS}')"
 #	CreatePackage "rpm" "${RPM_COMPRESSION_ARGS}"
 #else
-	echo -e "RPM package...\t\033[0;93mTODO:\033[0m Disabling .rpm compile for now, until we start shipping .rpm - this cuts Linux build time in half"
+	echo -e "RPM package...\t\033[0;93mTODO:\033[0m Disabled .rpm compile for now, until we start shipping .rpm - this cuts Linux build time in half"
 #fi
 
 echo '---------------------------'

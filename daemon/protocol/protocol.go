@@ -121,7 +121,7 @@ type Service interface {
 	IsPaused() bool
 	PausedTill() time.Time
 
-	SessionNew(email string, password string) (
+	SessionNew(email string, password string, stableDeviceID bool) (
 		apiCode int,
 		apiErrorMsg string,
 		accountInfo preferences.AccountStatus,
@@ -935,7 +935,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		// }
 
 		var resp types.SessionNewResp
-		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.Email, req.Password)
+		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.Email, req.Password, req.StableDeviceID)
 		if err != nil {
 			if apiCode == 0 {
 				// if apiCode == 0 - it is not API error. Sending error response

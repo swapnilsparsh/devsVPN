@@ -935,6 +935,7 @@ async function Login(
     Command: daemonRequests.SessionNew,
     Email: email,
     Password: password,
+    StableDeviceID: false,
     // ForceLogin: force,
     // CaptchaID: captchaID,
     // Captcha: captcha,
@@ -1638,7 +1639,7 @@ async function SplitTunnelAddApp(execCmd, funcShowMessageBox) {
           XDG_CURRENT_DESKTOP: XDG_CURRENT_DESKTOP,
           // Inform CLI that it started by the UI
           // The CLI will skip sending 'SplitTunnelAddApp' in this case
-          IVPN_STARTED_BY_PARENT: "IVPN_UI",
+          PRIVATELINE_STARTED_BY_PARENT: "PRIVATELINE_UI",
         },
       });
       //-------------------
@@ -1650,7 +1651,7 @@ async function SplitTunnelAddApp(execCmd, funcShowMessageBox) {
       //    XDG_CURRENT_DESKTOP: XDG_CURRENT_DESKTOP,
       //    // Inform CLI that it started by the UI
       //    // The CLI will skip sending 'SplitTunnelAddApp' in this case
-      //    IVPN_STARTED_BY_PARENT: "IVPN_UI",
+      //    PRIVATELINE_STARTED_BY_PARENT: "PRIVATELINE_UI",
       //  },
       //});
       //// do not exit child process when parent application stops

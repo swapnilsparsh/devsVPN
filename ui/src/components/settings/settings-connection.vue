@@ -303,7 +303,7 @@
         <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Protocol:</div>
           <div class="detailedParamValue">
-            {{ 'Wiregaurd' }}
+            {{ 'Wireguard' }}
           </div>
         </div>
         <div class="flexRow paramBlockDetailedConfig">
