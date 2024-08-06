@@ -60,19 +60,21 @@ type CmdLogin struct {
 	flags.CmdInfo
 	email          string
 	stableDeviceID bool
+	deviceName     string
 }
 
 func (c *CmdLogin) Init() {
 	c.Initialize("login", "Login operation (register account on this device)")
-	c.DefaultStringVar(&c.email, "Email")
+	c.DefaultStringVar(&c.email, "<account email>")
+	c.StringVar(&c.deviceName, "device_name", "", "<device name>", "Optionally specify device name")
 	c.BoolVar(&c.stableDeviceID, "stable_device_id", false, "Generate the device ID as a stable, yet privacy-preserving identifier. By default device ID is generated randomly.")
 }
 
 func (c *CmdLogin) Run() error {
-	return doLogin(c.email, c.stableDeviceID)
+	return doLogin(c.email, c.deviceName, c.stableDeviceID)
 }
 
-func doLogin(email string, stableDeviceID bool) error {
+func doLogin(email string, deviceName string, stableDeviceID bool) error {
 	// checking if we are logged-in
 	_proto.SessionStatus() // do not check error response (could be received 'not logged in' errors)
 	helloResp := _proto.GetHelloResponse()
@@ -91,7 +93,7 @@ func doLogin(email string, stableDeviceID bool) error {
 	}
 	password := string(data)
 
-	resp, err := _proto.SessionNew(email, password, stableDeviceID)
+	resp, err := _proto.SessionNew(email, password, deviceName, stableDeviceID)
 	if err != nil {
 		// if resp.APIStatus == types.The2FARequired {
 		// 	fmt.Println("Account has two-factor authentication enabled.")

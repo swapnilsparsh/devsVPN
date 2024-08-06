@@ -228,6 +228,7 @@ type SessionNew struct {
 	RequestBase
 	Email          string
 	Password       string
+	DeviceName     string
 	StableDeviceID bool
 	// AccountID  string
 	// ForceLogin bool

@@ -1616,7 +1616,7 @@ func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountI
 }
 
 // SessionNew creates new session
-func (s *Service) SessionNew(email string, password string, stableDeviceID bool) (
+func (s *Service) SessionNew(email string, password string, deviceName string, stableDeviceID bool) (
 	apiCode int,
 	apiErrorMsg string,
 	accountInfo preferences.AccountStatus,
@@ -1776,7 +1776,9 @@ func (s *Service) SessionNew(email string, password string, stableDeviceID bool)
 		// String representation of n in base 16
 		deviceID = n.Text(16)
 	}
-	deviceName := "PL Connect - " + deviceID[:8]
+	if deviceName == "" { // if no device name specified, use an auto-generated one
+		deviceName = "PL Connect - " + deviceID[:8]
+	}
 
 	// now do the Connect Device API call
 	connectDevSuccessResp, apiErr, rawResponse, err = s._api.ConnectDevice(deviceID, deviceName, publicKey, sessionNewSuccessResp.Data.Token)
