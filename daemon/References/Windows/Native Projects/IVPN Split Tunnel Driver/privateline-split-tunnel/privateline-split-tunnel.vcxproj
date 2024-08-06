@@ -74,7 +74,7 @@
     <ClInclude Include="WFP\Keys.h" />
   </ItemGroup>
   <ItemGroup>
-    <Inf Include="ivpn-split-tunnel.inf" />
+    <Inf Include="privateline-split-tunnel.inf" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{61881C75-E3C8-4485-9532-D313E8069239}</ProjectGuid>

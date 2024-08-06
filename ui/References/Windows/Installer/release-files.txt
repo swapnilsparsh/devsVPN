@@ -10,4 +10,4 @@ devcon\x86_64\devcon.exe
 etc\dnscrypt-proxy-template.toml
 WireGuard\x86_64\wg.exe
 WireGuard\x86_64\wireguard.exe
-SplitTunnelDriver\x86_64\ivpn-split-tunnel.sys
+SplitTunnelDriver\x86_64\privateline-split-tunnel.sys

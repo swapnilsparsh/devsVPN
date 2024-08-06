@@ -1,0 +1,87 @@
+;
+; privateline-split-tunnel.inf
+;
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=WFPCALLOUTS
+ClassGuid={DD5F555B-D00E-413D-B10E-7A5DE3470540} 
+Provider=%ManufacturerName%
+CatalogFile=privateline-split-tunnel.cat
+PnpLockdown=1
+DriverVer= ; TODO: set DriverVer in stampinf property pages
+
+[DestinationDirs]
+DefaultDestDir = 12
+privateline-split-tunnel_Device_CoInstaller_CopyFiles = 11
+
+; ================= Class section =====================
+
+[ClassInstall32]
+Addreg=SampleClassReg
+
+[SampleClassReg]
+HKR,,,0,%ClassName%
+HKR,,Icon,,-5
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+privateline-split-tunnel.sys  = 1,,
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%ManufacturerName%=Standard,NT$ARCH$
+
+[Standard.NT$ARCH$]
+%privateline-split-tunnel.DeviceDesc%=privateline-split-tunnel_Device, Root\privateline-split-tunnel 
+
+[privateline-split-tunnel_Device.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+privateline-split-tunnel.sys
+
+;-------------- Service installation
+[privateline-split-tunnel_Device.NT.Services]
+AddService = privateline-split-tunnel,%SPSVCINST_ASSOCSERVICE%, privateline-split-tunnel_Service_Inst
+
+; -------------- privateline-split-tunnel driver install sections
+[privateline-split-tunnel_Service_Inst]
+DisplayName    = %privateline-split-tunnel.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\privateline-split-tunnel.sys
+
+;
+;--- privateline-split-tunnel_Device Coinstaller installation ------
+;
+
+[privateline-split-tunnel_Device.NT.CoInstallers]
+AddReg=privateline-split-tunnel_Device_CoInstaller_AddReg
+CopyFiles=privateline-split-tunnel_Device_CoInstaller_CopyFiles
+
+[privateline-split-tunnel_Device_CoInstaller_AddReg]
+HKR,,CoInstallers32,0x00010000, "WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll,WdfCoInstaller"
+
+[privateline-split-tunnel_Device_CoInstaller_CopyFiles]
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll
+
+[privateline-split-tunnel_Device.NT.Wdf]
+KmdfService =  privateline-split-tunnel, privateline-split-tunnel_wdfsect
+[privateline-split-tunnel_wdfsect]
+KmdfLibraryVersion = $KMDFVERSION$
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ManufacturerName="Privatus Limited" 
+ClassName="IVPN Split Tunnel" 
+DiskName = "IVPN Split Tunnel Installation Disk"
+privateline-split-tunnel.DeviceDesc = "IVPN Split Tunnel Device"
+privateline-split-tunnel.SVCDESC = "IVPN Split Tunnel Service"

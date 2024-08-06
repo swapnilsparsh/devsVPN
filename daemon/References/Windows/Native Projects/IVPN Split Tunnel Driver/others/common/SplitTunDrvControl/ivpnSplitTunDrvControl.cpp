@@ -1,6 +1,6 @@
 #include "ivpnSplitTunDrvControl.h"
 
-#define IVPN_ST_SERVICE_NAME L"ivpn-split-tunnel"
+#define IVPN_ST_SERVICE_NAME L"privateline-split-tunnel"
 #define IVPN_ST_SERVICE_DISPLAY_NAME L"IVPN Split-Tunnel Service"
 
 namespace splittun

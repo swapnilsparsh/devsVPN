@@ -5,4 +5,4 @@ etc\ca.crt
 etc\servers.json
 etc\ta.key
 devcon\x86_64\devcon.exe
-SplitTunnelDriver\x86_64\ivpn-split-tunnel.sys
+SplitTunnelDriver\x86_64\privateline-split-tunnel.sys
