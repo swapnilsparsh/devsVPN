@@ -64,7 +64,7 @@ type CmdLogin struct {
 }
 
 func (c *CmdLogin) Init() {
-	c.Initialize("login", "Login operation (register account on this device)")
+	c.Initialize("login", "Login operation (register this device under your privateLINE account)")
 	c.DefaultStringVar(&c.email, "<account email>")
 	c.StringVar(&c.deviceName, "device_name", "", "<device name>", "Optionally specify device name")
 	c.BoolVar(&c.stableDeviceID, "stable_device_id", false, "Generate the device ID as a stable, yet privacy-preserving identifier. By default device ID is generated randomly.")
