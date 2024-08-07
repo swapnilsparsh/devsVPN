@@ -314,14 +314,14 @@ export default {
       );
     },
   },
-  watch: {
-    "$store.state.account.userDetails": {
-      handler(newValue) {
-        this.isProcessing = Object.keys(newValue).length === 0 ? true : false;
-      },
-      immediate: true, // Run the watcher immediately on component creation
-    },
-  },
+  // watch: {
+  //   "$store.state.account.userDetails": {
+  //     handler(newValue) {
+  //       this.isProcessing = Object.keys(newValue).length === 0 ? true : false;
+  //     },
+  //     immediate: true, // Run the watcher immediately on component creation
+  //   },
+  // },
 };
 </script>
 
