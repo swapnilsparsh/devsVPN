@@ -70,7 +70,7 @@ export default {
   border-top-color: #3385ff;
   opacity: 1;
 
-  animation: spin 2s linear infinite;
+  animation: spin 2s linear 10s;
 }
 
 #loader:before {
@@ -89,7 +89,7 @@ export default {
   border-top-color: inherit;
   opacity: 0.8;
 
-  animation: spin 3s linear infinite;
+  animation: spin 3s linear 10s;
 }
 
 #loader:after {
@@ -108,7 +108,7 @@ export default {
   border-top-color: inherit;
   opacity: 0.6;
 
-  animation: spin 1.5s linear infinite;
+  animation: spin 1.5s linear 10s;
 }
 
 @keyframes spin {
