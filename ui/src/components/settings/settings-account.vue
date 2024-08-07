@@ -189,8 +189,8 @@ export default {
     qr.make();
     // this.$refs.qrcode.innerHTML = qr.createSvgTag(3, 10);
 
-    this.accountStatusRequest();
     this.profileData();
+    //this.accountStatusRequest();
   },
   methods: {
     async logOut() {

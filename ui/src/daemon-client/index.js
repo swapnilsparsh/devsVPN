@@ -411,8 +411,8 @@ async function processResponse(response) {
 
       commitSession(obj.Session);
 
-      // request account status update every app start
-      if (store.getters["account/isLoggedIn"]) SessionStatus();
+      // request profile data update every app start
+      if (store.getters["account/isLoggedIn"]) ProfileData();
 
       if (obj.DisabledFunctions) {
         store.commit("disabledFunctions", obj.DisabledFunctions);
@@ -957,6 +957,9 @@ async function AccountInfo() {
 }
 
 async function ProfileData() {
+  // if (store.getters["account/isLoggedIn"]) {
+  //   return nil
+  // }
   let resp = await sendRecv({
     Command: daemonRequests.ProfileData,
   });
