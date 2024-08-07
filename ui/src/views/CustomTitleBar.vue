@@ -1,7 +1,7 @@
 <template>
   <div class="titleBar" v-show="!isWindowHasFrame">
     <button
-      style="margin-top: 1px"
+      style="margin-top: -6px"
       v-if="minimizable"
       class="noBordersBtn winBtns winBtnMinimize"
       v-on:click="onMinimize()"

@@ -7,12 +7,15 @@
   --button-slave-background: rgba(0, 0, 0, 0.2);
   --shield-button-border-color: #000000;
   --shield-button-text-color: #777777;
-
+  --menu-item-color: #777777;
+  --menu-bg-color: #f7f7f7;
 
   @media (prefers-color-scheme: dark) {
     --button-slave-background: #777777;
     --shield-button-border-color: #FFFFFF;
     --shield-button-text-color: #777777;
+    --menu-item-color: #ffffff;
+    --menu-bg-color: #3a3a3a;
   }
 }
 
@@ -94,6 +97,15 @@ button.shieldButtonActiveGreen {
   border-right: 1px solid var(--shield-button-border-color);
 }
 
+// === Menu Color ===
+
+div.menu {
+  background-color: var(--menu-bg-color);
+}
+
+button.menu-item {
+  color: var(--menu-item-color);
+}
 
 // === INPUT ===
 input.styled {
