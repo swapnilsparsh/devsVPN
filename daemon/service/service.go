@@ -1896,6 +1896,7 @@ func (s *Service) ProfileData() (
 	// Not querying Profile Data if we're not logged in yet
 	session := s.Preferences().Session
 	if !session.IsLoggedIn() {
+		log.Error("we're not logged in yet, so not querying Profile Data (/user/profile API)")
 		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
 	}
 
