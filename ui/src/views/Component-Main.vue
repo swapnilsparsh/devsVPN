@@ -12,7 +12,11 @@
             <button v-on:click="onPrivateLine()" title="privateLINE">
               <img src="@/assets/logo.png" style="width: 22px; height: 22px" />
             </button>
-            <button v-on:click="onAccountSettings()" title="Account settings">
+            <button
+              v-if="isLoggedIn"
+              v-on:click="onAccountSettings()"
+              title="Account settings"
+            >
               <img src="@/assets/user.svg" />
             </button>
 

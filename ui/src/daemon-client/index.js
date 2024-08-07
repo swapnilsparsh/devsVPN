@@ -411,9 +411,6 @@ async function processResponse(response) {
 
       commitSession(obj.Session);
 
-      // request account status update every app start
-      if (store.getters["account/isLoggedIn"]) SessionStatus();
-
       if (obj.DisabledFunctions) {
         store.commit("disabledFunctions", obj.DisabledFunctions);
         if (obj.DisabledFunctions.WireGuardError) {
@@ -943,6 +940,10 @@ async function Login(
   });
 
   // if (resp.APIStatus === API_SUCCESS) commitSession(resp.Session);
+
+  if (resp.APIStatus === API_SUCCESS) {
+    ProfileData();
+  }
 
   // Returning whole response object (even in case of error)
   // it contains details about error

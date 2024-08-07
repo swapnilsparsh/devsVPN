@@ -1892,6 +1892,14 @@ func (s *Service) ProfileData() (
 		profileDataResponse *api_types.ProfileDataResponse
 	)
 	log.Debug("================================ Profile Data function Reached ================================")
+
+	// Not querying Profile Data if we're not logged in yet
+	session := s.Preferences().Session
+	if !session.IsLoggedIn() {
+		log.Error("we're not logged in yet, so not querying Profile Data (/user/profile API)")
+		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
+	}
+
 	profileDataResponse, err = s._api.ProfileData(s.Preferences().Session.Session)
 	return 200, profileDataResponse, err
 }
@@ -1995,6 +2003,9 @@ func (s *Service) RequestSessionStatus() (
 	if !session.IsLoggedIn() {
 		return apiCode, "", "", sessionStatus, srverrors.ErrorNotLoggedIn{}
 	}
+
+	// TODO: Vlad - disabling /session/status API calls
+	return 0, "/session/status request skipped", "", sessionStatus, fmt.Errorf("/session/status request skipped")
 
 	// if no connectivity - skip request (and activate _isWaitingToUpdateAccInfoChan)
 	if err := s.IsConnectivityBlocked(); err != nil {

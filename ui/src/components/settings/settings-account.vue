@@ -189,7 +189,7 @@ export default {
     qr.make();
     // this.$refs.qrcode.innerHTML = qr.createSvgTag(3, 10);
 
-    this.accountStatusRequest();
+    //this.accountStatusRequest();
     this.profileData();
   },
   methods: {
