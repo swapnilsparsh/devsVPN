@@ -1892,6 +1892,13 @@ func (s *Service) ProfileData() (
 		profileDataResponse *api_types.ProfileDataResponse
 	)
 	log.Debug("================================ Profile Data function Reached ================================")
+
+	// Not querying Profile Data if we're not logged in yet
+	session := s.Preferences().Session
+	if !session.IsLoggedIn() {
+		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
+	}
+
 	profileDataResponse, err = s._api.ProfileData(s.Preferences().Session.Session)
 	return 200, profileDataResponse, err
 }
