@@ -5,14 +5,14 @@
 
       <div class="column">
         <div class="centered" style="margin-top: -50px; margin-bottom: 50px">
-          <img src="@/assets/logo.svg" />
+          <img width=" 70%"src="@/assets/logo.svg" />
         </div>
 
         <div>
           <!-- ACCOUNT ID -->
           <div class="centered">
             <div class="large_text">Login</div>
-            <div class="medium_text">to PrivateLINE</div>
+            <div class="medium_text">to privateLINE connect</div>
             <div style="height: 12px" />
           </div>
 

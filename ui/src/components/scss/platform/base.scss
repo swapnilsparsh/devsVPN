@@ -120,6 +120,16 @@ button.shieldButtonActiveBaseBlue {
     border-radius: 12px;
 }
 
+// === Menu Color ===
+
+div.menu{
+    background-color: var(--menu-bg-color);
+}
+
+button.menu-item{
+    color: var(--menu-item-color);
+}
+
 // === INPUT ===
 input.styledBase {
     width: 100%;

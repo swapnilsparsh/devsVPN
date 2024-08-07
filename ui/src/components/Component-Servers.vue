@@ -8,7 +8,7 @@
         </button>
       </div>
 
-      <div class="serversButtonsSpace" />
+      <!-- <div class="serversButtonsSpace" /> -->
 
       <div style="width: 100%" v-if="isFastestServerConfig === false">
         <div class="flexRow" style="flex-grow: 1">

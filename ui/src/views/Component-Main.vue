@@ -9,20 +9,40 @@
               minimizedButtonsPanelRightElements: isWindowHasFrame,
             }"
           >
+            <button
+              v-if="isLoggedIn"
+              @click="toggleMenu"
+              title="Menu"
+              class="menu-button"
+            >
+              <img src="@/assets/menu.svg" />
+            </button>
+
+            <div v-if="isMenuVisible" class="menu">
+              <button
+                @click="onAccountSettings"
+                title="Account settings"
+                class="menu-item"
+                style="margin: 0; padding: 3px 5px"
+              >
+                <img src="@/assets/user.svg" />
+                Account
+              </button>
+
+              <button
+                @click="onSettings"
+                title="Settings"
+                class="menu-item"
+                style="margin: 0; padding: 3px 5px"
+              >
+                <img src="@/assets/settings.svg" />
+                Settings
+              </button>
+            </div>
             <button v-on:click="onPrivateLine()" title="privateLINE">
               <img src="@/assets/logo.png" style="width: 22px; height: 22px" />
             </button>
-            <button
-              v-if="isLoggedIn"
-              v-on:click="onAccountSettings()"
-              title="Account settings"
-            >
-              <img src="@/assets/user.svg" />
-            </button>
-
-            <button v-on:click="onSettings()" title="Settings">
-              <img src="@/assets/settings.svg" />
-            </button>
+            <div>privateLINE connect</div>
 
             <!-- <button v-on:click="onMaximize(true)" title="Show map">
               <img src="@/assets/maximize.svg" />
@@ -79,6 +99,7 @@ export default {
   data: function () {
     return {
       isCanShowMinimizedButtons: true,
+      isMenuVisible: false,
     };
   },
   computed: {
@@ -118,17 +139,30 @@ export default {
     },
   },
 
+  watch: {
+    isLoggedIn(newValue) {
+      if (!newValue) {
+        this.isMenuVisible = false;
+      }
+    },
+  },
+
   methods: {
     onPrivateLine: function () {
       sender.shellOpenExternal(`https://privateline.io/`);
     },
+    toggleMenu() {
+      this.isMenuVisible = !this.isMenuVisible;
+    },
     onAccountSettings: function () {
       //if (this.$store.state.settings.minimizedUI)
       sender.ShowAccountSettings();
+      this.isMenuVisible = false;
       //else this.$router.push({ name: "settings", params: { view: "account" } });
     },
     onSettings: function () {
       sender.ShowSettings();
+      this.isMenuVisible = false;
     },
     onConnectionSettings: function () {
       sender.ShowConnectionSettings();
@@ -198,5 +232,43 @@ div.minimizedButtonsPanel button {
 
 div.minimizedButtonsPanel img {
   height: 18px;
+}
+
+.menu-container {
+  position: relative;
+}
+
+.menu-button {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.menu {
+  position: absolute;
+  top: 6%;
+  left: 6%;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 5px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.menu-item img {
+  margin-right: 8px;
 }
 </style>

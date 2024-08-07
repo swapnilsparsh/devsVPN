@@ -29,9 +29,7 @@
             />
           </div> -->
           <div class="flexRow">
-            <div class="serverName" style="max-width: 245px" >
-              PrivateLINE Network
-            </div>
+            <div class="serverName" style="max-width: 245px">privateLINE</div>
             <!-- <serverNameControl
               class="serverName"
               style="max-width: 245px"
