@@ -1996,6 +1996,9 @@ func (s *Service) RequestSessionStatus() (
 		return apiCode, "", "", sessionStatus, srverrors.ErrorNotLoggedIn{}
 	}
 
+	// TODO: Vlad - disabling /session/status API calls
+	return 0, "/session/status request skipped", "", sessionStatus, fmt.Errorf("/session/status request skipped")
+
 	// if no connectivity - skip request (and activate _isWaitingToUpdateAccInfoChan)
 	if err := s.IsConnectivityBlocked(); err != nil {
 		s._isNeedToUpdateSessionInfo = true
