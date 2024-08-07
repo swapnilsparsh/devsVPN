@@ -6,7 +6,10 @@
       <spinner :loading="isProcessing" />
 
       <div class="flexRowSpace" style="align-items: flex-start">
-        <div class="flexColumn">
+        <div
+          v-if="this.$store.state.account.userDetails.name"
+          class="flexColumn"
+        >
           <div>
             <img
               v-if="!profileImage"
@@ -27,7 +30,6 @@
           </div>
 
           <div>
-            <spinner :loading="isProcessing" />
             <div class="flexRow paramBlockDetailedConfig">
               <div class="defColor paramName">Name:</div>
               <div class="detailedParamValue">
@@ -65,6 +67,10 @@
               </div>
             </div>
           </div>
+        </div>
+        <div v-else>
+          Api Error: Data couldn't be fetched at this moment. Please check your
+          internet connection.
         </div>
 
         <!-- <div ref="qrcode" class="qrcode"></div> -->
@@ -167,6 +173,7 @@ export default {
   },
   data: function () {
     return {
+      apiTimeout: null,
       isProcessing: false,
     };
   },
@@ -263,7 +270,28 @@ export default {
       await sender.SessionStatus();
     },
     async profileData() {
-      const resp = await sender.ProfileData();
+      try {
+        this.isProcessing = true;
+
+        this.apiTimeout = setTimeout(() => {
+          throw Error("API Time Out");
+        }, 10 * 1000);
+
+        await sender.ProfileData();
+      } catch (err) {
+        //TODO: show error on UI
+        console.log({ err });
+        sender.showMessageBoxSync({
+          type: "error",
+          buttons: ["OK"],
+          message: "API Error",
+          detail: `Profile data couldn't be fetched at this momemnt, please check your internet connection!`,
+        });
+      } finally {
+        this.isProcessing = false;
+        clearTimeout(this.apiTimeout);
+        this.apiTimeout = null;
+      }
     },
     upgrade() {
       sender.shellOpenExternal(`https://www.account.privateline.io`);
@@ -313,15 +341,7 @@ export default {
           "ivpn pro"
       );
     },
-  },
-  watch: {
-    "$store.state.account.userDetails": {
-      handler(newValue) {
-        this.isProcessing = Object.keys(newValue).length === 0 ? true : false;
-      },
-      immediate: true, // Run the watcher immediately on component creation
-    },
-  },
+  }
 };
 </script>
 
