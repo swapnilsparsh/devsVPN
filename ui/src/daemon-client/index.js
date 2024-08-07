@@ -958,9 +958,6 @@ async function AccountInfo() {
 }
 
 async function ProfileData() {
-  // if (!store.getters["account/isLoggedIn"]) {
-  //   return nil
-  // }
   let resp = await sendRecv({
     Command: daemonRequests.ProfileData,
   });
