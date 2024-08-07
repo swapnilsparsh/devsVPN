@@ -6,8 +6,10 @@
       <spinner :loading="isProcessing" />
 
       <div class="flexRowSpace" style="align-items: flex-start">
+        <!-- TODO: later we can add shimmer effect here  -->
+        <div v-if="isProcessing">Loading...</div>
         <div
-          v-if="this.$store.state.account.userDetails.name"
+          v-else-if="this.$store.state.account.userDetails.name"
           class="flexColumn"
         >
           <div>
@@ -341,7 +343,7 @@ export default {
           "ivpn pro"
       );
     },
-  }
+  },
 };
 </script>
 
