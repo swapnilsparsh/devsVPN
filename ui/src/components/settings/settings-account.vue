@@ -189,8 +189,8 @@ export default {
     qr.make();
     // this.$refs.qrcode.innerHTML = qr.createSvgTag(3, 10);
 
-    this.accountStatusRequest();
     this.profileData();
+    //this.accountStatusRequest();
   },
   methods: {
     async logOut() {
@@ -314,14 +314,14 @@ export default {
       );
     },
   },
-  watch: {
-    "$store.state.account.userDetails": {
-      handler(newValue) {
-        this.isProcessing = Object.keys(newValue).length === 0 ? true : false;
-      },
-      immediate: true, // Run the watcher immediately on component creation
-    },
-  },
+  // watch: {
+  //   "$store.state.account.userDetails": {
+  //     handler(newValue) {
+  //       this.isProcessing = Object.keys(newValue).length === 0 ? true : false;
+  //     },
+  //     immediate: true, // Run the watcher immediately on component creation
+  //   },
+  // },
 };
 </script>
 

@@ -175,8 +175,8 @@ ipcMain.handle(
   }
 );
 
-ipcMain.handle("renderer-request-ProfileData", async (event, pid, execCmd) => {
-  return await client.ProfileData(pid, execCmd);
+ipcMain.handle("renderer-request-ProfileData", async (event) => {
+  return await client.ProfileData();
 });
 
 ipcMain.handle("renderer-request-GetInstalledApps", async () => {
