@@ -71,7 +71,7 @@ silent chmod 0755 $PRIVATELINE_OPT/wireguard-tools/wg            # can change on
 silent chmod 0755 $PRIVATELINE_OPT/dnscrypt-proxy/dnscrypt-proxy # can change only owner (root)
 silent chmod 0755 $PRIVATELINE_OPT/kem/kem-helper                # can change only owner (root)
 
-silent ln -s /usr/bin/privateline-connect-cli /usr/bin/pcc
+silent ln -s /usr/bin/privateline-connect-cli /usr/bin/plcc
 
 if [ -f "${SERVERS_FILE_BUNDLED}" ] && [ -f "${SERVERS_FILE_DEST}" ]; then 
   # New service version may use new format of 'servers.json'. 
