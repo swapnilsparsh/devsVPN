@@ -37,31 +37,29 @@
 #     sudo dpkg --remove --force-remove-reinstreq privateline
 
 
-declare BUILD_TYPE DEB_COMPRESSION_ARGS RPM_COMPRESSION_ARGS
+#declare BUILD_TYPE DEB_COMPRESSION_ARGS RPM_COMPRESSION_ARGS
 
-if [[ $0 =~ .*build-debug ]]; then
-	echo -e "[\033[1;93mDEBUG BUILD\033[0m]"
-	echo -e "No package compression for debug build. Building DEB, but not RPM.\n"
-	BUILD_TYPE=debug
-	DEB_COMPRESSION_ARGS="--deb-compression none"
-	RPM_COMPRESSION_ARGS="--rpm-compression none"
-else
-	echo -e "[\033[1;93mRELEASE BUILD\033[0m]"
-	echo -e "High package compression (slow) for release build. Building DEB, but not RPM.\n"
-	BUILD_TYPE=release
-	DEB_COMPRESSION_ARGS="--deb-compression xz"
-	RPM_COMPRESSION_ARGS="--rpm-compression xz --rpm-compression-level 9"
-fi
+#if [[ $0 =~ .*build-debug ]]; then
+#	echo -e "[\033[1;93mDEBUG BUILD\033[0m]"
+#	echo -e "No package compression for debug build. Building DEB, but not RPM.\n"
+#	BUILD_TYPE=debug
+#	DEB_COMPRESSION_ARGS="--deb-compression none"
+#	RPM_COMPRESSION_ARGS="--rpm-compression none"
+#else
+#	echo -e "[\033[1;93mRELEASE BUILD\033[0m]"
+#	echo -e "High package compression (slow) for release build. Building DEB, but not RPM.\n"
+#	BUILD_TYPE=release
+#	DEB_COMPRESSION_ARGS="--deb-compression xz"
+#	RPM_COMPRESSION_ARGS="--rpm-compression xz --rpm-compression-level 9"
+#fi
 
 cd "$(dirname "$0")"
 
 # check result of last executed command
 CheckLastResult()
 {
-  if ! [ $? -eq 0 ]
-  then #check result of last command
-    if [ -n "$1" ]
-    then
+  if ! [ $? -eq 0 ]; then #check result of last command
+    if [ -n "$1" ]; then
       echo $1
     else
       echo "FAILED"
@@ -100,7 +98,7 @@ then
   if [ -n "$VERSION" ]
   then
     echo "[ ] You are going to compile PrivateLine Connect UI v${VERSION} (commit:${COMMIT})"
-    read -p "Press enter to continue" yn
+#    read -p "Press enter to continue" yn
   else    
     echo "Usage:"
     echo "    $0 -v <version>"
@@ -108,7 +106,7 @@ then
   fi
 fi
 
-echo "Architecture: $ARCH"
+#echo "Architecture: $ARCH"
 echo "======================================================"
 echo "======= Building privateLINE Connect UI binary ======="
 echo "======================================================"
@@ -165,6 +163,10 @@ fi
 echo "[ ] Renaming: '$APP_UNPACKED_DIR' -> '$APP_BIN_DIR'"
 mv $APP_UNPACKED_DIR $APP_BIN_DIR
 CheckLastResult
+
+# Vlad: refactoring for this build.sh to be called by CLI build scripts
+#echo "DEB/RPM packages build skipped"
+exit $?
 
 if [ ! -z "$SNAPCRAFT_BUILD_ENVIRONMENT" ]; then
     echo "! SNAPCRAFT_BUILD_ENVIRONMENT detected !"

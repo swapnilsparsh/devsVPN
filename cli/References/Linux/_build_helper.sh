@@ -35,31 +35,12 @@
 # Remove BROKEN package (which is unable to uninstall by normal ways)
 #     sudo mv /var/lib/dpkg/info/privateline.* /tmp/
 #     sudo dpkg --remove --force-remove-reinstreq privateline
-declare BUILD_TYPE DEB_COMPRESSION_ARGS RPM_COMPRESSION_ARGS
-
-if [[ $0 =~ .*build-debug ]]; then
-	echo -e "[\033[1;93mDEBUG BUILD\033[0m]"
-	echo -e "No package compression for debug build. Building DEB, but not RPM.\n"
-	BUILD_TYPE=debug
-	DEB_COMPRESSION_ARGS="--deb-compression none"
-	RPM_COMPRESSION_ARGS="--rpm-compression none"
-else
-	echo -e "[\033[1;93mRELEASE BUILD\033[0m]"
-	echo -e "High package compression (slow) for release build. Building DEB, but not RPM.\n"
-	BUILD_TYPE=release
-	DEB_COMPRESSION_ARGS="--deb-compression xz"
-	RPM_COMPRESSION_ARGS="--rpm-compression xz --rpm-compression-level 9"
-fi
-
-cd "$(dirname "$0")"
 
 # check result of last executed command
 CheckLastResult()
 {
-  if ! [ $? -eq 0 ]
-  then #check result of last command
-    if [ -n "$1" ]
-    then
+  if ! [ $? -eq 0 ]; then #check result of last command
+    if [ -n "$1" ]; then
       echo $1
     else
       echo "FAILED"
@@ -68,12 +49,56 @@ CheckLastResult()
   fi
 }
 
+print_error_exit() {
+	>&2 echo "ERROR: cannot call $0 directly, must call it through one of symlinks"
+	exit 1
+}
+
+# PKGNAME can be:
+#	privateline-connect-console			// this includes daemon+CLI
+#	privateline-connect-full			// this includes daemon+CLI+UI
+
+declare PKGNAME CONFLICTS PKG_MESSAGE PKG_DESCRIPTION DEB_COMPRESSION_ARGS RPM_COMPRESSION_ARGS
+
+if [[ $0 =~ .*build-console\..* ]]; then
+	PKGNAME=privateline-connect-console
+	CONFLICTS=privateline-connect-full
+	PKG_MESSAGE="Package '$PKGNAME' will include daemon+CLI."
+elif [[ $0 =~ .*build-full\..* ]]; then
+	PKGNAME=privateline-connect-full
+	CONFLICTS=privateline-connect-console
+	PKG_MESSAGE="Package '$PKGNAME' will include daemon+CLI+UI."
+else
+	print_error_exit
+fi
+
+if [[ $0 =~ .*\.quick-build ]]; then
+	echo -e "[\033[1;93mQUICK BUILD\033[0m - \033[1;95m$PKGNAME\033[0m]"
+	echo ${PKG_MESSAGE}
+	echo -e "Quick build for testing - no package compression.\n"
+	DEB_COMPRESSION_ARGS="--deb-compression none"
+	RPM_COMPRESSION_ARGS="--rpm-compression none"
+elif [[ $0 =~ .*\.release-build ]]; then
+	echo -e "[\033[1;32mRELEASE BUILD\033[0m - \033[1;95m$PKGNAME\033[0m]"
+	echo ${PKG_MESSAGE}
+	echo -e "Release build - maximum package compression.\n"
+	DEB_COMPRESSION_ARGS="--deb-compression xz"
+	RPM_COMPRESSION_ARGS="--rpm-compression xz --rpm-compression-level 9"
+else
+	print_error_exit
+fi
+
+cd "$(dirname "$0")"
+
 ARCH="$( node -e 'console.log(process.arch)' )"
 SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 OUT_DIR="$SCRIPT_DIR/_out_bin"
 
 DAEMON_REPO_ABS_PATH=$("./../config/daemon_repo_local_path_abs.sh")
-CheckLastResult "Failed to determine location of PRIVATELINE Daemon sources. Plase check 'config/daemon_repo_local_path.txt'"
+CheckLastResult "Failed to determine location of privateLINE Daemon sources. Please check 'config/daemon_repo_local_path.txt'"
+
+UI_REPO_ABS_PATH=$("./../config/ui_repo_local_path_abs.sh")
+CheckLastResult "Failed to determine location of privateLINE UI sources. Please check 'config/ui_repo_local_path.txt'"
 
 # ---------------------------------------------------------
 # version info variables
@@ -89,23 +114,30 @@ while getopts ":v:" opt; do
   esac
 done
 
-if [ -z "$VERSION" ]
-then
+if [ -z "$VERSION" ]; then
   # Version was not provided by argument.
   # Intialize $VERSION by the data from of command: '../../../ui/package.json'
   VERSION="$(awk -F: '/"version"/ { gsub(/[" ,\n\r]/, "", $2); print $2 }' ../../../ui/package.json)"
   if [ -n "$VERSION" ]
   then
     echo "[ ] You are going to compile PRIVATELINE Daemon & CLI 'v${VERSION}' (commit:${COMMIT})"
-    read -p "Press enter to continue" yn
-  else    
+#    read -p "Press enter to continue" yn
+  else
     echo "Usage:"
     echo "    $0 -v <version>"
     exit 1
   fi
 fi
 
+# Set VERSION in the package description
+if [ $PKGNAME == privateline-connect-console ]; then
+	PKG_DESCRIPTION="$(printf "Client v$VERSION for privateLINE service (https://www.privateline.io)\nThis package includes daemon and command line interface. Try 'plcc' from command line.")"
+else
+	PKG_DESCRIPTION="$(printf "Client v$VERSION for privateLINE service (https://www.privateline.io)\nThis package includes daemon, command line interface, and graphical user interface. Try 'plcc' from command line.")"
+fi
+
 echo "Architecture: $ARCH"
+
 echo '---------------------------'
 echo "Building privateLINE Connect Daemon ($DAEMON_REPO_ABS_PATH)...";
 echo '---------------------------'
@@ -117,6 +149,14 @@ echo "Building privateLINE Connect CLI ...";
 echo '---------------------------'
 $SCRIPT_DIR/compile-cli.sh -v $VERSION
 CheckLastResult "ERROR building privateLINE Connect CLI"
+
+if [ $PKGNAME == privateline-connect-full ]; then
+	echo '---------------------------'
+	echo "Building privateLINE Connect UI ($UI_REPO_ABS_PATH)...";
+	echo '---------------------------'
+	$UI_REPO_ABS_PATH/References/Linux/build.sh -v $VERSION
+	CheckLastResult "ERROR building privateLINE Connect UI"
+fi
 
 echo "======================================================"
 echo "============== Building packages ====================="
@@ -231,12 +271,20 @@ CreatePackage()
   #   [*] Before remove (3.3.30 : rpm : 0)
   #   [*] After remove (3.3.30 : rpm : 0)
 
+  EXTRA_INPUTS=
+  if [ $PKGNAME == privateline-connect-full ]; then
+  	EXTRA_INPUTS="$UI_REPO_ABS_PATH/References/Linux/ui/privateline-connect-ui.desktop=/usr/share/applications/privateline-connect-ui.desktop \
+				  $UI_REPO_ABS_PATH/References/Linux/ui/privateline-connect.svg=/usr/share/icons/hicolor/scalable/apps/privateline-connect.svg \
+				  $UI_REPO_ABS_PATH/dist/bin=/opt/privateline-connect/ui/"
+  fi
+
   fpm -d openvpn -d iptables -d "resolvconf | systemd-resolved | openresolv" $EXTRA_ARGS \
+    --conflicts $CONFLICTS \
     --rpm-rpmbuild-define "_build_id_links none" \
-    --deb-no-default-config-files -s dir -t $PKG_TYPE -n privateline -v $VERSION --url https://www.privateline.io --license "GNU GPL3" \
+    --deb-no-default-config-files -s dir -t $PKG_TYPE -n $PKGNAME -v $VERSION --url https://www.privateline.io --license "GNU GPL3" \
     --template-scripts --template-value pkg=$PKG_TYPE --template-value version=$VERSION \
     --vendor "privateLINE LLC" --maintainer "privateLINE LLC" \
-    --description "$(printf "Client for privateLINE service (https://www.privateline.io)\nCommand line interface v$VERSION. Try 'privateline-connect-cli' from command line.")" \
+    --description "${PKG_DESCRIPTION}" \
     --before-install "$SCRIPT_DIR/package_scripts/before-install.sh" \
     --after-install "$SCRIPT_DIR/package_scripts/after-install.sh" \
     --before-remove "$SCRIPT_DIR/package_scripts/before-remove.sh" \
@@ -248,16 +296,17 @@ CreatePackage()
     $OUT_DIR/privateline-connect-cli.bash-completion=/opt/privateline-connect/etc/privateline-connect-cli.bash-completion \
     $WG_QUICK_BIN=/opt/privateline-connect/wireguard-tools/wg-quick \
     $WG_BIN=/opt/privateline-connect/wireguard-tools/wg \
-    $TMPDIRSRVC/privateline-connect-svc.dir/usr/share/pleaserun/=/usr/share/pleaserun
+    $TMPDIRSRVC/privateline-connect-svc.dir/usr/share/pleaserun/=/usr/share/pleaserun \
+    ${EXTRA_INPUTS}
+
 #    ${KEM_HELPER_BIN}=/opt/privateline-connect/kem/kem-helper \
 #    ${DNSCRYPT_PROXY_BIN}=/opt/privateline-connect/dnscrypt-proxy/dnscrypt-proxy \
 #    $OBFSPXY_BIN=/opt/privateline-connect/obfsproxy/obfs4proxy \
-#    $V2RAY_BIN=/opt/privateline-connect/v2ray/v2ray 
+#    $V2RAY_BIN=/opt/privateline-connect/v2ray/v2ray
 # TODO FIXME: Vlad - disabled bundling kem-helper, dnscrypt-proxy, obfsproxy, v2ray for now
 }
 
-if [ ! -z "$GITHUB_ACTIONS" ]; 
-then
+if [ ! -z "$GITHUB_ACTIONS" ]; then
   echo "! GITHUB_ACTIONS detected ! It is just a build test."
   echo "! Packages creation (DEB/RPM) skipped !"
   exit 0
@@ -269,16 +318,14 @@ echo -e "DEB package...\t(compression settings: '${DEB_COMPRESSION_ARGS}')"
 CreatePackage "deb" "${DEB_COMPRESSION_ARGS}"
 
 echo '---------------------------'
-#if [[ "${BUILD_TYPE}" == "release" ]]; then
-#	echo -e "RPM package...\t(compression settings: '${RPM_COMPRESSION_ARGS}')"
-#	CreatePackage "rpm" "${RPM_COMPRESSION_ARGS}"
-#else
-	echo -e "RPM package...\t\033[0;93mTODO:\033[0m Disabled .rpm compile for now, until we start shipping .rpm - this cuts Linux build time in half"
-#fi
+#echo -e "RPM package...\t(compression settings: '${RPM_COMPRESSION_ARGS}')"
+#CreatePackage "rpm" "${RPM_COMPRESSION_ARGS}"
+echo -e "RPM package...\t\033[0;93mTODO:\033[0m Disabled .rpm compile for now, until we start shipping .rpm - this cuts Linux build time in half"
 
 echo '---------------------------'
-echo "Copying compiled packages to '$OUT_DIR'..."
+echo "Moving compiled packages to '$OUT_DIR'..."
 mkdir -p $OUT_DIR
-yes | cp -f $TMPDIR/*.* $OUT_DIR
+find $TMPDIR -type f ! -empty -name "*.deb" -exec mv -f "{}" $OUT_DIR \;
+find $TMPDIR -type f ! -empty -name "*.rpm" -exec mv -f "{}" $OUT_DIR \;
 
 set +e
