@@ -3,7 +3,7 @@
 echo "[*] Before install (<%= version %> : <%= pkg %> : $1)"
 
 # Skip installation if 'privateline' snap pachage already installed
-if systemctl is-active --quiet snap; then
+if systemctl is-active --quiet snapd; then
 	snap list privateline > /dev/null 2>&1 && echo "[!] INSTALLATION CANCELED: The snap package 'privateline' is already installed. Please, uninstall the 'privateline' snap package first." && exit 1
 fi
 
