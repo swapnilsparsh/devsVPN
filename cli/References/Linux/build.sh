@@ -2,10 +2,11 @@
 
 # Usage example:
 #
-#	Release build (slow):
+# FIXME: Vlad - update
+#	Release build (slow compilation):
 #   build-packages.sh -v 0.0.1
-#	Debug build (fast):
-#   	build-debug -v 0.0.1
+#	Testing build (fast compilation):
+#   build-debug -v 0.0.1
 #
 
 # To be able to build DEB/RPM packages, the 'fpm' tool shall be installed
@@ -36,9 +37,16 @@
 #     sudo mv /var/lib/dpkg/info/privateline.* /tmp/
 #     sudo dpkg --remove --force-remove-reinstreq privateline
 
+cd "$(dirname "$0")"
+
+print_usage_exit() {
+  # FIXME: Vlad - flesh out
+	>&2 echo "ERROR: cannot call $0 directly, must call it through one of symlinks"
+	exit 1
+}
+
 # check result of last executed command
-CheckLastResult()
-{
+CheckLastResult() {
   if ! [ $? -eq 0 ]; then #check result of last command
     if [ -n "$1" ]; then
       echo $1
@@ -49,16 +57,81 @@ CheckLastResult()
   fi
 }
 
-print_error_exit() {
-	>&2 echo "ERROR: cannot call $0 directly, must call it through one of symlinks"
-	exit 1
-}
+ARCH="$( node -e 'console.log(process.arch)' )"
+SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+OUT_DIR="$SCRIPT_DIR/_out_bin"
+
+DAEMON_REPO_ABS_PATH=$("./../config/daemon_repo_local_path_abs.sh")
+CheckLastResult "Failed to determine location of privateLINE Daemon sources. Please check 'config/daemon_repo_local_path.txt'"
+
+UI_REPO_ABS_PATH=$("./../config/ui_repo_local_path_abs.sh")
+CheckLastResult "Failed to determine location of privateLINE UI sources. Please check 'config/ui_repo_local_path.txt'"
+
+# ---------------------------------------------------------
 
 # PKGNAME can be:
-#	privateline-connect-console			// this includes daemon+CLI
-#	privateline-connect-full			// this includes daemon+CLI+UI
+#	privateline-connect-console     // this includes daemon+CLI
+#	privateline-connect-full        // this includes daemon+CLI+UI
 
-declare PKGNAME CONFLICTS PKG_MESSAGE PKG_DESCRIPTION DEB_COMPRESSION_ARGS RPM_COMPRESSION_ARGS
+declare PKGNAME= PKGTYPE= CONFLICTS PKG_MESSAGE PKG_DESCRIPTION DEB_COMPRESSION_ARGS= RPM_COMPRESSION_ARGS=
+
+# version info variables
+VERSION=""
+DATE="$(date "+%Y-%m-%d")"
+COMMIT="$(git rev-list -1 HEAD)"
+
+# reading version info from arguments
+while getopts ":v:" opt; do
+  case $opt in
+    v) VERSION="$OPTARG"
+    ;;
+  esac
+done
+
+VALID_ARGS=$(getopt -o vcfdrtr --long version,console,full,deb,rpm,test,release -- "$@")
+if [[ $? -ne 0 ]]; then
+    exit 1;
+fi
+
+eval set -- "$VALID_ARGS"
+while [ : ]; do
+  case "$1" in
+    -a | --alpha)
+        echo "Processing 'alpha' option"
+        shift
+        ;;
+    -b | --beta)
+        echo "Processing 'beta' option"
+        shift
+        ;;
+    -g | --gamma)
+        echo "Processing 'gamma' option. Input argument is '$2'"
+        shift 2
+        ;;
+    -d | --delta)
+        echo "Processing 'delta' option. Input argument is '$2'"
+        shift 2
+        ;;
+    --) shift; 
+        break 
+        ;;
+  esac
+done
+
+if [ -z "$VERSION" ]; then
+  # Version was not provided by argument.
+  # Intialize $VERSION by the data from of command: '../../../ui/package.json'
+  VERSION="$(awk -F: '/"version"/ { gsub(/[" ,\n\r]/, "", $2); print $2 }' ../../../ui/package.json)"
+  if [ -n "$VERSION" ]
+  then
+    echo "[ ] You are going to compile PRIVATELINE Daemon & CLI 'v${VERSION}' (commit:${COMMIT})"
+#    read -p "Press enter to continue" yn
+  else
+    echo "Usage:"
+    echo "    $0 -v <version>"
+    exit 1
+  fi
+fi
 
 if [[ $0 =~ .*build-console\..* ]]; then
 	PKGNAME=privateline-connect-console
@@ -86,47 +159,6 @@ elif [[ $0 =~ .*\.release-build ]]; then
 	RPM_COMPRESSION_ARGS="--rpm-compression xz --rpm-compression-level 9"
 else
 	print_error_exit
-fi
-
-cd "$(dirname "$0")"
-
-ARCH="$( node -e 'console.log(process.arch)' )"
-SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-OUT_DIR="$SCRIPT_DIR/_out_bin"
-
-DAEMON_REPO_ABS_PATH=$("./../config/daemon_repo_local_path_abs.sh")
-CheckLastResult "Failed to determine location of privateLINE Daemon sources. Please check 'config/daemon_repo_local_path.txt'"
-
-UI_REPO_ABS_PATH=$("./../config/ui_repo_local_path_abs.sh")
-CheckLastResult "Failed to determine location of privateLINE UI sources. Please check 'config/ui_repo_local_path.txt'"
-
-# ---------------------------------------------------------
-# version info variables
-VERSION=""
-DATE="$(date "+%Y-%m-%d")"
-COMMIT="$(git rev-list -1 HEAD)"
-
-# reading version info from arguments
-while getopts ":v:" opt; do
-  case $opt in
-    v) VERSION="$OPTARG"
-    ;;
-  esac
-done
-
-if [ -z "$VERSION" ]; then
-  # Version was not provided by argument.
-  # Intialize $VERSION by the data from of command: '../../../ui/package.json'
-  VERSION="$(awk -F: '/"version"/ { gsub(/[" ,\n\r]/, "", $2); print $2 }' ../../../ui/package.json)"
-  if [ -n "$VERSION" ]
-  then
-    echo "[ ] You are going to compile PRIVATELINE Daemon & CLI 'v${VERSION}' (commit:${COMMIT})"
-#    read -p "Press enter to continue" yn
-  else
-    echo "Usage:"
-    echo "    $0 -v <version>"
-    exit 1
-  fi
 fi
 
 # Set VERSION in the package description
