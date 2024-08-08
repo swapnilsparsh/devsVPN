@@ -1,11 +1,9 @@
 function IsDebug() {
-  if (import.meta.env.DEV)
-    return true;
+  if (import.meta.env.DEV) return true;
   return false;
 }
 function GetResourcesPath() {
-  if (this.IsDebug())
-    return "extraResources";
+  if (this.IsDebug()) return "extraResources";
   return process.resourcesPath;
 }
 
@@ -17,7 +15,11 @@ export default {
   UpdateWindowWidth: 600,
 
   // shellOpenExternal(...) allows only URLs started with this prefix
-  URLsAllowedPrefixes: ["https://privateline.io/", "x-apple.systempreferences:"],
+  URLsAllowedPrefixes: [
+    "https://privateline.io/",
+    "https://sso.privateline.io/",
+    "x-apple.systempreferences:",
+  ],
   URLApps: "https://privateline.io/downloads/",
 
   IsDebug,
