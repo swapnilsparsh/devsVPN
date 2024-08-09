@@ -326,7 +326,7 @@ export default {
       sender.shellOpenExternal(`https://privateline.io/email-signup`);
     },
     ForgotPassword() {
-      sender.shellOpenExternal(`https://privateline.io/forgot-password`);
+      sender.shellOpenExternal(`https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`);
     },
     Cancel() {
       this.rawResponse = null;
