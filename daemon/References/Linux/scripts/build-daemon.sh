@@ -61,14 +61,14 @@ else
       echo "[!] GLIBC version '${GLIBC_VER}' is greater than reqired '${GLIBC_VER_MAX_REQUIRED}'"
       echo "[!] Compiling with the new GLIBC version will not allow the program to start on systems with the old GLIBC."
       echo "[ ] (you can define env var 'PRIVATELINE_BUILD_SKIP_GLIBC_VER_CHECK' to skip this check"
-#      read -p "[?] Do you want to continue? [y\n] (N - default): " yn
-#      case $yn in
-#        [Yy]* ) ;;
-#        * ) 
-#        echo "[!] Build interrupted by user"
-#        exit 1
-#        ;;
-#      esac
+      read -p "[?] Do you want to continue? [y\n] (N - default): " yn
+      case $yn in
+        [Yy]* ) ;;
+        * ) 
+        echo "[!] Build interrupted by user"
+        exit 1
+        ;;
+      esac
   fi
 fi
 
