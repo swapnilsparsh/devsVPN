@@ -141,7 +141,7 @@ fi
 # ======== If we're installing a full package with UI, run its logic after the base logic ========
 
 PKG_NAME=<%= name %>
-if [ "${PKG_NAME}" == "privateline-connect-console" ] || [ "${DPKG_MAINTSCRIPT_PACKAGE}" == "privateline-connect-console" ] ; then
+if [ "${PKG_NAME}" = "privateline-connect-console" ] || [ "${DPKG_MAINTSCRIPT_PACKAGE}" = "privateline-connect-console" ] ; then
 	exit $?
 fi
 
@@ -169,4 +169,3 @@ sudo chmod -R a+r /opt/privateline-connect/ui/bin
 
 # electron app requires 'chrome-sandbox' to be setuid root in some systems
 sudo chmod 4755 /opt/privateline-connect/ui/bin/chrome-sandbox || echo "[!] Failed to 'chmod' for '/opt/privateline-connect/ui/bin/chrome-sandbox'"
-

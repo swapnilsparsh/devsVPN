@@ -112,7 +112,7 @@ rm -rf $PRIVATELINE_LOG
 # ======== If we're uninstalling a full package with UI, run its logic after the base logic ========
 
 PKG_NAME=<%= name %>
-if [ "${PKG_NAME}" == "privateline-connect-console" ] || [ "${DPKG_MAINTSCRIPT_PACKAGE}" == "privateline-connect-console" ] ; then
+if [ "${PKG_NAME}" = "privateline-connect-console" ] || [ "${DPKG_MAINTSCRIPT_PACKAGE}" = "privateline-connect-console" ] ; then
     exit $?
 fi
 
