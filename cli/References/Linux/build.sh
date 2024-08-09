@@ -89,7 +89,7 @@ VERSION=""
 DATE="$(date "+%Y-%m-%d")"
 COMMIT="$(git rev-list -1 HEAD)"
 
-VALID_ARGS=$(getopt -o v: --long console,full,deb,rpm,test,release,version: -- "$@")
+VALID_ARGS=$(getopt -o hv: --long help,console,full,deb,rpm,test,release,version: -- "$@")
 if [[ $? -ne 0 ]]; then
     print_usage_exit 1;
 fi
