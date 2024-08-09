@@ -5,7 +5,7 @@ echo "[*] After remove (<%= version %> : <%= pkg %> : $1)"
 # Obtaining information about user running the script
 # (script can be executed with 'sudo', but we should get real user)
 USER="${SUDO_USER:-$USER}"
-UI_APP_USER_DIR="/home/${USER}/.config/privateline"
+UI_APP_USER_DIR="/home/${USER}/.config/privateline-connect-ui"
 UI_APP_USER_DIR_OLD="/home/${USER}/.config/privateline-connect-ui" # (old productName='privateline-connect-ui')
 
 AUTOSTART_FILE="/home/${USER}/.config/autostart/privateline-connect-ui.desktop"
@@ -58,7 +58,6 @@ else
     echo "[+] Removing application cache data: '$UI_APP_USER_DIR' ..."
     rm -rf $UI_APP_USER_DIR || echo "[-] Failed"
   fi
-
 
   if [ -f $AUTOSTART_FILE ]; then
     echo "[+] Removing application autostart file: '$AUTOSTART_FILE' ..."

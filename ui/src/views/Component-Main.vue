@@ -110,7 +110,7 @@ export default {
       return this.$store.getters["account/isLoggedIn"];
     },
     currentViewComponent: function () {
-      this.$store.dispatch("settings/minimizedUI", true);
+      // this.$store.dispatch("settings/minimizedUI", true);
 
       const daemonConnection = this.$store.state.daemonConnectionState;
       if (
@@ -180,7 +180,7 @@ export default {
       this.isCanShowMinimizedButtons = isDefaultView;
     },
     onMaximize: function (isMaximize) {
-      this.$store.dispatch("settings/minimizedUI", !isMaximize);
+      // this.$store.dispatch("settings/minimizedUI", !isMaximize);
     },
   },
 };
