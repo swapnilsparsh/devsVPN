@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "[*] Before install (<%= version %> : <%= pkg %> : $1)"
+echo "[*] Before install (<%= version %> : <%= pkg %> : <%= name %> : $1)"
 
 # Skip installation if 'privateline' snap pachage already installed
 if systemctl is-active --quiet snapd.socket; then

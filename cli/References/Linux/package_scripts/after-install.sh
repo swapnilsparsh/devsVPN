@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "[*] After install (<%= version %> : <%= pkg %> : $1)"
+echo "[*] After install (<%= version %> : <%= pkg %> : <%= name %> : $1)"
 
 NEED_TO_SAVE_INSTRUCTIONS=true
 PRIVATELINE_OPT="/opt/privateline-connect"
@@ -140,7 +140,8 @@ fi
 
 # ======== If we're installing a full package with UI, run its logic after the base logic ========
 
-if [ ${DPKG_MAINTSCRIPT_PACKAGE} != privateline-connect-full ]; then
+PKG_NAME=<%= name %>
+if [ "${PKG_NAME}" == "privateline-connect-console" ] || [ "${DPKG_MAINTSCRIPT_PACKAGE}" == "privateline-connect-console" ] ; then
 	exit $?
 fi
 

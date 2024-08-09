@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "[*] After remove (<%= version %> : <%= pkg %> : $1)"
+echo "[*] After remove (<%= version %> : <%= pkg %> : <%= name %> : $1)"
 
 # Obtaining information about user running the script
 # (script can be executed with 'sudo', but we should get real user)
@@ -111,8 +111,9 @@ rm -rf $PRIVATELINE_LOG
 
 # ======== If we're uninstalling a full package with UI, run its logic after the base logic ========
 
-if [ ${DPKG_MAINTSCRIPT_PACKAGE} != privateline-connect-full ]; then
-	exit $?
+PKG_NAME=<%= name %>
+if [ "${PKG_NAME}" == "privateline-connect-console" ] || [ "${DPKG_MAINTSCRIPT_PACKAGE}" == "privateline-connect-console" ] ; then
+    exit $?
 fi
 
 echo "[+] Running UI removal logic ..."

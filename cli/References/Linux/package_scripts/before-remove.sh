@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "[*] Before remove (<%= version %> : <%= pkg %> : $1)"
+echo "[*] Before remove (<%= version %> : <%= pkg %> : <%= name %> : $1)"
 
 # When removing package: $1==0 for RPM; $1 == "remove" for DEB
 _IS_REMOVE=0

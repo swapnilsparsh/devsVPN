@@ -99,7 +99,7 @@ then
   then
     echo "[ ] You are going to compile PrivateLine Connect UI v${VERSION} (commit:${COMMIT})"
 #    read -p "Press enter to continue" yn
-  else    
+  else
     echo "Usage:"
     echo "    $0 -v <version>"
     exit 1
@@ -142,7 +142,7 @@ CheckLastResult
 
 if [ -d $APP_UNPACKED_DIR_ARCH ]; then
     # for non-standard architecture we must use the architecture-dependend path
-    echo "Info: Non 'default' architecture!" 
+    echo "Info: Non 'default' architecture!"
     APP_UNPACKED_DIR=$APP_UNPACKED_DIR_ARCH
 fi
 if [ -d $APP_UNPACKED_DIR ]; then
