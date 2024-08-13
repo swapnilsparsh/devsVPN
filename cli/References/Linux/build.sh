@@ -47,7 +47,7 @@ print_usage_exit() {
   echo -e "\t-v, --version\t\tSpecify version"
   echo -e "\nExamples:\n"
   echo -e "\tTo create a testing build of a console-only package in DEB format:"
-  echo -e "\t\t$0 --console --deb --test\n"
+  echo -e "\t\tyes | $0 --console --deb --test\n"
   echo -e "\tTo create a release build of a full package in RPM format:"
   echo -e "\t\t$0 --full --rpm --release"
   exit $1
