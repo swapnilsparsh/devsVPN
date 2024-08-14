@@ -164,7 +164,7 @@ echo "[ ] Renaming: '$APP_UNPACKED_DIR' -> '$APP_BIN_DIR'"
 mv $APP_UNPACKED_DIR $APP_BIN_DIR
 CheckLastResult
 
-# Vlad: refactoring for this build.sh to be called by CLI build scripts
+# Vlad: refactoring for this build script to be called by CLI build scripts
 #echo "DEB/RPM packages build skipped"
 exit $?
 

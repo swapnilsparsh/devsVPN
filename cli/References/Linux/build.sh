@@ -186,7 +186,7 @@ if [ $PKG_NAME == privateline-connect-full ]; then
 	echo '---------------------------'
 	echo "Building privateLINE Connect UI ($UI_REPO_ABS_PATH)...";
 	echo '---------------------------'
-	$UI_REPO_ABS_PATH/References/Linux/build.sh -v $VERSION
+	$UI_REPO_ABS_PATH/References/Linux/build-ui-helper.sh -v $VERSION
 	CheckLastResult "ERROR building privateLINE Connect UI"
 fi
 
