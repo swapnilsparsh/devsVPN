@@ -24,10 +24,24 @@ package wireguard
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
+
+var byteUnits = []string{"Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"}
+
+func formatBytes(bytes int64) string {
+	if bytes == 0 {
+		return "0 Bytes"
+	}
+
+	magnitude := int(math.Floor(math.Log(float64(bytes)) / math.Log(1024)))
+	value := float64(bytes) / math.Pow(1024, float64(magnitude))
+
+	return fmt.Sprintf("%.2f %s", value, byteUnits[magnitude])
+}
 
 // WaitForFirstHanshake waits for a handshake during 'timeout' time.
 // It returns channel that will be closed when handshake detected. In case of error, channel will contain error.
@@ -71,6 +85,17 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 			}
 
 			for _, peer := range dev.Peers {
+
+				currentRxBytes := int64(peer.ReceiveBytes)
+				currentTxBytes := int64(peer.TransmitBytes)
+
+				// Convert bytes to a readable format
+				received := formatBytes(currentRxBytes)
+				sent := formatBytes(currentTxBytes)
+
+				// Log the trasnfer speed
+				logFunc(fmt.Sprintf("Total Data received: %s bytes, Total Data sent: %s bytes", received, sent))
+
 				if !peer.LastHandshakeTime.IsZero() {
 					previousTime, known := previousHandshakeTimes[peer.PublicKey.String()]
 					if !known || !peer.LastHandshakeTime.Equal(previousTime) {
