@@ -24,15 +24,29 @@ package wireguard
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
+var byteUnits = []string{"Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"}
+
+func formatBytes(bytes int64) string {
+	if bytes == 0 {
+		return "0 Bytes"
+	}
+
+	magnitude := int(math.Floor(math.Log(float64(bytes)) / math.Log(1024)))
+	value := float64(bytes) / math.Pow(1024, float64(magnitude))
+
+	return fmt.Sprintf("%.2f %s", value, byteUnits[magnitude])
+}
+
 // WaitForFirstHanshake waits for a handshake during 'timeout' time.
 // It returns channel that will be closed when handshake detected. In case of error, channel will contain error.
 // if stopTriggers is defined and at least one of it's elements == true: function stops and channel closes.
-func WaitForWireguardFirstHanshakeChan(tunnelName string, stopTriggers []*bool, logFunc func(string)) <-chan error {
+func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*bool, logFunc func(string)) <-chan error {
 	retChan := make(chan error, 1)
 
 	go func() (retError error) {
@@ -56,6 +70,8 @@ func WaitForWireguardFirstHanshakeChan(tunnelName string, stopTriggers []*bool, 
 		}
 		defer client.Close()
 
+		previousHandshakeTimes := make(map[string]time.Time) // Track handshake times for each peer
+
 		for ; ; time.Sleep(time.Millisecond * 50) {
 			for _, isStop := range stopTriggers {
 				if isStop != nil && *isStop {
@@ -69,12 +85,33 @@ func WaitForWireguardFirstHanshakeChan(tunnelName string, stopTriggers []*bool, 
 			}
 
 			for _, peer := range dev.Peers {
+
+				currentRxBytes := int64(peer.ReceiveBytes)
+				currentTxBytes := int64(peer.TransmitBytes)
+
+				// Convert bytes to a readable format
+				received := formatBytes(currentRxBytes)
+				sent := formatBytes(currentTxBytes)
+
+				// Log the trasnfer speed
+				logFunc(fmt.Sprintf("Total Data received: %s bytes, Total Data sent: %s bytes", received, sent))
+
 				if !peer.LastHandshakeTime.IsZero() {
-					return nil // handshake detected
+					previousTime, known := previousHandshakeTimes[peer.PublicKey.String()]
+					if !known || !peer.LastHandshakeTime.Equal(previousTime) {
+						log.Debug(" ==================== Outside if peer.LastHandshakeTime ==================== ", peer.LastHandshakeTime)
+						if logFunc != nil {
+							log.Debug(" ==================== Inside if peer.LastHandshakeTime ==================== ", peer.LastHandshakeTime)
+							logFunc(fmt.Sprintf("New handshake detected for peer %s at %s", peer.PublicKey, peer.LastHandshakeTime))
+						}
+						previousHandshakeTimes[peer.PublicKey.String()] = peer.LastHandshakeTime
+						log.Debug(" ==================== previousHandshakeTimes ==================== ", previousHandshakeTimes)
+						// Notify about new handshake
+						retChan <- nil
+					}
 				}
 			}
 
-			// logging
 			if logFunc != nil {
 				if time.Now().After(nexTimeToLog) {
 					logTimeout = logTimeout * 2
