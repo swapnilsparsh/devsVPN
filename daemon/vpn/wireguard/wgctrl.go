@@ -62,7 +62,7 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 		}()
 
 		logTimeout := time.Second * 5
-		nexTimeToLog := time.Now().Add(logTimeout)
+		nextTimeToLog := time.Now().Add(logTimeout)
 
 		client, err := wgctrl.New()
 		if err != nil {
@@ -72,7 +72,9 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 
 		previousHandshakeTimes := make(map[string]time.Time) // Track handshake times for each peer
 
-		for ; ; time.Sleep(time.Millisecond * 50) {
+		for {
+			time.Sleep(time.Millisecond * 50)
+
 			for _, isStop := range stopTriggers {
 				if isStop != nil && *isStop {
 					return nil // stop requested (probably, disconnect requested or already disconnected)
@@ -93,8 +95,8 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 				received := formatBytes(currentRxBytes)
 				sent := formatBytes(currentTxBytes)
 
-				// Log the trasnfer speed
-				logFunc(fmt.Sprintf("Total Data received: %s bytes, Total Data sent: %s bytes", received, sent))
+				// Log the transfer speed
+				logFunc(fmt.Sprintf("Total Data received: %s, Total Data sent: %s", received, sent))
 
 				if !peer.LastHandshakeTime.IsZero() {
 					previousTime, known := previousHandshakeTimes[peer.PublicKey.String()]
@@ -105,22 +107,24 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 							logFunc(fmt.Sprintf("New handshake detected for peer %s at %s", peer.PublicKey, peer.LastHandshakeTime))
 						}
 						previousHandshakeTimes[peer.PublicKey.String()] = peer.LastHandshakeTime
-						log.Debug(" ==================== previousHandshakeTimes ==================== ", previousHandshakeTimes)
-						// Notify about new handshake
-						retChan <- nil
+
+						// Non-blocking send to retChan
+						select {
+						case retChan <- nil:
+						default:
+							// Avoid blocking if no one is receiving
+						}
 					}
 				}
 			}
 
-			if logFunc != nil {
-				if time.Now().After(nexTimeToLog) {
-					logTimeout = logTimeout * 2
-					if logTimeout > time.Second*60 {
-						logTimeout = time.Second * 60
-					}
-					logFunc("Waiting for handshake ...")
-					nexTimeToLog = time.Now().Add(logTimeout)
+			if logFunc != nil && time.Now().After(nextTimeToLog) {
+				logTimeout = logTimeout * 2
+				if logTimeout > time.Minute {
+					logTimeout = time.Minute
 				}
+				logFunc("Waiting for handshake ...")
+				nextTimeToLog = time.Now().Add(logTimeout)
 			}
 		}
 	}()
