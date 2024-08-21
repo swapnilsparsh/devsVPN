@@ -88,15 +88,15 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 
 			for _, peer := range dev.Peers {
 
-				//currentRxBytes := int64(peer.ReceiveBytes)
-				//currentTxBytes := int64(peer.TransmitBytes)
+				currentRxBytes := int64(peer.ReceiveBytes)
+				currentTxBytes := int64(peer.TransmitBytes)
 
 				// Convert bytes to a readable format
-				//received := formatBytes(currentRxBytes)
-				//sent := formatBytes(currentTxBytes)
+				received := formatBytes(currentRxBytes)
+				sent := formatBytes(currentTxBytes)
 
 				// Log the transfer speed
-				//logFunc(fmt.Sprintf("Total Data received: %s, Total Data sent: %s", received, sent))
+				logFunc(fmt.Sprintf("Total Data received: %s, Total Data sent: %s", received, sent))
 
 				if !peer.LastHandshakeTime.IsZero() {
 					previousTime, known := previousHandshakeTimes[peer.PublicKey.String()]
