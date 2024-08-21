@@ -305,6 +305,11 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	return append(interfaceCfg, peerCfg...), nil
 }
 
+func logFunc(mes string) {
+	// TODO: refactor to display rx/tx stats in the UI
+	// log.Info(mes)
+}
+
 func (wg *WireGuard) waitHandshakeAndNotifyConnected(stateChan chan<- vpn.StateInfo) error {
 	log.Info("Initialised")
 
@@ -313,7 +318,7 @@ func (wg *WireGuard) waitHandshakeAndNotifyConnected(stateChan chan<- vpn.StateI
 
 	// Check connectivity: wait for first handshake
 	// function returns only when handshake received or wg.isDisconnectRequested == true
-	err := <-WaitForWireguardMultipleHandshakesChan(wg.GetTunnelName(), []*bool{&wg.isDisconnectRequested, &wg.isDisconnected}, func(mes string) { log.Info(mes) })
+	err := <-WaitForWireguardMultipleHandshakesChan(wg.GetTunnelName(), []*bool{&wg.isDisconnectRequested, &wg.isDisconnected}, logFunc)
 	if err != nil {
 		return err
 	}
