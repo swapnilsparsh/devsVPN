@@ -145,6 +145,8 @@ const daemonResponses = Object.freeze({
 
   AccountInfoResp: "AccountInfoResp",
   ProfileDataResp: "ProfileDataResp",
+
+  TransferredDataResp: "TransferredDataResp",
 });
 
 export const AppUpdateInfoType = Object.freeze({
@@ -371,6 +373,8 @@ function doResetSettings() {
 async function processResponse(response) {
   const obj = JSON.parse(response);
 
+  console.log("===========obj recieved==========", obj);
+  
   if (obj != null && obj.Command != null) {
     // TODO: Full logging is only for debug. Must be removed from production!
     //log.log(`<== ${obj.Command} ${response.length > 512 ? " ..." : response}`);
@@ -547,12 +551,14 @@ async function processResponse(response) {
         requestGeoLookupAsync();
       }
       break;
+
     case daemonResponses.WiFiCurrentNetworkResp:
       store.commit(`vpnState/currentWiFiInfo`, {
         SSID: obj.SSID,
         IsInsecureNetwork: obj.IsInsecureNetwork,
       });
       break;
+
     case daemonResponses.WiFiAvailableNetworksResp:
       store.commit(`vpnState/availableWiFiNetworks`, obj.Networks);
       break;
@@ -564,6 +570,11 @@ async function processResponse(response) {
     case daemonResponses.ServiceExitingResp:
       if (_onDaemonExitingCallback) _onDaemonExitingCallback();
       break;
+
+    case daemonResponses.TransferredDataResp:
+      console.log("TRANSFERRED DATA ===> ", obj);
+      break;
+      
 
     case daemonResponses.ErrorRespDelayed:
       if (obj.ErrorMessage) {
@@ -897,7 +908,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
           reject(e); // REJECT
         }
       })
-      .on("data", onDataReceived);
+      .on("data", onDataReceived)
 
     socket.on("close", () => {
       // Save 'disconnected' state

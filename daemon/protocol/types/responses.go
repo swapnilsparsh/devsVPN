@@ -175,6 +175,12 @@ type SessionResp struct {
 	WgUsePresharedKey  bool
 }
 
+type TransferredDataResp struct {
+	ResponseBase
+	SentData     string
+	ReceivedData string
+}
+
 // CreateSessionResp create new session info object to send to client
 func CreateSessionResp(s preferences.SessionStatus) SessionResp {
 	return SessionResp{
