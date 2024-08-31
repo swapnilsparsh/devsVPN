@@ -373,8 +373,6 @@ function doResetSettings() {
 async function processResponse(response) {
   const obj = JSON.parse(response);
 
-  console.log("===========obj recieved==========", obj);
-  
   if (obj != null && obj.Command != null) {
     // TODO: Full logging is only for debug. Must be removed from production!
     //log.log(`<== ${obj.Command} ${response.length > 512 ? " ..." : response}`);
@@ -572,9 +570,9 @@ async function processResponse(response) {
       break;
 
     case daemonResponses.TransferredDataResp:
-      console.log("TRANSFERRED DATA ===> ", obj);
+      // console.log("TRANSFERRED DATA :", obj.Data);
+      store.commit(`vpnState/transferredData`, obj.Data);
       break;
-      
 
     case daemonResponses.ErrorRespDelayed:
       if (obj.ErrorMessage) {
@@ -908,7 +906,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
           reject(e); // REJECT
         }
       })
-      .on("data", onDataReceived)
+      .on("data", onDataReceived);
 
     socket.on("close", () => {
       // Save 'disconnected' state
@@ -1111,11 +1109,11 @@ async function GeoLookup() {
   store.commit("location", null);
   store.commit("locationIPv6", null);
 
-// TODO: Vlad - SplitTunnelControl disabled for MVP 1.0
+  // TODO: Vlad - SplitTunnelControl disabled for MVP 1.0
   // IPv4 request...
-//  doGeoLookup(_geoLookupLastRequestId);
+  //  doGeoLookup(_geoLookupLastRequestId);
   // IPv6 request ...
-//  doGeoLookup(_geoLookupLastRequestId, true);
+  //  doGeoLookup(_geoLookupLastRequestId, true);
 }
 
 async function doGeoLookup(requestID, isIPv6, isRetryTry) {

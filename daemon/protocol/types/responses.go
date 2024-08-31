@@ -176,7 +176,6 @@ type SessionResp struct {
 }
 
 type TransferredDataResp struct {
-	ResponseBase
 	SentData     string
 	ReceivedData string
 }

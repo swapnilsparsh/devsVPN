@@ -271,12 +271,14 @@ func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Servic
 
 	// Start processing of new connection requests
 	// (connection requests collecting in to chain and processing in order they were received.
-	// See also "RegisterConnectionRequest()" for details)
+	//  See also "RegisterConnectionRequest()" for details)
 	go p.processConnectionRequests()
 
-	// infinite loop of processing IVPN client connection
+	// infinite loop of processing privateLINE client connection
 	for {
 		conn, err := listener.Accept()
+		ConnChan = conn
+
 		if err != nil {
 			if !p._isRunning {
 				return nil // it is expected to get error here (we are requested protocol to stop): "use of closed network connection"
@@ -322,7 +324,6 @@ func (p *Protocol) processClient(conn net.Conn) {
 		} else {
 			log.Info("Current state not changing")
 		}
-
 	}()
 
 	reader := bufio.NewReader(conn)
@@ -365,7 +366,7 @@ func (p *Protocol) processClient(conn net.Conn) {
 
 			// AUTHENTICATED
 			isAuthenticated = true
-			p.clientConnected(conn, hello.ClientType)
+			p.clientConnected(conn, hello.ClientType) //0-ui 1-cli
 		}
 
 		// Processing requests from client (in separate routine)

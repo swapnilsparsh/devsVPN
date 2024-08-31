@@ -49,7 +49,6 @@ func formatBytes(bytes int64) string {
 // if stopTriggers is defined and at least one of it's elements == true: function stops and channel closes.
 func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*bool, logFunc func(string)) <-chan error {
 	retChan := make(chan error, 1)
-	p := &protocol.Protocol{}
 
 	go func() (retError error) {
 		defer func() {
@@ -97,10 +96,7 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 				received := formatBytes(currentRxBytes)
 				sent := formatBytes(currentTxBytes)
 
-				log.Debug("=======HERE IN WGCTRL==========", sent, received)
-
-				//initiating protocol to notify clients
-				p.OnTransferData(sent, received)
+				protocol.OnTransferData(sent, received)
 
 				// Log the transfer speed
 				logFunc(fmt.Sprintf("Total Data received: %s, Total Data sent: %s", received, sent))

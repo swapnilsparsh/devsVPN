@@ -75,15 +75,13 @@ func (p *Protocol) OnWiFiChanged(info wifiNotifier.WifiInfo, err error) {
 	p.notifyClients(msg)
 }
 
-func (p *Protocol) OnTransferData(sent string, received string) {
-	log.Debug("=======HERE IN TRANSFER DATA PROTOCOL FUNTION==========", sent, received)
-
-	msg := &types.TransferredDataResp{
+func OnTransferData(sent string, received string) {
+	log.Debug("=======OnDataTransfer Function=======")
+	msg := types.TransferredDataResp{
 		SentData:     sent,
 		ReceivedData: received,
 	}
-
-	p.notifyClients(msg)
+	customNotifyClients(msg, "TransferredDataResp", 0)
 }
 
 // OnPingStatus - servers ping status
