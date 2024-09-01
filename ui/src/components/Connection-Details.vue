@@ -49,19 +49,18 @@
           </div>
         </div>
 
-        <div class="flexRow paramBlockDetailedConfig">
-          <div class="defColor paramName">Sent data:</div>
+        <div
+          v-if="this.$store.state.vpnState.connectionInfo !== null"
+          class="flexRow paramBlockDetailedConfig"
+        >
+          <div class="defColor paramName">Transfer</div>
           <div class="detailedParamValue">
-            {{ this.$store.state.vpnState.transferredData.SentData }}
+            {{ this.$store.state.vpnState.transferredData.ReceivedData }}
+            received,
+            {{ this.$store.state.vpnState.transferredData.SentData }} sent
           </div>
         </div>
 
-        <div class="flexRow paramBlockDetailedConfig">
-          <div class="defColor paramName">Received data:</div>
-          <div class="detailedParamValue">
-            {{ this.$store.state.vpnState.transferredData.ReceivedData }}
-          </div>
-        </div>
         <!-- <div class="flexRow paramBlockDetailedConfig">
                     <div class="defColor paramName">Quantum Resistance:</div>
                     <div class="detailedParamValue">
