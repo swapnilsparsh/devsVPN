@@ -25,8 +25,10 @@ import {
   SentryIsAbleToUse,
 } from "@/sentry/sentry.js";
 
-import { ipcMain, nativeTheme, dialog, app, shell } from "electron";
+import { ipcMain, nativeTheme, dialog, app, shell, BrowserWindow, session, protocol } from "electron";
 import path from "path";
+const { URL, URLSearchParams } = require('url');
+
 import { Platform } from "@/platform/platform";
 import { GetLinuxSnapEnvVars } from "@/helpers/main_platform";
 
@@ -266,9 +268,8 @@ ipcMain.handle("renderer-request-get-diagnostic-logs", async () => {
   let accInfo = "";
   try {
     const acc = s.account;
-    accInfo = `${acc.accountStatus.CurrentPlan} (${
-      acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
-    })`;
+    accInfo = `${acc.accountStatus.CurrentPlan} (${acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
+      })`;
     if (acc.session.WgPublicKey)
       accInfo += `; wgKeys=OK ${acc.session.WgKeyGenerated}`;
     else accInfo += "; wgKeys=EMPTY";
@@ -489,3 +490,200 @@ ipcMain.handle(
     return await client.SetLocalParanoidModePassword(password);
   }
 );
+
+// ipcMain.handle(
+//   "renderer-request-open-sso-login", async () => {
+//     let win = new BrowserWindow({ width: 800, height: 800 });
+//     win.loadURL('https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=http://localhost:5173&scope=openid&state=sandeep');
+
+//     win.webContents.on('did-finish-load', () => {
+//       const url = win.webContents.getURL();
+//       console.log('Final URL:', url);
+
+//       const urlParams = new URLSearchParams(new URL(url).search);
+//       const code = urlParams.get('code');
+
+//       if (code) {
+//         console.log('Authorization Code:', code);
+//         win.close();
+//       }
+//     });
+
+//     win.on('closed', () => {
+//       win = null;
+//     });
+//   }
+// );
+
+// ======================= Within Same window Start===================
+// ipcMain.handle("renderer-request-open-sso-login", async () => {
+//   const loginUrl = "https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=http://localhost:5173&scope=openid&state=sandeep";
+
+//   const winSession = session.fromPartition('persist:winSession', { cache: true });
+
+//   // Optional: Clear session data to avoid conflicts
+//   // await winSession.clearStorageData();
+
+//   const win = new BrowserWindow({
+//     width: 900,
+//     height: 900,
+//     show: true,
+//     webPreferences: {
+//       nodeIntegration: false,
+//       contextIsolation: true,
+//       enableRemoteModule: false,
+//       session: winSession,
+//       webSecurity: true,
+//     }
+//   });
+
+//   win.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+
+//   win.loadURL(loginUrl);
+
+//   win.webContents.on('will-navigate', (event, url) => {
+//     console.log('Attempting to navigate to:', url);
+
+//     if (url.includes('login-actions/authenticate')) {
+//       event.preventDefault();
+//       win.loadURL(url);
+//     }
+
+//     if (url.startsWith('http://localhost:5173')) {
+//       event.preventDefault();
+//       const urlParams = new URLSearchParams(new URL(url).search);
+//       const code = urlParams.get('code');
+
+//       if (code) {
+//         console.log('Authorization Code:', code);
+//         win.close();
+//       }
+//     }
+//   });
+
+//   win.webContents.on('did-navigate', (event, url) => {
+//     console.log('Navigated to:', url);
+
+//     if (url.startsWith('http://localhost:5173')) {
+//       const urlParams = new URLSearchParams(new URL(url).search);
+//       const code = urlParams.get('code');
+
+//       if (code) {
+//         console.log('Authorization Code:', code);
+//         win.close();
+//       }
+//     }
+//   });
+
+//   win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+//     console.error('Failed to load URL:', validatedURL, 'Error:', errorDescription);
+//   });
+
+//   // win.webContents.session.webRequest.onBeforeRequest((details, callback) => {
+//   //   console.log('Request Details:', details);
+//   //   callback({});
+//   // });
+
+//   win.on('closed', () => {
+//     win = null;
+//   });
+
+//   // Optional: Monitor cookies to ensure they are being set correctly
+//   // winSession.cookies.on('changed', (event, cookie, cause, removed) => {
+//   //   console.log('Cookie changed:', cookie);
+//   // });
+// });
+// ======================= Within Same window End=====================
+
+
+// ======================= External Shell window Start================
+// TODO: SSO Login 
+
+ipcMain.handle("renderer-request-open-sso-login", async () => {
+
+  // Open the login URL in the default web browser
+  const loginUrl = "https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=http://localhost:5173&scope=openid&state=sandeep";
+
+  // shell.openExternal(loginUrl);
+
+  // Create an isolated session for the hidden window
+  const winSession = session.fromPartition('persist:ssoSession', { cache: true });
+  await winSession.clearStorageData(); // Clear previous session data to avoid conflicts
+
+  let win = new BrowserWindow({
+    width: 900,
+    height: 900,
+    show: true,
+    webPreferences: {
+      nodeIntegration: false, // Node integration disabled for security
+      contextIsolation: true,  // Context isolation enabled for security
+      sandbox: true,           // Enable sandbox for better security
+      session: winSession,
+      webSecurity: true,
+    }
+  });
+
+  win.loadURL(loginUrl)
+
+  // Open DevTools for debugging
+  win.webContents.openDevTools();
+
+  // Set user agent to a modern browser
+  win.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+
+  // Handle URL navigation
+  win.webContents.on('will-navigate', (event, url) => {
+    console.log('Attempting to navigate to:', url);
+
+     // Manually allow the navigation if the URL matches your criteria
+  if (url.includes('login-actions/authenticate') || url.startsWith('http://localhost:5173')) {
+    event.preventDefault(); // Prevent Electron's default behavior
+    win.loadURL(url); // Manually navigate to the URL
+  }
+  });
+
+  win.webContents.on('did-navigate', (event, url) => {
+    console.log('Navigated to:', url);
+
+    if (url.startsWith('http://localhost:5173')) {
+      const urlParams = new URLSearchParams(new URL(url).search);
+      const code = urlParams.get('code');
+
+      if (code) {
+        console.log('Authorization Code:', code);
+        win.close();
+      }
+    }
+  });
+
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('Failed to load URL:', validatedURL, 'Error:', errorDescription);
+  });
+
+  win.on('closed', () => {
+    win = null;
+  });
+
+  // winSession.webRequest.onBeforeRequest({ urls: ['http://localhost:5173/*'] }, (details, callback) => {
+  //   const url = details.url;
+  //   console.log('Intercepted request to:', url);
+  
+  //   const urlParams = new URLSearchParams(new URL(url).search);
+  //   const code = urlParams.get('code');
+  
+  //   if (code) {
+  //     console.log('Authorization Code:', code);
+  //     win.close();
+  //   }
+  
+  //   callback({ cancel: false });
+  // });
+});
+
+
+// ======================= External Shell window End================
+
+
+
+
+

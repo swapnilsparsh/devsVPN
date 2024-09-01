@@ -5,7 +5,7 @@
 
       <div class="column">
         <div class="centered" style="margin-top: -50px; margin-bottom: 50px">
-          <img width=" 70%"src="@/assets/logo.svg" />
+          <img width=" 70%" src="@/assets/logo.svg" />
         </div>
 
         <div>
@@ -56,6 +56,10 @@
 
         <button class="slave" v-on:click="CreateAccount">
           Create an account
+        </button>
+        <div style="height: 12px" />
+        <button class="slave" v-on:click="ssoLogin">
+          SSO Login
         </button>
       </div>
     </div>
@@ -141,6 +145,22 @@ export default {
     this.updateColorScheme();
 
     if (this.$refs.accountid) this.$refs.accountid.focus();
+
+    // =========================
+    // Extract query parameters from the URL
+    const urlParams = new URLSearchParams(window.location.search);
+
+    // Access individual parameters
+    const state = urlParams.get('state');
+    const sessionState = urlParams.get('session_state');
+    const iss = urlParams.get('iss');
+    const code = urlParams.get('code');
+
+    console.log('State:', state);
+    console.log('Session State:', sessionState);
+    console.log('Issuer:', iss);
+    console.log('Code:', code);
+    // =========================
 
     let stateParams = history.state.params;
     history.replaceState({}, ""); // clear state params to avoid re-login on page refresh
@@ -235,21 +255,21 @@ export default {
             message: "Failed to login",
             detail: "We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
           });
-        }else if(resp.APIStatus === 412){
+        } else if (resp.APIStatus === 412) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
             detail: "We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
           });
-        }else if (resp.APIErrorMessage == 'Device limit of 5 reached'){
+        } else if (resp.APIErrorMessage == 'Device limit of 5 reached') {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
             detail: resp.APIErrorMessage + ". You can remove the device from your privateLINE account and try again.",
           });
-        }else if (resp.APIErrorMessage != ''){
+        } else if (resp.APIErrorMessage != '') {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
@@ -325,6 +345,36 @@ export default {
     CreateAccount() {
       sender.shellOpenExternal(`https://privateline.io/email-signup`);
     },
+    ssoLogin() {
+      // keyurd @zluck.in
+      // 123456
+      // sender.shellOpenExternal(`https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=http://localhost:5173&scope=openid&state=sandeep`);
+      sender.ssoLogin()
+    },
+    // ssoLogin() {
+    //   let win = new BrowserWindow({ width: 800, height: 600 });
+    //   win.loadURL('https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=http://localhost:5173&scope=openid&state=sandeep');
+
+    //   win.webContents.on('did-finish-load', () => {
+    //     const url = win.webContents.getURL();
+    //     console.log('Final URL:', url);
+
+    //     const urlParams = new URLSearchParams(new URL(url).search);
+    //     const code = urlParams.get('code');
+
+    //     if (code) {
+    //       console.log('Authorization Code:', code);
+    //       // Handle the code or close the window if done
+    //       win.close();
+    //     }
+    //   });
+
+    //   win.on('closed', () => {
+    //     win = null;
+    //   });
+    // },
+
+
     ForgotPassword() {
       sender.shellOpenExternal(`https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`);
     },

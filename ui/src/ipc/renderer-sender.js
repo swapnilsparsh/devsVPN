@@ -216,7 +216,7 @@ export default {
   SetUserPrefs: async (userPrefs) => {
     return await invoke("renderer-request-SetUserPrefs", userPrefs);
   },
-  
+
   ProfileData: async () => {
     return await invoke("renderer-request-ProfileData");
   },
@@ -421,5 +421,8 @@ export default {
       "renderer-request-setLocalParanoidModePassword",
       password
     );
+  },
+  ssoLogin: async (password) => {
+    return await invoke("renderer-request-open-sso-login");
   },
 };
