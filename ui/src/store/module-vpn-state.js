@@ -48,7 +48,9 @@ export default {
       UserExceptions: "",
     },
 
-    transferredData: {SentData:"0", ReceivedData:"0"},
+    transferredData: { SentData: "0", ReceivedData: "0" },
+
+    handshake: { HandshakeTime: "0" },
 
     // The split-tunnelling configuration
     splitTunnelling: {
@@ -173,6 +175,11 @@ export default {
       const jsonData = JSON.parse(data);
       // console.log("sent data ====>",jsonData.SentData);
       state.transferredData = jsonData;
+    },
+    handshake(state, data) {
+      const jsonData = JSON.parse(data);
+      // console.log("handshake ====>",jsonData.HandshakeTime);
+      state.handshake = jsonData;
     },
     connectionState(state, cs) {
       state.connectionState = cs;

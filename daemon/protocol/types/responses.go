@@ -180,6 +180,10 @@ type TransferredDataResp struct {
 	ReceivedData string
 }
 
+type HandshakeResp struct {
+	HandshakeTime string
+}
+
 // CreateSessionResp create new session info object to send to client
 func CreateSessionResp(s preferences.SessionStatus) SessionResp {
 	return SessionResp{

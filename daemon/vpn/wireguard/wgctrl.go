@@ -104,10 +104,9 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 				if !peer.LastHandshakeTime.IsZero() {
 					previousTime, known := previousHandshakeTimes[peer.PublicKey.String()]
 					if !known || !peer.LastHandshakeTime.Equal(previousTime) {
-						logFunc(fmt.Sprintf(" ==================== Outside if peer.LastHandshakeTime ==================== %s", peer.LastHandshakeTime))
 						if logFunc != nil {
-							logFunc(fmt.Sprintf(" ==================== Inside if peer.LastHandshakeTime ==================== %s", peer.LastHandshakeTime))
 							logFunc(fmt.Sprintf("New handshake detected for peer %s at %s", peer.PublicKey, peer.LastHandshakeTime))
+							protocol.OnHandshake(peer.LastHandshakeTime.String())
 						}
 						previousHandshakeTimes[peer.PublicKey.String()] = peer.LastHandshakeTime
 

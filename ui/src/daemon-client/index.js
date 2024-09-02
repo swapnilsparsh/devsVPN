@@ -147,6 +147,7 @@ const daemonResponses = Object.freeze({
   ProfileDataResp: "ProfileDataResp",
 
   TransferredDataResp: "TransferredDataResp",
+  HandshakeResp: "HandshakeResp",
 });
 
 export const AppUpdateInfoType = Object.freeze({
@@ -380,7 +381,7 @@ async function processResponse(response) {
     if (obj.Command == "APIResponse")
       log.debug(
         `<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` +
-          (obj.Error ? " Error!" : "")
+        (obj.Error ? " Error!" : "")
       );
     else log.debug(`<== ${obj.Command} [${obj.Idx}]`);
   } else log.error(`<== ${response}`);
@@ -572,6 +573,10 @@ async function processResponse(response) {
     case daemonResponses.TransferredDataResp:
       // console.log("TRANSFERRED DATA :", obj.Data);
       store.commit(`vpnState/transferredData`, obj.Data);
+      break;
+    case daemonResponses.HandshakeResp:
+      // console.log("TRANSFERRED DATA :", obj.Data);
+      store.commit(`vpnState/handshake`, obj.Data);
       break;
 
     case daemonResponses.ErrorRespDelayed:

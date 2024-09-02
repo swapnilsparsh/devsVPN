@@ -53,11 +53,21 @@
           v-if="this.$store.state.vpnState.connectionInfo !== null"
           class="flexRow paramBlockDetailedConfig"
         >
-          <div class="defColor paramName">Transfer</div>
+          <div class="defColor paramName">Transfer:</div>
           <div class="detailedParamValue">
             {{ this.$store.state.vpnState.transferredData.ReceivedData }}
             received,
             {{ this.$store.state.vpnState.transferredData.SentData }} sent
+          </div>
+        </div>
+
+        <div
+          v-if="this.$store.state.vpnState.connectionInfo !== null"
+          class="flexRow paramBlockDetailedConfig"
+        >
+          <div class="defColor paramName">Latest Handshake:</div>
+          <div class="detailedParamValue">
+            {{ formattedElapsedTime }}
           </div>
         </div>
 
@@ -106,6 +116,9 @@ export default {
       isPortModified: false,
       isProcessing: false,
       openvpnManualConfig: false,
+      startTime: null, // To keep track of when the stopwatch started
+      elapsedTime: 0, // To keep track of elapsed time in seconds
+      intervalId: null, // To store the interval ID for clearing it later
     };
   },
   mounted() {},
@@ -118,9 +131,41 @@ export default {
         return;
       await this.reconnect();
     },
+    adjustedHandshakeTime(newValue, oldValue) {
+      if (newValue === 0) {
+        // Reset the stopwatch if adjustedHandshakeTime is 0
+        this.resetStopwatch();
+      } else {
+        // Reset and restart the stopwatch if HandshakeTime changes and is not 0
+        if (oldValue !== newValue) {
+          this.resetStopwatch();
+          this.startTime = Date.now();
+          this.startStopwatch();
+        }
+      }
+    },
   },
 
   methods: {
+    startStopwatch() {
+      // Clear any existing interval to avoid multiple intervals running
+      if (this.intervalId) {
+        clearInterval(this.intervalId);
+      }
+      // Update elapsed time every second
+      this.intervalId = setInterval(() => {
+        this.elapsedTime = Math.floor((Date.now() - this.startTime) / 1000);
+      }, 1000);
+    },
+    resetStopwatch() {
+      // Stop the interval and reset the time
+      if (this.intervalId) {
+        clearInterval(this.intervalId);
+        this.intervalId = null;
+      }
+      this.startTime = null;
+      this.elapsedTime = 0;
+    },
     onWgKeyRegenerate: async function () {
       try {
         this.isProcessing = true;
@@ -152,6 +197,31 @@ export default {
     },
   },
   computed: {
+    adjustedHandshakeTime() {
+      // Check if connectionInfo is null
+      if (this.$store.state.vpnState.connectionInfo === null) {
+        // Return 0 if the condition is true
+        return 0;
+      }
+      // Otherwise, return the actual HandshakeTime
+      return this.$store.state.vpnState.handshake.HandshakeTime;
+    },
+    formattedElapsedTime() {
+      const minutes = Math.floor(this.elapsedTime / 60);
+      const seconds = this.elapsedTime % 60;
+
+      let result = "";
+      if (minutes > 0) {
+        result += `${minutes} minute${minutes > 1 ? "s" : ""}`;
+      }
+      if (seconds > 0) {
+        if (result) {
+          result += " ";
+        }
+        result += `${seconds} second${seconds > 1 ? "s" : ""}`;
+      }
+      return result || "0 seconds ago";
+    },
     IsAccountActive: function () {
       // if no info about account status - let's believe that account is active
       if (
