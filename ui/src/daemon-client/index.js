@@ -145,6 +145,9 @@ const daemonResponses = Object.freeze({
 
   AccountInfoResp: "AccountInfoResp",
   ProfileDataResp: "ProfileDataResp",
+
+  TransferredDataResp: "TransferredDataResp",
+  HandshakeResp: "HandshakeResp",
 });
 
 export const AppUpdateInfoType = Object.freeze({
@@ -378,9 +381,10 @@ async function processResponse(response) {
     if (obj.Command == "APIResponse")
       log.debug(
         `<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` +
-          (obj.Error ? " Error!" : "")
+        (obj.Error ? " Error!" : "")
       );
-    else log.debug(`<== ${obj.Command} [${obj.Idx}]`);
+    else if (obj.Command != "TransferredDataResp")
+      log.debug(`<== ${obj.Command} [${obj.Idx}]`);
   } else log.error(`<== ${response}`);
 
   if (obj == null || obj.Command == null || obj.Command.length <= 0) return;
@@ -547,12 +551,14 @@ async function processResponse(response) {
         requestGeoLookupAsync();
       }
       break;
+
     case daemonResponses.WiFiCurrentNetworkResp:
       store.commit(`vpnState/currentWiFiInfo`, {
         SSID: obj.SSID,
         IsInsecureNetwork: obj.IsInsecureNetwork,
       });
       break;
+
     case daemonResponses.WiFiAvailableNetworksResp:
       store.commit(`vpnState/availableWiFiNetworks`, obj.Networks);
       break;
@@ -563,6 +569,15 @@ async function processResponse(response) {
 
     case daemonResponses.ServiceExitingResp:
       if (_onDaemonExitingCallback) _onDaemonExitingCallback();
+      break;
+
+    case daemonResponses.TransferredDataResp:
+      // console.log("TRANSFERRED DATA :", obj.Data);
+      store.commit(`vpnState/transferredData`, obj.Data);
+      break;
+    case daemonResponses.HandshakeResp:
+      // console.log("TRANSFERRED DATA :", obj.Data);
+      store.commit(`vpnState/handshake`, obj.Data);
       break;
 
     case daemonResponses.ErrorRespDelayed:
@@ -1100,11 +1115,11 @@ async function GeoLookup() {
   store.commit("location", null);
   store.commit("locationIPv6", null);
 
-// TODO: Vlad - SplitTunnelControl disabled for MVP 1.0
+  // TODO: Vlad - SplitTunnelControl disabled for MVP 1.0
   // IPv4 request...
-//  doGeoLookup(_geoLookupLastRequestId);
+  //  doGeoLookup(_geoLookupLastRequestId);
   // IPv6 request ...
-//  doGeoLookup(_geoLookupLastRequestId, true);
+  //  doGeoLookup(_geoLookupLastRequestId, true);
 }
 
 async function doGeoLookup(requestID, isIPv6, isRetryTry) {

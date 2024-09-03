@@ -485,7 +485,8 @@ func (s *Service) connectWireGuard(originalEntryServerInfo *svrConnInfo, connect
 			platform.WgBinaryPath(),
 			platform.WgToolBinaryPath(),
 			platform.WGConfigFilePath(),
-			connectionParams)
+			connectionParams,
+			s._statsCallbacks)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new WireGuard object: %w", err)

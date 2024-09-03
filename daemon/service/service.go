@@ -41,6 +41,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
@@ -134,6 +135,8 @@ type Service struct {
 	// (UI may send us new connection settings while VPN is connected, e.g., when the user changes connection settings in the UI)
 	_tmpParams      types.ConnectionParams
 	_tmpParamsMutex sync.Mutex
+
+	_statsCallbacks protocol.StatsCallbacks
 }
 
 // VpnSessionInfo - Additional information about current VPN connection
@@ -2236,6 +2239,14 @@ func (s *Service) diagnosticGetCommandOutput(command string, args ...string) str
 		ret += "\n [ERROR]: " + err.Error()
 	}
 	return ret
+}
+
+func (s *Service) SetStatsCallbacks(callbacks protocol.StatsCallbacks) {
+	s._statsCallbacks = callbacks
+}
+
+func (s *Service) GetStatsCallbacks() protocol.StatsCallbacks {
+	return s._statsCallbacks
 }
 
 //////////////////////////////////////////////////////////

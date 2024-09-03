@@ -31,6 +31,7 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
@@ -117,21 +118,24 @@ type WireGuard struct {
 	isDisconnected        bool
 	isDisconnectRequested bool
 
+	_statsCallbacks protocol.StatsCallbacks
+
 	// Must be implemented (AND USED) in correspond file for concrete platform. Must contain platform-specified properties (or can be empty struct)
 	internals internalVariables
 }
 
 // NewWireGuardObject creates new wireguard structure
-func NewWireGuardObject(wgBinaryPath string, wgToolBinaryPath string, wgConfigFilePath string, connectionParams ConnectionParams) (*WireGuard, error) {
+func NewWireGuardObject(wgBinaryPath string, wgToolBinaryPath string, wgConfigFilePath string, connectionParams ConnectionParams, statsCallbacks protocol.StatsCallbacks) (*WireGuard, error) {
 	if connectionParams.clientLocalIP == nil || len(connectionParams.clientPrivateKey) == 0 {
 		return nil, fmt.Errorf("WireGuard local credentials not defined")
 	}
 
 	return &WireGuard{
-		binaryPath:     wgBinaryPath,
-		toolBinaryPath: wgToolBinaryPath,
-		configFilePath: wgConfigFilePath,
-		connectParams:  connectionParams}, nil
+		binaryPath:      wgBinaryPath,
+		toolBinaryPath:  wgToolBinaryPath,
+		configFilePath:  wgConfigFilePath,
+		connectParams:   connectionParams,
+		_statsCallbacks: statsCallbacks}, nil
 }
 
 func (wg *WireGuard) GetTunnelName() string {
@@ -318,7 +322,7 @@ func (wg *WireGuard) waitHandshakeAndNotifyConnected(stateChan chan<- vpn.StateI
 
 	// Check connectivity: wait for first handshake
 	// function returns only when handshake received or wg.isDisconnectRequested == true
-	err := <-WaitForWireguardMultipleHandshakesChan(wg.GetTunnelName(), []*bool{&wg.isDisconnectRequested, &wg.isDisconnected}, logFunc)
+	err := <-WaitForWireguardMultipleHandshakesChan(wg.GetTunnelName(), []*bool{&wg.isDisconnectRequested, &wg.isDisconnected}, logFunc, wg._statsCallbacks)
 	if err != nil {
 		return err
 	}

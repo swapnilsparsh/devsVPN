@@ -75,6 +75,21 @@ func (p *Protocol) OnWiFiChanged(info wifiNotifier.WifiInfo, err error) {
 	p.notifyClients(msg)
 }
 
+func (p *Protocol) OnTransferData(sent string, received string) {
+	msg := types.TransferredDataResp{
+		SentData:     sent,
+		ReceivedData: received,
+	}
+	p.customNotifyClients(msg, "TransferredDataResp", 0)
+}
+
+func (p *Protocol) OnHandshake(handshakeTime string) {
+	msg := types.HandshakeResp{
+		HandshakeTime: handshakeTime,
+	}
+	p.customNotifyClients(msg, "HandshakeResp", 0)
+}
+
 // OnPingStatus - servers ping status
 func (p *Protocol) OnPingStatus(retMap map[string]int) {
 	var results []types.PingResultType
