@@ -84,7 +84,7 @@ func SendCustom(conn net.Conn, data, cmdName string, idx int) error {
 	if _, err := conn.Write(bytesToSend); err != nil {
 		return err
 	}
-	log.Debug("====no error===")
+	// log.Debug("====no error===")
 	return nil
 }
 
