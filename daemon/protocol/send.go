@@ -98,31 +98,21 @@ func (p *Protocol) notifyClients(cmd ICommandBase) {
 	}
 }
 
-type DeviceType struct {
-	Type            int
-	IsAuthenticated bool
-}
+func (p *Protocol) customNotifyClients(data interface{}, cmd string, idx int) {
+	p._connectionsMutex.RLock()
+	defer p._connectionsMutex.RUnlock()
 
-var ConnChan net.Conn
-
-func customNotifyClients(data interface{}, cmd string, idx int) {
 	// log.Debug("=====custom notify client======", data, cmd, idx)
 	jsonData, err := json.Marshal(data)
 	if err != nil {
+		log.Error(err)
 		return
 	}
 
-	connInfoMap := make(map[net.Conn]DeviceType)
-	newConn := ConnChan
-
-	info := DeviceType{
-		Type:            0,
-		IsAuthenticated: true,
-	}
-
-	connInfoMap[newConn] = info
-
-	for conn := range connInfoMap {
+	for conn, connInfo := range p._connections {
+		if connInfo.Type == types.ClientCli {
+			continue // don't send rx/tx stats and handshake timestamp to CLI clients, as they hang on unexpected response
+		}
 		SendCustom(conn, string(jsonData), cmd, idx)
 	}
 }

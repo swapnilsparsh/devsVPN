@@ -47,7 +47,7 @@ func formatBytes(bytes int64) string {
 // WaitForMultipleHandshakes waits for a handshake during 'timeout' time.
 // It returns channel that will be closed when handshake detected. In case of error, channel will contain error.
 // if stopTriggers is defined and at least one of it's elements == true: function stops and channel closes.
-func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*bool, logFunc func(string)) <-chan error {
+func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*bool, logFunc func(string), statisticsCallbacks protocol.StatsCallbacks) <-chan error {
 	retChan := make(chan error, 1)
 
 	go func() (retError error) {
@@ -96,7 +96,7 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 				received := formatBytes(currentRxBytes)
 				sent := formatBytes(currentTxBytes)
 
-				protocol.OnTransferData(sent, received)
+				statisticsCallbacks.OnTransferDataCallback(sent, received)
 
 				// Log the transfer speed
 				logFunc(fmt.Sprintf("Total Data received: %s, Total Data sent: %s", received, sent))
@@ -106,7 +106,7 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 					if !known || !peer.LastHandshakeTime.Equal(previousTime) {
 						if logFunc != nil {
 							logFunc(fmt.Sprintf("New handshake detected for peer %s at %s", peer.PublicKey, peer.LastHandshakeTime))
-							protocol.OnHandshake(peer.LastHandshakeTime.String())
+							statisticsCallbacks.OnHandshakeCallback(peer.LastHandshakeTime.String())
 						}
 						previousHandshakeTimes[peer.PublicKey.String()] = peer.LastHandshakeTime
 

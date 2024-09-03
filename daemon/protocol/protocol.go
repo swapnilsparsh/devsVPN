@@ -155,6 +155,17 @@ type Service interface {
 	GetWiFiAvailableNetworks() ([]string, error)
 
 	GetDiagnosticLogs() (logActive string, logPrevSession string, extraInfo string, err error)
+
+	GetStatsCallbacks() StatsCallbacks
+	SetStatsCallbacks(StatsCallbacks)
+}
+
+// Callback functions for Wireguard to report rx/tx statistics and handshake timestamps to UI client
+type OnTransferDataCallback func(string, string)
+type OnHandshakeCallback func(string)
+type StatsCallbacks struct {
+	OnTransferDataCallback OnTransferDataCallback
+	OnHandshakeCallback    OnHandshakeCallback
 }
 
 // CreateProtocol - Create new protocol object
@@ -227,6 +238,13 @@ func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Servic
 	if p._service != nil {
 		return errors.New("unable to start protocol communication. It is already initialized")
 	}
+
+	statsCallbacks := StatsCallbacks{
+		OnTransferDataCallback: p.OnTransferData,
+		OnHandshakeCallback:    p.OnHandshake,
+	}
+	service.SetStatsCallbacks(statsCallbacks)
+
 	p._service = service
 	p._secret = secret
 
@@ -277,7 +295,6 @@ func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Servic
 	// infinite loop of processing privateLINE client connection
 	for {
 		conn, err := listener.Accept()
-		ConnChan = conn
 
 		if err != nil {
 			if !p._isRunning {
