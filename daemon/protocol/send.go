@@ -66,7 +66,7 @@ func Send(conn net.Conn, cmd ICommandBase, idx int) error {
 }
 
 func SendCustom(conn net.Conn, data, cmdName string, idx int) error {
-	log.Debug("=====custom send to client======", data)
+	// log.Debug("=====custom send to client======", data)
 
 	bytesToSend, err := json.Marshal(map[string]string{
 		"Data":    data,
@@ -106,7 +106,7 @@ type DeviceType struct {
 var ConnChan net.Conn
 
 func customNotifyClients(data interface{}, cmd string, idx int) {
-	log.Debug("=====custom notify client======", data, cmd, idx)
+	// log.Debug("=====custom notify client======", data, cmd, idx)
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return
