@@ -1,0 +1,12 @@
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    },
+    "eslint.run": "onSave",
+    "eslint.alwaysShowStatus": true,
+    "eslint.options": {
+      "fix": true
+    }
+  }

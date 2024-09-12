@@ -216,9 +216,13 @@ export default {
   SetUserPrefs: async (userPrefs) => {
     return await invoke("renderer-request-SetUserPrefs", userPrefs);
   },
-  
+
   ProfileData: async () => {
     return await invoke("renderer-request-ProfileData");
+  },
+
+  SubscriptionData: async () => {
+    return await invoke("renderer-request-SubscriptionData");
   },
 
   SetAutoconnectOnLaunch: async (
