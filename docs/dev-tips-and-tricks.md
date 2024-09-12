@@ -1,12 +1,12 @@
 # Development & Testing - Tips & Tricks
 - [Development \& Testing - Tips \& Tricks](#development--testing---tips--tricks)
-	- [Monitoring Daemon And UI Logs](#monitoring-daemon-and-ui-logs)
+	- [Monitoring Daemon And UI Logs Simultaneously, Multiplexed](#monitoring-daemon-and-ui-logs-simultaneously-multiplexed)
 		- [Windows](#windows)
 		- [Linux](#linux)
 	- [Useful Scripts](#useful-scripts)
 		- [Linux](#linux-1)
 
-## Monitoring Daemon And UI Logs
+## Monitoring Daemon And UI Logs Simultaneously, Multiplexed
 
 ### Windows
 
