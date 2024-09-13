@@ -253,6 +253,11 @@ type ProfileDataRequest struct {
 	SessionTokenStruct
 }
 
+type SubscriptionDataRequest struct {
+	RequestBase
+	SessionTokenStruct
+}
+
 func (req DeviceListRequest) GetSessionToken() string {
 	return req.SessionToken
 }

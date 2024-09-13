@@ -3,8 +3,8 @@
     class="shimmer-wrapper"
     :style="{ width: width, height: height, borderRadius: borderRadius }"
   >
-    <div class="shimmer" :style="shimmerStyle" />
-    <div class="shimmer" :style="shimmerStyle" />
+    <div class="shimmer" />
+    <div class="shimmer" />
   </div>
 </template>
 

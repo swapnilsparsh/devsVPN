@@ -235,10 +235,23 @@ type ProfileDataResponse struct {
 		CreatedAt    string `json:"createdAt"`
 		UpdatedAt    string `json:"updatedAt"`
 	} `json:"data"`
-
 	HttpStatusCode int // manually set by parsers
 }
 
 func (resp *ProfileDataResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
+}
+
+type SubscriptionDataResponse struct {
+	StartDate  string `json:"start_date"`
+	ExpiryDate string `json:"expire_on"`
+	GroupSize  string `json:"group_size"`
+	Plan       struct {
+		Name string `json:"name"`
+	} `json:"Plan"`
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *SubscriptionDataResponse) SetHttpStatusCode(newHttpStatusCode int) {
 	resp.HttpStatusCode = newHttpStatusCode
 }

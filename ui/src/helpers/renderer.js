@@ -82,3 +82,19 @@ export function getDateInShortMonthFormat(dateString) {
   const options = { day: "numeric", month: "short", year: "numeric" };
   return date.toLocaleDateString("en-US", options);
 }
+
+export function isDateInNextSevenDays(dateString) {
+  const inputDate = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const sevenDaysFromToday = new Date(today);
+  sevenDaysFromToday.setDate(today.getDate() + 7);
+  return inputDate >= today && inputDate <= sevenDaysFromToday;
+}
+
+export function isDateOver(dateString) {
+  const inputDate = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return inputDate < today;
+}

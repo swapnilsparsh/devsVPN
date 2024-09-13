@@ -83,18 +83,41 @@
     <div>
       <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
       <div class="flexRowSpace" style="align-items: flex-start">
-        <!-- TODO: later we can add shimmer effect here  -->
         <div v-if="isProcessing">
           <ShimmerEffect :width="'350px'" :height="'20px'" />
         </div>
         <div
-          v-else-if="$store.state.account.userDetails.name"
+          v-else-if="$store.state.account.subscriptionData.Plan"
           class="flexColumn"
         >
           <div class="flexRow paramBlockDetailedConfig">
+            <div class="defColor paramName">Plan Name:</div>
+            <div class="flexRow" style="gap: 16px">
+              <div class="detailedParamValue">
+                {{ $store.state.account.subscriptionData.Plan.name }}
+              </div>
+              <div
+                v-if="
+                  $store.state.account.subscriptionData.Plan.name === 'Free'
+                "
+                class="medium_text"
+                style="
+                  color: #0078d7;
+                  width: 100%;
+                  text-align: right;
+                  font-weight: 500;
+                  cursor: pointer;
+                "
+                @click="RenewSubscription"
+              >
+                Upgrade
+              </div>
+            </div>
+          </div>
+          <div class="flexRow paramBlockDetailedConfig">
             <div class="defColor paramName">Expires on:</div>
             <div class="detailedParamValue">
-              {{ $store.state.account.userDetails.name }}
+              {{ formattedSubscriptionExpiryDate || "Unlimited" }}
             </div>
           </div>
           <div
@@ -121,7 +144,6 @@
 </template>
 
 <script>
-import spinner from "@/components/controls/control-spinner.vue";
 import { dateDefaultFormat } from "@/helpers/helpers";
 import { getDateInShortMonthFormat } from "../../helpers/renderer";
 import ShimmerEffect from "../Shimmer";
@@ -132,14 +154,13 @@ const sender = window.ipcSender;
 
 export default {
   components: {
-    spinner,
     ShimmerEffect,
   },
   data: function () {
     return {
       apiTimeout: null,
       isProcessing: false,
-      accountShimmerItems: Array(5).fill(null),
+      accountShimmerItems: Array(4).fill(null),
     };
   },
   computed: {
@@ -152,6 +173,13 @@ export default {
     },
     formattedCreatedAt() {
       return getDateInShortMonthFormat(this.createdAt);
+    },
+    formattedSubscriptionExpiryDate() {
+      return this.$store.state.account.subscriptionData.expire_on
+        ? getDateInShortMonthFormat(
+            this.$store.state.account.subscriptionData.expire_on
+          )
+        : null;
     },
     IsAccountStateExists: function () {
       return this.$store.getters["account/isAccountStateExists"];
@@ -167,20 +195,12 @@ export default {
     IsActive: function () {
       return this.$store.state.account.accountStatus.Active;
     },
-    IsShowActiveUntil: function () {
-      // Disable active until and Add more time when product name = Member VPN Pro Account
-      // https://github.com/swapnilsparsh/devsVPN-shadow/issues/135
-      // TODO: this is bad practice. The team account attribute have to be provideded by backend
-      if (this.CurrentPlan == "Member VPN Pro Account") return false;
-
-      return true;
-    },
     IsCanUpgradeToPro: function () {
       return (
         this.IsAccountStateExists &&
         this.$store.state.account.accountStatus.Upgradable &&
         this.$store.state.account.accountStatus.CurrentPlan.toLowerCase() !=
-          "ivpn pro"
+          "privateLINE pro"
       );
     },
   },
@@ -200,11 +220,10 @@ export default {
     }
 
     qr.addData(accId);
-    qr.make();
-    // this.$refs.qrcode.innerHTML = qr.createSvgTag(3, 10);
 
     //this.accountStatusRequest();
     this.profileData();
+    this.getSubscriptionData();
   },
   methods: {
     async logOut() {
@@ -309,7 +328,7 @@ export default {
           throw Error("API Time Out");
         }, 10 * 1000);
 
-        await sender.SubscriptionData();
+        const res = await sender.SubscriptionData();
       } catch (err) {
         //TODO: show error on UI
         console.log({ err });

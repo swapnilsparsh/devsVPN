@@ -978,11 +978,8 @@ async function ProfileData() {
   let resp = await sendRecv({
     Command: daemonRequests.ProfileData,
   });
-
   const profileData = resp.RawResponse.data;
-
   store.commit(`account/userDetails`, profileData);
-
   return profileData;
 }
 
@@ -990,11 +987,9 @@ async function SubscriptionData() {
   let resp = await sendRecv({
     Command: daemonRequests.SubscriptionData,
   });
-
-  const subscriptionData = resp.RawResponse.data;
-
+  console.log("subscription data <---- ", resp.RawResponse);
+  const subscriptionData = resp.RawResponse;
   store.commit(`account/subscriptionData`, subscriptionData);
-
   return subscriptionData;
 }
 
