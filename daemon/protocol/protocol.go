@@ -1054,7 +1054,6 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				RawResponse:     rawResponse}
 		}
-		logger.Debug(resp)
 		// send response
 		p.sendResponse(conn, &resp, reqCmd.Idx)
 

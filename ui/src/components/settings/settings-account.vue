@@ -1,5 +1,5 @@
 <template>
-  <div class="flexColumn" style="justify-content: space-between">
+  <div class="flexColumn" style="justify-content: space-between; width: 100%">
     <div>
       <div class="settingsTitle">ACCOUNT DETAILS</div>
       <div class="flexRowSpace" style="align-items: flex-start">
@@ -83,12 +83,15 @@
     <div>
       <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
       <div class="flexRowSpace" style="align-items: flex-start">
-        <div v-if="isProcessing">
+        <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
+          <ShimmerEffect :width="'350px'" :height="'20px'" />
+          <ShimmerEffect :width="'350px'" :height="'20px'" />
           <ShimmerEffect :width="'350px'" :height="'20px'" />
         </div>
         <div
           v-else-if="$store.state.account.subscriptionData.Plan"
           class="flexColumn"
+          style="width: 100%"
         >
           <div class="flexRow paramBlockDetailedConfig">
             <div class="defColor paramName">Plan Name:</div>
@@ -100,38 +103,54 @@
                 v-if="
                   $store.state.account.subscriptionData.Plan.name === 'Free'
                 "
-                class="medium_text"
-                style="
-                  color: #0078d7;
-                  width: 100%;
-                  text-align: right;
-                  font-weight: 500;
-                  cursor: pointer;
-                "
-                @click="RenewSubscription"
+                class="medium_text link"
+                @click="UpgradeSubscription"
               >
                 Upgrade
               </div>
             </div>
           </div>
-          <div class="flexRow paramBlockDetailedConfig">
-            <div class="defColor paramName">Expires on:</div>
+
+          <div
+            v-if="$store.state.account.subscriptionData.Plan.name === 'Group'"
+            class="flexRow paramBlockDetailedConfig"
+          >
+            <div class="defColor paramName">Group Size:</div>
+
             <div class="detailedParamValue">
-              {{ formattedSubscriptionExpiryDate || "Unlimited" }}
+              {{ $store.state.account.subscriptionData.group_size }}
             </div>
           </div>
+
+          <div class="flexRow paramBlockDetailedConfig">
+            <div class="defColor paramName">Started on:</div>
+            <div class="detailedParamValue">
+              {{ formattedSubscriptionStartDate }}
+            </div>
+          </div>
+
           <div
-            class="medium_text"
-            style="
-              color: #0078d7;
-              width: 100%;
-              text-align: right;
-              font-weight: 500;
-              cursor: pointer;
-            "
-            @click="RenewSubscription"
+            v-if="$store.state.account.subscriptionData.Plan.name !== 'Free'"
+            class="flexRow paramBlockDetailedConfig"
+            style="align-items: flex-start"
           >
-            Renew your subscription
+            <div class="defColor paramName">Expires on:</div>
+            <div style="gap: 16px">
+              <div class="detailedParamValue" style="white-space: nowrap">
+                {{ formattedSubscriptionExpiryDate }}
+              </div>
+              <div
+                class="medium_text link"
+                style="text-align: left"
+                @click="RenewSubscription"
+              >
+                {{
+                  endingInDays > 0 && endingInDays <= 7
+                    ? "Renew subscription"
+                    : `Plan ending in ${endingInDays} days`
+                }}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -145,7 +164,10 @@
 
 <script>
 import { dateDefaultFormat } from "@/helpers/helpers";
-import { getDateInShortMonthFormat } from "../../helpers/renderer";
+import {
+  getDateInShortMonthFormat,
+  getDaysDifference,
+} from "../../helpers/renderer";
 import ShimmerEffect from "../Shimmer";
 
 import qrcode from "qrcode-generator";
@@ -175,11 +197,19 @@ export default {
       return getDateInShortMonthFormat(this.createdAt);
     },
     formattedSubscriptionExpiryDate() {
-      return this.$store.state.account.subscriptionData.expire_on
-        ? getDateInShortMonthFormat(
-            this.$store.state.account.subscriptionData.expire_on
-          )
-        : null;
+      return getDateInShortMonthFormat(
+        this.$store.state.account.subscriptionData.expire_on
+      );
+    },
+    formattedSubscriptionStartDate() {
+      return getDateInShortMonthFormat(
+        this.$store.state.account.subscriptionData.start_date
+      );
+    },
+    endingInDays() {
+      return getDaysDifference(
+        this.$store.state.account.subscriptionData.expire_on
+      );
     },
     IsAccountStateExists: function () {
       return this.$store.getters["account/isAccountStateExists"];
@@ -302,7 +332,6 @@ export default {
         this.apiTimeout = setTimeout(() => {
           throw Error("API Time Out");
         }, 10 * 1000);
-
         await sender.ProfileData();
       } catch (err) {
         //TODO: show error on UI
@@ -352,6 +381,9 @@ export default {
     },
     RenewSubscription() {
       sender.shellOpenExternal(`https://account.privateline.io/billing`);
+    },
+    UpgradeSubscription() {
+      sender.shellOpenExternal(`https://privateline.io/#pricing`);
     },
   },
 };

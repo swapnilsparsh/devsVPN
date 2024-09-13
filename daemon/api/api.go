@@ -483,7 +483,6 @@ func (a *API) ProfileData(session string) (
 	if resp.HttpStatusCode != types.CodeSuccess {
 		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
-	log.Debug(fmt.Sprintf("Profile Data fetched successfully: %#v", resp))
 	return resp, nil
 }
 
@@ -500,7 +499,6 @@ func (a *API) SubscriptionData(session string) (
 	if resp.HttpStatusCode != types.CodeSuccess {
 		return nil, types.CreateAPIError(resp.HttpStatusCode, "Error fetching SubscriptionData API")
 	}
-	log.Debug(fmt.Sprintf("Subscription Data fetched successfully: %#v", resp))
 	return resp, nil
 }
 

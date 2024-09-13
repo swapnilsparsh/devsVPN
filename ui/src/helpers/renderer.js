@@ -92,9 +92,12 @@ export function isDateInNextSevenDays(dateString) {
   return inputDate >= today && inputDate <= sevenDaysFromToday;
 }
 
-export function isDateOver(dateString) {
+export function getDaysDifference(dateString) {
   const inputDate = new Date(dateString);
   const today = new Date();
+  inputDate.setHours(0, 0, 0, 0);
   today.setHours(0, 0, 0, 0);
-  return inputDate < today;
+  const timeDifference = inputDate - today;
+  const daysDifference = Math.ceil(timeDifference / (1000 * 60 * 60 * 24));
+  return daysDifference;
 }
