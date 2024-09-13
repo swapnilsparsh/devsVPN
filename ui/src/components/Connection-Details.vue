@@ -121,7 +121,22 @@ export default {
       intervalId: null, // To store the interval ID for clearing it later
     };
   },
-  mounted() {},
+  mounted() {
+    // Parse the timestamp
+    const ConnectedSince =
+      this.$store.state.vpnState.connectionInfo?.ConnectedSince;
+    if (ConnectedSince && ConnectedSince !== 0) {
+      const parsedTime = new Date(ConnectedSince); // Parse the timestamp
+
+      // Calculate the elapsed time in seconds
+      const currentTime = Date.now();
+      const elapsed = Math.floor((currentTime - parsedTime.getTime()) / 1000);
+
+      this.elapsedTime = elapsed; // Set the timer to reflect elapsed time
+      this.startTime = parsedTime.getTime(); // Start from the handshake time in milliseconds
+      this.startStopwatch(); // Start the stopwatch
+    }
+  },
   watch: {
     // If port was changed in conneted state - reconnect
     async port(newValue, oldValue) {
