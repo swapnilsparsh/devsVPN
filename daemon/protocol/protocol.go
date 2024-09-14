@@ -155,6 +155,17 @@ type Service interface {
 	GetWiFiAvailableNetworks() ([]string, error)
 
 	GetDiagnosticLogs() (logActive string, logPrevSession string, extraInfo string, err error)
+
+	GetStatsCallbacks() StatsCallbacks
+	SetStatsCallbacks(StatsCallbacks)
+}
+
+// Callback functions for Wireguard to report rx/tx statistics and handshake timestamps to UI client
+type OnTransferDataCallback func(string, string)
+type OnHandshakeCallback func(string)
+type StatsCallbacks struct {
+	OnTransferDataCallback OnTransferDataCallback
+	OnHandshakeCallback    OnHandshakeCallback
 }
 
 // CreateProtocol - Create new protocol object
@@ -227,6 +238,13 @@ func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Servic
 	if p._service != nil {
 		return errors.New("unable to start protocol communication. It is already initialized")
 	}
+
+	statsCallbacks := StatsCallbacks{
+		OnTransferDataCallback: p.OnTransferData,
+		OnHandshakeCallback:    p.OnHandshake,
+	}
+	service.SetStatsCallbacks(statsCallbacks)
+
 	p._service = service
 	p._secret = secret
 
@@ -271,12 +289,13 @@ func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Servic
 
 	// Start processing of new connection requests
 	// (connection requests collecting in to chain and processing in order they were received.
-	// See also "RegisterConnectionRequest()" for details)
+	//  See also "RegisterConnectionRequest()" for details)
 	go p.processConnectionRequests()
 
-	// infinite loop of processing IVPN client connection
+	// infinite loop of processing privateLINE client connection
 	for {
 		conn, err := listener.Accept()
+
 		if err != nil {
 			if !p._isRunning {
 				return nil // it is expected to get error here (we are requested protocol to stop): "use of closed network connection"
@@ -322,7 +341,6 @@ func (p *Protocol) processClient(conn net.Conn) {
 		} else {
 			log.Info("Current state not changing")
 		}
-
 	}()
 
 	reader := bufio.NewReader(conn)
@@ -365,7 +383,7 @@ func (p *Protocol) processClient(conn net.Conn) {
 
 			// AUTHENTICATED
 			isAuthenticated = true
-			p.clientConnected(conn, hello.ClientType)
+			p.clientConnected(conn, hello.ClientType) //0-ui 1-cli
 		}
 
 		// Processing requests from client (in separate routine)

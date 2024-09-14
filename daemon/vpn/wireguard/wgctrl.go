@@ -27,6 +27,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
@@ -46,7 +47,7 @@ func formatBytes(bytes int64) string {
 // WaitForMultipleHandshakes waits for a handshake during 'timeout' time.
 // It returns channel that will be closed when handshake detected. In case of error, channel will contain error.
 // if stopTriggers is defined and at least one of it's elements == true: function stops and channel closes.
-func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*bool, logFunc func(string)) <-chan error {
+func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*bool, logFunc func(string), statisticsCallbacks protocol.StatsCallbacks) <-chan error {
 	retChan := make(chan error, 1)
 
 	go func() (retError error) {
@@ -95,16 +96,17 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 				received := formatBytes(currentRxBytes)
 				sent := formatBytes(currentTxBytes)
 
+				statisticsCallbacks.OnTransferDataCallback(sent, received)
+
 				// Log the transfer speed
 				logFunc(fmt.Sprintf("Total Data received: %s, Total Data sent: %s", received, sent))
 
 				if !peer.LastHandshakeTime.IsZero() {
 					previousTime, known := previousHandshakeTimes[peer.PublicKey.String()]
 					if !known || !peer.LastHandshakeTime.Equal(previousTime) {
-						logFunc(fmt.Sprintf(" ==================== Outside if peer.LastHandshakeTime ==================== %s", peer.LastHandshakeTime))
 						if logFunc != nil {
-							logFunc(fmt.Sprintf(" ==================== Inside if peer.LastHandshakeTime ==================== %s", peer.LastHandshakeTime))
 							logFunc(fmt.Sprintf("New handshake detected for peer %s at %s", peer.PublicKey, peer.LastHandshakeTime))
+							statisticsCallbacks.OnHandshakeCallback(peer.LastHandshakeTime.String())
 						}
 						previousHandshakeTimes[peer.PublicKey.String()] = peer.LastHandshakeTime
 

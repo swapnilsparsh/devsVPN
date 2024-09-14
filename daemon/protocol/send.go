@@ -45,6 +45,7 @@ type IResponseBase interface {
 // Send initializes and sends command to a client
 // Note: this function modifies cmd object by adding command name and index
 func Send(conn net.Conn, cmd ICommandBase, idx int) error {
+	log.Debug("=====in Send====", cmd)
 	if conn == nil {
 		return fmt.Errorf("connection is nil")
 	}
@@ -60,14 +61,59 @@ func Send(conn net.Conn, cmd ICommandBase, idx int) error {
 	if _, err := conn.Write(bytesToSend); err != nil {
 		return err
 	}
+	log.Debug("=====data sent=====")
+	return nil
+}
+
+func SendCustom(conn net.Conn, data, cmdName string, idx int) error {
+	// log.Debug("=====custom send to client======", data)
+
+	bytesToSend, err := json.Marshal(map[string]string{
+		"Data":    data,
+		"Command": cmdName,
+		"Idx":     string(idx),
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to serialise command: %w", err)
+	}
+	if bytesToSend == nil {
+		return fmt.Errorf("data is nil")
+	}
+	bytesToSend = append(bytesToSend, byte('\n'))
+	if _, err := conn.Write(bytesToSend); err != nil {
+		return err
+	}
+	// log.Debug("====no error===")
 	return nil
 }
 
 func (p *Protocol) notifyClients(cmd ICommandBase) {
 	p._connectionsMutex.RLock()
 	defer p._connectionsMutex.RUnlock()
+
 	for conn := range p._connections {
+		log.Debug("=======connection info=======", conn)
 		p.sendResponse(conn, cmd, 0)
+	}
+}
+
+func (p *Protocol) customNotifyClients(data interface{}, cmd string, idx int) {
+	p._connectionsMutex.RLock()
+	defer p._connectionsMutex.RUnlock()
+
+	// log.Debug("=====custom notify client======", data, cmd, idx)
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	for conn, connInfo := range p._connections {
+		if connInfo.Type == types.ClientCli {
+			continue // don't send rx/tx stats and handshake timestamp to CLI clients, as they hang on unexpected response
+		}
+		SendCustom(conn, string(jsonData), cmd, idx)
 	}
 }
 
@@ -82,6 +128,7 @@ func (p *Protocol) sendErrorResponse(conn net.Conn, request types.RequestBase, e
 }
 
 func (p *Protocol) sendResponse(conn net.Conn, cmd ICommandBase, idx int) (retErr error) {
+	log.Debug("=====in send response=====", cmd, "[", idx, "]")
 	if err := Send(conn, cmd, idx); err != nil {
 		return fmt.Errorf("%sfailed to send command: %w", p.connLogID(conn), err)
 	}
