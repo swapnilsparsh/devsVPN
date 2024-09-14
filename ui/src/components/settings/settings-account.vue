@@ -1,161 +1,162 @@
 <template>
   <div class="flexColumn" style="justify-content: space-between; width: 100%">
-    <div>
-      <div class="settingsTitle">ACCOUNT DETAILS</div>
-      <div class="flexRowSpace" style="align-items: flex-start">
-        <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
-          <ShimmerEffect
-            :width="'100px'"
-            :height="'100px'"
-            :border-radius="'100%'"
-          />
-          <ShimmerEffect
-            v-for="(item, index) in accountShimmerItems"
-            :key="index"
-            :width="'350px'"
-            :height="'20px'"
-          />
-        </div>
-        <div
-          v-else-if="$store.state.account.userDetails.name"
-          class="flexColumn"
-        >
-          <img
-            v-if="!profileImage"
-            src="@/assets/avtar.svg"
-            style="height: 100px; width: 100px"
-          />
-          <img
-            v-else
-            :src="profileImage"
-            style="
-              height: 100px;
-              width: 100px;
-              border-radius: 100%;
-              border: 5px solid #fff;
-              margin-bottom: 10px;
-            "
-          />
-
-          <div>
-            <div class="flexRow paramBlockDetailedConfig">
-              <div class="defColor paramName">Name:</div>
-              <div class="detailedParamValue">
-                {{ $store.state.account.userDetails.name }}
-              </div>
-            </div>
-            <div class="flexRow paramBlockDetailedConfig">
-              <div class="defColor paramName">Email:</div>
-              <div class="detailedParamValue">
-                {{ $store.state.account.userDetails.email }}
-              </div>
-            </div>
-            <div class="flexRow paramBlockDetailedConfig">
-              <div class="defColor paramName">Phone:</div>
-              <div class="detailedParamValue">
-                {{ $store.state.account.userDetails.phone }}
-              </div>
-            </div>
-
-            <div class="flexRow paramBlockDetailedConfig">
-              <div class="defColor paramName">Account Created on:</div>
-              <div class="detailedParamValue">
-                {{ formattedCreatedAt }}
-              </div>
-            </div>
-
-            <div class="flexRow paramBlockDetailedConfig">
-              <div class="defColor paramName">Account verification:</div>
-              <div class="detailedParamValue">
-                {{
-                  $store.state.account.userDetails.isVerified
-                    ? "Done"
-                    : "Needed"
-                }}
-              </div>
-            </div>
+    <div class="flexColumn" style="gap: 2rem">
+      <div>
+        <div class="settingsTitle">ACCOUNT DETAILS</div>
+        <div class="flexRowSpace" style="align-items: flex-start">
+          <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
+            <ShimmerEffect
+              :width="'100px'"
+              :height="'100px'"
+              :border-radius="'100%'"
+            />
+            <ShimmerEffect
+              v-for="(item, index) in accountShimmerItems"
+              :key="index"
+              :width="'350px'"
+              :height="'20px'"
+            />
           </div>
-        </div>
-        <div v-else>Api Error: Data couldn't be fetched at this moment.</div>
-      </div>
-    </div>
-
-    <div>
-      <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
-      <div class="flexRowSpace" style="align-items: flex-start">
-        <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
-          <ShimmerEffect :width="'350px'" :height="'20px'" />
-          <ShimmerEffect :width="'350px'" :height="'20px'" />
-          <ShimmerEffect :width="'350px'" :height="'20px'" />
-        </div>
-        <div
-          v-else-if="$store.state.account.subscriptionData.Plan"
-          class="flexColumn"
-          style="width: 100%"
-        >
-          <div class="flexRow paramBlockDetailedConfig">
-            <div class="defColor paramName">Plan Name:</div>
-            <div class="flexRow" style="gap: 16px">
-              <div class="detailedParamValue">
-                {{ $store.state.account.subscriptionData.Plan.name }}
-              </div>
-              <div
-                v-if="
-                  $store.state.account.subscriptionData.Plan.name === 'Free'
-                "
-                class="medium_text link"
-                @click="UpgradeSubscription"
-              >
-                Upgrade
-              </div>
-            </div>
-          </div>
-
           <div
-            v-if="$store.state.account.subscriptionData.Plan.name === 'Group'"
-            class="flexRow paramBlockDetailedConfig"
+            v-else-if="$store.state.account.userDetails.name"
+            class="flexColumn"
           >
-            <div class="defColor paramName">Group Size:</div>
+            <img
+              v-if="!profileImage"
+              src="@/assets/avtar.svg"
+              style="height: 100px; width: 100px"
+            />
+            <img
+              v-else
+              :src="profileImage"
+              style="
+                height: 100px;
+                width: 100px;
+                border-radius: 100%;
+                border: 5px solid #fff;
+                margin-bottom: 10px;
+              "
+            />
 
-            <div class="detailedParamValue">
-              {{ $store.state.account.subscriptionData.group_size }}
-            </div>
-          </div>
-
-          <div class="flexRow paramBlockDetailedConfig">
-            <div class="defColor paramName">Started on:</div>
-            <div class="detailedParamValue">
-              {{ formattedSubscriptionStartDate }}
-            </div>
-          </div>
-
-          <div
-            v-if="$store.state.account.subscriptionData.Plan.name !== 'Free'"
-            class="flexRow paramBlockDetailedConfig"
-            style="align-items: flex-start"
-          >
-            <div class="defColor paramName">Expires on:</div>
-            <div style="gap: 16px">
-              <div class="detailedParamValue" style="white-space: nowrap">
-                {{ formattedSubscriptionExpiryDate }}
+            <div>
+              <div class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Name:</div>
+                <div class="detailedParamValue">
+                  {{ $store.state.account.userDetails.name }}
+                </div>
               </div>
-              <div
-                class="medium_text link"
-                style="text-align: left"
-                @click="RenewSubscription"
-              >
-                {{
-                  endingInDays > 0 && endingInDays <= 7
-                    ? "Renew subscription"
-                    : `Plan ending in ${endingInDays} days`
-                }}
+              <div class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Email:</div>
+                <div class="detailedParamValue">
+                  {{ $store.state.account.userDetails.email }}
+                </div>
+              </div>
+              <div class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Phone:</div>
+                <div class="detailedParamValue">
+                  {{ $store.state.account.userDetails.phone }}
+                </div>
+              </div>
+
+              <div class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Account Created on:</div>
+                <div class="detailedParamValue">
+                  {{ formattedCreatedAt }}
+                </div>
+              </div>
+
+              <div class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Account verification:</div>
+                <div class="detailedParamValue">
+                  {{
+                    $store.state.account.userDetails.isVerified
+                      ? "Done"
+                      : "Needed"
+                  }}
+                </div>
               </div>
             </div>
           </div>
+          <div v-else>Api Error: Data couldn't be fetched at this moment.</div>
         </div>
       </div>
-    </div>
 
+      <div>
+        <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
+        <div class="flexRowSpace" style="align-items: flex-start">
+          <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
+            <ShimmerEffect :width="'350px'" :height="'20px'" />
+            <ShimmerEffect :width="'350px'" :height="'20px'" />
+            <ShimmerEffect :width="'350px'" :height="'20px'" />
+          </div>
+          <div
+            v-else-if="$store.state.account.subscriptionData.Plan"
+            class="flexColumn"
+            style="width: 100%"
+          >
+            <div class="flexRow paramBlockDetailedConfig">
+              <div class="defColor paramName">Plan Name:</div>
+              <div class="flexRow" style="gap: 16px">
+                <div class="detailedParamValue">
+                  {{ $store.state.account.subscriptionData.Plan.name }}
+                </div>
+                <div
+                  v-if="
+                    $store.state.account.subscriptionData.Plan.name === 'Free'
+                  "
+                  class="medium_text link"
+                  @click="UpgradeSubscription"
+                >
+                  Upgrade
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="$store.state.account.subscriptionData.Plan.name === 'Group'"
+              class="flexRow paramBlockDetailedConfig"
+            >
+              <div class="defColor paramName">Group Size:</div>
+
+              <div class="detailedParamValue">
+                {{ $store.state.account.subscriptionData.group_size }}
+              </div>
+            </div>
+
+            <div class="flexRow paramBlockDetailedConfig">
+              <div class="defColor paramName">Started on:</div>
+              <div class="detailedParamValue">
+                {{ formattedSubscriptionStartDate }}
+              </div>
+            </div>
+
+            <div
+              v-if="$store.state.account.subscriptionData.Plan.name !== 'Free'"
+              class="flexRow paramBlockDetailedConfig"
+              style="align-items: flex-start"
+            >
+              <div class="defColor paramName">Expires on:</div>
+              <div style="gap: 16px">
+                <div class="detailedParamValue" style="white-space: nowrap">
+                  {{ formattedSubscriptionExpiryDate }}
+                </div>
+                <div
+                  class="medium_text link"
+                  style="text-align: left"
+                  @click="RenewSubscription"
+                >
+                  {{
+                    endingInDays > 0 && endingInDays <= 7
+                      ? "Renew subscription"
+                      : `Plan ending in ${endingInDays} days`
+                  }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="flexRow">
       <button id="logoutButton" @click="logOut()">LOG OUT</button>
     </div>
