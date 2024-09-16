@@ -1901,8 +1901,8 @@ func (s *Service) ProfileData() (
 		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
 	}
 
-	profileDataResponse, err = s._api.ProfileData(s.Preferences().Session.Session)
-	return 200, profileDataResponse, err
+	profileDataResponse, apiCode, err = s._api.ProfileData(s.Preferences().Session.Session)
+	return apiCode, profileDataResponse, err
 }
 
 func (s *Service) SubscriptionData() (
@@ -1919,8 +1919,8 @@ func (s *Service) SubscriptionData() (
 		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
 	}
 
-	subscriptionDataResponse, err = s._api.SubscriptionData(s.Preferences().Session.Session)
-	return 200, subscriptionDataResponse, err
+	subscriptionDataResponse, apiCode, err = s._api.SubscriptionData(s.Preferences().Session.Session)
+	return apiCode, subscriptionDataResponse, err
 }
 
 // SessionDelete removes session info

@@ -471,35 +471,37 @@ func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, 
 }
 
 func (a *API) ProfileData(session string) (
-	*types.ProfileDataResponse,
-	error,
+	resp *types.ProfileDataResponse,
+	httpStatusCode int,
+	err error,
 ) {
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 
-	resp := &types.ProfileDataResponse{}
+	resp = &types.ProfileDataResponse{}
 	if err := a.request(_apiHost, _profileDataPath, "GET", "application/json", request, resp); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
-		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
+		return nil, resp.HttpStatusCode, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
-	return resp, nil
+	return resp, resp.HttpStatusCode, nil
 }
 
 func (a *API) SubscriptionData(session string) (
-	*types.SubscriptionDataResponse,
-	error,
+	resp *types.SubscriptionDataResponse,
+	httpStatusCode int,
+	err error,
 ) {
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 
-	resp := &types.SubscriptionDataResponse{}
+	resp = &types.SubscriptionDataResponse{}
 	if err := a.request(_apiHost, _subscriptionDataPath, "GET", "application/json", request, resp); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
-		return nil, types.CreateAPIError(resp.HttpStatusCode, "Error fetching SubscriptionData API")
+		return nil, resp.HttpStatusCode, types.CreateAPIError(resp.HttpStatusCode, "Error fetching SubscriptionData API")
 	}
-	return resp, nil
+	return resp, resp.HttpStatusCode, nil
 }
 
 // SessionDelete - remove session
