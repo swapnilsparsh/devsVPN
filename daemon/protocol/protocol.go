@@ -133,6 +133,11 @@ type Service interface {
 		rawResponse *api_types.ProfileDataResponse,
 		err error)
 
+	SubscriptionData() (
+		apiCode int,
+		rawResponse *api_types.SubscriptionDataResponse,
+		err error)
+
 	AccountInfo() (apiCode int,
 		apiErrorMsg string,
 		accountStatus preferences.AccountStatus,
@@ -984,18 +989,14 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p.notifyClients(p.createHelloResponse())
 
 	case "ProfileData":
-
-		log.Info("Profile API Reached========================")
 		var req types.ProfileDataRequest
 		if err := json.Unmarshal(messageData, &req); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
-			log.Info("Error in Unmarshal========================")
 			break
 		}
 
 		var resp types.ProfileDataResp
 		apiCode, rawResponse, err := p._service.ProfileData()
-		log.Info("Response for Profile data ============> ", rawResponse)
 
 		if err != nil {
 			if apiCode == 0 {
@@ -1017,12 +1018,44 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				RawResponse:     rawResponse}
 		}
-
 		// send response
 		p.sendResponse(conn, &resp, reqCmd.Idx)
 
 		// notify all clients about changed session status
 		p.notifyClients(p.createHelloResponse())
+
+	case "SubscriptionData":
+		var req types.SubscriptionDataRequest
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		var resp types.SubscriptionDataResp
+		apiCode, rawResponse, err := p._service.SubscriptionData()
+
+		if err != nil {
+			if apiCode == 0 {
+				// if apiCode == 0 - it is not API error. Sending error response
+				err := fmt.Errorf("apiErrorMsg=: %w", err)
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			// sending API error info
+			resp = types.SubscriptionDataResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+			}
+		} else {
+			// Success. Sending session info
+			resp = types.SubscriptionDataResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+				Session:         types.CreateSessionResp(p._service.Preferences().Session),
+				RawResponse:     rawResponse}
+		}
+		// send response
+		p.sendResponse(conn, &resp, reqCmd.Idx)
 
 	case "AccountInfo":
 		var req types.DeviceListRequest

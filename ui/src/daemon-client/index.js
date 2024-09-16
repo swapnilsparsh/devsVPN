@@ -24,22 +24,22 @@ const log = require("electron-log");
 const fs = require("fs");
 const net = require("net");
 
-import { Platform, PlatformEnum } from "@/platform/platform";
 import { API_SUCCESS } from "@/api/statuscode";
 import { IsNewVersion } from "@/app-updater/helper";
 import config from "@/config";
+import { Platform, PlatformEnum } from "@/platform/platform";
 
-import { GetPortInfoFilePath } from "@/helpers/main_platform";
 import { InitConnectionParamsObject } from "@/daemon-client/connectionParams.js";
+import { GetPortInfoFilePath } from "@/helpers/main_platform";
 
+import store from "@/store";
 import {
-  VpnTypeEnum,
-  VpnStateEnum,
   DaemonConnectionType,
   DnsEncryption,
   PortTypeEnum,
+  VpnStateEnum,
+  VpnTypeEnum,
 } from "@/store/types";
-import store from "@/store";
 
 const PingServersTimeoutMs = 4000;
 
@@ -69,6 +69,7 @@ const daemonRequests = Object.freeze({
   SessionDelete: "SessionDelete",
   SessionStatus: "SessionStatus",
   ProfileData: "ProfileData",
+  SubscriptionData: "SubscriptionData",
 
   WiFiSettings: "WiFiSettings",
   ConnectSettings: "ConnectSettings",
@@ -381,7 +382,7 @@ async function processResponse(response) {
     if (obj.Command == "APIResponse")
       log.debug(
         `<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` +
-        (obj.Error ? " Error!" : "")
+          (obj.Error ? " Error!" : "")
       );
     else if (obj.Command != "TransferredDataResp")
       log.debug(`<== ${obj.Command} [${obj.Idx}]`);
@@ -958,6 +959,7 @@ async function Login(
 
   if (resp.APIStatus === API_SUCCESS) {
     ProfileData();
+    SubscriptionData();
   }
 
   // Returning whole response object (even in case of error)
@@ -976,12 +978,19 @@ async function ProfileData() {
   let resp = await sendRecv({
     Command: daemonRequests.ProfileData,
   });
-
   const profileData = resp.RawResponse.data;
-
   store.commit(`account/userDetails`, profileData);
-
   return profileData;
+}
+
+async function SubscriptionData() {
+  let resp = await sendRecv({
+    Command: daemonRequests.SubscriptionData,
+  });
+  console.log("subscription data <---- ", resp.RawResponse);
+  const subscriptionData = resp.RawResponse;
+  store.commit(`account/subscriptionData`, subscriptionData);
+  return subscriptionData;
 }
 
 async function Logout(
@@ -1704,76 +1713,6 @@ async function SplitTunnelRemoveApp(Pid, Exec) {
 async function GetInstalledApps() {
   console.error("GetInstalledApps disabled for MVP 1.0");
   return null;
-
-  try {
-    let extraArgsJson = "";
-    if (Platform() == PlatformEnum.Windows) {
-      // Windows
-      let appData = process.env["APPDATA"];
-      if (appData)
-        extraArgsJson = JSON.stringify({ WindowsEnvAppdata: appData });
-    } else if (Platform() == PlatformEnum.Linux) {
-      // Linux
-
-      let XDG_CURRENT_DESKTOP = process.env["ORIGINAL_XDG_CURRENT_DESKTOP"];
-      if (!XDG_CURRENT_DESKTOP)
-        XDG_CURRENT_DESKTOP = process.env["XDG_CURRENT_DESKTOP"];
-
-      // get icons theme name
-      let iconsThemeName = "";
-      try {
-        var execSync = require("child_process").execSync;
-        let envs = { ...process.env, XDG_CURRENT_DESKTOP: XDG_CURRENT_DESKTOP };
-        iconsThemeName = execSync(
-          "/usr/bin/gsettings get org.gnome.desktop.interface icon-theme",
-          { env: envs }
-        )
-          .toString()
-          .trim()
-          .replace(/^'/, "")
-          .replace(/'$/, "");
-      } catch (e) {
-        console.error(e);
-      }
-
-      // get environment variables
-
-      if (config.IsDebug()) {
-        XDG_CURRENT_DESKTOP = "ubuntu:GNOME";
-      }
-
-      let XDG_DATA_DIRS = process.env["XDG_DATA_DIRS"];
-      let HOME = process.env["HOME"];
-      extraArgsJson = JSON.stringify({
-        IconsTheme: iconsThemeName,
-        EnvVar_XDG_CURRENT_DESKTOP: XDG_CURRENT_DESKTOP,
-        EnvVar_XDG_DATA_DIRS: XDG_DATA_DIRS,
-        EnvVar_HOME: HOME,
-      });
-    }
-
-    const responseTimeoutMs = 25 * 1000;
-    let appsResp = await sendRecv(
-      {
-        Command: daemonRequests.GetInstalledApps,
-        ExtraArgsJSON: extraArgsJson,
-      },
-      [daemonResponses.InstalledAppsResp],
-      responseTimeoutMs
-    );
-
-    if (appsResp == null) {
-      return null;
-    }
-
-    // save info about iunstalled apps
-    store.commit("allInstalledApps", appsResp.Apps);
-
-    return appsResp.Apps;
-  } catch (e) {
-    console.error("GetInstalledApps failed: ", e);
-    return null;
-  }
 }
 
 async function GetAppIcon(binaryPath) {
@@ -2003,4 +1942,5 @@ export default {
   SetLocalParanoidModePassword,
   AccountInfo,
   ProfileData,
+  SubscriptionData,
 };

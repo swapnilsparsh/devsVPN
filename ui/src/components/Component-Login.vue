@@ -5,7 +5,7 @@
 
       <div class="column">
         <div class="centered" style="margin-top: -50px; margin-bottom: 50px">
-          <img width=" 70%"src="@/assets/logo.svg" />
+          <img width=" 70%" src="@/assets/logo.svg" />
         </div>
 
         <div>
@@ -18,45 +18,62 @@
 
           <div style="height: 21px" />
 
-          <input class="styledBig" ref="accountid" style="text-align: left" placeholder="Enter your Email"
-            v-model="email" v-on:keyup="keyup($event)" />
+          <input
+            ref="accountid"
+            v-model="email"
+            class="styledBig"
+            style="text-align: left"
+            placeholder="Enter your Email"
+            @keyup="keyup($event)"
+          />
           <div style="height: 10px" />
           <div style="position: relative; display: flex; align-items: center">
-            <input class="styledBig" ref="password" style="text-align: left" placeholder="Enter your Password"
-              v-model="password" :type="passwordType" v-on:keyup="keyup($event)" />
-            <img src="@/assets/eye-close.svg" @click="toggleEye" alt="Eye Image" style="
+            <input
+              ref="password"
+              v-model="password"
+              class="styledBig"
+              style="text-align: left"
+              placeholder="Enter your Password"
+              :type="passwordType"
+              @keyup="keyup($event)"
+            />
+            <img
+              v-if="showPassword"
+              src="@/assets/eye-close.svg"
+              alt="Eye Image"
+              style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              " v-if="showPassword" />
-            <img src="@/assets/eye-open.svg" @click="toggleEye" alt="Eye Image" style="
+              "
+              @click="toggleEye"
+            />
+            <img
+              v-else
+              src="@/assets/eye-open.svg"
+              alt="Eye Image"
+              style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              " v-else />
+              "
+              @click="toggleEye"
+            />
           </div>
         </div>
-        <div class="medium_text" style="
-            color: #0078d7;
-            width: 100%;
-            text-align: right;
-            font-weight: 500;
-            cursor: pointer;
-          " v-on:click="ForgotPassword">
+        <div class="medium_text link" @click="ForgotPassword">
           Forgot Password?
         </div>
 
         <div style="height: 24px" />
-        <button class="master" v-on:click="Login">Log In</button>
+        <button class="master" @click="Login">Log In</button>
         <div style="height: 12px" />
 
-        <button class="slave" v-on:click="CreateAccount">
-          Create an account
-        </button>
+        <button class="slave" @click="CreateAccount">Create an account</button>
       </div>
     </div>
 
@@ -104,15 +121,15 @@ function processError(e) {
 }
 
 export default {
+  components: {
+    spinner,
+    SwitchProgress,
+  },
   props: {
     forceLoginAccount: {
       type: String,
       default: null,
     },
-  },
-  components: {
-    spinner,
-    SwitchProgress,
   },
   data: function () {
     return {
@@ -132,6 +149,49 @@ export default {
       confirmation2FA: "",
       showPassword: false,
     };
+  },
+  computed: {
+    passwordType() {
+      return this.showPassword ? "text" : "password";
+    },
+
+    isCaptchaRequired: function () {
+      return (
+        (this.apiResponseStatus === API_CAPTCHA_REQUIRED ||
+          this.apiResponseStatus === API_CAPTCHA_INVALID) &&
+        this.captchaImage &&
+        this.captchaID &&
+        this.accountID
+      );
+    },
+    isCaptchaInvalid: function () {
+      return this.apiResponseStatus === API_CAPTCHA_INVALID;
+    },
+    is2FATokenRequired: function () {
+      return (
+        (this.apiResponseStatus === API_2FA_REQUIRED ||
+          this.apiResponseStatus === API_2FA_TOKEN_NOT_VALID) &&
+        this.accountID
+      );
+    },
+    captchaImage: function () {
+      return this.rawResponse?.captcha_image;
+    },
+    captchaID: function () {
+      return this.rawResponse?.captcha_id;
+    },
+    firewallStatusText: function () {
+      if (this.$store.state.vpnState.firewallState.IsEnabled)
+        return "Firewall enabled and blocking all traffic";
+      return "Firewall disabled";
+    },
+  },
+  watch: {
+    isCaptchaRequired() {
+      if (!this.$refs.captcha || !this.$refs.accountid) return;
+      if (this.isCaptchaRequired) this.$refs.captcha.focus();
+      else this.$refs.accountid.focus();
+    },
   },
   mounted() {
     // COLOR SCHEME
@@ -196,23 +256,31 @@ export default {
 
         this.isProcessing = true;
         // console.log({ accountid: this.accountID, email: this.email, password: this.password });
-        if (!(this.email != undefined && this.email != null && this.email != '')) {
+        if (
+          !(this.email != undefined && this.email != null && this.email != "")
+        ) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
             detail: `Please enter email address`,
           });
-          return
+          return;
         }
-        if (!(this.password != undefined && this.password != null && this.password != '')) {
+        if (
+          !(
+            this.password != undefined &&
+            this.password != null &&
+            this.password != ""
+          )
+        ) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
             detail: `Please enter password`,
           });
-          return
+          return;
         }
 
         const resp = await sender.Login(
@@ -233,23 +301,27 @@ export default {
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
-            detail: "We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
+            detail:
+              "We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
           });
-        }else if(resp.APIStatus === 412){
+        } else if (resp.APIStatus === 412) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
-            detail: "We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
+            detail:
+              "We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
           });
-        }else if (resp.APIErrorMessage == 'Device limit of 5 reached'){
+        } else if (resp.APIErrorMessage == "Device limit of 5 reached") {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
-            detail: resp.APIErrorMessage + ". You can remove the device from your privateLINE account and try again.",
+            detail:
+              resp.APIErrorMessage +
+              ". You can remove the device from your privateLINE account and try again.",
           });
-        }else if (resp.APIErrorMessage != ''){
+        } else if (resp.APIErrorMessage != "") {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
@@ -326,7 +398,9 @@ export default {
       sender.shellOpenExternal(`https://privateline.io/email-signup`);
     },
     ForgotPassword() {
-      sender.shellOpenExternal(`https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`);
+      sender.shellOpenExternal(
+        `https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`
+      );
     },
     Cancel() {
       this.rawResponse = null;
@@ -386,54 +460,13 @@ export default {
       }
     },
   },
-  computed: {
-    passwordType() {
-      return this.showPassword ? "text" : "password";
-    },
-
-    isCaptchaRequired: function () {
-      return (
-        (this.apiResponseStatus === API_CAPTCHA_REQUIRED ||
-          this.apiResponseStatus === API_CAPTCHA_INVALID) &&
-        this.captchaImage &&
-        this.captchaID &&
-        this.accountID
-      );
-    },
-    isCaptchaInvalid: function () {
-      return this.apiResponseStatus === API_CAPTCHA_INVALID;
-    },
-    is2FATokenRequired: function () {
-      return (
-        (this.apiResponseStatus === API_2FA_REQUIRED ||
-          this.apiResponseStatus === API_2FA_TOKEN_NOT_VALID) &&
-        this.accountID
-      );
-    },
-    captchaImage: function () {
-      return this.rawResponse?.captcha_image;
-    },
-    captchaID: function () {
-      return this.rawResponse?.captcha_id;
-    },
-    firewallStatusText: function () {
-      if (this.$store.state.vpnState.firewallState.IsEnabled)
-        return "Firewall enabled and blocking all traffic";
-      return "Firewall disabled";
-    },
-  },
-  watch: {
-    isCaptchaRequired() {
-      if (!this.$refs.captcha || !this.$refs.accountid) return;
-      if (this.isCaptchaRequired) this.$refs.captcha.focus();
-      else this.$refs.accountid.focus();
-    },
-  },
 };
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
+@import "@/components/scss/constants";
+
 .leftright_margins {
   margin-left: 20px;
   margin-right: 20px;

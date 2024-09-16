@@ -8,6 +8,9 @@ export default {
     //userData
     userDetails: {},
 
+    //subscriptionData
+    subscriptionData: {},
+
     // Session info
     session: {
       AccountID: "",
@@ -40,6 +43,9 @@ export default {
   mutations: {
     userDetails(state, userData) {
       state.userDetails = userData;
+    },
+    subscriptionData(state, subscriptionData) {
+      state.subscriptionData = subscriptionData;
     },
     session(state, sessionInfo) {
       state.session = sessionInfo;

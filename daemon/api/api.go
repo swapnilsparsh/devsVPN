@@ -50,15 +50,16 @@ const (
 	_updateHost  = "raw.githubusercontent.com"
 	_serversPath = "swapnilsparsh/devsVPN/master/daemon/References/common/etc/servers.json"
 
-	_apiPathPrefix     = "v4"
-	_sessionNewPath    = "/user/login"
-	_connectDevicePath = "/connection/push-key"
-	_sessionStatusPath = "/session/status"
-	_sessionDeletePath = "/user/remove-device"
-	_deviceListPath    = "/user/device-list"
-	_profileDataPath   = "/user/profile"
-	_wgKeySetPath      = _apiPathPrefix + "/session/wg/set"
-	_geoLookupPath     = _apiPathPrefix + "/geo-lookup"
+	_apiPathPrefix        = "v4"
+	_sessionNewPath       = "/user/login"
+	_connectDevicePath    = "/connection/push-key"
+	_sessionStatusPath    = "/session/status"
+	_sessionDeletePath    = "/user/remove-device"
+	_deviceListPath       = "/user/device-list"
+	_profileDataPath      = "/user/profile"
+	_subscriptionDataPath = "/user/check-subscription"
+	_wgKeySetPath         = _apiPathPrefix + "/session/wg/set"
+	_geoLookupPath        = _apiPathPrefix + "/geo-lookup"
 )
 
 // Alias - alias description of API request (can be requested by UI client)
@@ -470,20 +471,37 @@ func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, 
 }
 
 func (a *API) ProfileData(session string) (
-	*types.ProfileDataResponse,
-	error,
+	resp *types.ProfileDataResponse,
+	httpStatusCode int,
+	err error,
 ) {
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 
-	resp := &types.ProfileDataResponse{}
+	resp = &types.ProfileDataResponse{}
 	if err := a.request(_apiHost, _profileDataPath, "GET", "application/json", request, resp); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
-		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
+		return nil, resp.HttpStatusCode, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
-	log.Debug(fmt.Sprintf("Profile Data fetched successfully: %#v", resp))
-	return resp, nil
+	return resp, resp.HttpStatusCode, nil
+}
+
+func (a *API) SubscriptionData(session string) (
+	resp *types.SubscriptionDataResponse,
+	httpStatusCode int,
+	err error,
+) {
+	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
+
+	resp = &types.SubscriptionDataResponse{}
+	if err := a.request(_apiHost, _subscriptionDataPath, "GET", "application/json", request, resp); err != nil {
+		return nil, 0, err
+	}
+	if resp.HttpStatusCode != types.CodeSuccess {
+		return nil, resp.HttpStatusCode, types.CreateAPIError(resp.HttpStatusCode, "Error fetching SubscriptionData API")
+	}
+	return resp, resp.HttpStatusCode, nil
 }
 
 // SessionDelete - remove session
