@@ -146,7 +146,7 @@
                   @click="RenewSubscription"
                 >
                   {{
-                    endingInDays > 0 && endingInDays <= 7
+                    endingInDays <= 7
                       ? "Renew subscription"
                       : `Plan ending in ${endingInDays} days`
                   }}
@@ -375,7 +375,7 @@ export default {
       }
     },
     upgrade() {
-      sender.shellOpenExternal(`https://www.account.privateline.io`);
+      sender.shellOpenExternal(`https://privateline.io/#pricing`);
     },
     addMoreTime() {
       sender.shellOpenExternal(`https://privateline.io/`);

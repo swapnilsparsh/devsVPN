@@ -69,7 +69,7 @@
             :onShowFirewallConfig="onFirewallSettings"
             :onShowAntiTrackerConfig="onAntiTrackerSettings"
           />
-          <ConnectionDetails/>
+          <ConnectionDetails />
 
           <transition name="fade">
             <button
@@ -94,6 +94,7 @@ import SelectedServerBlock from "@/components/blocks/block-selected-server.vue";
 import HopButtonsBlock from "./blocks/block-hop-buttons.vue";
 import ShieldButtonsBlock from "./blocks/block-shield-buttons.vue/";
 import ConnectionDetails from "./Connection-Details.vue";
+import { getDaysDifference } from "../helpers/renderer.js";
 
 const sender = window.ipcSender;
 import { VpnStateEnum, VpnTypeEnum } from "@/store/types";
@@ -108,8 +109,26 @@ const viewTypeEnum = Object.freeze({
 async function connect(me, isConnect) {
   try {
     me.isConnectProgress = true;
-    if (isConnect === true) await sender.Connect();
-    else await sender.Disconnect();
+    if (isConnect === true) {
+      let expired = false;
+      if (
+        me.$store.state.account.subscriptionData.Plan.name !== "Free" &&
+        getDaysDifference(me.$store.state.account.subscriptionData.expire_on) <=
+          0
+      ) {
+        expired = true;
+      }
+      if (!expired) await sender.Connect();
+      else {
+        const result = sender.showMessageBoxSync({
+          type: "error",
+          buttons: ["Buy new plan"],
+          message: "Can't connect. Your subscription has expired",
+        });
+        if (result === 0)
+          sender.shellOpenExternal(`https://privateline.io/#pricing`);
+      }
+    } else await sender.Disconnect();
   } catch (e) {
     console.error(e);
     sender.showMessageBoxSync({
@@ -258,7 +277,7 @@ export default {
         this.lastServersPingRequestTime = new Date();
       } else {
         console.log(
-          "Server pings request blocked (due to requests per minute limitation)",
+          "Server pings request blocked (due to requests per minute limitation)"
         );
       }
     },
