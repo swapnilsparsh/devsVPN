@@ -113,7 +113,7 @@ import spinner from "@/components/controls/control-spinner.vue";
 import SwitchProgress from "@/components/controls/control-switch-small2.vue";
 import { IsOsDarkColorScheme } from "@/helpers/renderer";
 import { ColorTheme } from "@/store/types";
-// import { ipcRenderer } from 'electron';
+
 const sender = window.ipcSender;
 const ipcRenderer = sender.GetSafeIpcRenderer();
 
@@ -209,8 +209,9 @@ export default {
     },
   },
   mounted() {
-    ipcRenderer.on('sso-auth', (event, code) => {
-      console.log('SSO code received:', code);
+    /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
+    ipcRenderer.on("sso-auth", (event, authData) => {
+      console.log("SSO Data Recieved ---> ", authData);
     });
     // COLOR SCHEME
     window.matchMedia("(prefers-color-scheme: dark)").addListener(() => {

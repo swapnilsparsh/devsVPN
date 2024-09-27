@@ -427,7 +427,4 @@ export default {
       password
     );
   },
-  ssoLogin: async (password) => {
-    return await invoke("renderer-request-open-sso-login");
-  },
 };
