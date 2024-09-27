@@ -32,12 +32,11 @@ import { InitPersistentSettings, SaveSettings } from "./settings-persistent";
 import { IsWindowHasFrame } from "@/platform/platform";
 import { Platform, PlatformEnum } from "@/platform/platform";
 import config from "@/config";
-import { join } from 'path'
+import { join } from "path";
 
 import { StartUpdateChecker, CheckUpdates } from "@/app-updater";
 import { WasOpenedAtLogin } from "@/auto-launch";
 import wifiHelperMacOS from "@/os-helpers/macos/wifi-helper.js";
-
 
 // default copy/edit context menu event handlers
 import "@/context-menu/main";
@@ -55,14 +54,26 @@ let lastRouteArgs = null; // last route arguments (requested by renderer process
 let isAllowedToStart = true;
 
 // Checking command line arguments
-if (process.argv.find(arg => arg === 'uninstall-agent')) {
-  console.log("'uninstall-agent' argument detected. Just uninstalling agent and exiting...");
+if (process.argv.find((arg) => arg === "uninstall-agent")) {
+  console.log(
+    "'uninstall-agent' argument detected. Just uninstalling agent and exiting..."
+  );
   wifiHelperMacOS.UninstallAgent();
   app.quit();
   isAllowedToStart = false;
-} else if (process.argv.find(arg => arg === 'install-agent')) {
+} else if (process.argv.find((arg) => arg === "install-agent")) {
   console.log("'install-agent' argument detected. Installing agent...");
   wifiHelperMacOS.InstallAgent();
+}
+
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient("privateline", process.execPath, [
+      path.resolve(process.argv[1]),
+    ]);
+  }
+} else {
+  app.setAsDefaultProtocolClient("privateline");
 }
 
 // Only one instance of application can be started
@@ -71,16 +82,22 @@ if (!gotTheLock) {
   console.log("Another instance of application is running.");
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  app.on("second-instance", (event, commandLine) => {
     // Someone tried to run a second instance, we should focus our window.
-    console.log("The second app instance was tried to start.");
+    const url = commandLine.pop();
+    console.log(`You arrived from: ${url}`);
+    const queryString = url.split("?")[1];
+    const params = new URLSearchParams(queryString);
+    if (params.get("code")) {
+      console.log("Code ---> ", params.get("code"));
+      win.webContents.send("sso-auth", params.get("code"));
+    }
     menuOnShow();
   });
 }
 
 // Specify locale. We do not use other languages, so we can remove all other languages from "locales" folder in production build
-app.commandLine.appendSwitch ('lang', 'en-US');
-
+app.commandLine.appendSwitch("lang", "en-US");
 // abortController can be used to cancel active messageBox dialogs when app exiting.
 // Example:
 //      dialog.showMessageBox(win, { signal: abortController.signal, })
@@ -182,14 +199,16 @@ async function LaunchAppInSplitTunnel(execCmd, event) {
 
 // This method will be called when Electron has finished initialization and is ready to show the window.
 function onWindowReady(win) {
-  wifiHelperMacOS.InitWifiHelper(win, () => {showSettings("networks");} );
+  wifiHelperMacOS.InitWifiHelper(win, () => {
+    showSettings("networks");
+  });
 }
 
 // INITIALIZATION
 if (gotTheLock && isAllowedToStart) {
-  InitPersistentSettings();  
+  InitPersistentSettings();
   connectToDaemon();
-  
+
   // INIT COLOR SCHEME
   try {
     if (store.state.settings.colorTheme)
@@ -198,9 +217,6 @@ if (gotTheLock && isAllowedToStart) {
     console.error("Failed to set color scheme: ", e);
   }
   // Scheme must be registered before the app is ready
-  protocol.registerSchemesAsPrivileged([
-    { scheme: "app", privileges: { secure: true, standard: true } },
-  ]);
 
   const isMac = process.platform === "darwin";
   const template = [
@@ -288,6 +304,7 @@ if (gotTheLock && isAllowedToStart) {
   // This method will be called when Electron has finished
   // initialization and is ready to create browser windows.
   // Some APIs can only be used after this event occurs.
+
   app.on("ready", async () => {
     daemonClient.RegisterMsgBoxFunc(dialog.showMessageBox);
 
@@ -332,7 +349,7 @@ if (gotTheLock && isAllowedToStart) {
     } catch (e) {
       console.error(e);
     }
-    
+
     if (store.state.settings.minimizeToTray && WasOpenedAtLogin()) {
       // do not show main application window when application was started automatically on login
       // (if enabled minimizeToTray)
@@ -342,8 +359,6 @@ if (gotTheLock && isAllowedToStart) {
       createWindow();
     }
 
-   
-    
     if (config.IsDebug()) {
       try {
         win.webContents.openDevTools();
@@ -666,7 +681,11 @@ function getWindowIcon() {
     // loading window icon only for Linux.
     // The rest platforms will use icon from application binary
     if (Platform() !== PlatformEnum.Linux) return null;
-    const iconPath = path.join(path.dirname(__dirname), "renderer", "64x64.png");
+    const iconPath = path.join(
+      path.dirname(__dirname),
+      "renderer",
+      "64x64.png"
+    );
     return nativeImage.createFromPath(iconPath);
   } catch (e) {
     console.error(e);
@@ -739,19 +758,19 @@ function createWindow(doNotShowWhenReady) {
     if (isWindowVisibleOnScreen == true)
       win.setBounds({ x: lastPos.x, y: lastPos.y });
   }
- 
+
   // Load the remote URL for development or the local html file for production.
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  if (process.env["ELECTRON_RENDERER_URL"]) {
+    win.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
+    win.loadFile(join(__dirname, "../renderer/index.html"));
   }
 
   // show\hide app from system dock
   updateAppDockVisibility();
 
-  win.once("ready-to-show", () => {   
-    if (doNotShowWhenReady != true) {   
+  win.once("ready-to-show", () => {
+    if (doNotShowWhenReady != true) {
       win.show();
     }
 
@@ -840,13 +859,17 @@ function createSettingsWindow(viewName) {
 
   settingsWindow = createBrowserWindow(windowConfig);
 
-  console.log("ELECTRON_RENDERER_URL: ", process.env['ELECTRON_RENDERER_URL'])
+  console.log("ELECTRON_RENDERER_URL: ", process.env["ELECTRON_RENDERER_URL"]);
 
-    // Load the remote URL for development or the local html file for production.
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    settingsWindow.loadURL(process.env['ELECTRON_RENDERER_URL']+ `#settings/${viewName}`)
+  // Load the remote URL for development or the local html file for production.
+  if (process.env["ELECTRON_RENDERER_URL"]) {
+    settingsWindow.loadURL(
+      process.env["ELECTRON_RENDERER_URL"] + `#settings/${viewName}`
+    );
   } else {
-    settingsWindow.loadURL(`file://${join(__dirname, '../renderer/index.html')}#settings/${viewName}`);
+    settingsWindow.loadURL(
+      `file://${join(__dirname, "../renderer/index.html")}#settings/${viewName}`
+    );
   }
 
   settingsWindow.once("ready-to-show", () => {
@@ -900,10 +923,12 @@ function createUpdateWindow() {
   updateWindow = createBrowserWindow(windowConfig);
 
   // Load the remote URL for development or the local html file for production.
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    updateWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + `#update`)
+  if (process.env["ELECTRON_RENDERER_URL"]) {
+    updateWindow.loadURL(process.env["ELECTRON_RENDERER_URL"] + `#update`);
   } else {
-    updateWindow.loadURL(`file://${join(__dirname, '../renderer/index.html')}#update`);
+    updateWindow.loadURL(
+      `file://${join(__dirname, "../renderer/index.html")}#update`
+    );
   }
 
   updateWindow.once("ready-to-show", () => {

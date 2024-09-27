@@ -18,6 +18,7 @@ export default {
   URLsAllowedPrefixes: [
     "https://privateline.io/",
     "https://sso.privateline.io/",
+    "https://sso.privateline.dev/",
     "x-apple.systempreferences:",
   ],
   URLApps: "https://privateline.io/downloads/",

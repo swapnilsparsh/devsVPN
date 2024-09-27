@@ -18,35 +18,64 @@
 
           <div style="height: 21px" />
 
-          <input class="styledBig" ref="accountid" style="text-align: left" placeholder="Enter your Email"
-            v-model="email" v-on:keyup="keyup($event)" />
+          <input
+            class="styledBig"
+            ref="accountid"
+            style="text-align: left"
+            placeholder="Enter your Email"
+            v-model="email"
+            v-on:keyup="keyup($event)"
+          />
           <div style="height: 10px" />
           <div style="position: relative; display: flex; align-items: center">
-            <input class="styledBig" ref="password" style="text-align: left" placeholder="Enter your Password"
-              v-model="password" :type="passwordType" v-on:keyup="keyup($event)" />
-            <img src="@/assets/eye-close.svg" @click="toggleEye" alt="Eye Image" style="
+            <input
+              class="styledBig"
+              ref="password"
+              style="text-align: left"
+              placeholder="Enter your Password"
+              v-model="password"
+              :type="passwordType"
+              v-on:keyup="keyup($event)"
+            />
+            <img
+              src="@/assets/eye-close.svg"
+              @click="toggleEye"
+              alt="Eye Image"
+              style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              " v-if="showPassword" />
-            <img src="@/assets/eye-open.svg" @click="toggleEye" alt="Eye Image" style="
+              "
+              v-if="showPassword"
+            />
+            <img
+              src="@/assets/eye-open.svg"
+              @click="toggleEye"
+              alt="Eye Image"
+              style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              " v-else />
+              "
+              v-else
+            />
           </div>
         </div>
-        <div class="medium_text" style="
+        <div
+          class="medium_text"
+          style="
             color: #0078d7;
             width: 100%;
             text-align: right;
             font-weight: 500;
             cursor: pointer;
-          " v-on:click="ForgotPassword">
+          "
+          v-on:click="ForgotPassword"
+        >
           Forgot Password?
         </div>
 
@@ -58,9 +87,7 @@
           Create an account
         </button>
         <div style="height: 12px" />
-        <button class="slave" v-on:click="ssoLogin">
-          SSO Login
-        </button>
+        <button class="slave" v-on:click="openSSO">SSO Login</button>
       </div>
     </div>
 
@@ -84,11 +111,12 @@
 <script>
 import spinner from "@/components/controls/control-spinner.vue";
 import SwitchProgress from "@/components/controls/control-switch-small2.vue";
-
 import { IsOsDarkColorScheme } from "@/helpers/renderer";
 import { ColorTheme } from "@/store/types";
-
+// import { ipcRenderer } from 'electron';
 const sender = window.ipcSender;
+const ipcRenderer = sender.GetSafeIpcRenderer();
+
 import {
   API_SUCCESS,
   API_SESSION_LIMIT,
@@ -138,6 +166,9 @@ export default {
     };
   },
   mounted() {
+    ipcRenderer.on('sso-auth', (event, code) => {
+      console.log('SSO code received:', code);
+    });
     // COLOR SCHEME
     window.matchMedia("(prefers-color-scheme: dark)").addListener(() => {
       this.updateColorScheme();
@@ -151,15 +182,15 @@ export default {
     const urlParams = new URLSearchParams(window.location.search);
 
     // Access individual parameters
-    const state = urlParams.get('state');
-    const sessionState = urlParams.get('session_state');
-    const iss = urlParams.get('iss');
-    const code = urlParams.get('code');
+    const state = urlParams.get("state");
+    const sessionState = urlParams.get("session_state");
+    const iss = urlParams.get("iss");
+    const code = urlParams.get("code");
 
-    console.log('State:', state);
-    console.log('Session State:', sessionState);
-    console.log('Issuer:', iss);
-    console.log('Code:', code);
+    console.log("State:", state);
+    console.log("Session State:", sessionState);
+    console.log("Issuer:", iss);
+    console.log("Code:", code);
     // =========================
 
     let stateParams = history.state.params;
@@ -216,23 +247,31 @@ export default {
 
         this.isProcessing = true;
         // console.log({ accountid: this.accountID, email: this.email, password: this.password });
-        if (!(this.email != undefined && this.email != null && this.email != '')) {
+        if (
+          !(this.email != undefined && this.email != null && this.email != "")
+        ) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
             detail: `Please enter email address`,
           });
-          return
+          return;
         }
-        if (!(this.password != undefined && this.password != null && this.password != '')) {
+        if (
+          !(
+            this.password != undefined &&
+            this.password != null &&
+            this.password != ""
+          )
+        ) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
             detail: `Please enter password`,
           });
-          return
+          return;
         }
 
         const resp = await sender.Login(
@@ -253,23 +292,27 @@ export default {
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
-            detail: "We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
+            detail:
+              "We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
           });
         } else if (resp.APIStatus === 412) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
-            detail: "We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
+            detail:
+              "We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
           });
-        } else if (resp.APIErrorMessage == 'Device limit of 5 reached') {
+        } else if (resp.APIErrorMessage == "Device limit of 5 reached") {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
-            detail: resp.APIErrorMessage + ". You can remove the device from your privateLINE account and try again.",
+            detail:
+              resp.APIErrorMessage +
+              ". You can remove the device from your privateLINE account and try again.",
           });
-        } else if (resp.APIErrorMessage != '') {
+        } else if (resp.APIErrorMessage != "") {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
@@ -345,11 +388,16 @@ export default {
     CreateAccount() {
       sender.shellOpenExternal(`https://privateline.io/email-signup`);
     },
+    openSSO() {
+      sender.shellOpenExternal(
+        `https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`
+      );
+    },
     ssoLogin() {
       // keyurd @zluck.in
       // 123456
       // sender.shellOpenExternal(`https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=http://localhost:5173&scope=openid&state=sandeep`);
-      sender.ssoLogin()
+      sender.ssoLogin();
     },
     // ssoLogin() {
     //   let win = new BrowserWindow({ width: 800, height: 600 });
@@ -374,9 +422,10 @@ export default {
     //   });
     // },
 
-
     ForgotPassword() {
-      sender.shellOpenExternal(`https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`);
+      sender.shellOpenExternal(
+        `https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`
+      );
     },
     Cancel() {
       this.rawResponse = null;
