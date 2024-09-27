@@ -1,18 +1,26 @@
 <template>
-  <div class="flexColumn">
-    <div class="settingsTitle">ACCOUNT DETAILS</div>
-
-    <div class="flexColumn">
-      <spinner :loading="isProcessing" />
-
-      <div class="flexRowSpace" style="align-items: flex-start">
-        <!-- TODO: later we can add shimmer effect here  -->
-        <div v-if="isProcessing">Loading...</div>
-        <div
-          v-else-if="this.$store.state.account.userDetails.name"
-          class="flexColumn"
-        >
-          <div>
+  <div class="flexColumn" style="justify-content: space-between; width: 100%">
+    <div class="flexColumn" style="gap: 2rem">
+      <div>
+        <div class="settingsTitle">ACCOUNT DETAILS</div>
+        <div class="flexRowSpace" style="align-items: flex-start">
+          <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
+            <ShimmerEffect
+              :width="'100px'"
+              :height="'100px'"
+              :border-radius="'100%'"
+            />
+            <ShimmerEffect
+              v-for="(item, index) in accountShimmerItems"
+              :key="index"
+              :width="'350px'"
+              :height="'20px'"
+            />
+          </div>
+          <div
+            v-else-if="$store.state.account.userDetails.name"
+            class="flexColumn"
+          >
             <img
               v-if="!profileImage"
               src="@/assets/avtar.svg"
@@ -29,141 +37,139 @@
                 margin-bottom: 10px;
               "
             />
+
+            <div>
+              <div class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Name:</div>
+                <div class="detailedParamValue">
+                  {{ $store.state.account.userDetails.name }}
+                </div>
+              </div>
+              <div class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Email:</div>
+                <div class="detailedParamValue">
+                  {{ $store.state.account.userDetails.email }}
+                </div>
+              </div>
+              <div class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Phone:</div>
+                <div class="detailedParamValue">
+                  {{ $store.state.account.userDetails.phone }}
+                </div>
+              </div>
+
+              <div class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Account Created on:</div>
+                <div class="detailedParamValue">
+                  {{ formattedCreatedAt }}
+                </div>
+              </div>
+
+              <div class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Account verification:</div>
+                <div class="detailedParamValue">
+                  {{
+                    $store.state.account.userDetails.isVerified
+                      ? "Done"
+                      : "Needed"
+                  }}
+                </div>
+              </div>
+            </div>
           </div>
-
-          <div>
-            <div class="flexRow paramBlockDetailedConfig">
-              <div class="defColor paramName">Name:</div>
-              <div class="detailedParamValue">
-                {{ this.$store.state.account.userDetails.name }}
-              </div>
-            </div>
-            <div class="flexRow paramBlockDetailedConfig">
-              <div class="defColor paramName">Email:</div>
-              <div class="detailedParamValue">
-                {{ this.$store.state.account.userDetails.email }}
-              </div>
-            </div>
-            <div class="flexRow paramBlockDetailedConfig">
-              <div class="defColor paramName">Phone:</div>
-              <div class="detailedParamValue">
-                {{ this.$store.state.account.userDetails.phone }}
-              </div>
-            </div>
-
-            <div class="flexRow paramBlockDetailedConfig">
-              <div class="defColor paramName">Account Created on:</div>
-              <div class="detailedParamValue">
-                {{ formattedCreatedAt }}
-              </div>
-            </div>
-
-            <div class="flexRow paramBlockDetailedConfig">
-              <div class="defColor paramName">Account verification:</div>
-              <div class="detailedParamValue">
-                {{
-                  this.$store.state.account.userDetails.isVerified
-                    ? "Done"
-                    : "Needed"
-                }}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-else>
-          Api Error: Data couldn't be fetched at this moment. Please check your
-          internet connection.
-        </div>
-
-        <!-- <div ref="qrcode" class="qrcode"></div> -->
-      </div>
-
-      <div v-if="$store?.state?.account?.session?.DeviceName">
-        <div class="settingsGrayDescriptionFont">Device Name</div>
-        <div class="defColor" style="margin-top: 5px; margin-bottom: 4px">
-          {{ $store?.state?.account?.session?.DeviceName }}
+          <div v-else>Api Error: Data couldn't be fetched at this moment.</div>
         </div>
       </div>
 
-      <!-- ACCOUNT EXPIRATION TEXT -->
-      <!-- <div
-        style="margin-bottom: 12px; color: darkorange"
-        v-if="$store.getters['account/messageAccountExpiration']"
-      >
-        {{ $store.getters["account/messageAccountExpiration"] }}
-      </div> -->
-      <!-- FREE TRIAL EXPIRATION TEXT -->
-      <!-- <div
-        style="margin-bottom: 12px; color: darkorange"
-        v-if="$store.getters['account/messageFreeTrial']"
-      >
-        {{ $store.getters["account/messageFreeTrial"] }}
-      </div> -->
-
-      <!-- <div class="subscriptionDetails" v-if="IsAccountStateExists">
-        <div class="settingsBoldFont" style="margin-bottom: 16px">
-          Subscription details:
-        </div>
-
-        <div class="flexRowAlignTop">
-          <div style="min-width: 170px; margin-right: 17px">
-            <div class="settingsGrayDescriptionFont">Subscription</div>
-            <div class="defColor" style="margin-top: 5px; margin-bottom: 4px">
-              {{ CurrentPlan }}
+      <div>
+        <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
+        <div class="flexRowSpace" style="align-items: flex-start">
+          <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
+            <ShimmerEffect :width="'350px'" :height="'20px'" />
+            <ShimmerEffect :width="'350px'" :height="'20px'" />
+            <ShimmerEffect :width="'350px'" :height="'20px'" />
+          </div>
+          <div
+            v-else-if="$store.state.account.subscriptionData.Plan"
+            class="flexColumn"
+            style="width: 100%"
+          >
+            <div class="flexRow paramBlockDetailedConfig">
+              <div class="defColor paramName">Plan Name:</div>
+              <div class="flexRow" style="gap: 16px">
+                <div class="detailedParamValue">
+                  {{ $store.state.account.subscriptionData.Plan.name }}
+                </div>
+                <div
+                  v-if="
+                    $store.state.account.subscriptionData.Plan.name === 'Free'
+                  "
+                  class="medium_text link"
+                  @click="UpgradeSubscription"
+                >
+                  Upgrade
+                </div>
+              </div>
             </div>
 
-            <button
-              class="noBordersTextBtn settingsLinkText"
-              v-if="IsCanUpgradeToPro"
-              v-on:click="upgrade"
+            <div
+              v-if="$store.state.account.subscriptionData.Plan.name === 'Group'"
+              class="flexRow paramBlockDetailedConfig"
             >
-              Upgrade
-            </button>
-          </div>
-          <div v-if="IsActive && IsShowActiveUntil">
-            <div class="settingsGrayDescriptionFont">Active until</div>
-            <div class="defColor" style="margin-top: 5px; margin-bottom: 4px">
-              {{ ActiveUntil }}
+              <div class="defColor paramName">Group Size:</div>
+
+              <div class="detailedParamValue">
+                {{ $store.state.account.subscriptionData.group_size }}
+              </div>
             </div>
 
-            <button
-              class="noBordersTextBtn settingsLinkText"
-              v-on:click="addMoreTime"
+            <div class="flexRow paramBlockDetailedConfig">
+              <div class="defColor paramName">Started on:</div>
+              <div class="detailedParamValue">
+                {{ formattedSubscriptionStartDate }}
+              </div>
+            </div>
+
+            <div
+              v-if="$store.state.account.subscriptionData.Plan.name !== 'Free'"
+              class="flexRow paramBlockDetailedConfig"
+              style="align-items: flex-start"
             >
-              Add more time
-            </button>
+              <div class="defColor paramName">Expires on:</div>
+              <div style="gap: 16px">
+                <div class="detailedParamValue" style="white-space: nowrap">
+                  {{ formattedSubscriptionExpiryDate }}
+                </div>
+                <div
+                  class="medium_text link"
+                  style="text-align: left"
+                  @click="RenewSubscription"
+                >
+                  {{
+                    endingInDays > 0 && endingInDays <= 7
+                      ? "Renew subscription"
+                      : `Plan ending in ${endingInDays} days`
+                  }}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div> -->
-
-      <!-- <div class="proAcountDescriptionBlock" v-if="IsCanUpgradeToPro">
-        <p>
-          <strong>privateLINE PRO</strong> gives you more possibilities to stay
-          safe and protected:
-        </p>
-
-        <div>
-          <div class="i">*</div>
-          Connect up to <strong>7 devices</strong>
-        </div>
-        <div>
-          <div class="i">*</div>
-          Use <strong>Multi-Hop</strong> connections
-        </div>
-        <p>Login to the website to change subscription plan</p>
-      </div> -->
+      </div>
     </div>
-
     <div class="flexRow">
-      <button id="logoutButton" v-on:click="logOut()">LOG OUT</button>
+      <button id="logoutButton" @click="logOut()">LOG OUT</button>
     </div>
   </div>
 </template>
 
 <script>
-import spinner from "@/components/controls/control-spinner.vue";
 import { dateDefaultFormat } from "@/helpers/helpers";
-import { getDateInShortMonthFormat } from "../../helpers/renderer";
+import {
+  getDateInShortMonthFormat,
+  getDaysDifference,
+} from "../../helpers/renderer";
+import ShimmerEffect from "../Shimmer";
 
 import qrcode from "qrcode-generator";
 
@@ -171,13 +177,63 @@ const sender = window.ipcSender;
 
 export default {
   components: {
-    spinner,
+    ShimmerEffect,
   },
   data: function () {
     return {
       apiTimeout: null,
       isProcessing: false,
+      accountShimmerItems: Array(4).fill(null),
     };
+  },
+  computed: {
+    profileImage() {
+      const profile = this.$store.state.account.userDetails.profile;
+      return profile ? `https://api.privateline.io/uploads/${profile}` : "";
+    },
+    createdAt() {
+      return this.$store.state.account.userDetails.createdAt;
+    },
+    formattedCreatedAt() {
+      return getDateInShortMonthFormat(this.createdAt);
+    },
+    formattedSubscriptionExpiryDate() {
+      return getDateInShortMonthFormat(
+        this.$store.state.account.subscriptionData.expire_on
+      );
+    },
+    formattedSubscriptionStartDate() {
+      return getDateInShortMonthFormat(
+        this.$store.state.account.subscriptionData.start_date
+      );
+    },
+    endingInDays() {
+      return getDaysDifference(
+        this.$store.state.account.subscriptionData.expire_on
+      );
+    },
+    IsAccountStateExists: function () {
+      return this.$store.getters["account/isAccountStateExists"];
+    },
+    CurrentPlan: function () {
+      return this.$store.state.account.accountStatus.CurrentPlan;
+    },
+    ActiveUntil: function () {
+      return dateDefaultFormat(
+        new Date(this.$store.state.account.accountStatus.ActiveUntil * 1000)
+      );
+    },
+    IsActive: function () {
+      return this.$store.state.account.accountStatus.Active;
+    },
+    IsCanUpgradeToPro: function () {
+      return (
+        this.IsAccountStateExists &&
+        this.$store.state.account.accountStatus.Upgradable &&
+        this.$store.state.account.accountStatus.CurrentPlan.toLowerCase() !=
+          "privateLINE pro"
+      );
+    },
   },
   mounted() {
     // generating QRcode
@@ -195,11 +251,10 @@ export default {
     }
 
     qr.addData(accId);
-    qr.make();
-    // this.$refs.qrcode.innerHTML = qr.createSvgTag(3, 10);
 
     //this.accountStatusRequest();
     this.profileData();
+    this.getSubscriptionData();
   },
   methods: {
     async logOut() {
@@ -278,7 +333,6 @@ export default {
         this.apiTimeout = setTimeout(() => {
           throw Error("API Time Out");
         }, 10 * 1000);
-
         await sender.ProfileData();
       } catch (err) {
         //TODO: show error on UI
@@ -295,53 +349,42 @@ export default {
         this.apiTimeout = null;
       }
     },
+
+    async getSubscriptionData() {
+      try {
+        this.isProcessing = true;
+
+        this.apiTimeout = setTimeout(() => {
+          throw Error("API Time Out");
+        }, 10 * 1000);
+
+        const res = await sender.SubscriptionData();
+      } catch (err) {
+        //TODO: show error on UI
+        console.log({ err });
+        sender.showMessageBoxSync({
+          type: "error",
+          buttons: ["OK"],
+          message: "API Error",
+          detail: `Subscription data couldn't be fetched at this momemnt, please check your internet connection!`,
+        });
+      } finally {
+        this.isProcessing = false;
+        clearTimeout(this.apiTimeout);
+        this.apiTimeout = null;
+      }
+    },
     upgrade() {
       sender.shellOpenExternal(`https://www.account.privateline.io`);
     },
     addMoreTime() {
       sender.shellOpenExternal(`https://privateline.io/`);
     },
-  },
-  computed: {
-    profileImage() {
-      const profile = this.$store.state.account.userDetails.profile;
-      return profile ? `https://api.privateline.io/uploads/${profile}` : "";
+    RenewSubscription() {
+      sender.shellOpenExternal(`https://account.privateline.io/billing`);
     },
-    createdAt() {
-      return this.$store.state.account.userDetails.createdAt;
-    },
-    formattedCreatedAt() {
-      return getDateInShortMonthFormat(this.createdAt);
-    },
-    IsAccountStateExists: function () {
-      return this.$store.getters["account/isAccountStateExists"];
-    },
-    CurrentPlan: function () {
-      return this.$store.state.account.accountStatus.CurrentPlan;
-    },
-    ActiveUntil: function () {
-      return dateDefaultFormat(
-        new Date(this.$store.state.account.accountStatus.ActiveUntil * 1000)
-      );
-    },
-    IsActive: function () {
-      return this.$store.state.account.accountStatus.Active;
-    },
-    IsShowActiveUntil: function () {
-      // Disable active until and Add more time when product name = Member VPN Pro Account
-      // https://github.com/swapnilsparsh/devsVPN-shadow/issues/135
-      // TODO: this is bad practice. The team account attribute have to be provideded by backend
-      if (this.CurrentPlan == "Member VPN Pro Account") return false;
-
-      return true;
-    },
-    IsCanUpgradeToPro: function () {
-      return (
-        this.IsAccountStateExists &&
-        this.$store.state.account.accountStatus.Upgradable &&
-        this.$store.state.account.accountStatus.CurrentPlan.toLowerCase() !=
-          "ivpn pro"
-      );
+    UpgradeSubscription() {
+      sender.shellOpenExternal(`https://privateline.io/#pricing`);
     },
   },
 };

@@ -21,23 +21,28 @@
 //
 
 import {
-  SentrySendDiagnosticReport,
   SentryIsAbleToUse,
+  SentrySendDiagnosticReport,
 } from "@/sentry/sentry.js";
 
-import { ipcMain, nativeTheme, dialog, app, shell, BrowserWindow, session, protocol } from "electron";
+import { ipcMain, nativeTheme, dialog, app, shell, BrowserWindow, session } from "electron";
 import path from "path";
 const { URL, URLSearchParams } = require('url');
 
 import { Platform } from "@/platform/platform";
 import { GetLinuxSnapEnvVars } from "@/helpers/main_platform";
 
-import client from "../daemon-client";
-import { CheckUpdates, IsAbleToCheckUpdate } from "@/app-updater";
+import {
+  CancelDownload,
+  CheckUpdates,
+  Install,
+  IsAbleToCheckUpdate,
+  Upgrade,
+} from "@/app-updater";
 import { AutoLaunchIsEnabled, AutoLaunchSet } from "@/auto-launch";
-import store from "@/store";
 import config from "@/config";
-import { Upgrade, CancelDownload, Install } from "@/app-updater";
+import store from "@/store";
+import client from "../daemon-client";
 
 import os from "os";
 
@@ -177,8 +182,12 @@ ipcMain.handle(
   }
 );
 
-ipcMain.handle("renderer-request-ProfileData", async (event) => {
+ipcMain.handle("renderer-request-ProfileData", async () => {
   return await client.ProfileData();
+});
+
+ipcMain.handle("renderer-request-SubscriptionData", async () => {
+  return await client.SubscriptionData();
 });
 
 ipcMain.handle("renderer-request-GetInstalledApps", async () => {

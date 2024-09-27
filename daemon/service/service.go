@@ -1894,8 +1894,6 @@ func (s *Service) ProfileData() (
 	var (
 		profileDataResponse *api_types.ProfileDataResponse
 	)
-	log.Debug("================================ Profile Data function Reached ================================")
-
 	// Not querying Profile Data if we're not logged in yet
 	session := s.Preferences().Session
 	if !session.IsLoggedIn() {
@@ -1903,8 +1901,26 @@ func (s *Service) ProfileData() (
 		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
 	}
 
-	profileDataResponse, err = s._api.ProfileData(s.Preferences().Session.Session)
-	return 200, profileDataResponse, err
+	profileDataResponse, apiCode, err = s._api.ProfileData(s.Preferences().Session.Session)
+	return apiCode, profileDataResponse, err
+}
+
+func (s *Service) SubscriptionData() (
+	apiCode int,
+	response *api_types.SubscriptionDataResponse,
+	err error) {
+	var (
+		subscriptionDataResponse *api_types.SubscriptionDataResponse
+	)
+	// Not querying Subscription Data if we're not logged in yet
+	session := s.Preferences().Session
+	if !session.IsLoggedIn() {
+		log.Error("we're not logged in yet, so not querying Subscription Data (/user/check-subscription API)")
+		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
+	}
+
+	subscriptionDataResponse, apiCode, err = s._api.SubscriptionData(s.Preferences().Session.Session)
+	return apiCode, subscriptionDataResponse, err
 }
 
 // SessionDelete removes session info

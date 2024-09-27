@@ -222,6 +222,10 @@ export default {
     return await invoke("renderer-request-ProfileData");
   },
 
+  SubscriptionData: async () => {
+    return await invoke("renderer-request-SubscriptionData");
+  },
+
   SetAutoconnectOnLaunch: async (
     isEnabled,
     isApplicableByDaemonInBackground

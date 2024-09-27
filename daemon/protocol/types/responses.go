@@ -205,6 +205,14 @@ type ProfileDataResp struct {
 	RawResponse     *api_types.ProfileDataResponse
 }
 
+type SubscriptionDataResp struct {
+	CommandBase
+	APIStatus       int
+	APIErrorMessage error
+	Session         SessionResp
+	RawResponse     *api_types.SubscriptionDataResponse
+}
+
 // SessionNewResp - information about created session (or error info)
 type SessionNewResp struct {
 	CommandBase

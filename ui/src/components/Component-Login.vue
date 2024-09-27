@@ -80,7 +80,7 @@
         </div>
 
         <div style="height: 24px" />
-        <button class="master" v-on:click="Login">Log In</button>
+        <button class="master" @click="Login">Log In</button>
         <div style="height: 12px" />
 
         <button class="slave" v-on:click="CreateAccount">
@@ -136,15 +136,15 @@ function processError(e) {
 }
 
 export default {
+  components: {
+    spinner,
+    SwitchProgress,
+  },
   props: {
     forceLoginAccount: {
       type: String,
       default: null,
     },
-  },
-  components: {
-    spinner,
-    SwitchProgress,
   },
   data: function () {
     return {
@@ -164,6 +164,49 @@ export default {
       confirmation2FA: "",
       showPassword: false,
     };
+  },
+  computed: {
+    passwordType() {
+      return this.showPassword ? "text" : "password";
+    },
+
+    isCaptchaRequired: function () {
+      return (
+        (this.apiResponseStatus === API_CAPTCHA_REQUIRED ||
+          this.apiResponseStatus === API_CAPTCHA_INVALID) &&
+        this.captchaImage &&
+        this.captchaID &&
+        this.accountID
+      );
+    },
+    isCaptchaInvalid: function () {
+      return this.apiResponseStatus === API_CAPTCHA_INVALID;
+    },
+    is2FATokenRequired: function () {
+      return (
+        (this.apiResponseStatus === API_2FA_REQUIRED ||
+          this.apiResponseStatus === API_2FA_TOKEN_NOT_VALID) &&
+        this.accountID
+      );
+    },
+    captchaImage: function () {
+      return this.rawResponse?.captcha_image;
+    },
+    captchaID: function () {
+      return this.rawResponse?.captcha_id;
+    },
+    firewallStatusText: function () {
+      if (this.$store.state.vpnState.firewallState.IsEnabled)
+        return "Firewall enabled and blocking all traffic";
+      return "Firewall disabled";
+    },
+  },
+  watch: {
+    isCaptchaRequired() {
+      if (!this.$refs.captcha || !this.$refs.accountid) return;
+      if (this.isCaptchaRequired) this.$refs.captcha.focus();
+      else this.$refs.accountid.focus();
+    },
   },
   mounted() {
     ipcRenderer.on('sso-auth', (event, code) => {
@@ -439,54 +482,13 @@ export default {
       }
     },
   },
-  computed: {
-    passwordType() {
-      return this.showPassword ? "text" : "password";
-    },
-
-    isCaptchaRequired: function () {
-      return (
-        (this.apiResponseStatus === API_CAPTCHA_REQUIRED ||
-          this.apiResponseStatus === API_CAPTCHA_INVALID) &&
-        this.captchaImage &&
-        this.captchaID &&
-        this.accountID
-      );
-    },
-    isCaptchaInvalid: function () {
-      return this.apiResponseStatus === API_CAPTCHA_INVALID;
-    },
-    is2FATokenRequired: function () {
-      return (
-        (this.apiResponseStatus === API_2FA_REQUIRED ||
-          this.apiResponseStatus === API_2FA_TOKEN_NOT_VALID) &&
-        this.accountID
-      );
-    },
-    captchaImage: function () {
-      return this.rawResponse?.captcha_image;
-    },
-    captchaID: function () {
-      return this.rawResponse?.captcha_id;
-    },
-    firewallStatusText: function () {
-      if (this.$store.state.vpnState.firewallState.IsEnabled)
-        return "Firewall enabled and blocking all traffic";
-      return "Firewall disabled";
-    },
-  },
-  watch: {
-    isCaptchaRequired() {
-      if (!this.$refs.captcha || !this.$refs.accountid) return;
-      if (this.isCaptchaRequired) this.$refs.captcha.focus();
-      else this.$refs.accountid.focus();
-    },
-  },
 };
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
+@import "@/components/scss/constants";
+
 .leftright_margins {
   margin-left: 20px;
   margin-right: 20px;
