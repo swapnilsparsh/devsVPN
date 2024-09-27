@@ -174,24 +174,7 @@ export default {
       this.updateColorScheme();
     });
     this.updateColorScheme();
-
     if (this.$refs.accountid) this.$refs.accountid.focus();
-
-    // =========================
-    // Extract query parameters from the URL
-    const urlParams = new URLSearchParams(window.location.search);
-
-    // Access individual parameters
-    const state = urlParams.get("state");
-    const sessionState = urlParams.get("session_state");
-    const iss = urlParams.get("iss");
-    const code = urlParams.get("code");
-
-    console.log("State:", state);
-    console.log("Session State:", sessionState);
-    console.log("Issuer:", iss);
-    console.log("Code:", code);
-    // =========================
 
     let stateParams = history.state.params;
     history.replaceState({}, ""); // clear state params to avoid re-login on page refresh
@@ -393,35 +376,6 @@ export default {
         `https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`
       );
     },
-    ssoLogin() {
-      // keyurd @zluck.in
-      // 123456
-      // sender.shellOpenExternal(`https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=http://localhost:5173&scope=openid&state=sandeep`);
-      sender.ssoLogin();
-    },
-    // ssoLogin() {
-    //   let win = new BrowserWindow({ width: 800, height: 600 });
-    //   win.loadURL('https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=http://localhost:5173&scope=openid&state=sandeep');
-
-    //   win.webContents.on('did-finish-load', () => {
-    //     const url = win.webContents.getURL();
-    //     console.log('Final URL:', url);
-
-    //     const urlParams = new URLSearchParams(new URL(url).search);
-    //     const code = urlParams.get('code');
-
-    //     if (code) {
-    //       console.log('Authorization Code:', code);
-    //       // Handle the code or close the window if done
-    //       win.close();
-    //     }
-    //   });
-
-    //   win.on('closed', () => {
-    //     win = null;
-    //   });
-    // },
-
     ForgotPassword() {
       sender.shellOpenExternal(
         `https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`
