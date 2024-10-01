@@ -26,8 +26,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strings"
 	"sync"
@@ -366,6 +368,152 @@ func (a *API) SessionNew(email string, password string) (
 	}
 
 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+}
+
+// SsoLogin - try to register new session
+func (a *API) SsoLogin(code string, sessionCode string) (
+	*types.SessionNewResponse,
+	*types.SessionNewErrorLimitResponse,
+	*types.APIErrorResponse,
+	string, // RAW response
+	error) {
+
+	var successResp types.SessionNewResponse
+	var errorLimitResp types.SessionNewErrorLimitResponse
+	var apiErr types.APIErrorResponse
+
+	rawResponse := ""
+	httpClient := &http.Client{}
+
+	// Step 1: Exchange code for token by hitting the Keycloak token endpoint
+	tokenUrl := "https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/token"
+	payload := url.Values{}
+	payload.Set("grant_type", "authorization_code")
+	payload.Set("code", code)
+	payload.Set("redirect_uri", "privateline://auth") // Ensure this matches the registered redirect URI
+	payload.Set("client_id", "pl-connect-desktop")
+	payload.Set("client_secret", "YKJ6aBMCMhJfzH9RtClcBFFNGrh5ystc")
+
+	// Send the POST request to get the token
+	tokenResp, err := httpClient.PostForm(tokenUrl, payload)
+	if err != nil {
+		return nil, nil, nil, rawResponse, fmt.Errorf("failed to request token: %w", err)
+	}
+	defer tokenResp.Body.Close()
+
+	// Read the token response
+	tokenBody, err := ioutil.ReadAll(tokenResp.Body)
+	if err != nil {
+		return nil, nil, nil, rawResponse, fmt.Errorf("failed to read token response: %w", err)
+	}
+
+	rawResponse = string(tokenBody)
+	// Parse the token response
+	var tokenData map[string]interface{}
+	err = json.Unmarshal(tokenBody, &tokenData)
+	if err != nil {
+		return nil, nil, nil, rawResponse, fmt.Errorf("failed to parse token response: %w", err)
+	}
+
+	// Check if the token response contains an error
+	if _, ok := tokenData["error"]; ok {
+		return nil, nil, nil, rawResponse, fmt.Errorf("error in token response: %v", tokenData["error_description"])
+	}
+
+	accessToken := tokenData["access_token"].(string)
+	log.Debug("Got Acess Token :- ", accessToken)
+	// After successfully getting the access token
+	// Call GetUserDetails with the access token
+	userInfo, rawUserInfo, err := a.GetUserDetails(accessToken)
+	if err != nil {
+		return nil, nil, nil, rawResponse, fmt.Errorf("failed to get user details: %w", err)
+	}
+
+	// Log or use the user info as needed
+	log.Debug("User Info: ", userInfo)
+	log.Debug("User Info: ", rawUserInfo)
+
+	request := &types.SsoLoginRequest{
+		Code: code,
+		// Token: accessToken, // Assuming you need to pass the token along with the request
+	}
+
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
+	if err != nil {
+		return nil, nil, nil, rawResponse, err
+	}
+
+	rawResponse = string(data)
+
+	// Check for API error
+	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
+		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+	}
+
+	// Success case
+	if apiErr.HttpStatusCode == types.CodeSuccess {
+		err := json.Unmarshal(data, &successResp)
+		successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+		if err != nil {
+			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+		}
+		return &successResp, nil, &apiErr, rawResponse, nil
+	}
+
+	// Session limit check
+	if apiErr.HttpStatusCode == types.CodeSessionsLimitReached {
+		err := json.Unmarshal(data, &errorLimitResp)
+		errorLimitResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+		if err != nil {
+			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+		}
+		return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	}
+
+	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+}
+
+// @@@@@ Get User Details
+func (a *API) GetUserDetails(accessToken string) (map[string]interface{}, string, error) {
+	httpClient := &http.Client{}
+	userInfoUrl := "https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/userinfo"
+
+	// Prepare the GET request with the access token in the Authorization header
+	req, err := http.NewRequest("GET", userInfoUrl, nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create user info request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	// Execute the request
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to execute user info request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check the HTTP status code
+	if resp.StatusCode != http.StatusOK {
+		body, _ := ioutil.ReadAll(resp.Body) // Read the body to log the error
+		return nil, "", fmt.Errorf("failed to get user info: status %d, response body: %s", resp.StatusCode, string(body))
+	}
+
+	// Read the response body
+	userInfoBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read user info response: %w", err)
+	}
+
+	rawUserInfo := string(userInfoBody)
+
+	// Parse the user info response
+	var userInfo map[string]interface{}
+	err = json.Unmarshal(userInfoBody, &userInfo)
+	if err != nil {
+		return nil, rawUserInfo, fmt.Errorf("failed to parse user info response: %w", err)
+	}
+	// Return the parsed user info and raw response
+	return userInfo, rawUserInfo, nil
 }
 
 func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string, sessionToken string) (

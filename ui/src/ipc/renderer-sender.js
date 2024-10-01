@@ -112,6 +112,16 @@ export default {
       // confirmation2FA
     );
   },
+  SsoLogin: async (
+    Code,
+    SessionState
+  ) => {
+    return await invoke(
+      "renderer-request-sso-login",
+      Code,
+      SessionState
+    );
+  },
 
   AccountInfo: async () => {
     return await invoke("renderer-request-AccountInfo");

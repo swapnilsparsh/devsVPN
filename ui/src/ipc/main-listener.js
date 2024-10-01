@@ -74,6 +74,19 @@ ipcMain.handle(
     );
   }
 );
+ipcMain.handle(
+  "renderer-request-sso-login",
+  async (
+    event,
+    Code,
+    SessionState
+  ) => {
+    return await client.SsoLogin(
+      Code,
+      SessionState
+    );
+  }
+);
 
 ipcMain.handle("renderer-request-AccountInfo", async () => {
   return await client.AccountInfo();

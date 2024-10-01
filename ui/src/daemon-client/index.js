@@ -66,6 +66,7 @@ const daemonRequests = Object.freeze({
   GetServers: "GetServers",
   CheckAccessiblePorts: "CheckAccessiblePorts",
   SessionNew: "SessionNew",
+  SsoLogin: "SsoLogin",
   SessionDelete: "SessionDelete",
   SessionStatus: "SessionStatus",
   ProfileData: "ProfileData",
@@ -964,6 +965,20 @@ async function Login(
 
   // Returning whole response object (even in case of error)
   // it contains details about error
+  return resp;
+}
+// ========== SSO Login ========
+async function SsoLogin( Code, SessionState) {
+  let resp = await sendRecv({
+    Command: daemonRequests.SsoLogin,
+    Code: Code,
+    SessionState: SessionState,
+  });
+
+  if (resp.APIStatus === API_SUCCESS) {
+    ProfileData();
+    SubscriptionData();
+  }
   return resp;
 }
 
@@ -1894,6 +1909,7 @@ export default {
   GetDiagnosticLogs,
 
   Login,
+  SsoLogin,
   Logout,
   SessionStatus,
 

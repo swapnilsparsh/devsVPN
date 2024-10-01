@@ -237,6 +237,11 @@ type SessionNew struct {
 	// Captcha         string
 	// Confirmation2FA string
 }
+type SsoLogin struct {
+	RequestBase
+	Code         string
+	SessionState string
+}
 
 type SessionTokenStruct struct {
 	// non-serializable vars to pass to httpRequest creation stage

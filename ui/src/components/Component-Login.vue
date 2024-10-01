@@ -18,64 +18,35 @@
 
           <div style="height: 21px" />
 
-          <input
-            class="styledBig"
-            ref="accountid"
-            style="text-align: left"
-            placeholder="Enter your Email"
-            v-model="email"
-            v-on:keyup="keyup($event)"
-          />
+          <input class="styledBig" ref="accountid" style="text-align: left" placeholder="Enter your Email"
+            v-model="email" v-on:keyup="keyup($event)" />
           <div style="height: 10px" />
           <div style="position: relative; display: flex; align-items: center">
-            <input
-              class="styledBig"
-              ref="password"
-              style="text-align: left"
-              placeholder="Enter your Password"
-              v-model="password"
-              :type="passwordType"
-              v-on:keyup="keyup($event)"
-            />
-            <img
-              src="@/assets/eye-close.svg"
-              @click="toggleEye"
-              alt="Eye Image"
-              style="
+            <input class="styledBig" ref="password" style="text-align: left" placeholder="Enter your Password"
+              v-model="password" :type="passwordType" v-on:keyup="keyup($event)" />
+            <img src="@/assets/eye-close.svg" @click="toggleEye" alt="Eye Image" style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              "
-              v-if="showPassword"
-            />
-            <img
-              src="@/assets/eye-open.svg"
-              @click="toggleEye"
-              alt="Eye Image"
-              style="
+              " v-if="showPassword" />
+            <img src="@/assets/eye-open.svg" @click="toggleEye" alt="Eye Image" style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              "
-              v-else
-            />
+              " v-else />
           </div>
         </div>
-        <div
-          class="medium_text"
-          style="
+        <div class="medium_text" style="
             color: #0078d7;
             width: 100%;
             text-align: right;
             font-weight: 500;
             cursor: pointer;
-          "
-          v-on:click="ForgotPassword"
-        >
+          " v-on:click="ForgotPassword">
           Forgot Password?
         </div>
 
@@ -212,7 +183,16 @@ export default {
     /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
     ipcRenderer.on("sso-auth", (event, authData) => {
       console.log("SSO Data Recieved ---> ", authData);
+      // @@@@@ Sending this data to backend for further processing 
+      ssoLogin(authData)
+      async function ssoLogin(authData) {
+        const resp = await sender.SsoLogin(
+          authData?.code,
+          authData?.session_code,
+        );
+      }
     });
+
     // COLOR SCHEME
     window.matchMedia("(prefers-color-scheme: dark)").addListener(() => {
       this.updateColorScheme();
@@ -420,6 +400,47 @@ export default {
         `https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`
       );
     },
+    // // ================= Get token and user details here Start =============
+    // async getToken(code) {
+    //   const url = "https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/token";
+
+    //   const payload = new URLSearchParams();
+    //   payload.set('grant_type', 'authorization_code');
+    //   payload.set('code', code);
+    //   payload.set('redirect_uri', 'http://localhost:5173');
+    //   payload.set('client_id', 'pl-connect-desktop');
+    //   payload.set('client_secret', 'YKJ6aBMCMhJfzH9RtClcBFFNGrh5ystc');
+
+    //   try {
+    //     const response = await fetch(url, {
+    //       method: 'POST',
+    //       headers: {
+    //         'Content-Type': 'application/x-www-form-urlencoded'
+    //       },
+    //       body: payload.toString()
+    //     });
+
+    //     if (!response.ok) {
+    //       throw new Error('Failed to get token');
+    //     }
+
+    //     const data = await response.json();
+    //     return data;
+    //   } catch (error) {
+    //     console.error('Error:', error);
+    //     throw error;
+    //   }
+    // },
+    // getUserDetails() {
+    //   let url = 'https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/userinfo';
+    //   let token = sessionStorage.getItem('token')
+    //   const headers = new HttpHeaders({
+    //     'Authorization': `Bearer ${token}`
+    //   });
+
+    //   return this._httpClient.get(url, { headers });
+    // }
+    // // ================= Get token and user details here end =============
     ForgotPassword() {
       sender.shellOpenExternal(
         `https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`
