@@ -61,12 +61,16 @@ ipcMain.handle(
   async (
     event,
     email,
-    password
+    password,
+    isSSOLogin,
+    SSOCode
     // force, captchaID, captcha, confirmation2FA
   ) => {
     return await client.Login(
       email,
-      password
+      password,
+      isSSOLogin,
+      SSOCode
       // force,
       // captchaID,
       // captcha,

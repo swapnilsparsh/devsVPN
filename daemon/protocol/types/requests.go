@@ -230,6 +230,8 @@ type SessionNew struct {
 	Password       string
 	DeviceName     string
 	StableDeviceID bool
+	IsSSOLogin     bool
+	SSOCode        string
 	// AccountID  string
 	// ForceLogin bool
 

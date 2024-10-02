@@ -303,7 +303,7 @@ func (a *API) DoRequestByAlias(apiAlias string, ipTypeRequired protocolTypes.Req
 }
 
 // SessionNew - try to register new session
-func (a *API) SessionNew(email string, password string) (
+func (a *API) SessionNew(email string, password string, isSSOLogin bool, SSOCode string) (
 	*types.SessionNewResponse,
 	*types.SessionNewErrorLimitResponse,
 	*types.APIErrorResponse,
@@ -328,6 +328,8 @@ func (a *API) SessionNew(email string, password string) (
 		// Captcha:         captcha,
 		// Confirmation2FA: confirmation2FA
 	}
+	log.Debug("=================ISSSO Login and code ============== :- ", isSSOLogin, SSOCode)
+	log.Debug("=================request ============== :- ", request)
 
 	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
 	if err != nil {

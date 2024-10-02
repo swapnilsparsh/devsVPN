@@ -52,6 +52,8 @@ type SessionNewRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	SsoLogin bool   `json:"ssologin"`
+	// IsSSOLogin bool   `json:"isSSOLogin"`
+	// SSOCode    string `json:"SSOCode"`
 }
 type SsoLoginRequest struct {
 	// AccountID  string `json:"username"`

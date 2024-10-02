@@ -134,6 +134,8 @@ export default {
       captcha: "",
       confirmation2FA: "",
       showPassword: false,
+      isSSOLogin: false,
+      SSOCode: ""
     };
   },
   computed: {
@@ -191,6 +193,23 @@ export default {
           authData?.session_code,
         );
       }
+
+      // ssoLogin(authData)
+      // async function ssoLogin(authData) {
+      //   this.isSSOLogin = true;
+      //   this.SSOCode = authData?.code;
+
+      //   const resp = await sender.Login(
+      //     this.email,
+      //     this.password,
+      //     this.isSSOLogin == true,
+      //     this.SSOCode
+
+      //   );
+      // }
+
+
+
     });
 
     // COLOR SCHEME
@@ -283,7 +302,10 @@ export default {
 
         const resp = await sender.Login(
           this.email,
-          this.password
+          this.password,
+          this.isSSOLogin == true,
+          this.SSOCode
+
           // isForceLogout === true || this.isForceLogoutRequested === true,
           // this.captchaID,
           // this.captcha,

@@ -168,12 +168,12 @@ func (c *Client) GetHelloResponse() types.HelloResp {
 }
 
 // SessionNew creates new session
-func (c *Client) SessionNew(email string, password string, deviceName string, stableDeviceID bool) (resp types.SessionNewResp, err error) {
+func (c *Client) SessionNew(email string, password string, deviceName string, stableDeviceID bool, isSSOLogin bool, SSOCode string) (resp types.SessionNewResp, err error) {
 	if err := c.ensureConnected(); err != nil {
 		return resp, err
 	}
 
-	req := types.SessionNew{Email: email, Password: password, DeviceName: deviceName, StableDeviceID: stableDeviceID}
+	req := types.SessionNew{Email: email, Password: password, DeviceName: deviceName, StableDeviceID: stableDeviceID, IsSSOLogin: isSSOLogin, SSOCode: SSOCode}
 
 	if err := c.sendRecv(&req, &resp); err != nil {
 		return resp, err

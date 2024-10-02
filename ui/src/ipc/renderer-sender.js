@@ -98,13 +98,17 @@ export default {
 
   Login: async (
     email,
-    password
+    password,
+    isSSOLogin,
+    SSOCode
     //  force, captchaID, captcha, confirmation2FA
   ) => {
     return await invoke(
       "renderer-request-login",
       email,
-      password
+      password,
+      isSSOLogin,
+      SSOCode
       // accountID,
       // force,
       // captchaID,
