@@ -7,7 +7,7 @@
 # Fetches the TLS certificates and calculates the base64-encoded SHA-256 hashes of their public keys.
 # Those go into daemon/api/api_cert_public_keys.go
 
-[[ $BASH_ARGC -eq 2 ]]																	|| { echo -e "USAGE: $0 <hostname> <port>\n\tFor example: $0 api.privateline.io 443"; exit 0; }
+[[ $BASH_ARGC -eq 2 ]]																		|| { echo -e "USAGE: $0 <hostname> <port>\n\tFor example: $0 api.privateline.io 443"; exit 0; }
 
 HOST=$1
 PORT=$2
