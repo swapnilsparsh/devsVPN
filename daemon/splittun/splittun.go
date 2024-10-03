@@ -116,14 +116,10 @@ func GetFuncNotAvailableError() (generalStError, inversedStError error) {
 }
 
 func Reset() error {
-	// Vlad: do nothing
-	log.Debug("splittun.Reset() is disabled")
-	return nil
+	mutex.Lock()
+	defer mutex.Unlock()
 
-	// mutex.Lock()
-	// defer mutex.Unlock()
-
-	// return implReset()
+	return implReset()
 }
 
 // ApplyConfig control split-tunnel functionality

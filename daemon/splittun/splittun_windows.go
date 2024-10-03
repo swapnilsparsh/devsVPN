@@ -195,19 +195,16 @@ func implFuncNotAvailableError() (generalStError, inversedStError error) {
 }
 
 func implReset() error {
-	// Vlad: parent Reset() call is disabled for now
+	for endpointType, endpoint := range lastConfiguredEndpoints { // reset both IPv4 and IPv6, if present
+		if endpoint == nil {
+			continue
+		}
+		if err := doApplySplitFullTunnelRoutes(endpointType, true, false, *endpoint); err != nil {
+			return fmt.Errorf("error in doApplySplitFullTunnelRoutes(): %w", err)
+		}
+	}
+
 	return nil
-
-	// for endpointType, endpoint := range lastConfiguredEndpoints { // reset both IPv4 and IPv6, if present
-	// 	if endpoint == nil {
-	// 		continue
-	// 	}
-	// 	if err := doApplySplitFullTunnelRoutes(endpointType, true, false, *endpoint); err != nil {
-	// 		return fmt.Errorf("error in doApplySplitFullTunnelRoutes(): %w", err)
-	// 	}
-	// }
-
-	// return nil
 }
 
 /*

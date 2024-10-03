@@ -152,11 +152,8 @@ func implFuncNotAvailableError() (generalStError, inversedStError error) {
 }
 
 func implReset() error {
-	// Vlad: parent Reset() call is disabled for now
-	return nil
-
-	// log.Info("Removing all PIDs")
-	// return shell.Exec(nil, stScriptPath, "reset")
+	log.Info("Removing all PIDs")
+	return shell.Exec(nil, stScriptPath, "reset")
 }
 
 /*
@@ -272,9 +269,6 @@ func enableDisableSplitTunnelIPv6(enableFullTunnel bool, responseChan chan<- err
 }
 
 func implAddPid(pid int, commandToExecute string) error {
-	// Vlad - disabled
-	return nil
-
 	if pid <= 0 {
 		return fmt.Errorf("PID is not defined")
 	}
@@ -296,9 +290,6 @@ func implAddPid(pid int, commandToExecute string) error {
 }
 
 func implRemovePid(pid int) error {
-	// Vlad - disabled
-	return nil
-
 	if pid <= 0 {
 		return fmt.Errorf("PID is not defined")
 	}
@@ -339,9 +330,6 @@ func implRemovePid(pid int) error {
 }
 
 func implGetRunningApps() (allProcesses []RunningApp, err error) {
-	// Vlad - disabled
-	return []RunningApp{}, nil
-
 	// https://man7.org/linux/man-pages/man5/proc.5.html
 
 	// read all PIDs which are active in ST environment
@@ -398,10 +386,10 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 		}
 		cmdline := string(cmdlineBytes)
 		// TODO: do not forget update prefixes to trim in case if privateLINE CLI arguments change name ('exclude' or 'splittun -execute')
-		cmdline = strings.TrimPrefix(cmdline, "/usr/bin/ivpn exclude ")
-		cmdline = strings.TrimPrefix(cmdline, "/usr/bin/ivpn splittun -execute ")
-		cmdline = strings.TrimPrefix(cmdline, "ivpn exclude ")
-		cmdline = strings.TrimPrefix(cmdline, "ivpn splittun -execute ")
+		cmdline = strings.TrimPrefix(cmdline, "/usr/bin/privateline-connect-cli exclude ")
+		cmdline = strings.TrimPrefix(cmdline, "/usr/bin/privateline-connect-cli splittun -execute ")
+		cmdline = strings.TrimPrefix(cmdline, "privateline-connect-cli exclude ")
+		cmdline = strings.TrimPrefix(cmdline, "privateline-connect-cli splittun -execute ")
 		cmdline = strings.TrimSpace(cmdline)
 		retMapAll[pid] = RunningApp{
 			Pid:     pid,

@@ -1650,12 +1650,12 @@ async function SplitTunnelAddApp(execCmd, funcShowMessageBox) {
 
       //-------------------
       // For a security reasons, we are not using SplitTunnelAddAppCmdResp.CmdToExecute command
-      // Instead, use hardcoded binary path to execute '/usr/bin/ivpn'
+      // Instead, use hardcoded binary path to execute '/usr/bin/privateline-connect-cli'
       let eaaArgs = "";
       if (ParanoidModeSecret) {
         eaaArgs = `-eaa_hash '${ParanoidModeSecret}' `;
       }
-      let shellCommandToRun = `/usr/bin/ivpn exclude  ${eaaArgs}${execCmd}`;
+      let shellCommandToRun = `/usr/bin/privateline-connect-cli exclude  ${eaaArgs}${execCmd}`;
 
       var exec = require("child_process").exec;
       let child = exec(shellCommandToRun, {
@@ -1669,7 +1669,7 @@ async function SplitTunnelAddApp(execCmd, funcShowMessageBox) {
       });
       //-------------------
       //var spawn = require("child_process").spawn;
-      //let child = spawn("/usr/bin/ivpn", ["exclude", execCmd], {
+      //let child = spawn("/usr/bin/privateline-connect-cli", ["exclude", execCmd], {
       //  detached: true,
       //  env: {
       //    ...process.env,
@@ -1689,7 +1689,7 @@ async function SplitTunnelAddApp(execCmd, funcShowMessageBox) {
       );
 
       // No necessary to send 'SplitTunnelAddedPidInfo'
-      // It will ne sent by '/usr/bin/ivpn'
+      // It will ne sent by '/usr/bin/privateline-connect-cli'
       //    await sendRecv({
       //      Command: daemonRequests.SplitTunnelAddedPidInfo,
       //      Pid: child.pid,
