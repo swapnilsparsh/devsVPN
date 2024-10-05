@@ -1709,6 +1709,9 @@ func (s *Service) SessionNew(email string, password string, deviceName string, s
 
 		sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(email, password, isSSOLogin, SSOCode)
 
+		log.Debug("Service File Response Format Check :- ", sessionNewSuccessResp)
+		log.Debug("Service File Response Format Check Rawa :- ", rawResponse)
+
 		apiCode = 0
 		if apiErr != nil {
 			apiCode = apiErr.HttpStatusCode
