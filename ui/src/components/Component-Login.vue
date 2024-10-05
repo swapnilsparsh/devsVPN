@@ -183,30 +183,32 @@ export default {
   },
   mounted() {
     /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
-    ipcRenderer.on("sso-auth", (event, authData) => {
+    ipcRenderer.on("sso-auth", async (event, authData) => {
       console.log("SSO Data Recieved ---> ", authData);
       // @@@@@ Sending this data to backend for further processing 
-      ssoLogin(authData)
-      async function ssoLogin(authData) {
-        const resp = await sender.SsoLogin(
-          authData?.code,
-          authData?.session_code,
-        );
-      }
-
       // ssoLogin(authData)
       // async function ssoLogin(authData) {
-      //   this.isSSOLogin = true;
-      //   this.SSOCode = authData?.code;
-
-      //   const resp = await sender.Login(
-      //     this.email,
-      //     this.password,
-      //     this.isSSOLogin == true,
-      //     this.SSOCode
-
+      //   const resp = await sender.SsoLogin(
+      //     authData?.code,
+      //     authData?.session_code,
       //   );
       // }
+      const ssoLogin = async function (authData) {
+        this.isSSOLogin = true;
+        this.SSOCode = authData?.code;
+
+        console.log("Calling login with this param", this.isSSOLogin, this.SSOCode);
+
+        const resp = await sender.Login(
+          this.email,
+          this.password,
+          this.isSSOLogin == true,
+          this.SSOCode
+        );
+      }.bind(this); // Explicitly bind 'this'
+
+      await ssoLogin(authData);
+      console.log("Calling login with this param", this.isSSOLogin, this.SSOCode);
 
 
 
@@ -272,6 +274,7 @@ export default {
         // }
 
         this.isProcessing = true;
+        this.isSSOLogin = false;
         // console.log({ accountid: this.accountID, email: this.email, password: this.password });
         if (
           !(this.email != undefined && this.email != null && this.email != "")

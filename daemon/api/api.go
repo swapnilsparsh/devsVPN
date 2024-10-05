@@ -328,48 +328,59 @@ func (a *API) SessionNew(email string, password string, isSSOLogin bool, SSOCode
 		// Captcha:         captcha,
 		// Confirmation2FA: confirmation2FA
 	}
-	log.Debug("=================ISSSO Login and code ============== :- ", isSSOLogin, SSOCode)
+	log.Debug("=================SSO Login and code ============== :- ", isSSOLogin, SSOCode)
 	log.Debug("=================request ============== :- ", request)
 
-	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
-	if err != nil {
-		return nil, nil, nil, rawResponse, err
-	}
-
-	rawResponse = string(data)
-
-	// Check is it API error
-	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
-		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
-	}
-
-	// if !apiErr.Status {
-	// 	log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
-	// 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-	// }
-
-	// success
-	if apiErr.HttpStatusCode == types.CodeSuccess {
-		err := json.Unmarshal(data, &successResp)
-		successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+	if !isSSOLogin {
+		data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
 		if err != nil {
-			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+			return nil, nil, nil, rawResponse, err
 		}
 
-		return &successResp, nil, &apiErr, rawResponse, nil
-	}
+		rawResponse = string(data)
 
-	// Session limit check
-	if apiErr.HttpStatusCode == types.CodeSessionsLimitReached {
-		err := json.Unmarshal(data, &errorLimitResp)
-		errorLimitResp.SetHttpStatusCode(apiErr.HttpStatusCode)
-		if err != nil {
-			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+		// Check is it API error
+		if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
+			return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 		}
-		return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-	}
 
-	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+		// if !apiErr.Status {
+		// 	log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
+		// 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+		// }
+
+		// success
+		if apiErr.HttpStatusCode == types.CodeSuccess {
+			err := json.Unmarshal(data, &successResp)
+			successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+			if err != nil {
+				return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+			}
+
+			return &successResp, nil, &apiErr, rawResponse, nil
+		}
+
+		// Session limit check
+		if apiErr.HttpStatusCode == types.CodeSessionsLimitReached {
+			err := json.Unmarshal(data, &errorLimitResp)
+			errorLimitResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+			if err != nil {
+				return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+			}
+			return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+		}
+
+		return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+
+	}
+	// @@@@@ SSO Login
+	userInfo, errorLimitRespt, apiErrRespt, rawResponset, errt := a.SsoLogin(SSOCode, "")
+	// log.Debug("============ userInfo ========", userInfo)
+
+	return userInfo, errorLimitRespt, apiErrRespt, rawResponset, errt
+
+	// @@@@@ Return response in this format
+	// return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
 
 // SsoLogin - try to register new session
@@ -379,10 +390,6 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	*types.APIErrorResponse,
 	string, // RAW response
 	error) {
-
-	var successResp types.SessionNewResponse
-	var errorLimitResp types.SessionNewErrorLimitResponse
-	var apiErr types.APIErrorResponse
 
 	rawResponse := ""
 	httpClient := &http.Client{}
@@ -426,53 +433,55 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	log.Debug("Got Acess Token :- ", accessToken)
 	// After successfully getting the access token
 	// Call GetUserDetails with the access token
-	userInfo, rawUserInfo, err := a.GetUserDetails(accessToken)
+	userInfoMap, rawUserInfo, err := a.GetUserDetails(accessToken)
 	if err != nil {
 		return nil, nil, nil, rawResponse, fmt.Errorf("failed to get user details: %w", err)
+	}
+
+	userInfo := &types.SessionNewResponse{
+		Data: struct {
+			ID          int    `json:"id"`
+			UserType    string `json:"user_type"`
+			Username    string `json:"name"`
+			Phone       string `json:"phone"`
+			Email       string `json:"email"`
+			IsVerified  bool   `json:"isVerified"`
+			Profile     string `json:"profile"`
+			IsActive    bool   `json:"isActive"`
+			IsSuspended bool   `json:"isSuspended"`
+			IsDeleted   bool   `json:"isDeleted"`
+			LastLogin   string `json:"last_login"`
+			TempToken   string `json:"temp_token"`
+			Login       int    `json:"login"`
+			CreatedAt   string `json:"createdAt"`
+			UpdatedAt   string `json:"updatedAt"`
+			Token       string `json:"token"`
+		}{
+			ID:          userInfoMap["id"].(int),
+			UserType:    userInfoMap["user_type"].(string),
+			Username:    userInfoMap["name"].(string),
+			Phone:       userInfoMap["phone"].(string),
+			Email:       userInfoMap["email"].(string),
+			IsVerified:  userInfoMap["email_verified"].(bool),
+			Profile:     userInfoMap["profile"].(string),
+			IsActive:    userInfoMap["isActive"].(bool),
+			IsSuspended: userInfoMap["isSuspended"].(bool),
+			IsDeleted:   userInfoMap["isDeleted"].(bool),
+			LastLogin:   userInfoMap["last_login"].(string),
+			TempToken:   userInfoMap["temp_token"].(string),
+			Login:       userInfoMap["login"].(int),
+			CreatedAt:   userInfoMap["createdAt"].(string),
+			UpdatedAt:   userInfoMap["updatedAt"].(string),
+			Token:       accessToken,
+		},
 	}
 
 	// Log or use the user info as needed
 	log.Debug("User Info: ", userInfo)
 	log.Debug("User Info: ", rawUserInfo)
 
-	request := &types.SsoLoginRequest{
-		Code: code,
-		// Token: accessToken, // Assuming you need to pass the token along with the request
-	}
-
-	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
-	if err != nil {
-		return nil, nil, nil, rawResponse, err
-	}
-
-	rawResponse = string(data)
-
-	// Check for API error
-	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
-		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
-	}
-
-	// Success case
-	if apiErr.HttpStatusCode == types.CodeSuccess {
-		err := json.Unmarshal(data, &successResp)
-		successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
-		if err != nil {
-			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
-		}
-		return &successResp, nil, &apiErr, rawResponse, nil
-	}
-
-	// Session limit check
-	if apiErr.HttpStatusCode == types.CodeSessionsLimitReached {
-		err := json.Unmarshal(data, &errorLimitResp)
-		errorLimitResp.SetHttpStatusCode(apiErr.HttpStatusCode)
-		if err != nil {
-			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
-		}
-		return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-	}
-
-	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	// return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	return userInfo, nil, nil, rawUserInfo, nil
 }
 
 // @@@@@ Get User Details
