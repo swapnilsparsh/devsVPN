@@ -437,6 +437,8 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	if err != nil {
 		return nil, nil, nil, rawResponse, fmt.Errorf("failed to get user details: %w", err)
 	}
+	log.Debug("User Info: ", userInfoMap)
+	log.Debug("User Info: ", rawUserInfo)
 
 	userInfo := &types.SessionNewResponse{
 		Data: struct {
@@ -457,28 +459,15 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 			UpdatedAt   string `json:"updatedAt"`
 			Token       string `json:"token"`
 		}{
-			ID:          userInfoMap["id"].(int),
-			UserType:    userInfoMap["user_type"].(string),
-			Username:    userInfoMap["name"].(string),
-			Phone:       userInfoMap["phone"].(string),
-			Email:       userInfoMap["email"].(string),
-			IsVerified:  userInfoMap["email_verified"].(bool),
-			Profile:     userInfoMap["profile"].(string),
-			IsActive:    userInfoMap["isActive"].(bool),
-			IsSuspended: userInfoMap["isSuspended"].(bool),
-			IsDeleted:   userInfoMap["isDeleted"].(bool),
-			LastLogin:   userInfoMap["last_login"].(string),
-			TempToken:   userInfoMap["temp_token"].(string),
-			Login:       userInfoMap["login"].(int),
-			CreatedAt:   userInfoMap["createdAt"].(string),
-			UpdatedAt:   userInfoMap["updatedAt"].(string),
-			Token:       accessToken,
+			Email:      userInfoMap["email"].(string),
+			IsVerified: userInfoMap["email_verified"].(bool),
+			Token:      accessToken,
 		},
 	}
 
 	// Log or use the user info as needed
-	log.Debug("User Info: ", userInfo)
-	log.Debug("User Info: ", rawUserInfo)
+	log.Debug("User Info M: ", userInfo)
+	log.Debug("User Info M: ", rawUserInfo)
 
 	// return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 	return userInfo, nil, nil, rawUserInfo, nil
