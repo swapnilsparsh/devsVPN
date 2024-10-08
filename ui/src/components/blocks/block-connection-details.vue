@@ -67,10 +67,10 @@
     <!-- SPLIT TUNNEL -->
     <transition name="fade">
       <!-- TODO: Vlad - SplitTunnelControl disabled for MVP 1.0 -->
-      <!-- <div v-if="isLinux && IsSplitTunnelEnabled">
+      <div v-if="isLinux && IsSplitTunnelEnabled">
         <div class="horizontalLine" />
         <SplitTunnelControl class="leftPanelBlock" />
-      </div> -->
+      </div>
     </transition>
 
     <!-- WIFI -->
