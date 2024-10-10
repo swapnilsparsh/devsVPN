@@ -65,6 +65,7 @@ export default {
         const allowedChannels = [
           "main-change-view-request",
           "vuex-mutations-notify-renderers",
+          "sso-auth",
         ];
 
         if (allowedChannels.includes(channel)) {

@@ -25,10 +25,11 @@ import {
   SentrySendDiagnosticReport,
 } from "@/sentry/sentry.js";
 
-import { GetLinuxSnapEnvVars } from "@/helpers/main_platform";
-import { Platform } from "@/platform/platform";
-import { app, dialog, ipcMain, nativeTheme, shell } from "electron";
+import { ipcMain, nativeTheme, dialog, app, shell } from "electron";
 import path from "path";
+
+import { Platform } from "@/platform/platform";
+import { GetLinuxSnapEnvVars } from "@/helpers/main_platform";
 
 import {
   CancelDownload,
@@ -275,9 +276,8 @@ ipcMain.handle("renderer-request-get-diagnostic-logs", async () => {
   let accInfo = "";
   try {
     const acc = s.account;
-    accInfo = `${acc.accountStatus.CurrentPlan} (${
-      acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
-    })`;
+    accInfo = `${acc.accountStatus.CurrentPlan} (${acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
+      })`;
     if (acc.session.WgPublicKey)
       accInfo += `; wgKeys=OK ${acc.session.WgKeyGenerated}`;
     else accInfo += "; wgKeys=EMPTY";
@@ -404,7 +404,6 @@ ipcMain.handle("renderer-request-showOpenDialog", async (event, options) => {
 });
 
 // WINDOW
-
 ipcMain.handle("renderer-request-close-current-window", async (event) => {
   return await event.sender.getOwnerBrowserWindow().close();
 });

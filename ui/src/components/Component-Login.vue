@@ -19,27 +19,27 @@
           <div style="height: 21px" />
 
           <input
-            ref="accountid"
-            v-model="email"
             class="styledBig"
+            ref="accountid"
             style="text-align: left"
             placeholder="Enter your Email"
-            @keyup="keyup($event)"
+            v-model="email"
+            v-on:keyup="keyup($event)"
           />
           <div style="height: 10px" />
           <div style="position: relative; display: flex; align-items: center">
             <input
-              ref="password"
-              v-model="password"
               class="styledBig"
+              ref="password"
               style="text-align: left"
               placeholder="Enter your Password"
+              v-model="password"
               :type="passwordType"
-              @keyup="keyup($event)"
+              v-on:keyup="keyup($event)"
             />
             <img
-              v-if="showPassword"
               src="@/assets/eye-close.svg"
+              @click="toggleEye"
               alt="Eye Image"
               style="
                 width: 20px;
@@ -48,11 +48,11 @@
                 right: 10px;
                 cursor: pointer;
               "
-              @click="toggleEye"
+              v-if="showPassword"
             />
             <img
-              v-else
               src="@/assets/eye-open.svg"
+              @click="toggleEye"
               alt="Eye Image"
               style="
                 width: 20px;
@@ -61,11 +61,21 @@
                 right: 10px;
                 cursor: pointer;
               "
-              @click="toggleEye"
+              v-else
             />
           </div>
         </div>
-        <div class="medium_text link" @click="ForgotPassword">
+        <div
+          class="medium_text"
+          style="
+            color: #0078d7;
+            width: 100%;
+            text-align: right;
+            font-weight: 500;
+            cursor: pointer;
+          "
+          v-on:click="ForgotPassword"
+        >
           Forgot Password?
         </div>
 
@@ -73,7 +83,11 @@
         <button class="master" @click="Login">Log In</button>
         <div style="height: 12px" />
 
-        <button class="slave" @click="CreateAccount">Create an account</button>
+        <button class="slave" v-on:click="CreateAccount">
+          Create an account
+        </button>
+        <div style="height: 12px" />
+        <button class="slave" v-on:click="openSSO">SSO Login</button>
       </div>
     </div>
 
@@ -97,11 +111,12 @@
 <script>
 import spinner from "@/components/controls/control-spinner.vue";
 import SwitchProgress from "@/components/controls/control-switch-small2.vue";
-
 import { IsOsDarkColorScheme } from "@/helpers/renderer";
 import { ColorTheme } from "@/store/types";
 
 const sender = window.ipcSender;
+const ipcRenderer = sender.GetSafeIpcRenderer();
+
 import {
   API_SUCCESS,
   API_SESSION_LIMIT,
@@ -194,12 +209,15 @@ export default {
     },
   },
   mounted() {
+    /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
+    ipcRenderer.on("sso-auth", (event, authData) => {
+      console.log("SSO Data Recieved ---> ", authData);
+    });
     // COLOR SCHEME
     window.matchMedia("(prefers-color-scheme: dark)").addListener(() => {
       this.updateColorScheme();
     });
     this.updateColorScheme();
-
     if (this.$refs.accountid) this.$refs.accountid.focus();
 
     let stateParams = history.state.params;
@@ -396,6 +414,11 @@ export default {
     },
     CreateAccount() {
       sender.shellOpenExternal(`https://privateline.io/email-signup`);
+    },
+    openSSO() {
+      sender.shellOpenExternal(
+        `https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`
+      );
     },
     ForgotPassword() {
       sender.shellOpenExternal(
