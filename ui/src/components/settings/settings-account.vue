@@ -146,8 +146,8 @@
                   @click="RenewSubscription"
                 >
                   {{
-                    endingInDays > 0 && endingInDays <= 7
-                      ? "Renew subscription"
+                    endingInDays <= 0
+                      ? "Plan Expired! Renew subscription"
                       : `Plan ending in ${endingInDays} days`
                   }}
                 </div>
@@ -357,8 +357,7 @@ export default {
         this.apiTimeout = setTimeout(() => {
           throw Error("API Time Out");
         }, 10 * 1000);
-
-        const res = await sender.SubscriptionData();
+        await sender.SubscriptionData();
       } catch (err) {
         //TODO: show error on UI
         console.log({ err });
@@ -375,7 +374,7 @@ export default {
       }
     },
     upgrade() {
-      sender.shellOpenExternal(`https://www.account.privateline.io`);
+      sender.shellOpenExternal(`https://privateline.io/#pricing`);
     },
     addMoreTime() {
       sender.shellOpenExternal(`https://privateline.io/`);
