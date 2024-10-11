@@ -33,7 +33,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
@@ -100,7 +99,7 @@ func (s *Service) implSplitTunnelling_AddApp(execCmd string) (requiredCmdToExec 
 		return "", false, err
 	}
 
-	return fmt.Sprintf("%s exclude %s", helpers.ServiceName, execCmd), isRunning, nil
+	return fmt.Sprintf("privateline-connect-cli exclude %s", execCmd), isRunning, nil
 }
 
 func (s *Service) implSplitTunnelling_RemoveApp(pid int, binaryPath string) (err error) {
