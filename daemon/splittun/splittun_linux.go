@@ -274,15 +274,15 @@ func implAddPid(pid int, commandToExecute string) error {
 	}
 	log.Info(fmt.Sprintf("Adding PID:%d", pid))
 
-	enabled, err := isEnabled()
-	if err != nil {
-		return fmt.Errorf("unable to check Split Tunnel status")
-	}
-	if !enabled {
-		return fmt.Errorf("the Split Tunnel is disabled")
-	}
+	// enabled, err := isEnabled()
+	// if err != nil {
+	// 	return fmt.Errorf("unable to check Split Tunnel status")
+	// }
+	// if !enabled {
+	// 	return fmt.Errorf("the Split Tunnel is disabled")
+	// }
 
-	err = shell.Exec(nil, stScriptPath, "addpid", strconv.Itoa(pid))
+	err := shell.Exec(nil, stScriptPath, "addpid", strconv.Itoa(pid))
 	if err == nil {
 		_addedRootProcesses[pid] = commandToExecute
 	}
