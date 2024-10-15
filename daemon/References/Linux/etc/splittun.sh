@@ -188,6 +188,9 @@ function init_iptables()
     local bin_iptables=$1
     local def_inf_name=$2
     local inverse_block=$3
+    # echo -e "init_iptables:\tbin_iptables=${bin_iptables}"
+    # echo -e "init_iptables:\tdef_inf_name=${def_inf_name}"
+    # echo -e "init_iptables:\tinverse_block=${inverse_block}"
 
     # in Inverse mode - we are inversing firewall rules:
     # 'splitted' apps use only VPN connection, all the rest apps use default connection settings (bypassing VPN)
@@ -297,12 +300,12 @@ function clear_iptables()
 function init()
 {
     if [ -z ${_def_interface_name} ]; then
-        echo "Default network interface is not defined. Please, check internet connectivity." 1>&2
-        return 2
+        echo "Warning: Default network interface is not defined." 1>&2
+        #return 2
     fi
     if [ -z ${_def_gateway} ]; then
-        echo "Default gateway is not defined. Please, check internet connectivity." 1>&2
-        return 3
+        echo "Warning: Default gateway is not defined." 1>&2
+        #return 3
     fi
 
     if [ -f /proc/net/if_inet6 ]; then 
@@ -341,13 +344,13 @@ function init()
     ##############################################
     # Firewall rules for packets coming from cgroup
     ##############################################       
-    init_iptables  ${_bin_iptables} ${_def_interface_name} ${_is_inversed_blocked}
+    init_iptables  "${_bin_iptables}" "${_def_interface_name}" "${_is_inversed_blocked}"
     if [ -f /proc/net/if_inet6 ]; then
         block=0
         if [ ! ${_is_inversed_blocked} -eq 0 ] || [ ! ${_is_inversed_blocked_ipv6} -eq 0 ]; then 
             block=1
         fi
-        init_iptables  ${_bin_ip6tables} ${_def_interface_nameIPv6} ${block}
+        init_iptables  "${_bin_ip6tables}" "${_def_interface_nameIPv6}" "${block}"
     fi
 
     ##############################################
@@ -408,7 +411,7 @@ function init()
     echo "privateLINE Split Tunneling enabled"
 }
 
-function updateRoutes() 
+function updateRoutes()
 { 
     # simple check if ST enabled
     if [ ! -d ${_cgroup_folder} ]; then
@@ -488,6 +491,9 @@ function getBackupFolderPath()
 
 function backup()
 {
+    # TODO Vlad: stubbing out
+    return 0
+
     if [ -z ${_def_interface_name} ]; then
         return 1
     fi
@@ -503,6 +509,9 @@ function backup()
 
 function restore()
 {
+    # TODO Vlad: stubbing out
+    return 0
+
     local _tempDir="$( getBackupFolderPath )"
     if [ ! -f ${_tempDir}/def_interface ]; then 
         return 1
@@ -789,7 +798,7 @@ else
     echo "Copyright (c) 2023 IVPN Limited."
     echo ""
     echo "Usage:"
-    echo "Note! The script have to be started under privilaged user (sudo $0 ...)"
+    echo "Note! The script have to be started under privileged user (sudo $0 ...)"
     echo "    $0 <command> [parameters]"
     echo "Parameters:"
     echo "    start [-interface <inf_name>] [-gateway <gateway>] [-interface6 <inf_name_IPv6>] [-gateway6 <gateway_IPv6>] [[-inverse] [-inverse_block]]"
