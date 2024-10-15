@@ -379,7 +379,7 @@ func (s *Service) unInitialise() error {
 	}
 	// Split tunnel enabled by default, out of the box
 	log.Debug("service.go unInitialise() calling splittun.ApplyConfig() with empty splittun.ConfigAddresses")
-	if err := splittun.ApplyConfig(true, false, false, false, splittun.ConfigAddresses{}, []string{}); err != nil {
+	if err := splittun.ApplyConfig(true, true, true, false, false, splittun.ConfigAddresses{}, []string{}); err != nil {
 		log.Error(err)
 		updateRetErr(err)
 	}
@@ -1245,7 +1245,7 @@ func (s *Service) ResetPreferences() error {
 	s._preferences = *preferences.Create()
 
 	// erase ST config -  split tunnel config by default
-	s.SplitTunnelling_SetConfig(true, false, false, false, true)
+	s.SplitTunnelling_SetConfig(true, true, true, false, false, true)
 	return nil
 }
 
@@ -1349,6 +1349,7 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 		isEnabled = false
 	}
 	isInversed := prefs.SplitTunnelInversed
+	enclaveAllowAllApps := prefs.EnclaveAllowAllApps
 	isAnyDns := prefs.SplitTunnelAnyDns
 	isAllowWhenNoVpn := prefs.SplitTunnelAllowWhenNoVpn
 	if stInverseErr != nil {
@@ -1367,6 +1368,7 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 		IsFunctionalityNotAvailable: stErr != nil,
 		IsEnabled:                   isEnabled,
 		IsInversed:                  isInversed,
+		EnclaveAllowAllApps:         enclaveAllowAllApps,
 		IsAnyDns:                    isAnyDns,
 		IsAllowWhenNoVpn:            isAllowWhenNoVpn,
 		IsCanGetAppIconForBinary:    oshelpers.IsCanGetAppIconForBinary(),
@@ -1376,7 +1378,7 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 	return ret, nil
 }
 
-func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isAllowWhenNoVpn, reset bool) error {
+func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enclaveAllowAllApps, isAnyDns, isAllowWhenNoVpn, reset bool) error {
 	if reset {
 		return s.splitTunnelling_Reset()
 	}
@@ -1398,10 +1400,10 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 		if isAnyDns {
 			defaultParams := s.GetConnectionParams()
 			if defaultParams.Metadata.AntiTracker.Enabled {
-				return fmt.Errorf("unable to disable the non-IVPN DNS blocking feature for Inverse Split Tunnel mode: AntiTracker is currently enabled; please disable both AntiTracker and manually configured DNS settings first")
+				return fmt.Errorf("unable to disable the non-privateLINE DNS blocking feature for Inverse Split Tunnel mode: AntiTracker is currently enabled; please disable both AntiTracker and manually configured DNS settings first")
 			}
 			if !defaultParams.ManualDNS.IsEmpty() {
-				return fmt.Errorf("unable to disable the non-IVPN DNS blocking feature for Inverse Split Tunnel mode: manual DNS is currently enabled; please disable manually configured DNS settings first")
+				return fmt.Errorf("unable to disable the non-privateLINE DNS blocking feature for Inverse Split Tunnel mode: manual DNS is currently enabled; please disable manually configured DNS settings first")
 			}
 		}
 	}
@@ -1410,6 +1412,7 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 	prefs := prefsOld
 	prefs.IsSplitTunnel = isEnabled
 	prefs.SplitTunnelInversed = isInversed
+	prefs.EnclaveAllowAllApps = enclaveAllowAllApps
 	prefs.SplitTunnelAnyDns = isAnyDns
 	prefs.SplitTunnelAllowWhenNoVpn = isAllowWhenNoVpn
 	s.setPreferences(prefs)
@@ -1434,7 +1437,8 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 func (s *Service) splitTunnelling_Reset() error {
 	prefs := s._preferences
 	prefs.IsSplitTunnel = true // Split tunnel enabled by default, out of the box
-	prefs.SplitTunnelInversed = false
+	prefs.SplitTunnelInversed = true
+	prefs.EnclaveAllowAllApps = true
 	prefs.SplitTunnelAnyDns = false
 	prefs.SplitTunnelAllowWhenNoVpn = false
 	prefs.SplitTunnelApps = make([]string, 0)
@@ -1548,7 +1552,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	}
 
 	// Apply Split-Tun config
-	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
+	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnclaveAllowAllApps, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
 }
 
 func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAlreadyRunning bool, err error) {

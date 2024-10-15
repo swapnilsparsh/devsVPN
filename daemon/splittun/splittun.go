@@ -123,7 +123,7 @@ func Reset() error {
 }
 
 // ApplyConfig control split-tunnel functionality
-func ApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+func ApplyConfig(isStEnabled, isStInverse, enclaveAllowAllApps, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	mutex.Lock()
 	defer func() {
 		log.Debug("ApplyConfig() completed")
@@ -138,7 +138,7 @@ func ApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabl
 		addrConfig.IPv6Tunnel = nil
 	}
 
-	if retErr := implApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled, addrConfig, splitTunnelApps); retErr != nil {
+	if retErr := implApplyConfig(isStEnabled, isStInverse, enclaveAllowAllApps, isStInverseAllowWhenNoVpn, isVpnEnabled, addrConfig, splitTunnelApps); retErr != nil {
 		return log.ErrorE(fmt.Errorf("error in implApplyConfig(): %w", retErr), 0)
 	}
 	return nil

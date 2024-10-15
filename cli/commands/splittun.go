@@ -132,20 +132,20 @@ func doAddApp(args []string, eaaPass string, isHashedPass bool) error {
 
 	// Linux: the command have to be executed
 
-	cfg, err := _proto.GetSplitTunnelStatus()
-	if err != nil {
-		return err
-	}
+	// cfg, err := _proto.GetSplitTunnelStatus()
+	// if err != nil {
+	// 	return err
+	// }
 
-	if cfg.IsFunctionalityNotAvailable {
-		return fmt.Errorf("the Total Shield functionality is not available")
-	}
+	// if cfg.IsFunctionalityNotAvailable {
+	// 	return fmt.Errorf("the Total Shield functionality is not available")
+	// }
 
-	if cfg.IsEnabled {
-		fmt.Println("Total Shield not enabled")
-		PrintTips([]TipType{TipSplittunEnable})
-		return fmt.Errorf("unable to start command: Total Shield is not enabled")
-	}
+	// if cfg.IsEnabled {
+	// 	fmt.Println("Total Shield not enabled")
+	// 	PrintTips([]TipType{TipSplittunEnable})
+	// 	return fmt.Errorf("unable to start command: Total Shield is not enabled")
+	// }
 
 	pid := os.Getpid()
 	// Set unique environment var for the process.

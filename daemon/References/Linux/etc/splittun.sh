@@ -23,12 +23,11 @@
 #  along with the Daemon for privateLINE Connect Desktop. If not, see <https://www.gnu.org/licenses/>.
 #
 
-echo -e "$(date "+%Y-%m-%d__%H-%M-%S_%Z)\t$@" >> /tmp/splittun_sh_ran.log
+echo -e "$(date '+%Y-%m-%d__%H-%M-%S_%Z')\t$@" >> /tmp/splittun_sh_ran.log
 
 # Split Tunneling cgroup parameters
 _cgroup_name=privateline-exclude
 _cgroup_classid=0x70561e1d      # Anything from 0x00000001 to 0xFFFFFFFF
-
 _cgroup_folder=/sys/fs/cgroup/net_cls/${_cgroup_name}
 
 # Routing table configuration for packets coming from Split-Tunneling environment
@@ -161,8 +160,8 @@ function test()
     local iptables_version=${iptables_version#v} # remove "v" prefix, if exists
     vercomp $iptables_version $min_required_ver # compare versions
     if [[ $? -eq 2 ]]; then 
-        # NOTE! Do not chnage the message below. It is used by daemon to detect the error.
-        echo "Warning: Inverse mode for PRIVATELINE Split Tunnel functionality is not applicable. The minimum required version of 'iptables' is $min_required_ver, while your version is $iptables_version."
+        # NOTE! Do not change the message below. It is used by daemon to detect the error.
+        echo "Warning: Inverse mode for privateLINE Split Tunnel functionality is not applicable. The minimum required version of 'iptables' is $min_required_ver, while your version is $iptables_version."
     fi
     
     return 0
@@ -213,27 +212,27 @@ function init_iptables()
     ${bin_iptables} -w ${_iptables_locktime} -I ${POSTROUTING_mangle} -j CONNMARK --save-mark    
     # Change the source IP address of packets to the IP address of the interface they're going out on
     # Do this only if default interface is defined (for example: IPv6 interface may be empty when IPv6 not configured on the system)
-    if [ ! -z ${def_inf_name} ]; then
-        ${bin_iptables} -w ${_iptables_locktime} -I ${POSTROUTING_nat} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -o ${def_inf_name} -j MASQUERADE
-    fi
+#    if [ ! -z ${def_inf_name} ]; then
+#        ${bin_iptables} -w ${_iptables_locktime} -I ${POSTROUTING_nat} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -o ${def_inf_name} -j MASQUERADE
+#    fi
     # Add mark on packets of classid ${_cgroup_classid}
     ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT_mangle} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j MARK --set-mark ${_packets_fwmark_value}
     # Important! Process DNS request before setting mark rule (DNS request should not be marked)
     ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT_mangle} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -p tcp --dport 53 -j RETURN
     ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT_mangle} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -p udp --dport 53 -j RETURN
 
-    # Allow packets from/to cgroup (bypass PRIVATELINE firewall)
-    if [ ! -z ${def_inf_name} ]; then
+    # Allow packets from/to cgroup (bypass privateLINE firewall)
+#    if [ ! -z ${def_inf_name} ]; then
         ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j ACCEPT
         ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j ACCEPT   # this rule is not effective, so we use 'mark' (see the next rule)
         ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m mark --mark ${_packets_fwmark_value} -j ACCEPT
-    else
-        # If local interface not defined - block all packets from/to cgroup
-        # (for example: IPv6 interface may be empty when IPv6 not configured on the system)
-        ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j DROP
-        ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j DROP   # this rule is not effective, so we use 'mark' (see the next rule)
-        ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m mark --mark ${_packets_fwmark_value} -j DROP
-    fi
+ #   else
+ #       # If local interface not defined - block all packets from/to cgroup
+ #       # (for example: IPv6 interface may be empty when IPv6 not configured on the system)
+ #       ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j DROP
+ #       ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j DROP   # this rule is not effective, so we use 'mark' (see the next rule)
+ #       ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m mark --mark ${_packets_fwmark_value} -j DROP
+ #   fi
     
     # Inverse mode: only 'splitted' apps use only VPN connection
     if [ ${_is_inversed} -eq 1 ]; then
@@ -406,7 +405,7 @@ function init()
 
     set +e
 
-    echo "PRIVATELINE Split Tunneling enabled"
+    echo "privateLINE Split Tunneling enabled"
 }
 
 function updateRoutes() 
@@ -416,6 +415,7 @@ function updateRoutes()
         return
     fi
 
+    # TODO FIXME: Vlad - check how splittun.sh changes routing tables
     # splittun table has a default gateway to the default interface
     if [ ! -z ${_def_gateway} ] && [ ! -z ${_def_interface_name} ]; then        
         ${_bin_ip} route replace default via ${_def_gateway} dev ${_def_interface_name} table ${_routing_table_name}  
@@ -434,7 +434,7 @@ function clean()
     restore 
 
     ##############################################
-    # Move all processes from the PRIVATELINE cgroup to the main cgroup
+    # Move all processes from the privateLINE cgroup to the main cgroup
     ##############################################    
     # removeAllPids
 
@@ -517,7 +517,7 @@ function restore()
     rm -fr ${_tempDir}
 }
 
-# Move all processes from the PRIVATELINE cgroup to the main cgroup
+# Move all processes from the privateLINE cgroup to the main cgroup
 function removeAllPids() 
 {    
     while IFS= read -r line
