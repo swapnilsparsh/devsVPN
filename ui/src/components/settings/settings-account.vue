@@ -83,7 +83,11 @@
 
       <div>
         <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
-        <div class="flexRowSpace" style="align-items: flex-start">
+        <div
+          v-if="$store.state.account.subscriptionData != null"
+          class="flexRowSpace"
+          style="align-items: flex-start"
+        >
           <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
             <ShimmerEffect :width="'350px'" :height="'20px'" />
             <ShimmerEffect :width="'350px'" :height="'20px'" />
@@ -154,6 +158,12 @@
               </div>
             </div>
           </div>
+        </div>
+        <div v-else style="text-align: left">
+          No active plan found.
+          <span class="medium_text link" @click="UpgradeSubscription"
+            >Upgrade</span
+          >
         </div>
       </div>
     </div>
