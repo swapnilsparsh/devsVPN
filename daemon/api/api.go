@@ -375,12 +375,16 @@ func (a *API) SessionNew(email string, password string, isSSOLogin bool, SSOCode
 	}
 	// @@@@@ SSO Login
 	userInfo, errorLimitRespt, apiErrRespt, rawResponset, errt := a.SsoLogin(SSOCode, "")
-	// log.Debug("============ userInfo ========", userInfo)
+	log.Debug("U Info :- ", userInfo)
+	log.Debug("U Info Raw :- ", rawResponset)
+	log.Debug("U errorLimitRespt :- ", errorLimitRespt)
+	log.Debug("U errt :- ", errt)
+	log.Debug("U successResp :- ", successResp)
+	log.Debug("U apiErrRespt :- ", apiErrRespt)
+	successResp.SetHttpStatusCode(200)
+	return &successResp, nil, nil, rawResponset, nil
 
-	return userInfo, errorLimitRespt, apiErrRespt, rawResponset, errt
-
-	// @@@@@ Return response in this format
-	// return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	// return userInfo, errorLimitRespt, apiErrRespt, rawResponset, errt
 }
 
 // SsoLogin - try to register new session
@@ -465,12 +469,33 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 		},
 	}
 
+	data := map[string]interface{}{
+		"id":          0,
+		"user_type":   "USER",
+		"name":        "NAME",
+		"phone":       "9999999999",
+		"email":       userInfoMap["email"].(string),
+		"isVerified":  userInfoMap["email_verified"].(bool),
+		"profile":     "1722529244687.jpg",
+		"isActive":    true,
+		"isSuspended": false,
+		"isDeleted":   false,
+		"last_login":  "2024-08-15T10:16:20.000Z",
+		"temp_token":  "TEMP_TOKEN",
+		"login":       1,
+		"createdAt":   "2024-08-15T10:16:20.000Z",
+		"updatedAt":   "2024-08-15T10:16:20.000Z",
+		"token":       accessToken,
+	}
+
 	// Log or use the user info as needed
 	log.Debug("User Info M: ", userInfo)
 	log.Debug("User Info M: ", rawUserInfo)
 
+	userInfoRaw, err := json.Marshal(data)
+
 	// return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-	return userInfo, nil, nil, rawUserInfo, nil
+	return userInfo, nil, nil, string(userInfoRaw), nil
 }
 
 // @@@@@ Get User Details
