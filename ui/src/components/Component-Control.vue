@@ -111,24 +111,35 @@ async function connect(me, isConnect) {
     me.isConnectProgress = true;
     if (isConnect === true) {
       let expired = false;
-      if (
-        me.$store.state.account.subscriptionData.Plan.name !== "Free" &&
-        getDaysDifference(me.$store.state.account.subscriptionData.expire_on) <=
-          0
-      ) {
+      const subscriptionData = me.$store.state.account.subscriptionData;
+
+      if (subscriptionData && subscriptionData !== "null") {
+        if (
+          subscriptionData.Plan.name !== "Free" &&
+          getDaysDifference(subscriptionData.expire_on) <= 0
+        ) {
+          expired = true;
+        }
+      } else {
         expired = true;
       }
-      if (!expired) await sender.Connect();
-      else {
+
+      if (!expired) {
+        await sender.Connect();
+      } else {
         const result = sender.showMessageBoxSync({
           type: "error",
           buttons: ["Buy new plan"],
           message: "Can't connect. Your subscription has expired",
         });
-        if (result === 0)
+
+        if (result === 0) {
           sender.shellOpenExternal(`https://privateline.io/#pricing`);
+        }
       }
-    } else await sender.Disconnect();
+    } else {
+      await sender.Disconnect();
+    }
   } catch (e) {
     console.error(e);
     sender.showMessageBoxSync({
