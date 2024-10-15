@@ -290,6 +290,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"ListenPort = " + strconv.Itoa(wg.localPort),
 		"Address = " + wg.connectParams.clientLocalIP.String(),
 		"DNS = " + wg.connectParams.dnsServers,
+		"MTU = 1280", // on win10 1280 is the minimal value that works, on Linux 1200 works
 	}
 
 	peerCfg := []string{
