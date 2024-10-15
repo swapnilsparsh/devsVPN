@@ -38,7 +38,8 @@ _routing_table_weight=17            # Anything from 1 to 252
 POSTROUTING_mangle="PRIVATELINE_ST_POSTROUTING -t mangle"
 OUTPUT_mangle="PRIVATELINE_ST_OUTPUT -t mangle"
 PREROUTING_mangle="PRIVATELINE_ST_PREROUTING -t mangle"
-POSTROUTING_nat="PRIVATELINE_ST_POSTROUTING -t nat"
+# PREROUTING_nat="PRIVATELINE_ST_PREROUTING -t nat"
+# POSTROUTING_nat="PRIVATELINE_ST_POSTROUTING -t nat"
 OUTPUT="PRIVATELINE_ST_OUTPUT"
 INPUT="PRIVATELINE_ST_INPUT"
 
@@ -51,7 +52,7 @@ _backup_folder_name=privateline-exclude-tmp
 _mutable_folder_default=/etc/opt/privateline-connect/mutable   # default location of 'mutable' folder
 _mutable_folder_fallback=/opt/privateline-connect/mutable      # alternate location of 'mutable' folder (needed for backward compatibility and snap environment)
 
-# Info: The 'mark' value for packets coming from the Split-Tunneling environment.
+# Info: The 'mark' value for packets coming from the Split-Tunneling environment. Vlad: mark set on packets from apps whose PIDS are not in cgroup.
 # Using here value 0xca6c. It is the same as WireGuard marking packets which were processed.
 # That allows us not to be aware of changes in the routing policy database on each new connection of WireGuard.
 # Extended description:
@@ -74,6 +75,7 @@ _bin_sed=sed
 #
 #Variables vill be initialized later:
 #
+_wg_interface_name=wgprivateline
 _def_interface_name=""
 _def_interface_nameIPv6=""
 _def_gateway=""
@@ -207,7 +209,8 @@ function init_iptables()
     ${bin_iptables} -w ${LOCKWAITTIME} -N ${POSTROUTING_mangle}
     ${bin_iptables} -w ${LOCKWAITTIME} -N ${OUTPUT_mangle}
     ${bin_iptables} -w ${LOCKWAITTIME} -N ${PREROUTING_mangle}
-    ${bin_iptables} -w ${LOCKWAITTIME} -N ${POSTROUTING_nat}
+    # ${bin_iptables} -w ${LOCKWAITTIME} -N ${PREROUTING_nat}
+    # ${bin_iptables} -w ${LOCKWAITTIME} -N ${POSTROUTING_nat}
     ${bin_iptables} -w ${LOCKWAITTIME} -N ${OUTPUT}
     ${bin_iptables} -w ${LOCKWAITTIME} -N ${INPUT}
 
@@ -218,6 +221,7 @@ function init_iptables()
 #    if [ ! -z ${def_inf_name} ]; then
 #        ${bin_iptables} -w ${_iptables_locktime} -I ${POSTROUTING_nat} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -o ${def_inf_name} -j MASQUERADE
 #    fi
+
     # Add mark on packets of classid ${_cgroup_classid}
     ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT_mangle} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j MARK --set-mark ${_packets_fwmark_value}
     # Important! Process DNS request before setting mark rule (DNS request should not be marked)
@@ -236,15 +240,31 @@ function init_iptables()
  #       ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -j DROP   # this rule is not effective, so we use 'mark' (see the next rule)
  #       ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m mark --mark ${_packets_fwmark_value} -j DROP
  #   fi
-    
+
     # Inverse mode: only 'splitted' apps use only VPN connection
     if [ ${_is_inversed} -eq 1 ]; then
+        # Drop outgoing traffic to wgprivateline interface if the app is not in the whitelist cgroup?
+        # Looks like this logic is unneeded - all non-whitelisted apps will be marked by now, so will be taken care of by next command.
+        #${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -o ${_wg_interface_name} -j DROP
+
+        # Drop outgoing traffic to wgprivateline interface if there's a mark (meaning it's a non-whitelisted app)
+        ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -m mark --mark ${_packets_fwmark_value} -o ${_wg_interface_name} -j DROP
+        
+        # Drop incoming traffic from wgprivateline interface if the app is not in the whitelist cgroup
+        ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -i ${_wg_interface_name} -j DROP
+
+        # Drop incoming traffic from wgprivateline interface if there's a mark (meaning it's a non-whitelisted app)
+        ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT} -m mark --mark ${_packets_fwmark_value} -i ${_wg_interface_name} -j DROP
+
         # Important! Process DNS request first: do not drop DNS requests
         ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -p tcp --dport 53 -j RETURN
         ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -p udp --dport 53 -j RETURN
-        
+        ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT} -p udp --sport 53 -i ${_wg_interface_name} -j RETURN
+        # ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT} -p tcp --sport 53 -i ${_wg_interface_name} -j RETURN
+
         # Allow or block communication for 'splitted' apps in inverse mode
         # E.g.: If we want to block 'splitted' apps when VPN not connected -  'inverse_block' must be '1'
+        # Vlad: we're not using inverse_block functionality in privateLINE - at least not in MVP 2.0 release
         if [ ${inverse_block} -eq 1 ]; then
             ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -m cgroup --cgroup ${_cgroup_classid} -j DROP
             ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m cgroup --cgroup ${_cgroup_classid} -j DROP
@@ -261,7 +281,8 @@ function init_iptables()
     ${bin_iptables} -w ${_iptables_locktime} -I POSTROUTING -t mangle  -j ${POSTROUTING_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -I OUTPUT -t mangle  -j ${OUTPUT_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -I PREROUTING -t mangle  -j ${PREROUTING_mangle}
-    ${bin_iptables} -w ${_iptables_locktime} -I POSTROUTING -t nat  -j ${POSTROUTING_nat}
+    # ${bin_iptables} -w ${_iptables_locktime} -I PREROUTING -t nat  -j ${PREROUTING_nat}
+    # ${bin_iptables} -w ${_iptables_locktime} -I POSTROUTING -t nat  -j ${POSTROUTING_nat}
     ${bin_iptables} -w ${_iptables_locktime} -I OUTPUT -j ${OUTPUT}
     ${bin_iptables} -w ${_iptables_locktime} -I INPUT -j ${INPUT}
 }
@@ -276,7 +297,8 @@ function clear_iptables()
     ${bin_iptables} -w ${_iptables_locktime} -D POSTROUTING -t mangle  -j ${POSTROUTING_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -D OUTPUT -t mangle  -j ${OUTPUT_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -D PREROUTING -t mangle  -j ${PREROUTING_mangle}
-    ${bin_iptables} -w ${_iptables_locktime} -D POSTROUTING -t nat  -j ${POSTROUTING_nat}
+    # ${bin_iptables} -w ${_iptables_locktime} -D POSTROUTING -t nat  -j ${POSTROUTING_nat}
+    # ${bin_iptables} -w ${_iptables_locktime} -D PREROUTING -t nat  -j ${PREROUTING_nat}
     ${bin_iptables} -w ${_iptables_locktime} -D OUTPUT -j ${OUTPUT}
     ${bin_iptables} -w ${_iptables_locktime} -D INPUT -j ${INPUT}
     
@@ -284,7 +306,8 @@ function clear_iptables()
     ${bin_iptables} -w ${_iptables_locktime} -F ${POSTROUTING_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -F ${OUTPUT_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -F ${PREROUTING_mangle}
-    ${bin_iptables} -w ${_iptables_locktime} -F ${POSTROUTING_nat}
+    # ${bin_iptables} -w ${_iptables_locktime} -F ${PREROUTING_nat}
+    # ${bin_iptables} -w ${_iptables_locktime} -F ${POSTROUTING_nat}
     ${bin_iptables} -w ${_iptables_locktime} -F ${OUTPUT}
     ${bin_iptables} -w ${_iptables_locktime} -F ${INPUT}
 
@@ -292,7 +315,8 @@ function clear_iptables()
     ${bin_iptables} -w ${_iptables_locktime} -X ${POSTROUTING_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -X ${OUTPUT_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -X ${PREROUTING_mangle}
-    ${bin_iptables} -w ${_iptables_locktime} -X ${POSTROUTING_nat}
+    # ${bin_iptables} -w ${_iptables_locktime} -X ${PREROUTING_nat}
+    # ${bin_iptables} -w ${_iptables_locktime} -X ${POSTROUTING_nat}
     ${bin_iptables} -w ${_iptables_locktime} -X ${OUTPUT}
     ${bin_iptables} -w ${_iptables_locktime} -X ${INPUT}
 }
@@ -362,12 +386,15 @@ function init()
         echo "${_routing_table_weight}      ${_routing_table_name}" >> /etc/iproute2/rt_tables
 
         # Packets with mark will use splittun table
-        ${_bin_ip} rule add fwmark ${_packets_fwmark_value} table ${_routing_table_name}
+        # Vlad: disabled this routing rule in MVP 2.0
+        #${_bin_ip} rule add fwmark ${_packets_fwmark_value} table ${_routing_table_name}
 
         if [ ! -z ${_def_gatewayIPv6} ]; then
             if [ -f /proc/net/if_inet6 ]; then
                 # Packets with mark will use splittun table
-                ${_bin_ip} -6 rule add fwmark ${_packets_fwmark_value} table ${_routing_table_name}
+                # Vlad: disabled this routing rule in MVP 2.0
+                #${_bin_ip} -6 rule add fwmark ${_packets_fwmark_value} table ${_routing_table_name}
+                echo
             fi
         fi
 
@@ -411,6 +438,7 @@ function init()
     echo "privateLINE Split Tunneling enabled"
 }
 
+# Vlad: this function effectively does nothing in MVP 2.0. "Allow privateLINE Apps only" functionality only uses the firewall, doesn't use or care about routing table.
 function updateRoutes()
 { 
     # simple check if ST enabled
@@ -418,7 +446,6 @@ function updateRoutes()
         return
     fi
 
-    # TODO FIXME: Vlad - check how splittun.sh changes routing tables
     # splittun table has a default gateway to the default interface
     if [ ! -z ${_def_gateway} ] && [ ! -z ${_def_interface_name} ]; then        
         ${_bin_ip} route replace default via ${_def_gateway} dev ${_def_interface_name} table ${_routing_table_name}  
@@ -491,7 +518,7 @@ function getBackupFolderPath()
 
 function backup()
 {
-    # TODO Vlad: stubbing out
+    # TODO Vlad: stubbed out
     return 0
 
     if [ -z ${_def_interface_name} ]; then
@@ -509,7 +536,7 @@ function backup()
 
 function restore()
 {
-    # TODO Vlad: stubbing out
+    # TODO Vlad: stubbed out
     return 0
 
     local _tempDir="$( getBackupFolderPath )"
@@ -726,6 +753,11 @@ function parseInputArgs()
         esac
         shift
     done
+
+    # Vlad: only plain inversed mode supported in MVP 2.0, nothing else.
+    [ ${_is_inversed} -eq 1 ]               || { >&2 echo "ERROR: Only -inverse mode is supported in MVP 2.0"; exit 1; }
+    [ ${_is_inversed_blocked} -eq 0 ]       || { >&2 echo "ERROR: -inverse_block mode is not supported in MVP 2.0"; exit 1; }
+    [ ${_is_inversed_blocked_ipv6} -eq 0 ]  || { >&2 echo "ERROR: -inverse_block_ipv6 mode is not supported in MVP 2.0"; exit 1; }
 }
 
 if [[ $1 = "start" ]] ; then    
@@ -765,6 +797,10 @@ elif [[ $1 = "run" ]] ; then
     execute "${_user}" "${_command}"     
 
 elif [[ $1 = "update-routes" ]] ; then
+    # Vlad: this script doesn't care about routing table in PL Connect MVP 2.0
+    echo "update-routes not supported in MVP 2.0"
+    exit 0
+
     # Linux is erasing ST routing rules when disable/enable default network interface, so we need to restore them back
     shift 
     detectDefRouteVars
