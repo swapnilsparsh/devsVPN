@@ -70,7 +70,7 @@ type SplitTunnelSetConfig struct {
 	IsInversed          bool // when inversed - only apps added to ST will use VPN connection, all other apps will use direct unencrypted connection
 	IsAnyDns            bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
 	IsAllowWhenNoVpn    bool // (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled
-	EnclaveAllowAllApps bool // whether to allow all apps to the enclave/VPN (default), or only the specified apps
+	EnclaveAllowAllApps bool // whether to allow all apps to the enclave/VPN (default), or only the whitelisted apps
 	Reset               bool // disable ST and erase all ST config (if enabled - all the rest paremeters are ignored)
 }
 

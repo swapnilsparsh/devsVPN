@@ -26,6 +26,7 @@
 package splittun
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -272,6 +273,14 @@ func enableDisableSplitTunnelIPv6(enableFullTunnel bool, responseChan chan<- err
 }
 
 func implAddPid(pid int, commandToExecute string) error {
+	appWhitelistEnabled, err := appWhitelistEnabled()
+	if err != nil {
+		return fmt.Errorf("error checking app whitelist status: %w", err)
+	}
+	if !appWhitelistEnabled {
+		return log.ErrorE(errors.New("error - app whitelist is disabled"), 0)
+	}
+
 	if pid <= 0 {
 		return fmt.Errorf("PID is not defined")
 	}
@@ -285,7 +294,7 @@ func implAddPid(pid int, commandToExecute string) error {
 	// 	return fmt.Errorf("the Split Tunnel is disabled")
 	// }
 
-	err := shell.Exec(nil, stScriptPath, "addpid", strconv.Itoa(pid))
+	err = shell.Exec(nil, stScriptPath, "addpid", strconv.Itoa(pid))
 	if err == nil {
 		_addedRootProcesses[pid] = commandToExecute
 	}
@@ -293,6 +302,14 @@ func implAddPid(pid int, commandToExecute string) error {
 }
 
 func implRemovePid(pid int) error {
+	appWhitelistEnabled, err := appWhitelistEnabled()
+	if err != nil {
+		return fmt.Errorf("error checking app whitelist status: %w", err)
+	}
+	if !appWhitelistEnabled {
+		return log.ErrorE(errors.New("error - app whitelist is disabled"), 0)
+	}
+
 	if pid <= 0 {
 		return fmt.Errorf("PID is not defined")
 	}
@@ -333,6 +350,14 @@ func implRemovePid(pid int) error {
 }
 
 func implGetRunningApps() (allProcesses []RunningApp, err error) {
+	appWhitelistEnabled, err := appWhitelistEnabled()
+	if err != nil {
+		return nil, fmt.Errorf("error checking app whitelist status: %w", err)
+	}
+	if !appWhitelistEnabled {
+		return nil, log.ErrorE(errors.New("error - app whitelist is disabled"), 0)
+	}
+
 	// https://man7.org/linux/man-pages/man5/proc.5.html
 
 	// read all PIDs which are active in ST environment
@@ -493,7 +518,7 @@ func appWhitelistEnabled() (bool, error) {
 	case 100:
 		return false, nil
 	default:
-		return true, err
+		return false, err
 	}
 }
 
@@ -557,7 +582,7 @@ func enableDisableAppWhitelist(isEnable bool) error {
 			if len(outErrText) > 0 {
 				err = fmt.Errorf("(%w) exitCode=%d: %s", err, exitCode, outErrText)
 			}
-			// if ST start failed - clean everything (by command 'stop')
+			// if splittun.sh start failed - clean everything (by command 'stop')
 			shell.Exec(nil, stScriptPath, "stop")
 			return fmt.Errorf("failed to enable app whitelist: exitCode=%d: %w", exitCode, err)
 		}
