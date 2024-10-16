@@ -546,7 +546,7 @@ func enable(isEnable, isStInversed, isStInverseAllowWhenNoVpn, isVpnConnected, v
 func enableDisableAppWhitelist(isEnable bool) error {
 	appWhitelistEnabled, err := appWhitelistEnabled()
 	if err != nil {
-		return fmt.Errorf("Error checking app whitelist status: %w", err)
+		return fmt.Errorf("error checking app whitelist status: %w", err)
 	}
 	if appWhitelistEnabled == isEnable {
 		return nil // already enabled or disabled
