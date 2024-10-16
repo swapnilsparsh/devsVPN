@@ -1879,13 +1879,10 @@ func (s *Service) SessionNew(email string, password string, deviceName string, s
 	return apiCode, "", accountInfo, rawResponse, nil
 }
 
-// @@@@@@@ ==============================================================================================================
-// SsoLogin Creates
 func (s *Service) SsoLogin(code string, sessionCode string) (
 	apiCode int,
 	apiErrorMsg string,
-	accountInfo preferences.AccountStatus,
-	rawResponse string,
+	rawResponse *api_types.SsoLoginResponse,
 	err error) {
 
 	// Temporary allow API server access (If Firewall is enabled)
@@ -1907,39 +1904,16 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 		log.Error("Creating new session -> Failed to delete active session: ", err)
 	}
 
-	// Generate keys for Key Encapsulation Mechanism using post-quantum cryptographic algorithms
-	// var kemKeys api_types.KemPublicKeys
-	// kemHelper, err := kem.CreateHelper(platform.KemHelperBinaryPath(), kem.GetDefaultKemAlgorithms())
-	// if err != nil {
-	// 	log.Error("Failed to generate KEM keys: ", err)
-	// } else {
-	// 	kemKeys.KemPublicKey_Kyber1024, err = kemHelper.GetPublicKey(kem.AlgName_Kyber1024)
-	// 	if err != nil {
-	// 		log.Error(err)
-	// 	}
-	// 	kemKeys.KemPublicKey_ClassicMcEliece348864, err = kemHelper.GetPublicKey(kem.AlgName_ClassicMcEliece348864)
-	// 	if err != nil {
-	// 		log.Error(err)
-	// 	}
-	// }
-
-	log.Info("Logging SSO in...")
-	log.Debug("Got SSO Code:- ", code)
 	defer func() {
 		if err != nil {
-			log.Debug("================================ Error Reached ================================", err)
-			log.Debug("================================ API Code: ================================", apiCode)
-
+			log.Debug("sso error ----> ", err, "sso error code -----> ", apiCode)
 			var customMessage string
 			switch apiCode {
 			case 426:
-				log.Debug("================================ 426: ================================", err)
 				customMessage = fmt.Sprintf("We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices. %s", err)
 			case 412:
-				log.Debug("================================ 412: ================================", err)
 				customMessage = fmt.Sprintf("We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices. %s", err)
 			default:
-				log.Debug("================================ Default error ================================", err)
 				customMessage = fmt.Sprintf("Logging in - FAILED: %s", err)
 			}
 
@@ -1955,8 +1929,6 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 		privateKey string
 
 		wgPresharedKey        string
-		sessionNewSuccessResp *api_types.SessionNewResponse
-		errorLimitResp        *api_types.SessionNewErrorLimitResponse
 		apiErr                *api_types.APIErrorResponse
 		connectDevSuccessResp *api_types.ConnectDeviceResponse
 
@@ -1970,32 +1942,13 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 			log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
 		}
 
-		sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SsoLogin(code, sessionCode)
+		rawResponse, err = s._api.SsoLogin(code, sessionCode)
 
 		apiCode = 0
-		if apiErr != nil {
-			apiCode = apiErr.HttpStatusCode
-		}
-
 		if err != nil {
-			// if SessionsLimit response
-			if errorLimitResp != nil {
-				accountInfo = s.createAccountStatus(errorLimitResp.SessionLimitData)
-				return apiCode, apiErr.Message, accountInfo, rawResponse, err
-			}
-
-			// in case of other API error
-			if apiErr != nil {
-				return apiCode, apiErr.Message, accountInfo, rawResponse, err
-			}
-
-			// not API error
-			return apiCode, "", accountInfo, rawResponse, err
+			return 400, "", rawResponse, err
 		}
 
-		if sessionNewSuccessResp == nil {
-			return apiCode, "", accountInfo, rawResponse, fmt.Errorf("unexpected error when creating a new session")
-		}
 		break
 	}
 
@@ -2007,16 +1960,19 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	// Generate a cryptographically strong pseudo-random between 0 - max
 	n, err := rand.Int(rand.Reader, max)
 	if err != nil {
-		return 0, "", accountInfo, rawResponse, fmt.Errorf("failed to generate random machine ID: %w", err)
+		return 0, "", rawResponse, fmt.Errorf("failed to generate random machine ID: %w", err)
 	}
 
 	// String representation of n in base 16
 	deviceID = n.Text(16)
-
 	deviceName := "PL Connect - " + deviceID[:8]
 
+	logger.Debug(deviceID, deviceName)
+
 	// now do the Connect Device API call
-	connectDevSuccessResp, apiErr, rawResponse, err = s._api.ConnectDevice(deviceID, deviceName, publicKey, sessionNewSuccessResp.Data.Token)
+	connectRawresponse := ""
+	connectDevSuccessResp, apiErr, connectRawresponse, err = s._api.ConnectDevice(deviceID, deviceName, publicKey, rawResponse.AccessToken)
+	logger.Debug("connectRawresponse ---> ", connectRawresponse)
 
 	apiCode = 0
 	if apiErr != nil {
@@ -2026,16 +1982,14 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	if err != nil {
 		// in case of other API error
 		if apiErr != nil {
-			return apiCode, apiErr.Message, accountInfo, rawResponse, err
+			return apiCode, apiErr.Message, rawResponse, err
 		}
-		log.Error("rawResponse: " + rawResponse)
-
 		// not API error
-		return apiCode, "", accountInfo, rawResponse, err
+		return apiCode, "", rawResponse, err
 	}
 
 	if connectDevSuccessResp == nil {
-		return apiCode, "", accountInfo, rawResponse, fmt.Errorf("unexpected error when registering a device")
+		return apiCode, "", rawResponse, fmt.Errorf("unexpected error when registering a device")
 	}
 
 	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
@@ -2044,9 +1998,11 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	// accountInfo = s.createAccountStatus(sessionNewSuccessResp.ServiceStatus)
 
 	// we must not save the account password to settings.json on disk
-	s.setCredentials(accountInfo,
+	accountInfo := preferences.AccountStatus{}
+	s.setCredentials(
+		accountInfo,
 		code,
-		sessionNewSuccessResp.Data.Token,
+		rawResponse.AccessToken,
 		deviceName,
 		code,
 		"",
@@ -2061,7 +2017,7 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	endpointPort, err := strconv.Atoi(endpointPortStr)
 	if err != nil {
 		log.Error(fmt.Sprintf("Error parsing endpoint port '%s' as number: %v", endpointPortStr, err))
-		return apiCode, "", accountInfo, "", err
+		return apiCode, "", rawResponse, err
 	}
 	hostValue := api_types.WireGuardServerHostInfo{
 		HostInfoBase: api_types.HostInfoBase{
@@ -2086,7 +2042,7 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
 	} else {
 		log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
-		return apiCode, "", accountInfo, "", err
+		return apiCode, "", rawResponse, err
 	}
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
@@ -2102,10 +2058,10 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	// Apply SplitTunnel configuration. It is applicable for Inverse mode of SplitTunnel
 	if err := s.splitTunnelling_ApplyConfig(); err != nil {
 		log.Error(fmt.Errorf("splitTunnelling_ApplyConfig failed: %v", err))
-		return apiCode, "", accountInfo, "", err
+		return apiCode, "", rawResponse, err
 	}
 
-	return apiCode, "", accountInfo, rawResponse, nil
+	return apiCode, "", rawResponse, nil
 }
 
 // @@@@@@@  END ==============================================================================================================

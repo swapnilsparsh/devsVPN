@@ -227,8 +227,7 @@ type SsoLoginResp struct {
 	APIStatus       int
 	APIErrorMessage string
 	Session         SessionResp
-	Account         preferences.AccountStatus
-	RawResponse     string
+	RawResponse     *api_types.SsoLoginResponse
 }
 
 type AccountInfo struct {

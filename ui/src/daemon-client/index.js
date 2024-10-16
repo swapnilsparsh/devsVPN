@@ -971,7 +971,7 @@ async function Login(
   // it contains details about error
   return resp;
 }
-// ========== SSO Login ========
+
 async function SsoLogin( Code, SessionState) {
   let resp = await sendRecv({
     Command: daemonRequests.SsoLogin,

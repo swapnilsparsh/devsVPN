@@ -57,6 +57,13 @@ ipcMain.handle("renderer-request-refresh-storage", async () => {
 });
 
 ipcMain.handle(
+  "renderer-request-ssologin",
+  async (event, code, session_state) => {
+    return await client.SsoLogin(code, session_state);
+  }
+);
+
+ipcMain.handle(
   "renderer-request-login",
   async (
     event,
@@ -80,15 +87,8 @@ ipcMain.handle(
 );
 ipcMain.handle(
   "renderer-request-sso-login",
-  async (
-    event,
-    Code,
-    SessionState
-  ) => {
-    return await client.SsoLogin(
-      Code,
-      SessionState
-    );
+  async (event, Code, SessionState) => {
+    return await client.SsoLogin(Code, SessionState);
   }
 );
 
@@ -293,8 +293,9 @@ ipcMain.handle("renderer-request-get-diagnostic-logs", async () => {
   let accInfo = "";
   try {
     const acc = s.account;
-    accInfo = `${acc.accountStatus.CurrentPlan} (${acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
-      })`;
+    accInfo = `${acc.accountStatus.CurrentPlan} (${
+      acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
+    })`;
     if (acc.session.WgPublicKey)
       accInfo += `; wgKeys=OK ${acc.session.WgKeyGenerated}`;
     else accInfo += "; wgKeys=EMPTY";

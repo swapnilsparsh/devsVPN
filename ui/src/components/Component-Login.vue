@@ -18,35 +18,64 @@
 
           <div style="height: 21px" />
 
-          <input class="styledBig" ref="accountid" style="text-align: left" placeholder="Enter your Email"
-            v-model="email" v-on:keyup="keyup($event)" />
+          <input
+            class="styledBig"
+            ref="accountid"
+            style="text-align: left"
+            placeholder="Enter your Email"
+            v-model="email"
+            v-on:keyup="keyup($event)"
+          />
           <div style="height: 10px" />
           <div style="position: relative; display: flex; align-items: center">
-            <input class="styledBig" ref="password" style="text-align: left" placeholder="Enter your Password"
-              v-model="password" :type="passwordType" v-on:keyup="keyup($event)" />
-            <img src="@/assets/eye-close.svg" @click="toggleEye" alt="Eye Image" style="
+            <input
+              class="styledBig"
+              ref="password"
+              style="text-align: left"
+              placeholder="Enter your Password"
+              v-model="password"
+              :type="passwordType"
+              v-on:keyup="keyup($event)"
+            />
+            <img
+              src="@/assets/eye-close.svg"
+              @click="toggleEye"
+              alt="Eye Image"
+              style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              " v-if="showPassword" />
-            <img src="@/assets/eye-open.svg" @click="toggleEye" alt="Eye Image" style="
+              "
+              v-if="showPassword"
+            />
+            <img
+              src="@/assets/eye-open.svg"
+              @click="toggleEye"
+              alt="Eye Image"
+              style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              " v-else />
+              "
+              v-else
+            />
           </div>
         </div>
-        <div class="medium_text" style="
+        <div
+          class="medium_text"
+          style="
             color: #0078d7;
             width: 100%;
             text-align: right;
             font-weight: 500;
             cursor: pointer;
-          " v-on:click="ForgotPassword">
+          "
+          v-on:click="ForgotPassword"
+        >
           Forgot Password?
         </div>
 
@@ -135,7 +164,7 @@ export default {
       confirmation2FA: "",
       showPassword: false,
       isSSOLogin: false,
-      SSOCode: ""
+      SSOCode: "",
     };
   },
   computed: {
@@ -184,34 +213,17 @@ export default {
   mounted() {
     /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
     ipcRenderer.on("sso-auth", async (event, authData) => {
-      console.log("SSO Data Recieved ---> ", authData);
-      // @@@@@ Sending this data to backend for further processing 
-      // ssoLogin(authData)
-      // async function ssoLogin(authData) {
-      //   const resp = await sender.SsoLogin(
-      //     authData?.code,
-      //     authData?.session_code,
-      //   );
-      // }
-      const ssoLogin = async function (authData) {
-        this.isSSOLogin = true;
-        this.SSOCode = authData?.code;
-
-        console.log("Calling login with this param", this.isSSOLogin, this.SSOCode);
-
-        const resp = await sender.Login(
-          this.email,
-          this.password,
-          this.isSSOLogin == true,
-          this.SSOCode
-        );
-      }.bind(this); // Explicitly bind 'this'
-
-      await ssoLogin(authData);
-      console.log("Calling login with this param", this.isSSOLogin, this.SSOCode);
-
-
-
+      try {
+        console.log("SSO Data Recieved ---> ", authData);
+        // @@@@@ Sending this data to backend for further processing
+        this.isProcessing = true;
+        await sender.SsoLogin(authData?.code, authData?.session_state);
+        console.log("Calling SsoLogin with this param", authData?.code);
+      } catch (error) {
+        console.log(error.message);
+      } finally {
+        this.isProcessing = false;
+      }
     });
 
     // COLOR SCHEME

@@ -96,6 +96,10 @@ export default {
     return invoke("renderer-request-refresh-storage");
   },
 
+  SsoLogin: async (code, session_state) => {
+    return await invoke("renderer-request-ssologin", code, session_state);
+  },
+
   Login: async (
     email,
     password,
@@ -116,15 +120,8 @@ export default {
       // confirmation2FA
     );
   },
-  SsoLogin: async (
-    Code,
-    SessionState
-  ) => {
-    return await invoke(
-      "renderer-request-sso-login",
-      Code,
-      SessionState
-    );
+  SsoLogin: async (Code, SessionState) => {
+    return await invoke("renderer-request-sso-login", Code, SessionState);
   },
 
   AccountInfo: async () => {

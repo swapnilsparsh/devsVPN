@@ -44,7 +44,8 @@ import (
 const (
 	_defaultRequestTimeout = time.Second * 10 // full request time (for each request)
 	_defaultDialTimeout    = time.Second * 5  // time for the dial to the API server (for each request)
-	_apiHost               = "api.privateline.io"
+	// _apiHost               = "api.privateline.io"
+	_apiHost = "api.privateline.dev"
 
 	// temporarily fetching static servers.json from GitHub
 	// _updateHost         = "repo.privateline.io"
@@ -331,71 +332,68 @@ func (a *API) SessionNew(email string, password string, isSSOLogin bool, SSOCode
 	log.Debug("=================SSO Login and code ============== :- ", isSSOLogin, SSOCode)
 	log.Debug("=================request ============== :- ", request)
 
-	if !isSSOLogin {
-		data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
-		if err != nil {
-			return nil, nil, nil, rawResponse, err
-		}
-
-		rawResponse = string(data)
-
-		// Check is it API error
-		if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
-			return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
-		}
-
-		// if !apiErr.Status {
-		// 	log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
-		// 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-		// }
-
-		// success
-		if apiErr.HttpStatusCode == types.CodeSuccess {
-			err := json.Unmarshal(data, &successResp)
-			successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
-			if err != nil {
-				return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
-			}
-
-			return &successResp, nil, &apiErr, rawResponse, nil
-		}
-
-		// Session limit check
-		if apiErr.HttpStatusCode == types.CodeSessionsLimitReached {
-			err := json.Unmarshal(data, &errorLimitResp)
-			errorLimitResp.SetHttpStatusCode(apiErr.HttpStatusCode)
-			if err != nil {
-				return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
-			}
-			return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-		}
-
-		return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-
+	// if !isSSOLogin {
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
+	if err != nil {
+		return nil, nil, nil, rawResponse, err
 	}
+
+	rawResponse = string(data)
+
+	// Check is it API error
+	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
+		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+	}
+
+	// if !apiErr.Status {
+	// 	log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
+	// 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	// }
+
+	// success
+	if apiErr.HttpStatusCode == types.CodeSuccess {
+		err := json.Unmarshal(data, &successResp)
+		successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+		if err != nil {
+			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+		}
+
+		return &successResp, nil, &apiErr, rawResponse, nil
+	}
+
+	// Session limit check
+	if apiErr.HttpStatusCode == types.CodeSessionsLimitReached {
+		err := json.Unmarshal(data, &errorLimitResp)
+		errorLimitResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+		if err != nil {
+			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+		}
+		return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	}
+
+	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+
+	// }
 	// @@@@@ SSO Login
-	userInfo, errorLimitRespt, apiErrRespt, rawResponset, errt := a.SsoLogin(SSOCode, "")
-	log.Debug("U Info :- ", userInfo)
-	log.Debug("U Info Raw :- ", rawResponset)
-	log.Debug("U errorLimitRespt :- ", errorLimitRespt)
-	log.Debug("U errt :- ", errt)
-	log.Debug("U successResp :- ", successResp)
-	log.Debug("U apiErrRespt :- ", apiErrRespt)
-	successResp.SetHttpStatusCode(200)
-	return &successResp, nil, nil, rawResponset, nil
+	// userInfo, errorLimitRespt, apiErrRespt, rawResponset, errt := a.SsoLogin(SSOCode, "")
+	// log.Debug("U Info :- ", userInfo)
+	// log.Debug("U Info Raw :- ", rawResponset)
+	// log.Debug("U errorLimitRespt :- ", errorLimitRespt)
+	// log.Debug("U errt :- ", errt)
+	// log.Debug("U successResp :- ", successResp)
+	// log.Debug("U apiErrRespt :- ", apiErrRespt)
+	// successResp.SetHttpStatusCode(200)
+	// return &successResp, nil, nil, rawResponset, nil
 
 	// return userInfo, errorLimitRespt, apiErrRespt, rawResponset, errt
 }
 
 // SsoLogin - try to register new session
 func (a *API) SsoLogin(code string, sessionCode string) (
-	*types.SessionNewResponse,
-	*types.SessionNewErrorLimitResponse,
-	*types.APIErrorResponse,
-	string, // RAW response
-	error) {
+	resp *types.SsoLoginResponse,
+	err error) {
 
-	rawResponse := ""
+	resp = &types.SsoLoginResponse{}
 	httpClient := &http.Client{}
 
 	// Step 1: Exchange code for token by hitting the Keycloak token endpoint
@@ -410,92 +408,30 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	// Send the POST request to get the token
 	tokenResp, err := httpClient.PostForm(tokenUrl, payload)
 	if err != nil {
-		return nil, nil, nil, rawResponse, fmt.Errorf("failed to request token: %w", err)
+		return resp, fmt.Errorf("failed to request token: %w", err)
 	}
 	defer tokenResp.Body.Close()
 
 	// Read the token response
 	tokenBody, err := ioutil.ReadAll(tokenResp.Body)
 	if err != nil {
-		return nil, nil, nil, rawResponse, fmt.Errorf("failed to read token response: %w", err)
+		return resp, fmt.Errorf("failed to read token response: %w", err)
 	}
 
-	rawResponse = string(tokenBody)
+	err = json.Unmarshal(tokenBody, resp)
 	// Parse the token response
 	var tokenData map[string]interface{}
 	err = json.Unmarshal(tokenBody, &tokenData)
 	if err != nil {
-		return nil, nil, nil, rawResponse, fmt.Errorf("failed to parse token response: %w", err)
+		return resp, fmt.Errorf("failed to parse token response: %w", err)
 	}
 
 	// Check if the token response contains an error
 	if _, ok := tokenData["error"]; ok {
-		return nil, nil, nil, rawResponse, fmt.Errorf("error in token response: %v", tokenData["error_description"])
+		return resp, fmt.Errorf("error in token response: %v", tokenData["error_description"])
 	}
 
-	accessToken := tokenData["access_token"].(string)
-	log.Debug("Got Acess Token :- ", accessToken)
-	// After successfully getting the access token
-	// Call GetUserDetails with the access token
-	userInfoMap, rawUserInfo, err := a.GetUserDetails(accessToken)
-	if err != nil {
-		return nil, nil, nil, rawResponse, fmt.Errorf("failed to get user details: %w", err)
-	}
-	log.Debug("User Info: ", userInfoMap)
-	log.Debug("User Info: ", rawUserInfo)
-
-	userInfo := &types.SessionNewResponse{
-		Data: struct {
-			ID          int    `json:"id"`
-			UserType    string `json:"user_type"`
-			Username    string `json:"name"`
-			Phone       string `json:"phone"`
-			Email       string `json:"email"`
-			IsVerified  bool   `json:"isVerified"`
-			Profile     string `json:"profile"`
-			IsActive    bool   `json:"isActive"`
-			IsSuspended bool   `json:"isSuspended"`
-			IsDeleted   bool   `json:"isDeleted"`
-			LastLogin   string `json:"last_login"`
-			TempToken   string `json:"temp_token"`
-			Login       int    `json:"login"`
-			CreatedAt   string `json:"createdAt"`
-			UpdatedAt   string `json:"updatedAt"`
-			Token       string `json:"token"`
-		}{
-			Email:      userInfoMap["email"].(string),
-			IsVerified: userInfoMap["email_verified"].(bool),
-			Token:      accessToken,
-		},
-	}
-
-	data := map[string]interface{}{
-		"id":          0,
-		"user_type":   "USER",
-		"name":        "NAME",
-		"phone":       "9999999999",
-		"email":       userInfoMap["email"].(string),
-		"isVerified":  userInfoMap["email_verified"].(bool),
-		"profile":     "1722529244687.jpg",
-		"isActive":    true,
-		"isSuspended": false,
-		"isDeleted":   false,
-		"last_login":  "2024-08-15T10:16:20.000Z",
-		"temp_token":  "TEMP_TOKEN",
-		"login":       1,
-		"createdAt":   "2024-08-15T10:16:20.000Z",
-		"updatedAt":   "2024-08-15T10:16:20.000Z",
-		"token":       accessToken,
-	}
-
-	// Log or use the user info as needed
-	log.Debug("User Info M: ", userInfo)
-	log.Debug("User Info M: ", rawUserInfo)
-
-	userInfoRaw, err := json.Marshal(data)
-
-	// return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-	return userInfo, nil, nil, string(userInfoRaw), nil
+	return resp, err
 }
 
 // @@@@@ Get User Details
