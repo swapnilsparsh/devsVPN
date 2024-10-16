@@ -163,7 +163,8 @@ function test()
     vercomp $iptables_version $min_required_ver # compare versions
     if [[ $? -eq 2 ]]; then 
         # NOTE! Do not change the message below. It is used by daemon to detect the error.
-        echo "Warning: Inverse mode for privateLINE Split Tunnel functionality is not applicable. The minimum required version of 'iptables' is $min_required_ver, while your version is $iptables_version."
+        echo "ERROR: Inverse mode for all_apps_allowed/some_apps_allowed functionality is not applicable. The minimum required version of 'iptables' is $min_required_ver, while your version is $iptables_version."
+        exit 1
     fi
     
     return 0
@@ -594,10 +595,10 @@ function execute()
         exit 1
     fi   
 
-    # Check if split tunneling enabled
-    status > /dev/null 2>&1
+    # Check if app whitelist is enabled
+    appWhitelistEnabled > /dev/null 2>&1
     if [ $? != 0 ]; then
-        echo "ERROR: split tunneling DISABLED. Please call 'start' command first" 1>&2
+        echo "ERROR: app whitelist is disabled. Please call 'start -inverse' command first" 1>&2
         exit 1
     fi
 
@@ -622,16 +623,16 @@ function execute()
     ${_bin_runuser} -u ${_user} -- ${_app}
 }
 
-function status()
+function appWhitelistEnabled()
 {
-    if [ -d ${_cgroup_folder} ]; then
-         if ${_bin_grep} -E "^[0-9]+\s+${_routing_table_name}\s*$" /etc/iproute2/rt_tables &>/dev/null ; then
-            echo "Split Tunneling: ENABLED"
+    if [ -d ${_cgroup_folder} ] &&
+        ${_bin_grep} -E "^[0-9]+\s+${_routing_table_name}\s*$" /etc/iproute2/rt_tables &>/dev/null && \
+        ${_bin_iptables} -n --list PRIVATELINE_ST_OUTPUT >/dev/null 2>&1; then
+            echo "app_whitelist_enabled"
             return 0
-         fi
     fi
-    echo "Split Tunneling: DISABLED"
-    return 1
+    echo "allow_all_apps"
+    return 100
 }
 
 function info()
@@ -729,7 +730,7 @@ function info()
     detectDefRouteVars
 
     echo ---------------------------------
-    status
+    appWhitelistEnabled
 }
 
 function parseInputArgs()
@@ -799,7 +800,7 @@ elif [[ $1 = "run" ]] ; then
 elif [[ $1 = "update-routes" ]] ; then
     # Vlad: this script doesn't care about routing table in PL Connect MVP 2.0
     echo "update-routes not supported in MVP 2.0"
-    exit 0
+    exit 1
 
     # Linux is erasing ST routing rules when disable/enable default network interface, so we need to restore them back
     shift 
@@ -811,9 +812,9 @@ elif [[ $1 = "info" ]] ; then
     shift 
     info $@  
 
-elif [[ $1 = "status" ]] ; then
+elif [[ $1 = "appWhitelistEnabled" ]] ; then
     shift
-    status $@
+    appWhitelistEnabled $@
 
 elif [[ $1 = "test" ]] ; then
     shift
@@ -868,8 +869,9 @@ else
     echo "        Linux erases split-tunnel routing rules when the default network interface is disabled/enabled. This command restores those rules."
     echo "    reset"
     echo "        Remove all processes from Split Tunneling environment"
-    echo "    status"
-    echo "        Check split-tunneling status"
+    echo "    appWhitelistEnabled"
+    echo "        Returns 0 if only whitelisted apps are allowed access to the privateLINE enclave"
+    echo "        Returns 100 if all apps are allowed access to the privateLINE enclave"
     echo "Examples:"
     echo "    Initialize split-tunneling functionality:"
     echo "        $0 start"
@@ -880,6 +882,6 @@ else
     echo "        $0 run ping 8.8.8.8"
     echo "    Uninitialize split-tunneling functionality:"
     echo "        $0 stop"
-    echo "    Check split-tunneling status:"
-    echo "        $0 status"
+    echo "    Check whether all apps or only whitelisted apps are allowed access to the enclave:"
+    echo "        $0 appWhitelistEnabled"
 fi

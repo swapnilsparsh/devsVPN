@@ -48,9 +48,9 @@ var (
 	funcNotAvailableError        error
 	inverseModeNotAvailableError error
 	stScriptPath                 string
-	isActive                     bool
-	sysctlPath                   string = "/sbin/sysctl"
-	fullTunnelEnabled            bool   = false
+	// isActive                     bool
+	sysctlPath        string = "/sbin/sysctl"
+	fullTunnelEnabled bool   = false
 
 	// map from INET type (IPv4 or IPv6) to default routes (all zeroes)
 	DefaultRoutesByIpFamily = map[uint16]*net.IPNet{}
@@ -78,7 +78,7 @@ func implInitialize() error {
 	}
 
 	// Hardcoded text for detection of inverse mode not available error
-	const inverseModeErrorDetectionText = "Warning: Inverse mode for privateLINE Total Shield functionality is not applicable."
+	const inverseModeErrorDetectionText = "ERROR: Inverse mode for all_apps_allowed/some_apps_allowed functionality is not applicable."
 	inverseModeNotAvailableError = fmt.Errorf("%s", inverseModeErrorDetectionText)
 	// check if ST functionality accessible
 	outProcessFunc := func(text string, isError bool) {
@@ -98,10 +98,6 @@ func implInitialize() error {
 	if err != nil {
 		funcNotAvailableError = err
 	}
-
-	// Ensure that ST is enabled on daemon startup
-	// TODO FIXME: Vlad - check logic
-	enable(false, false, false, false, false)
 
 	if err := implApplyConfig(true, true, true, false, false, ConfigAddresses{}, []string{}); err != nil {
 		log.Error(fmt.Errorf("error implApplyConfig() on startup: %w", err))
@@ -161,6 +157,7 @@ func implReset() error {
 	return shell.Exec(nil, stScriptPath, "reset")
 }
 
+/*
 func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// If VPN does not support IPv6 - block IPv6 connectivity for 'splitted' apps in inverse mode
 	vpnNoIPv6 := false
@@ -173,7 +170,7 @@ func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverse
 		log.Error(err)
 	}
 	return err
-}
+}*/
 
 func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	mutexSplittunLin.Lock()
@@ -191,9 +188,12 @@ func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverse
 
 	if err4 != nil {
 		return err4
-	} else {
+	} else if err6 != nil {
 		return err6
 	}
+
+	// TODO: Vlad - should we process splitTunnelApps here? IVPN doesn't
+	return enableDisableAppWhitelist(!enclaveAllowAllApps)
 }
 
 func enableDisableSplitTunnelIPv4(enableFullTunnel bool, wgEndpoint net.IP, responseChan chan<- error) {
@@ -302,7 +302,7 @@ func implRemovePid(pid int) error {
 	pids := make(map[int]struct{}, 0)
 	pids[pid] = struct{}{}
 
-	// looking for all childs
+	// looking for all children
 	if runningApps, err := implGetRunningApps(); err == nil {
 		allPids := make(map[int]RunningApp, len(runningApps))
 		for _, app := range runningApps {
@@ -485,13 +485,19 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 	return retAll, nil
 }
 
-func isEnabled() (bool, error) {
-	if err := shell.Exec(nil, stScriptPath, "status"); err != nil {
-		return false, err
+func appWhitelistEnabled() (bool, error) {
+	retCode, err := shell.ExecGetExitCode(nil, stScriptPath, "appWhitelistEnabled")
+	switch retCode {
+	case 0:
+		return true, nil
+	case 100:
+		return false, nil
+	default:
+		return true, err
 	}
-	return !fullTunnelEnabled, nil
 }
 
+/*
 func enable(isEnable, isStInversed, isStInverseAllowWhenNoVpn, isVpnConnected, vpnNoIPv6 bool) error {
 	if !isEnable {
 		enabled, err := isEnabled()
@@ -530,6 +536,38 @@ func enable(isEnable, isStInversed, isStInverseAllowWhenNoVpn, isVpnConnected, v
 	}
 
 	isActive = isEnable
+
+	return nil
+}*/
+
+// enableDisableAppWhitelist
+// isEnable=true - allow only whitelisted applications to access the enclave, all other applications will be denied enclave access
+// isEnable=false - allow all applications to access the enclave
+func enableDisableAppWhitelist(isEnable bool) error {
+	appWhitelistEnabled, err := appWhitelistEnabled()
+	if err != nil {
+		return fmt.Errorf("Error checking app whitelist status: %w", err)
+	}
+	if appWhitelistEnabled == isEnable {
+		return nil // already enabled or disabled
+	}
+
+	if isEnable {
+		if _, outErrText, exitCode, _, err := shell.ExecAndGetOutput(log, 1024, "", stScriptPath, "start", "-inversed"); err != nil {
+			if len(outErrText) > 0 {
+				err = fmt.Errorf("(%w) exitCode=%d: %s", err, exitCode, outErrText)
+			}
+			// if ST start failed - clean everything (by command 'stop')
+			shell.Exec(nil, stScriptPath, "stop")
+			return fmt.Errorf("failed to enable app whitelist: exitCode=%d: %w", exitCode, err)
+		}
+		log.Info("App whitelist enabled")
+	} else {
+		if err = shell.Exec(log, stScriptPath, "stop"); err != nil {
+			return fmt.Errorf("failed to disable app whitelist: %w", err)
+		}
+		log.Info("App whitelist disabled")
+	}
 
 	return nil
 }
