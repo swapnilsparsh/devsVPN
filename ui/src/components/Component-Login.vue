@@ -19,40 +19,27 @@
           <div style="height: 21px" />
 
           <input
-            class="styledBig"
             ref="accountid"
+            v-model="email"
+            class="styledBig"
             style="text-align: left"
             placeholder="Enter your Email"
-            v-model="email"
-            v-on:keyup="keyup($event)"
+            @keyup="keyup($event)"
           />
           <div style="height: 10px" />
           <div style="position: relative; display: flex; align-items: center">
             <input
-              class="styledBig"
               ref="password"
+              v-model="password"
+              class="styledBig"
               style="text-align: left"
               placeholder="Enter your Password"
-              v-model="password"
               :type="passwordType"
-              v-on:keyup="keyup($event)"
+              @keyup="keyup($event)"
             />
             <img
-              src="@/assets/eye-close.svg"
-              @click="toggleEye"
-              alt="Eye Image"
-              style="
-                width: 20px;
-                height: 20px;
-                position: absolute;
-                right: 10px;
-                cursor: pointer;
-              "
               v-if="showPassword"
-            />
-            <img
-              src="@/assets/eye-open.svg"
-              @click="toggleEye"
+              src="@/assets/eye-close.svg"
               alt="Eye Image"
               style="
                 width: 20px;
@@ -61,33 +48,33 @@
                 right: 10px;
                 cursor: pointer;
               "
+              @click="toggleEye"
+            />
+            <img
               v-else
+              src="@/assets/eye-open.svg"
+              alt="Eye Image"
+              style="
+                width: 20px;
+                height: 20px;
+                position: absolute;
+                right: 10px;
+                cursor: pointer;
+              "
+              @click="toggleEye"
             />
           </div>
         </div>
-        <div
-          class="medium_text"
-          style="
-            color: #0078d7;
-            width: 100%;
-            text-align: right;
-            font-weight: 500;
-            cursor: pointer;
-          "
-          v-on:click="ForgotPassword"
-        >
+        <div class="medium_text link" @click="ForgotPassword">
           Forgot Password?
         </div>
 
         <div style="height: 24px" />
         <button class="master" @click="Login">Log In</button>
         <div style="height: 12px" />
-
-        <button class="slave" v-on:click="CreateAccount">
-          Create an account
-        </button>
-        <div style="height: 12px" />
         <button class="slave" v-on:click="openSSO">SSO Login</button>
+        <div style="height: 12px" />
+        <button class="slave" @click="CreateAccount">Create an account</button>
       </div>
     </div>
 
@@ -111,12 +98,12 @@
 <script>
 import spinner from "@/components/controls/control-spinner.vue";
 import SwitchProgress from "@/components/controls/control-switch-small2.vue";
+
 import { IsOsDarkColorScheme } from "@/helpers/renderer";
 import { ColorTheme } from "@/store/types";
 
 const sender = window.ipcSender;
 const ipcRenderer = sender.GetSafeIpcRenderer();
-
 import {
   API_SUCCESS,
   API_SESSION_LIMIT,
@@ -209,8 +196,8 @@ export default {
     },
   },
   mounted() {
-    /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
-    ipcRenderer.on("sso-auth", async (event, authData) => {
+     /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
+     ipcRenderer.on("sso-auth", async (event, authData) => {
       try {
         this.isProcessing = true;
         await sender.SsoLogin(authData?.code, authData?.session_state);
@@ -227,6 +214,7 @@ export default {
       this.updateColorScheme();
     });
     this.updateColorScheme();
+
     if (this.$refs.accountid) this.$refs.accountid.focus();
 
     let stateParams = history.state.params;
@@ -281,6 +269,7 @@ export default {
         //   return;
         // }
 
+        this.isProcessing = true;
         // console.log({ accountid: this.accountID, email: this.email, password: this.password });
         if (
           !(this.email != undefined && this.email != null && this.email != "")
@@ -425,9 +414,8 @@ export default {
     },
     openSSO() {
       sender.shellOpenExternal(
-        `https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`
-      );
-    },
+        `https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth` );
+      },
     ForgotPassword() {
       sender.shellOpenExternal(
         `https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`
