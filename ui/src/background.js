@@ -65,15 +65,42 @@ if (process.argv.find(arg => arg === 'uninstall-agent')) {
   wifiHelperMacOS.InstallAgent();
 }
 
+//setted up deep links here with 'privateline://' as protocol
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient("privateline", process.execPath, [
+      path.resolve(process.argv[1]),
+    ]);
+  }
+} else {
+  app.setAsDefaultProtocolClient("privateline");
+}
+
 // Only one instance of application can be started
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   console.log("Another instance of application is running.");
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  app.on("second-instance", (event, commandLine) => {
     // Someone tried to run a second instance, we should focus our window.
     console.log("The second app instance was tried to start.");
+    const url = commandLine.pop();
+    console.log(`privateLINE UI triggered from --->   ${url}`);
+    const queryString = url.split("?")[1];
+    const params = new URLSearchParams(queryString);
+
+    /*
+     * here we are looking for 'code' parameter in url
+     * then we sending that code to Vue UI
+     */
+    if (params.get("code") && params.get("session_state")) {
+      const code = params.get("code");
+      const session_state = params.get("session_state");
+      console.log("code ---> ", code);
+      console.log("session_state ---> ", session_state);
+      win.webContents.send("sso-auth", { code, session_state });
+    }
     menuOnShow();
   });
 }
@@ -198,9 +225,6 @@ if (gotTheLock && isAllowedToStart) {
     console.error("Failed to set color scheme: ", e);
   }
   // Scheme must be registered before the app is ready
-  protocol.registerSchemesAsPrivileged([
-    { scheme: "app", privileges: { secure: true, standard: true } },
-  ]);
 
   const isMac = process.platform === "darwin";
   const template = [
@@ -842,7 +866,7 @@ function createSettingsWindow(viewName) {
 
   console.log("ELECTRON_RENDERER_URL: ", process.env['ELECTRON_RENDERER_URL'])
 
-    // Load the remote URL for development or the local html file for production.
+  // Load the remote URL for development or the local html file for production.
   if (process.env['ELECTRON_RENDERER_URL']) {
     settingsWindow.loadURL(process.env['ELECTRON_RENDERER_URL']+ `#settings/${viewName}`)
   } else {

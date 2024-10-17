@@ -26,8 +26,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strings"
 	"sync"
@@ -42,7 +44,8 @@ import (
 const (
 	_defaultRequestTimeout = time.Second * 10 // full request time (for each request)
 	_defaultDialTimeout    = time.Second * 5  // time for the dial to the API server (for each request)
-	_apiHost               = "api.privateline.io"
+	// _apiHost               = "api.privateline.io"
+	_apiHost = "api.privateline.dev"
 
 	// temporarily fetching static servers.json from GitHub
 	// _updateHost         = "repo.privateline.io"
@@ -318,13 +321,6 @@ func (a *API) SessionNew(email string, password string) (
 		Email:    email,
 		Password: password,
 		SsoLogin: true,
-		// AccountID:       accountID,
-		// PublicKey:       wgPublicKey,
-		// KemPublicKeys:   kemKeys,
-		// ForceLogin:      forceLogin,
-		// CaptchaID:       captchaID,
-		// Captcha:         captcha,
-		// Confirmation2FA: confirmation2FA
 	}
 
 	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
@@ -366,6 +362,52 @@ func (a *API) SessionNew(email string, password string) (
 	}
 
 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+}
+
+// SsoLogin - try to register new session
+func (a *API) SsoLogin(code string, sessionCode string) (
+	resp *types.SsoLoginResponse,
+	err error) {
+
+	resp = &types.SsoLoginResponse{}
+	httpClient := &http.Client{}
+
+	// Step 1: Exchange code for token by hitting the Keycloak token endpoint
+	tokenUrl := "https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/token"
+	payload := url.Values{}
+	payload.Set("grant_type", "authorization_code")
+	payload.Set("code", code)
+	payload.Set("redirect_uri", "privateline://auth") // Ensure this matches the registered redirect URI
+	payload.Set("client_id", "pl-connect-desktop")
+	payload.Set("client_secret", "YKJ6aBMCMhJfzH9RtClcBFFNGrh5ystc")
+
+	// Send the POST request to get the token
+	tokenResp, err := httpClient.PostForm(tokenUrl, payload)
+	if err != nil {
+		return resp, fmt.Errorf("failed to request token: %w", err)
+	}
+	defer tokenResp.Body.Close()
+
+	// Read the token response
+	tokenBody, err := ioutil.ReadAll(tokenResp.Body)
+	if err != nil {
+		return resp, fmt.Errorf("failed to read token response: %w", err)
+	}
+
+	err = json.Unmarshal(tokenBody, resp)
+	// Parse the token response
+	var tokenData map[string]interface{}
+	err = json.Unmarshal(tokenBody, &tokenData)
+	if err != nil {
+		return resp, fmt.Errorf("failed to parse token response: %w", err)
+	}
+
+	// Check if the token response contains an error
+	if _, ok := tokenData["error"]; ok {
+		return resp, fmt.Errorf("error in token response: %v", tokenData["error_description"])
+	}
+
+	return resp, err
 }
 
 func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string, sessionToken string) (

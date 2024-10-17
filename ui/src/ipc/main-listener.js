@@ -56,6 +56,13 @@ ipcMain.handle("renderer-request-refresh-storage", async () => {
 });
 
 ipcMain.handle(
+  "renderer-request-ssologin",
+  async (event, code, session_state) => {
+    return await client.SsoLogin(code, session_state);
+  }
+);
+
+ipcMain.handle(
   "renderer-request-login",
   async (
     event,

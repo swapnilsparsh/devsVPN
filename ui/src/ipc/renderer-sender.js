@@ -65,6 +65,10 @@ export default {
         const allowedChannels = [
           "main-change-view-request",
           "vuex-mutations-notify-renderers",
+          /* this "sso-auth" channel is required so that event emitted from "second-instance" process of background.js
+           * can be listened on renderer process
+           */
+          "sso-auth",
         ];
 
         if (allowedChannels.includes(channel)) {
@@ -93,6 +97,10 @@ export default {
     // function using to re-apply all mutations
     // This is required to send to renderer processes current storage state
     return invoke("renderer-request-refresh-storage");
+  },
+
+  SsoLogin: async (code, session_state) => {
+    return await invoke("renderer-request-ssologin", code, session_state);
   },
 
   Login: async (

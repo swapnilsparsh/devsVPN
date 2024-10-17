@@ -127,6 +127,11 @@ type Service interface {
 		accountInfo preferences.AccountStatus,
 		rawResponse string,
 		err error)
+	SsoLogin(code string, sessionState string) (
+		apiCode int,
+		apiErrorMsg string,
+		rawResponse *api_types.SsoLoginResponse,
+		err error)
 
 	ProfileData() (
 		apiCode int,
@@ -946,17 +951,6 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
-		// validate AccountID value
-		// matched, err := regexp.MatchString("^(i-....-....-....)|(ivpn[a-zA-Z0-9]{7,8})$", req.AccountID)
-		// if err != nil {
-		// 	p.sendError(conn, fmt.Sprintf("[daemon] Account ID validation failed: %s", err), reqCmd.Idx)
-		// 	break
-		// }
-		// if !matched {
-		// 	p.sendError(conn, "[daemon] Your account ID has to be in 'i-XXXX-XXXX-XXXX' or 'ivpnXXXXXXXX' format.", reqCmd.Idx)
-		// 	break
-		// }
-
 		var resp types.SessionNewResp
 		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.Email, req.Password, req.DeviceName, req.StableDeviceID)
 		if err != nil {
@@ -979,6 +973,43 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				APIErrorMessage: apiErrMsg,
 				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				Account:         accountInfo,
+				RawResponse:     rawResponse}
+		}
+
+		// send response
+		p.sendResponse(conn, &resp, reqCmd.Idx)
+
+		// notify all clients about changed session status
+		p.notifyClients(p.createHelloResponse())
+
+	case "SsoLogin":
+		var req types.SsoLogin
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		var resp types.SsoLoginResp
+		apiCode, apiErrMsg, rawResponse, err := p._service.SsoLogin(req.Code, req.SessionState)
+
+		if err != nil {
+			if apiCode == 0 {
+				// if apiCode == 0 - it is not API error. Sending error response
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			// sending API error info
+			resp = types.SsoLoginResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: apiErrMsg,
+				Session:         types.SessionResp{}, // empty session info
+				RawResponse:     rawResponse}
+		} else {
+			// Success. Sending session info
+			resp = types.SsoLoginResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: apiErrMsg,
+				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				RawResponse:     rawResponse}
 		}
 
