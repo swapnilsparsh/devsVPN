@@ -366,8 +366,8 @@ if (gotTheLock && isAllowedToStart) {
       createWindow();
     }
 
-
-
+   
+    
     if (config.IsDebug()) {
       try {
         win.webContents.openDevTools();
@@ -768,7 +768,7 @@ function createWindow(doNotShowWhenReady) {
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'));
+    win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
   // show\hide app from system dock
