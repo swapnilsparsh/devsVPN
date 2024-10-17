@@ -335,10 +335,10 @@ func (a *API) SessionNew(email string, password string) (
 		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 	}
 
-	if !apiErr.Status {
-		log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
-		return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-	}
+	// if !apiErr.Status {
+	// 	log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
+	// 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	// }
 
 	// success
 	if apiErr.HttpStatusCode == types.CodeSuccess {

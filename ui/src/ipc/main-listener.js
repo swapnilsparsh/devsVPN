@@ -25,11 +25,10 @@ import {
   SentrySendDiagnosticReport,
 } from "@/sentry/sentry.js";
 
-import { ipcMain, nativeTheme, dialog, app, shell } from "electron";
-import path from "path";
-
-import { Platform } from "@/platform/platform";
 import { GetLinuxSnapEnvVars } from "@/helpers/main_platform";
+import { Platform } from "@/platform/platform";
+import { app, dialog, ipcMain, nativeTheme, shell } from "electron";
+import path from "path";
 
 import {
   CancelDownload,
@@ -68,12 +67,12 @@ ipcMain.handle(
   async (
     event,
     email,
-    password,
+    password
     // force, captchaID, captcha, confirmation2FA
   ) => {
     return await client.Login(
       email,
-      password,
+      password
       // force,
       // captchaID,
       // captcha,
