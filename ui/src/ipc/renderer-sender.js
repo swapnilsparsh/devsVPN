@@ -65,6 +65,9 @@ export default {
         const allowedChannels = [
           "main-change-view-request",
           "vuex-mutations-notify-renderers",
+          /* this "sso-auth" channel is required so that event emitted from "second-instance" process of background.js
+           * can be listened on renderer process
+           */
           "sso-auth",
         ];
 
@@ -102,13 +105,13 @@ export default {
 
   Login: async (
     email,
-    password,
+    password
     //  force, captchaID, captcha, confirmation2FA
   ) => {
     return await invoke(
       "renderer-request-login",
       email,
-      password,
+      password
       // accountID,
       // force,
       // captchaID,

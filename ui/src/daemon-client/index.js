@@ -942,7 +942,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
 
 async function Login(
   email,
-  password, 
+  password
   //  force, captchaID, captcha, confirmation2FA
 ) {
   let resp = await sendRecv({

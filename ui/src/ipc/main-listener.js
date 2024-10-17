@@ -411,6 +411,7 @@ ipcMain.handle("renderer-request-showOpenDialog", async (event, options) => {
 });
 
 // WINDOW
+
 ipcMain.handle("renderer-request-close-current-window", async (event) => {
   return await event.sender.getOwnerBrowserWindow().close();
 });
