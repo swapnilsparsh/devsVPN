@@ -32,11 +32,12 @@ import { InitPersistentSettings, SaveSettings } from "./settings-persistent";
 import { IsWindowHasFrame } from "@/platform/platform";
 import { Platform, PlatformEnum } from "@/platform/platform";
 import config from "@/config";
-import { join } from "path";
+import { join } from 'path';
 
 import { StartUpdateChecker, CheckUpdates } from "@/app-updater";
 import { WasOpenedAtLogin } from "@/auto-launch";
 import wifiHelperMacOS from "@/os-helpers/macos/wifi-helper.js";
+
 
 // default copy/edit context menu event handlers
 import "@/context-menu/main";
@@ -55,13 +56,11 @@ let isAllowedToStart = true;
 
 // Checking command line arguments
 if (process.argv.find((arg) => arg === "uninstall-agent")) {
-  console.log(
-    "'uninstall-agent' argument detected. Just uninstalling agent and exiting..."
-  );
+  console.log("'uninstall-agent' argument detected. Just uninstalling agent and exiting...");
   wifiHelperMacOS.UninstallAgent();
   app.quit();
   isAllowedToStart = false;
-} else if (process.argv.find((arg) => arg === "install-agent")) {
+} else if (process.argv.find(arg => arg === 'install-agent')) {
   console.log("'install-agent' argument detected. Installing agent...");
   wifiHelperMacOS.InstallAgent();
 }
@@ -106,7 +105,7 @@ if (!gotTheLock) {
 }
 
 // Specify locale. We do not use other languages, so we can remove all other languages from "locales" folder in production build
-app.commandLine.appendSwitch("lang", "en-US");
+app.commandLine.appendSwitch ('lang', 'en-US');
 // abortController can be used to cancel active messageBox dialogs when app exiting.
 // Example:
 //      dialog.showMessageBox(win, { signal: abortController.signal, })
@@ -208,9 +207,7 @@ async function LaunchAppInSplitTunnel(execCmd, event) {
 
 // This method will be called when Electron has finished initialization and is ready to show the window.
 function onWindowReady(win) {
-  wifiHelperMacOS.InitWifiHelper(win, () => {
-    showSettings("networks");
-  });
+  wifiHelperMacOS.InitWifiHelper(win, () => {showSettings("networks");} );
 }
 
 // INITIALIZATION
@@ -313,7 +310,6 @@ if (gotTheLock && isAllowedToStart) {
   // This method will be called when Electron has finished
   // initialization and is ready to create browser windows.
   // Some APIs can only be used after this event occurs.
-
   app.on("ready", async () => {
     daemonClient.RegisterMsgBoxFunc(dialog.showMessageBox);
 
