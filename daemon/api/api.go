@@ -304,7 +304,7 @@ func (a *API) DoRequestByAlias(apiAlias string, ipTypeRequired protocolTypes.Req
 }
 
 // SessionNew - try to register new session
-func (a *API) SessionNew(email string, password string, isSSOLogin bool, SSOCode string) (
+func (a *API) SessionNew(email string, password string) (
 	*types.SessionNewResponse,
 	*types.SessionNewErrorLimitResponse,
 	*types.APIErrorResponse,
@@ -321,18 +321,8 @@ func (a *API) SessionNew(email string, password string, isSSOLogin bool, SSOCode
 		Email:    email,
 		Password: password,
 		SsoLogin: true,
-		// AccountID:       accountID,
-		// PublicKey:       wgPublicKey,
-		// KemPublicKeys:   kemKeys,
-		// ForceLogin:      forceLogin,
-		// CaptchaID:       captchaID,
-		// Captcha:         captcha,
-		// Confirmation2FA: confirmation2FA
 	}
-	log.Debug("=================SSO Login and code ============== :- ", isSSOLogin, SSOCode)
-	log.Debug("=================request ============== :- ", request)
 
-	// if !isSSOLogin {
 	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
 	if err != nil {
 		return nil, nil, nil, rawResponse, err
@@ -345,10 +335,10 @@ func (a *API) SessionNew(email string, password string, isSSOLogin bool, SSOCode
 		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 	}
 
-	// if !apiErr.Status {
-	// 	log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
-	// 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-	// }
+	if !apiErr.Status {
+		log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
+		return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	}
 
 	// success
 	if apiErr.HttpStatusCode == types.CodeSuccess {
@@ -372,20 +362,6 @@ func (a *API) SessionNew(email string, password string, isSSOLogin bool, SSOCode
 	}
 
 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
-
-	// }
-	// @@@@@ SSO Login
-	// userInfo, errorLimitRespt, apiErrRespt, rawResponset, errt := a.SsoLogin(SSOCode, "")
-	// log.Debug("U Info :- ", userInfo)
-	// log.Debug("U Info Raw :- ", rawResponset)
-	// log.Debug("U errorLimitRespt :- ", errorLimitRespt)
-	// log.Debug("U errt :- ", errt)
-	// log.Debug("U successResp :- ", successResp)
-	// log.Debug("U apiErrRespt :- ", apiErrRespt)
-	// successResp.SetHttpStatusCode(200)
-	// return &successResp, nil, nil, rawResponset, nil
-
-	// return userInfo, errorLimitRespt, apiErrRespt, rawResponset, errt
 }
 
 // SsoLogin - try to register new session
@@ -432,49 +408,6 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	}
 
 	return resp, err
-}
-
-// @@@@@ Get User Details
-func (a *API) GetUserDetails(accessToken string) (map[string]interface{}, string, error) {
-	httpClient := &http.Client{}
-	userInfoUrl := "https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/userinfo"
-
-	// Prepare the GET request with the access token in the Authorization header
-	req, err := http.NewRequest("GET", userInfoUrl, nil)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create user info request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-
-	// Execute the request
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to execute user info request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Check the HTTP status code
-	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body) // Read the body to log the error
-		return nil, "", fmt.Errorf("failed to get user info: status %d, response body: %s", resp.StatusCode, string(body))
-	}
-
-	// Read the response body
-	userInfoBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to read user info response: %w", err)
-	}
-
-	rawUserInfo := string(userInfoBody)
-
-	// Parse the user info response
-	var userInfo map[string]interface{}
-	err = json.Unmarshal(userInfoBody, &userInfo)
-	if err != nil {
-		return nil, rawUserInfo, fmt.Errorf("failed to parse user info response: %w", err)
-	}
-	// Return the parsed user info and raw response
-	return userInfo, rawUserInfo, nil
 }
 
 func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string, sessionToken string) (

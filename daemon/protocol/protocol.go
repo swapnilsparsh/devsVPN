@@ -121,7 +121,7 @@ type Service interface {
 	IsPaused() bool
 	PausedTill() time.Time
 
-	SessionNew(email string, password string, deviceName string, stableDeviceID bool, isSSOLogin bool, SSOCode string) (
+	SessionNew(email string, password string, deviceName string, stableDeviceID bool) (
 		apiCode int,
 		apiErrorMsg string,
 		accountInfo preferences.AccountStatus,
@@ -951,19 +951,8 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
-		// validate AccountID value
-		// matched, err := regexp.MatchString("^(i-....-....-....)|(ivpn[a-zA-Z0-9]{7,8})$", req.AccountID)
-		// if err != nil {
-		// 	p.sendError(conn, fmt.Sprintf("[daemon] Account ID validation failed: %s", err), reqCmd.Idx)
-		// 	break
-		// }
-		// if !matched {
-		// 	p.sendError(conn, "[daemon] Your account ID has to be in 'i-XXXX-XXXX-XXXX' or 'ivpnXXXXXXXX' format.", reqCmd.Idx)
-		// 	break
-		// }
-
 		var resp types.SessionNewResp
-		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.Email, req.Password, req.DeviceName, req.StableDeviceID, req.IsSSOLogin, req.SSOCode)
+		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.Email, req.Password, req.DeviceName, req.StableDeviceID)
 		if err != nil {
 			if apiCode == 0 {
 				// if apiCode == 0 - it is not API error. Sending error response

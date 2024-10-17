@@ -942,9 +942,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
 
 async function Login(
   email,
-  password,
-  isSSOLogin,
-  SSOCode,  
+  password, 
   //  force, captchaID, captcha, confirmation2FA
 ) {
   let resp = await sendRecv({
@@ -952,8 +950,6 @@ async function Login(
     Email: email,
     Password: password,
     StableDeviceID: false,
-    IsSSOLogin:isSSOLogin,
-    SSOCode:SSOCode,
     // ForceLogin: force,
     // CaptchaID: captchaID,
     // Captcha: captcha,

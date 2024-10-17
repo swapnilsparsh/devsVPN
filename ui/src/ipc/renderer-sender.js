@@ -103,25 +103,18 @@ export default {
   Login: async (
     email,
     password,
-    isSSOLogin,
-    SSOCode
     //  force, captchaID, captcha, confirmation2FA
   ) => {
     return await invoke(
       "renderer-request-login",
       email,
       password,
-      isSSOLogin,
-      SSOCode
       // accountID,
       // force,
       // captchaID,
       // captcha,
       // confirmation2FA
     );
-  },
-  SsoLogin: async (Code, SessionState) => {
-    return await invoke("renderer-request-sso-login", Code, SessionState);
   },
 
   AccountInfo: async () => {

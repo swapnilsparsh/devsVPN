@@ -69,26 +69,16 @@ ipcMain.handle(
     event,
     email,
     password,
-    isSSOLogin,
-    SSOCode
     // force, captchaID, captcha, confirmation2FA
   ) => {
     return await client.Login(
       email,
       password,
-      isSSOLogin,
-      SSOCode
       // force,
       // captchaID,
       // captcha,
       // confirmation2FA
     );
-  }
-);
-ipcMain.handle(
-  "renderer-request-sso-login",
-  async (event, Code, SessionState) => {
-    return await client.SsoLogin(Code, SessionState);
   }
 );
 

@@ -52,25 +52,8 @@ type SessionNewRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	SsoLogin bool   `json:"ssologin"`
-	// IsSSOLogin bool   `json:"isSSOLogin"`
-	// SSOCode    string `json:"SSOCode"`
-}
-type SsoLoginRequest struct {
-	// AccountID  string `json:"username"`
-	// ForceLogin bool   `json:"force"`
-
-	// PublicKey string `json:"wg_public_key"`
-	// KemPublicKeys
-
-	// CaptchaID       string `json:"captcha_id,omitempty"`
-	// Captcha         string `json:"captcha,omitempty"`
-	// Confirmation2FA string `json:"confirmation,omitempty"`
-	Code string `json:"code"`
 }
 
-func (req SsoLoginRequest) GetSessionToken() string {
-	return ""
-}
 func (req SessionNewRequest) GetSessionToken() string {
 	return ""
 }

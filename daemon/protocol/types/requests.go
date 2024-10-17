@@ -230,14 +230,6 @@ type SessionNew struct {
 	Password       string
 	DeviceName     string
 	StableDeviceID bool
-	IsSSOLogin     bool
-	SSOCode        string
-	// AccountID  string
-	// ForceLogin bool
-
-	// CaptchaID       string
-	// Captcha         string
-	// Confirmation2FA string
 }
 type SsoLogin struct {
 	RequestBase

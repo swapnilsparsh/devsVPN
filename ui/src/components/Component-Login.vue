@@ -163,8 +163,6 @@ export default {
       captcha: "",
       confirmation2FA: "",
       showPassword: false,
-      isSSOLogin: false,
-      SSOCode: "",
     };
   },
   computed: {
@@ -214,11 +212,9 @@ export default {
     /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
     ipcRenderer.on("sso-auth", async (event, authData) => {
       try {
-        console.log("SSO Data Recieved ---> ", authData);
-        // @@@@@ Sending this data to backend for further processing
         this.isProcessing = true;
         await sender.SsoLogin(authData?.code, authData?.session_state);
-        console.log("Calling SsoLogin with this param", authData?.code);
+        console.log("calling SsoLogin with this param --->", authData?.code);
       } catch (error) {
         console.log(error.message);
       } finally {
@@ -285,8 +281,6 @@ export default {
         //   return;
         // }
 
-        this.isProcessing = true;
-        this.isSSOLogin = false;
         // console.log({ accountid: this.accountID, email: this.email, password: this.password });
         if (
           !(this.email != undefined && this.email != null && this.email != "")
@@ -317,10 +311,7 @@ export default {
 
         const resp = await sender.Login(
           this.email,
-          this.password,
-          this.isSSOLogin == true,
-          this.SSOCode
-
+          this.password
           // isForceLogout === true || this.isForceLogoutRequested === true,
           // this.captchaID,
           // this.captcha,
@@ -437,47 +428,6 @@ export default {
         `https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`
       );
     },
-    // // ================= Get token and user details here Start =============
-    // async getToken(code) {
-    //   const url = "https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/token";
-
-    //   const payload = new URLSearchParams();
-    //   payload.set('grant_type', 'authorization_code');
-    //   payload.set('code', code);
-    //   payload.set('redirect_uri', 'http://localhost:5173');
-    //   payload.set('client_id', 'pl-connect-desktop');
-    //   payload.set('client_secret', 'YKJ6aBMCMhJfzH9RtClcBFFNGrh5ystc');
-
-    //   try {
-    //     const response = await fetch(url, {
-    //       method: 'POST',
-    //       headers: {
-    //         'Content-Type': 'application/x-www-form-urlencoded'
-    //       },
-    //       body: payload.toString()
-    //     });
-
-    //     if (!response.ok) {
-    //       throw new Error('Failed to get token');
-    //     }
-
-    //     const data = await response.json();
-    //     return data;
-    //   } catch (error) {
-    //     console.error('Error:', error);
-    //     throw error;
-    //   }
-    // },
-    // getUserDetails() {
-    //   let url = 'https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/userinfo';
-    //   let token = sessionStorage.getItem('token')
-    //   const headers = new HttpHeaders({
-    //     'Authorization': `Bearer ${token}`
-    //   });
-
-    //   return this._httpClient.get(url, { headers });
-    // }
-    // // ================= Get token and user details here end =============
     ForgotPassword() {
       sender.shellOpenExternal(
         `https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`
