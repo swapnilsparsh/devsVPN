@@ -32,7 +32,7 @@ import { InitPersistentSettings, SaveSettings } from "./settings-persistent";
 import { IsWindowHasFrame } from "@/platform/platform";
 import { Platform, PlatformEnum } from "@/platform/platform";
 import config from "@/config";
-import { join } from 'path';
+import { join } from 'path'
 
 import { StartUpdateChecker, CheckUpdates } from "@/app-updater";
 import { WasOpenedAtLogin } from "@/auto-launch";
@@ -55,7 +55,7 @@ let lastRouteArgs = null; // last route arguments (requested by renderer process
 let isAllowedToStart = true;
 
 // Checking command line arguments
-if (process.argv.find((arg) => arg === "uninstall-agent")) {
+if (process.argv.find(arg => arg === 'uninstall-agent')) {
   console.log("'uninstall-agent' argument detected. Just uninstalling agent and exiting...");
   wifiHelperMacOS.UninstallAgent();
   app.quit();
@@ -84,6 +84,7 @@ if (!gotTheLock) {
 } else {
   app.on("second-instance", (event, commandLine) => {
     // Someone tried to run a second instance, we should focus our window.
+    console.log("The second app instance was tried to start.");
     const url = commandLine.pop();
     console.log(`privateLINE UI triggered from --->   ${url}`);
     const queryString = url.split("?")[1];
@@ -106,6 +107,7 @@ if (!gotTheLock) {
 
 // Specify locale. We do not use other languages, so we can remove all other languages from "locales" folder in production build
 app.commandLine.appendSwitch ('lang', 'en-US');
+
 // abortController can be used to cancel active messageBox dialogs when app exiting.
 // Example:
 //      dialog.showMessageBox(win, { signal: abortController.signal, })
@@ -212,9 +214,9 @@ function onWindowReady(win) {
 
 // INITIALIZATION
 if (gotTheLock && isAllowedToStart) {
-  InitPersistentSettings();
+  InitPersistentSettings();  
   connectToDaemon();
-
+  
   // INIT COLOR SCHEME
   try {
     if (store.state.settings.colorTheme)
@@ -354,7 +356,7 @@ if (gotTheLock && isAllowedToStart) {
     } catch (e) {
       console.error(e);
     }
-
+    
     if (store.state.settings.minimizeToTray && WasOpenedAtLogin()) {
       // do not show main application window when application was started automatically on login
       // (if enabled minimizeToTray)
@@ -363,6 +365,8 @@ if (gotTheLock && isAllowedToStart) {
     } else {
       createWindow();
     }
+
+
 
     if (config.IsDebug()) {
       try {
@@ -686,11 +690,7 @@ function getWindowIcon() {
     // loading window icon only for Linux.
     // The rest platforms will use icon from application binary
     if (Platform() !== PlatformEnum.Linux) return null;
-    const iconPath = path.join(
-      path.dirname(__dirname),
-      "renderer",
-      "64x64.png"
-    );
+    const iconPath = path.join(path.dirname(__dirname), "renderer", "64x64.png");
     return nativeImage.createFromPath(iconPath);
   } catch (e) {
     console.error(e);
@@ -763,19 +763,19 @@ function createWindow(doNotShowWhenReady) {
     if (isWindowVisibleOnScreen == true)
       win.setBounds({ x: lastPos.x, y: lastPos.y });
   }
-
+ 
   // Load the remote URL for development or the local html file for production.
-  if (process.env["ELECTRON_RENDERER_URL"]) {
-    win.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+  if (process.env['ELECTRON_RENDERER_URL']) {
+    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    win.loadFile(join(__dirname, "../renderer/index.html"));
+    win.loadFile(join(__dirname, '../renderer/index.html'));
   }
 
   // show\hide app from system dock
   updateAppDockVisibility();
 
-  win.once("ready-to-show", () => {
-    if (doNotShowWhenReady != true) {
+  win.once("ready-to-show", () => {   
+    if (doNotShowWhenReady != true) {   
       win.show();
     }
 
@@ -864,17 +864,13 @@ function createSettingsWindow(viewName) {
 
   settingsWindow = createBrowserWindow(windowConfig);
 
-  console.log("ELECTRON_RENDERER_URL: ", process.env["ELECTRON_RENDERER_URL"]);
+  console.log("ELECTRON_RENDERER_URL: ", process.env['ELECTRON_RENDERER_URL'])
 
   // Load the remote URL for development or the local html file for production.
-  if (process.env["ELECTRON_RENDERER_URL"]) {
-    settingsWindow.loadURL(
-      process.env["ELECTRON_RENDERER_URL"] + `#settings/${viewName}`
-    );
+  if (process.env['ELECTRON_RENDERER_URL']) {
+    settingsWindow.loadURL(process.env['ELECTRON_RENDERER_URL']+ `#settings/${viewName}`)
   } else {
-    settingsWindow.loadURL(
-      `file://${join(__dirname, "../renderer/index.html")}#settings/${viewName}`
-    );
+    settingsWindow.loadURL(`file://${join(__dirname, '../renderer/index.html')}#settings/${viewName}`);
   }
 
   settingsWindow.once("ready-to-show", () => {
@@ -928,12 +924,10 @@ function createUpdateWindow() {
   updateWindow = createBrowserWindow(windowConfig);
 
   // Load the remote URL for development or the local html file for production.
-  if (process.env["ELECTRON_RENDERER_URL"]) {
-    updateWindow.loadURL(process.env["ELECTRON_RENDERER_URL"] + `#update`);
+  if (process.env['ELECTRON_RENDERER_URL']) {
+    updateWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + `#update`)
   } else {
-    updateWindow.loadURL(
-      `file://${join(__dirname, "../renderer/index.html")}#update`
-    );
+    updateWindow.loadURL(`file://${join(__dirname, '../renderer/index.html')}#update`);
   }
 
   updateWindow.once("ready-to-show", () => {
