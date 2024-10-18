@@ -1,6 +1,8 @@
 #! /bin/sh
 
-plcc status
+for CLI in plcc privateline-connect-cli "/cygdrive/c/Program Files/privateLINE Connect/cli/privateline-connect-cli.exe" ; do
+	[ -x "$CLI" ] && { "$CLI" status; break; }
+done
 
 # This will test HTTP GET connectivity to hosts internal to PL network. They are on private IP addresses, they'll be reachable only if PL VPN is connected.
 for PLHOST in im.privateline.network imnode01.privateline.network ; do

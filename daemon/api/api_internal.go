@@ -171,6 +171,7 @@ func makeDialer(certHashes []string, serverName string, dialTimeout time.Duratio
 
 		connstate := c.ConnectionState()
 		var lastErr error = nil
+		var peerCertHashesTried string
 		for _, peercert := range connstate.PeerCertificates {
 			der, err := x509.MarshalPKIXPublicKey(peercert.PublicKey)
 			if err != nil {
@@ -179,17 +180,19 @@ func makeDialer(certHashes []string, serverName string, dialTimeout time.Duratio
 			}
 
 			hash := sha256.Sum256(der)
-			certBase64hash := base64.StdEncoding.EncodeToString(hash[:])
+			peerCertBase64hash := base64.StdEncoding.EncodeToString(hash[:])
 
-			if findPinnedKey(certHashes, certBase64hash) {
+			if findPinnedKey(certHashes, peerCertBase64hash) {
 				return c, nil // Pinned Key found
+			} else {
+				peerCertHashesTried += peerCertBase64hash + " "
 			}
 
 		}
 		if lastErr != nil {
-			return nil, fmt.Errorf("certificate check error: pinned certificate key not found: %w", lastErr)
+			return nil, fmt.Errorf("certificate check error: no pinned certificate keys found for peer cert hashes '%s': %w", peerCertHashesTried, lastErr)
 		}
-		return nil, fmt.Errorf("certificate check error: pinned certificate key not found")
+		return nil, fmt.Errorf("certificate check error:  no pinned certificate keys found for peer cert hashes '%s'", peerCertHashesTried)
 	}
 }
 

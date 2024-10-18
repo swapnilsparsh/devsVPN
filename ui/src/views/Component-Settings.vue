@@ -57,7 +57,7 @@
               >
                 PrivateLINE Firewall
               </button> -->
-              <!-- <button
+              <button
                 v-if="isLoggedIn && isSplitTunnelVisible"
                 class="noBordersBtn tabTitleBtn"
                 v-on:click="onView('splittunnel')"
@@ -66,7 +66,7 @@
                 }"
               >
                 Split Tunnel
-              </button> -->
+              </button>
               <!-- <button
                 v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
