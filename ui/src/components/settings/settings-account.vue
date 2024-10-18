@@ -88,7 +88,11 @@
           class="flexRowSpace"
           style="align-items: flex-start"
         >
-          <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
+          <div
+            v-if="isSubscriptionProcessing"
+            class="flexColumn"
+            style="gap: 10px"
+          >
             <ShimmerEffect :width="'350px'" :height="'20px'" />
             <ShimmerEffect :width="'350px'" :height="'20px'" />
             <ShimmerEffect :width="'350px'" :height="'20px'" />
@@ -193,6 +197,7 @@ export default {
     return {
       apiTimeout: null,
       isProcessing: false,
+      isSubscriptionProcessing: false,
       accountShimmerItems: Array(4).fill(null),
     };
   },
@@ -321,6 +326,7 @@ export default {
       // LOGOUT
       try {
         this.isProcessing = true;
+        this.isSubscriptionProcessing = true;
         const isCanDeleteSessionLocally = true;
         await sender.Logout(
           needToResetSettings,
@@ -331,6 +337,7 @@ export default {
         console.error(e);
       } finally {
         this.isProcessing = false;
+        this.isSubscriptionProcessing = false;
       }
     },
     async accountStatusRequest() {
@@ -341,7 +348,7 @@ export default {
         this.isProcessing = true;
 
         this.apiTimeout = setTimeout(() => {
-          throw Error("API Time Out");
+          throw Error("Profile API Time Out");
         }, 10 * 1000);
         await sender.ProfileData();
       } catch (err) {
@@ -362,10 +369,10 @@ export default {
 
     async getSubscriptionData() {
       try {
-        this.isProcessing = true;
+        this.isSubscriptionProcessing = true;
 
         this.apiTimeout = setTimeout(() => {
-          throw Error("API Time Out");
+          throw Error("Subscription API Time Out");
         }, 10 * 1000);
         await sender.SubscriptionData();
       } catch (err) {
@@ -378,13 +385,13 @@ export default {
           detail: `Subscription data couldn't be fetched at this momemnt, please check your internet connection!`,
         });
       } finally {
-        this.isProcessing = false;
+        this.isSubscriptionProcessing = false;
         clearTimeout(this.apiTimeout);
         this.apiTimeout = null;
       }
     },
     upgrade() {
-      sender.shellOpenExternal(`https://privateline.io/#pricing`);
+      sender.shellOpenExternal(`https://www.account.privateline.io`);
     },
     addMoreTime() {
       sender.shellOpenExternal(`https://privateline.io/`);

@@ -113,7 +113,7 @@ async function connect(me, isConnect) {
       let expired = false;
       const subscriptionData = me.$store.state.account.subscriptionData;
 
-      if (subscriptionData && subscriptionData !== "null") {
+      if (subscriptionData && subscriptionData !== null) {
         if (
           subscriptionData.Plan.name !== "Free" &&
           getDaysDifference(subscriptionData.expire_on) <= 0
@@ -136,6 +136,7 @@ async function connect(me, isConnect) {
         if (result === 0) {
           sender.shellOpenExternal(`https://privateline.io/#pricing`);
         }
+        return;
       }
     } else {
       await sender.Disconnect();
