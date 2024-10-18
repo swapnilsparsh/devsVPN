@@ -245,7 +245,7 @@ func (resp *ProfileDataResponse) SetHttpStatusCode(newHttpStatusCode int) {
 type SubscriptionDataResponse struct {
 	StartDate  string `json:"start_date"`
 	ExpiryDate string `json:"expire_on"`
-	GroupSize  string `json:"group_size"`
+	GroupSize  int    `json:"group_size"`
 	Plan       struct {
 		Name string `json:"name"`
 	} `json:"Plan"`

@@ -83,8 +83,16 @@
 
       <div>
         <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
-        <div class="flexRowSpace" style="align-items: flex-start">
-          <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
+        <div
+          v-if="$store.state.account.subscriptionData != null"
+          class="flexRowSpace"
+          style="align-items: flex-start"
+        >
+          <div
+            v-if="isSubscriptionProcessing"
+            class="flexColumn"
+            style="gap: 10px"
+          >
             <ShimmerEffect :width="'350px'" :height="'20px'" />
             <ShimmerEffect :width="'350px'" :height="'20px'" />
             <ShimmerEffect :width="'350px'" :height="'20px'" />
@@ -146,14 +154,20 @@
                   @click="RenewSubscription"
                 >
                   {{
-                    endingInDays > 0 && endingInDays <= 7
-                      ? "Renew subscription"
+                    endingInDays <= 0
+                      ? "Plan Expired! Renew subscription"
                       : `Plan ending in ${endingInDays} days`
                   }}
                 </div>
               </div>
             </div>
           </div>
+        </div>
+        <div v-else style="text-align: left">
+          No active plan found.
+          <span class="medium_text link" @click="UpgradeSubscription"
+            >Upgrade</span
+          >
         </div>
       </div>
     </div>
@@ -183,6 +197,7 @@ export default {
     return {
       apiTimeout: null,
       isProcessing: false,
+      isSubscriptionProcessing: false,
       accountShimmerItems: Array(4).fill(null),
     };
   },
@@ -311,6 +326,7 @@ export default {
       // LOGOUT
       try {
         this.isProcessing = true;
+        this.isSubscriptionProcessing = true;
         const isCanDeleteSessionLocally = true;
         await sender.Logout(
           needToResetSettings,
@@ -321,6 +337,7 @@ export default {
         console.error(e);
       } finally {
         this.isProcessing = false;
+        this.isSubscriptionProcessing = false;
       }
     },
     async accountStatusRequest() {
@@ -331,7 +348,7 @@ export default {
         this.isProcessing = true;
 
         this.apiTimeout = setTimeout(() => {
-          throw Error("API Time Out");
+          throw Error("Profile API Time Out");
         }, 10 * 1000);
         await sender.ProfileData();
       } catch (err) {
@@ -352,13 +369,12 @@ export default {
 
     async getSubscriptionData() {
       try {
-        this.isProcessing = true;
+        this.isSubscriptionProcessing = true;
 
         this.apiTimeout = setTimeout(() => {
-          throw Error("API Time Out");
+          throw Error("Subscription API Time Out");
         }, 10 * 1000);
-
-        const res = await sender.SubscriptionData();
+        await sender.SubscriptionData();
       } catch (err) {
         //TODO: show error on UI
         console.log({ err });
@@ -369,7 +385,7 @@ export default {
           detail: `Subscription data couldn't be fetched at this momemnt, please check your internet connection!`,
         });
       } finally {
-        this.isProcessing = false;
+        this.isSubscriptionProcessing = false;
         clearTimeout(this.apiTimeout);
         this.apiTimeout = null;
       }
