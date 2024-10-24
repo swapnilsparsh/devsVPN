@@ -207,6 +207,7 @@ func implReset() error {
 	return nil
 }
 
+/*
 func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// Check if functionality available
 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
@@ -309,6 +310,7 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 
 	return nil
 }
+*/
 
 func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// mutexSplittunWin.Lock()
