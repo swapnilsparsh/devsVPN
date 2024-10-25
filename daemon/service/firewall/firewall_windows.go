@@ -1,23 +1,23 @@
 //
-//  Daemon for IVPN Client Desktop
+//  Daemon for privateLINE Connect Desktop
 //  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
 //
-//  This file is part of the Daemon for IVPN Client Desktop.
+//  This file is part of the Daemon for privateLINE Connect Desktop.
 //
-//  The Daemon for IVPN Client Desktop is free software: you can redistribute it and/or
+//  The Daemon for privateLINE Connect Desktop is free software: you can redistribute it and/or
 //  modify it under the terms of the GNU General Public License as published by the Free
 //  Software Foundation, either version 3 of the License, or (at your option) any later version.
 //
-//  The Daemon for IVPN Client Desktop is distributed in the hope that it will be useful,
+//  The Daemon for privateLINE Connect Desktop is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 //  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 //  details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with the Daemon for IVPN Client Desktop. If not, see <https://www.gnu.org/licenses/>.
+//  along with the Daemon for privateLINE Connect Desktop. If not, see <https://www.gnu.org/licenses/>.
 //
 
 package firewall
@@ -53,12 +53,12 @@ var (
 )
 
 const (
-	providerDName          = "IVPN Kill Switch Provider"
-	sublayerDName          = "IVPN Kill Switch Sub-Layer"
-	filterDName            = "IVPN Kill Switch Filter"
-	providerDNameSingleDns = "IVPN Kill Switch Provider single DNS"
-	sublayerDNameSingleDns = "IVPN Kill Switch Sub-Layer single DNS"
-	filterDNameSingleDns   = "IVPN Kill Switch Filter single DNS"
+	providerDName          = "privateLINE Kill Switch Provider"
+	sublayerDName          = "privateLINE Kill Switch Sub-Layer"
+	filterDName            = "privateLINE Kill Switch Filter"
+	providerDNameSingleDns = "privateLINE Kill Switch Provider single DNS"
+	sublayerDNameSingleDns = "privateLINE Kill Switch Sub-Layer single DNS"
+	filterDNameSingleDns   = "privateLINE Kill Switch Filter single DNS"
 )
 
 // implInitialize doing initialization stuff (called on application start)

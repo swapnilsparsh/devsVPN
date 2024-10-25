@@ -371,7 +371,7 @@ echo -e "${PKG_TYPE^^} package...\t(package compression settings: '${PKG_COMPRES
 CreatePackage
 
 echo '---------------------------'
-echo "Moving compiled package '$PKGFILE' to '$OUT_DIR'..."
+echo "Moving compiled package to '$OUT_DIR/$PKGFILE'..."
 mkdir -p $OUT_DIR
 #find $TMPDIR -type f ! -empty -name "*.${PKG_TYPE}" -exec mv -f "{}" ${OUT_DIR} \;
 mv -f $TMPDIR/$PKGFILE ${OUT_DIR}

@@ -54,6 +54,7 @@ export default {
   data: function () {
     return {
       isSTEnabledLocal: true,
+      isAppWhitelistEnabledLocal: false,
       stInversedLocal: false,
       stAnyDnsLocal: false,
       stBlockNonVpnDnsLocal: true,
@@ -126,6 +127,10 @@ export default {
     // needed for 'watch'
     IsEnabled: function () {
       return this.$store.state.vpnState.splitTunnelling?.IsEnabled;
+    },
+    // needed for 'watch'
+    IsAppWhitelistEnabled: function () {
+      return this.$store.state.vpnState.splitTunnelling?.IsAppWhitelistEnabled;
     },
     // needed for 'watch'
     IsInversed: function () {
@@ -223,6 +228,7 @@ export default {
     }
 
     this.isSTEnabledLocal = this.IsEnabled;
+    this.isAppWhitelistEnabledLocal = this.IsAppWhitelistEnabled;
     this.stInversedLocal = this.IsInversed;
     this.stBlockNonVpnDnsLocal = !this.IsAnyDns;
     this.stAllowWhenNoVpnLocal = this.IsAllowWhenNoVpn;
@@ -268,6 +274,9 @@ export default {
       }
 
       this.isSTEnabledLocal = this.IsEnabled;
+    },
+    IsAppWhitelistEnabled() {
+      this.isAppWhitelistEnabledLocal = this.IsAppWhitelistEnabled;
     },
     IsInversed() {
       this.stInversedLocal = this.IsInversed;
@@ -336,13 +345,14 @@ export default {
 
     async ChangeShield(value) {
       //============== Write here Shield logic and remember there is much more than this
-      //this is simple split tunnel as shield and not split tunnel as full shield as discussed with satyarth
-      // value = true means split tunnel
-      this.isSTEnabledLocal = value;
+      //this is simple split tunnel as Shield and not split tunnel as Total Shield, as discussed with Satyarth
+      // value = true means split tunnel 
+      this.isSTEnabledLocal = value
       // APPLY ST CONFIGURATION
       try {
         await sender.SplitTunnelSetConfig(
           this.isSTEnabledLocal,
+          this.isAppWhitelistEnabledLocal,
           this.stInversedLocal,
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
           this.stAllowWhenNoVpnLocal
@@ -369,6 +379,7 @@ export default {
     // ======= Split methods =======
     updateLocals() {
       this.isSTEnabledLocal = this.IsEnabled;
+      this.isAppWhitelistEnabledLocal = this.IsAppWhitelistEnabled;
       this.stInversedLocal = this.IsInversed;
       this.stBlockNonVpnDnsLocal = !this.IsAnyDns;
       this.stAllowWhenNoVpnLocal = this.IsAllowWhenNoVpn;
@@ -412,6 +423,7 @@ export default {
       try {
         await sender.SplitTunnelSetConfig(
           this.isSTEnabledLocal,
+          this.isAppWhitelistEnabledLocal,
           this.stInversedLocal,
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
           this.stAllowWhenNoVpnLocal
@@ -498,7 +510,7 @@ Do you want to enable Inverse mode for Split Tunnel?",
         timerBackgroundCheckOfStatus = setInterval(() => {
           if (
             !this.isRunningAppsAvailable() ||
-            this.$store.state.uiState.currentSettingsViewName != "splittunnel"
+            this.$store.state.uiState.currentSettingsViewName != "appwhitelist"
           ) {
             this.stopBackgroundCheckOfStatus();
             return;
@@ -672,7 +684,7 @@ Do you want to enable Inverse mode for Split Tunnel?",
       if (actionNo == 1) return;
 
       this.resetFilters();
-      await sender.SplitTunnelSetConfig(false, false, false, false, true);
+      await sender.SplitTunnelSetConfig(true, false, false, false, false, true);
     },
 
     resetFilters: function () {

@@ -1,23 +1,23 @@
 //
-//  Daemon for IVPN Client Desktop
+//  Daemon for privateLINE Client Desktop
 //  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
 //
-//  This file is part of the Daemon for IVPN Client Desktop.
+//  This file is part of the Daemon for privateLINE Client Desktop.
 //
-//  The Daemon for IVPN Client Desktop is free software: you can redistribute it and/or
+//  The Daemon for privateLINE Client Desktop is free software: you can redistribute it and/or
 //  modify it under the terms of the GNU General Public License as published by the Free
 //  Software Foundation, either version 3 of the License, or (at your option) any later version.
 //
-//  The Daemon for IVPN Client Desktop is distributed in the hope that it will be useful,
+//  The Daemon for privateLINE Client Desktop is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 //  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 //  details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with the Daemon for IVPN Client Desktop. If not, see <https://www.gnu.org/licenses/>.
+//  along with the Daemon for privateLINE Client Desktop. If not, see <https://www.gnu.org/licenses/>.
 //
 
 //go:build linux
@@ -80,9 +80,9 @@ func (s *Service) implPingServersStopped(hosts []net.IP) error {
 }
 
 func (s *Service) implSplitTunnelling_AddApp(execCmd string) (requiredCmdToExec string, isAlreadyRunning bool, err error) {
-	if !s._preferences.IsSplitTunnel {
-		return "", false, fmt.Errorf("unable to run application in Split Tunnel environment: Split Tunnel is disabled")
-	}
+	// if !s._preferences.IsSplitTunnel {
+	// 	return "", false, fmt.Errorf("unable to run application in Split Tunnel environment: Split Tunnel is disabled")
+	// }
 	execCmd = strings.TrimSpace(execCmd)
 	if len(execCmd) <= 0 {
 		return "", false, nil
@@ -99,7 +99,7 @@ func (s *Service) implSplitTunnelling_AddApp(execCmd string) (requiredCmdToExec 
 		return "", false, err
 	}
 
-	return fmt.Sprintf("ivpn exclude %s", execCmd), isRunning, nil
+	return fmt.Sprintf("privateline-connect-cli exclude %s", execCmd), isRunning, nil
 }
 
 func (s *Service) implSplitTunnelling_RemoveApp(pid int, binaryPath string) (err error) {

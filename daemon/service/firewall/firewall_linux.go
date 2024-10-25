@@ -57,19 +57,8 @@ func implInitialize() error {
 }
 
 func implGetEnabled() (bool, error) {
-	err := shell.Exec(nil, platform.FirewallScript(), "-status")
-
-	if err != nil {
-		exitCode, err := shell.GetCmdExitCode(err)
-		if err != nil {
-			return false, fmt.Errorf("failed to get Cmd exit code: %w", err)
-		}
-		if exitCode == 0 {
-			return true, nil
-		}
-		return false, nil
-	}
-	return true, nil
+	exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "-status")
+	return !(err != nil && exitCode != 0), nil
 }
 
 func implSetEnabled(isEnabled bool) error {

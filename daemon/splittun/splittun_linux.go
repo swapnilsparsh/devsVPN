@@ -26,6 +26,7 @@
 package splittun
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -48,8 +49,9 @@ var (
 	funcNotAvailableError        error
 	inverseModeNotAvailableError error
 	stScriptPath                 string
-	sysctlPath                   string = "/sbin/sysctl"
-	fullTunnelEnabled            bool   = false
+	// isActive                     bool
+	sysctlPath        string = "/sbin/sysctl"
+	fullTunnelEnabled bool   = false
 
 	// map from INET type (IPv4 or IPv6) to default routes (all zeroes)
 	DefaultRoutesByIpFamily = map[uint16]*net.IPNet{}
@@ -59,7 +61,7 @@ var (
 // (map[<PID>]<command>)
 var _addedRootProcesses map[int]string = map[int]string{}
 
-const stPidsFile = "/sys/fs/cgroup/net_cls/ivpn-exclude/cgroup.procs"
+const stPidsFile = "/sys/fs/cgroup/net_cls/privateline-exclude/cgroup.procs"
 
 func implInitialize() error {
 	funcNotAvailableError = nil
@@ -77,32 +79,28 @@ func implInitialize() error {
 	}
 
 	// Hardcoded text for detection of inverse mode not available error
-	const inverseModeErrorDetectionText = "Warning: Inverse mode for IVPN Split Tunnel functionality is not applicable."
+	const inverseModeErrorDetectionText = "ERROR: Inverse mode for all_apps_allowed/some_apps_allowed functionality is not applicable."
 	inverseModeNotAvailableError = fmt.Errorf("%s", inverseModeErrorDetectionText)
 	// check if ST functionality accessible
-	// outProcessFunc := func(text string, isError bool) {
-	// 	if strings.HasPrefix(text, inverseModeErrorDetectionText) {
-	// 		text = strings.TrimSpace(strings.TrimPrefix(text, "Warning: "))
-	// 		inverseModeNotAvailableError = fmt.Errorf("%s", text)
-	// 		log.Warning(text)
-	// 		return
-	// 	}
-	// 	if isError {
-	// 		log.Error("Split Tunnel test: " + text)
-	// 	} else {
-	// 		log.Info("Split Tunnel test: " + text)
-	// 	}
-	// }
-	// err := shell.ExecAndProcessOutput(nil, outProcessFunc, "", stScriptPath, "test")
-	// if err != nil {
-	// 	funcNotAvailableError = err
-	// }
+	outProcessFunc := func(text string, isError bool) {
+		if strings.HasPrefix(text, inverseModeErrorDetectionText) {
+			text = strings.TrimSpace(strings.TrimPrefix(text, "Warning: "))
+			inverseModeNotAvailableError = fmt.Errorf("%s", text)
+			log.Warning(text)
+			return
+		}
+		if isError {
+			log.Error("Split Tunnel test: " + text)
+		} else {
+			log.Info("Split Tunnel test: " + text)
+		}
+	}
+	err := shell.ExecAndProcessOutput(nil, outProcessFunc, "", stScriptPath, "test")
+	if err != nil {
+		funcNotAvailableError = err
+	}
 
-	// Ensure that ST is enabled on daemon startup?
-	// if err := implApplyConfig(true, false, false, false, ConfigAddresses{}, []string{}); err != nil {
-	// 	log.Error(fmt.Errorf("error implApplyConfig() on startup: %w", err))
-	// }
-
+	// gotta initialize DefaultRoutesByIpFamily before calling implApplyConfig()
 	if _, defaultRouteIPv4IPNet, err := net.ParseCIDR(defaultRouteIPv4); err != nil {
 		return log.ErrorE(fmt.Errorf("error net.ParseCIDR(%s): %w", defaultRouteIPv4, err), 0)
 	} else {
@@ -112,6 +110,10 @@ func implInitialize() error {
 		return log.ErrorE(fmt.Errorf("error net.ParseCIDR(%s): %w", defaultRouteIPv6, err), 0)
 	} else {
 		DefaultRoutesByIpFamily[AF_INET6] = defaultRouteIPv6IPNet
+	}
+
+	if err := implApplyConfig(true, true, true, false, false, ConfigAddresses{}, []string{}); err != nil {
+		log.Error(fmt.Errorf("error implApplyConfig() on startup: %w", err))
 	}
 
 	// Register network change detector - we're using net_change_detector_linux now
@@ -152,15 +154,13 @@ func implFuncNotAvailableError() (generalStError, inversedStError error) {
 }
 
 func implReset() error {
-	// Vlad: parent Reset() call is disabled for now
-	return nil
+	log.Info("Removing all PIDs")
 
-	// log.Info("Removing all PIDs")
-	// return shell.Exec(nil, stScriptPath, "reset")
+	return shell.Exec(nil, stScriptPath, "reset")
 }
 
 /*
-func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// If VPN does not support IPv6 - block IPv6 connectivity for 'splitted' apps in inverse mode
 	vpnNoIPv6 := false
 	if isVpnEnabled && len(addrConfig.IPv6Tunnel) == 0 {
@@ -172,10 +172,9 @@ func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpn
 		log.Error(err)
 	}
 	return err
-}
-*/
+}*/
 
-func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	mutexSplittunLin.Lock()
 	defer mutexSplittunLin.Unlock()
 
@@ -191,9 +190,14 @@ func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpn
 
 	if err4 != nil {
 		return err4
-	} else {
+	} else if err6 != nil {
 		return err6
 	}
+
+	// TODO: Vlad - should we process splitTunnelApps here? IVPN doesn't
+	// Enable app whitelist only when VPN is connected. If VPN is disconnected - disable the firewall tables for App Whitelist unconditionally.
+	_enableAppWhitelist := isVpnEnabled && enableAppWhitelist
+	return enableDisableAppWhitelist(_enableAppWhitelist)
 }
 
 func enableDisableSplitTunnelIPv4(enableFullTunnel bool, wgEndpoint net.IP, responseChan chan<- error) {
@@ -272,21 +276,26 @@ func enableDisableSplitTunnelIPv6(enableFullTunnel bool, responseChan chan<- err
 }
 
 func implAddPid(pid int, commandToExecute string) error {
-	// Vlad - disabled
-	return nil
+	appWhitelistEnabled, err := appWhitelistEnabled()
+	if err != nil {
+		return fmt.Errorf("error checking app whitelist status: %w", err)
+	}
+	if !appWhitelistEnabled {
+		return log.ErrorE(errors.New("error - app whitelist is disabled"), 0)
+	}
 
 	if pid <= 0 {
 		return fmt.Errorf("PID is not defined")
 	}
 	log.Info(fmt.Sprintf("Adding PID:%d", pid))
 
-	enabled, err := isEnabled()
-	if err != nil {
-		return fmt.Errorf("unable to check Split Tunnel status")
-	}
-	if !enabled {
-		return fmt.Errorf("the Split Tunnel is disabled")
-	}
+	// enabled, err := isEnabled()
+	// if err != nil {
+	// 	return fmt.Errorf("unable to check Split Tunnel status")
+	// }
+	// if !enabled {
+	// 	return fmt.Errorf("the Split Tunnel is disabled")
+	// }
 
 	err = shell.Exec(nil, stScriptPath, "addpid", strconv.Itoa(pid))
 	if err == nil {
@@ -296,8 +305,13 @@ func implAddPid(pid int, commandToExecute string) error {
 }
 
 func implRemovePid(pid int) error {
-	// Vlad - disabled
-	return nil
+	appWhitelistEnabled, err := appWhitelistEnabled()
+	if err != nil {
+		return fmt.Errorf("error checking app whitelist status: %w", err)
+	}
+	if !appWhitelistEnabled {
+		return log.ErrorE(errors.New("error - app whitelist is disabled"), 0)
+	}
 
 	if pid <= 0 {
 		return fmt.Errorf("PID is not defined")
@@ -308,7 +322,7 @@ func implRemovePid(pid int) error {
 	pids := make(map[int]struct{}, 0)
 	pids[pid] = struct{}{}
 
-	// looking for all childs
+	// looking for all children
 	if runningApps, err := implGetRunningApps(); err == nil {
 		allPids := make(map[int]RunningApp, len(runningApps))
 		for _, app := range runningApps {
@@ -339,8 +353,13 @@ func implRemovePid(pid int) error {
 }
 
 func implGetRunningApps() (allProcesses []RunningApp, err error) {
-	// Vlad - disabled
-	return []RunningApp{}, nil
+	appWhitelistEnabled, err := appWhitelistEnabled()
+	if err != nil {
+		return nil, fmt.Errorf("error checking app whitelist status: %w", err)
+	}
+	if !appWhitelistEnabled {
+		return nil, errors.New("warning - app whitelist is disabled")
+	}
 
 	// https://man7.org/linux/man-pages/man5/proc.5.html
 
@@ -398,10 +417,10 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 		}
 		cmdline := string(cmdlineBytes)
 		// TODO: do not forget update prefixes to trim in case if privateLINE CLI arguments change name ('exclude' or 'splittun -execute')
-		cmdline = strings.TrimPrefix(cmdline, "/usr/bin/ivpn exclude ")
-		cmdline = strings.TrimPrefix(cmdline, "/usr/bin/ivpn splittun -execute ")
-		cmdline = strings.TrimPrefix(cmdline, "ivpn exclude ")
-		cmdline = strings.TrimPrefix(cmdline, "ivpn splittun -execute ")
+		cmdline = strings.TrimPrefix(cmdline, "/usr/bin/privateline-connect-cli exclude ")
+		cmdline = strings.TrimPrefix(cmdline, "/usr/bin/privateline-connect-cli totshld -execute ")
+		cmdline = strings.TrimPrefix(cmdline, "privateline-connect-cli exclude ")
+		cmdline = strings.TrimPrefix(cmdline, "privateline-connect-cli totshld -execute ")
 		cmdline = strings.TrimSpace(cmdline)
 		retMapAll[pid] = RunningApp{
 			Pid:     pid,
@@ -437,7 +456,7 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 			// It occurs when ppid->pid->... sequence not ending by any element from '_addedRootProcesses'.
 			// In such situations, we are trying to read environment variable 'PRIVATELINE_STARTED_ST_ID' of that process,
 			// it contains the PID of the initial (root) process.
-			// The IVPN CLI sets this variable for each process it starting in ST environment.
+			// privateline-connect-cli sets this variable for each process it starting in ST environment.
 			pidEnv, err := readProcEnvVarIvpnId(value.Pid)
 			if err != nil {
 				log.Warning(err)
@@ -494,14 +513,17 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 	return retAll, nil
 }
 
-func isEnabled() (bool, error) {
-	return !fullTunnelEnabled, nil
-
-	// err := shell.Exec(nil, stScriptPath, "status")
-	// if err != nil {
-	// 	return false, nil
-	// }
-	// return true, nil
+func appWhitelistEnabled() (bool, error) {
+	retCode, err := shell.ExecGetExitCode(nil, stScriptPath, "appWhitelistEnabled")
+	switch retCode {
+	case 0:
+		return true, nil
+	case 100:
+		return false, nil
+	default:
+		log.Error(fmt.Errorf("`%s appWhitelistEnabled` error: %w", stScriptPath, err))
+		return false, err
+	}
 }
 
 /*
@@ -545,8 +567,39 @@ func enable(isEnable, isStInversed, isStInverseAllowWhenNoVpn, isVpnConnected, v
 	isActive = isEnable
 
 	return nil
+}*/
+
+// enableDisableAppWhitelist
+// isEnable=true - allow only whitelisted applications to access the enclave, all other applications will be denied enclave access
+// isEnable=false - allow all applications to access the enclave
+func enableDisableAppWhitelist(isEnable bool) error {
+	appWhitelistEnabled, err := appWhitelistEnabled()
+	if err != nil {
+		return fmt.Errorf("error checking app whitelist status: %w", err)
+	}
+	if appWhitelistEnabled == isEnable {
+		return nil // already enabled or disabled
+	}
+
+	if isEnable {
+		if _, outErrText, exitCode, _, err := shell.ExecAndGetOutput(log, 1024, "", stScriptPath, "start", "-inverse"); err != nil {
+			if len(outErrText) > 0 {
+				err = fmt.Errorf("(%w) exitCode=%d: %s", err, exitCode, outErrText)
+			}
+			// if splittun.sh start failed - clean everything (by command 'stop')
+			shell.Exec(nil, stScriptPath, "stop")
+			return fmt.Errorf("failed to enable app whitelist: exitCode=%d: %w", exitCode, err)
+		}
+		log.Info("App whitelist enabled")
+	} else {
+		if err = shell.Exec(log, stScriptPath, "stop"); err != nil {
+			return fmt.Errorf("failed to disable app whitelist: %w", err)
+		}
+		log.Info("App whitelist disabled")
+	}
+
+	return nil
 }
-*/
 
 func getRootPid(p RunningApp, allPids map[int]RunningApp) (rootPid int, isKnownRoot bool) {
 	if _, ok := _addedRootProcesses[p.Ppid]; ok {

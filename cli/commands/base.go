@@ -169,7 +169,7 @@ func printFirewallState(w *tabwriter.Writer, isEnabled, isPersistent, isAllowLAN
 	return w
 }
 
-func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isSplitTunEnabled, isInversed, isAnyDns, isAllowWhenNoVpn bool, apps []string, runningApps []splittun.RunningApp) *tabwriter.Writer {
+func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isSplitTunEnabled, isAppWhitelistEnabled, isInversed, isAnyDns, isAllowWhenNoVpn bool, apps []string, runningApps []splittun.RunningApp) *tabwriter.Writer {
 	if w == nil {
 		w = tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	}
@@ -233,10 +233,21 @@ func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isSplitT
 	}
 	fmt.Fprintf(w, "    Can access PL servers\t:\t%s\n", canAccessPLServers)
 
+	var isAppWhitelistEnabledStatus string
+	if isAppWhitelistEnabled {
+		isAppWhitelistEnabledStatus = "enabled"
+	} else {
+		isAppWhitelistEnabledStatus = "disabled"
+	}
+	fmt.Fprintf(w, "App whitelist\t:\t%s\n", isAppWhitelistEnabledStatus)
+	if !isAppWhitelistEnabled {
+		return w
+	}
+
 	if !isShortPrint {
 		for i, path := range apps {
 			if i == 0 {
-				fmt.Fprintf(w, "Total Shield apps\t:\t%v\n", path)
+				fmt.Fprintf(w, "    Whitelisted apps\t:\t%v\n", path)
 			} else {
 				fmt.Fprintf(w, "\t\t%v\n", path)
 			}
@@ -258,7 +269,7 @@ func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isSplitT
 			}
 			if !isFirstLineShown {
 				isFirstLineShown = true
-				fmt.Fprintf(w, "Running commands\t:\t[pid:%d] %s\n", exec.Pid, cmd)
+				fmt.Fprintf(w, "    Running commands\t:\t[pid:%d] %s\n", exec.Pid, cmd)
 			} else {
 				fmt.Fprintf(w, "\t\t[pid:%d] %s\n", exec.Pid, cmd)
 			}
@@ -302,7 +313,7 @@ func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isSplitT
 			}
 
 			if len(runningApps) > 0 {
-				fmt.Fprintf(w, "All running processes\t:\t\n")
+				fmt.Fprintf(w, "    All running processes\t:\t\n")
 
 				for _, exec := range runningApps {
 					detachedProcWarning := ""
@@ -310,7 +321,7 @@ func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isSplitT
 						detachedProcWarning = "*"
 					}
 
-					fmt.Fprintf(w, "  [pid:%d ppid:%d exe:%s]%s %s\n", exec.Pid, exec.Ppid, exec.Exe, detachedProcWarning, funcTruncateCmdStr(exec.Cmdline, 60))
+					fmt.Fprintf(w, "      [pid:%d ppid:%d exe:%s]%s %s\n", exec.Pid, exec.Ppid, exec.Exe, detachedProcWarning, funcTruncateCmdStr(exec.Cmdline, 60))
 				}
 			}
 		}

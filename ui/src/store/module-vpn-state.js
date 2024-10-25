@@ -54,13 +54,15 @@ export default {
 
     // The split-tunnelling configuration
     splitTunnelling: {
-      IsEnabled: true, // is ST enabled
+      IsEnabled: true, // is Split Tunnel (Shield mode) enabled
+      IsAppWhitelistEnabled: false, // whether to allow only specific applications to access the enclave, or all apps (default)
       IsInversed: false, // Inverse Split Tunnel (only 'splitted' apps use VPN tunnel)
       IsAnyDns: false, // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the privateLINE application
       IsAllowWhenNoVpn: false, // (only for Inverse Split Tunnel) When true: Allow network access when VPN is not connected
       IsCanGetAppIconForBinary: false,
       // Split-Tunnelling (SplitTunnelStatus)
-      // IsEnabled bool                     - Is ST enabled
+      // IsEnabled bool                     - Is Split Tunnel (Shield mode) enabled
+      // IsAppWhitelistEnabled bool         - Whether to allow only specific applications to access the enclave, or all apps (default)
       // IsInversed bool                    - Inversed split-tunneling (only 'splitted' apps use VPN tunnel)
       // IsCanGetAppIconForBinary bool      - This parameter informs availability of the functionality to get icon for particular binary
       //                                      (true - if commands GetAppIcon/AppIconResp  applicable for this platform)

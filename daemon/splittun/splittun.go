@@ -116,24 +116,20 @@ func GetFuncNotAvailableError() (generalStError, inversedStError error) {
 }
 
 func Reset() error {
-	// Vlad: do nothing
-	log.Debug("splittun.Reset() is disabled")
-	return nil
+	mutex.Lock()
+	defer mutex.Unlock()
 
-	// mutex.Lock()
-	// defer mutex.Unlock()
-
-	// return implReset()
+	return implReset()
 }
 
 // ApplyConfig control split-tunnel functionality
-func ApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+func ApplyConfig(isStEnabled, isStInverse, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	mutex.Lock()
 	defer func() {
 		log.Debug("ApplyConfig() completed")
 		mutex.Unlock()
 	}()
-	log.Debug(fmt.Sprintf("ApplyConfig() started: isStEnabled=%t, isVpnEnabled=%t", isStEnabled, isVpnEnabled))
+	log.Debug(fmt.Sprintf("ApplyConfig() started: isStEnabled=%t, enableAppWhitelist=%t, isVpnEnabled=%t", isStEnabled, enableAppWhitelist, isVpnEnabled))
 	// don't leave PrintStack calls enabled in production builds beyond the MVP
 	// logger.PrintStackToStderr()
 
@@ -142,7 +138,7 @@ func ApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabl
 		addrConfig.IPv6Tunnel = nil
 	}
 
-	if retErr := implApplyConfig(isStEnabled, isStInverse, isStInverseAllowWhenNoVpn, isVpnEnabled, addrConfig, splitTunnelApps); retErr != nil {
+	if retErr := implApplyConfig(isStEnabled, isStInverse, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled, addrConfig, splitTunnelApps); retErr != nil {
 		return log.ErrorE(fmt.Errorf("error in implApplyConfig(): %w", retErr), 0)
 	}
 	return nil

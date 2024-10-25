@@ -1,23 +1,23 @@
 //
-//  IVPN command line interface (CLI)
+//  privateLINE Connect command line interface (CLI)
 //  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
 //
-//  This file is part of the IVPN command line interface.
+//  This file is part of the privateLINE Connect command line interface.
 //
-//  The IVPN command line interface is free software: you can redistribute it and/or
+//  The privateLINE Connect command line interface is free software: you can redistribute it and/or
 //  modify it under the terms of the GNU General Public License as published by the Free
 //  Software Foundation, either version 3 of the License, or (at your option) any later version.
 //
-//  The IVPN command line interface is distributed in the hope that it will be useful,
+//  The privateLINE Connect command line interface is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 //  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 //  details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with the IVPN command line interface. If not, see <https://www.gnu.org/licenses/>.
+//  along with the privateLINE Connect command line interface. If not, see <https://www.gnu.org/licenses/>.
 //
 
 package commands
@@ -50,7 +50,7 @@ func (c *Exclude) Init() {
 
 	c.Initialize("exclude", "Run command in Total Shield environment\n(exclude it's traffic from the VPN tunnel)\nIt is short version of '"+cliplatform.CliExeName+" totshld -appadd <command>'\nExamples:\n    "+cliplatform.CliExeName+" exclude firefox\n    "+cliplatform.CliExeName+" exclude ping 1.1.1.1\n    "+cliplatform.CliExeName+" exclude /usr/bin/google-chrome")
 	c.DefaultStringVar(&c.execute, "COMMAND")
-	c.StringVar(&c.eaaPassword, "eaa", "", "PASSWORD", "(optional) Enhanced App Authentication password\nPlease, refer to 'eaa' command for details ('ivpn eaa -h')\nExample:\n    ivpn exclude -eaa 'my_password' firefox")
+	c.StringVar(&c.eaaPassword, "eaa", "", "PASSWORD", "(optional) Enhanced App Authentication password\nPlease, refer to 'eaa' command for details ('"+cliplatform.CliExeName+" eaa -h')\nExample:\n    "+cliplatform.CliExeName+" exclude -eaa 'my_password' firefox")
 
 }
 func (c *Exclude) Run() error {
@@ -132,20 +132,20 @@ func doAddApp(args []string, eaaPass string, isHashedPass bool) error {
 
 	// Linux: the command have to be executed
 
-	cfg, err := _proto.GetSplitTunnelStatus()
-	if err != nil {
-		return err
-	}
+	// cfg, err := _proto.GetSplitTunnelStatus()
+	// if err != nil {
+	// 	return err
+	// }
 
-	if cfg.IsFunctionalityNotAvailable {
-		return fmt.Errorf("the Total Shield functionality is not available")
-	}
+	// if cfg.IsFunctionalityNotAvailable {
+	// 	return fmt.Errorf("the Total Shield functionality is not available")
+	// }
 
-	if cfg.IsEnabled {
-		fmt.Println("Total Shield not enabled")
-		PrintTips([]TipType{TipSplittunEnable})
-		return fmt.Errorf("unable to start command: Total Shield is not enabled")
-	}
+	// if cfg.IsEnabled {
+	// 	fmt.Println("Total Shield not enabled")
+	// 	PrintTips([]TipType{TipSplittunEnable})
+	// 	return fmt.Errorf("unable to start command: Total Shield is not enabled")
+	// }
 
 	pid := os.Getpid()
 	// Set unique environment var for the process.
@@ -201,7 +201,7 @@ func (c *SplitTun) Init() {
 		// Linux
 		c.BoolVar(&c.statusFull, "status_full", false, "(extended status info) Show detailed Total Shield status")
 		c.BoolVar(&c.reset, "clean", false, "Erase configuration (remove applications from configuration and disable Total Shield)")
-		// c.StringVar(&c.appadd, "appadd", "", "COMMAND", "Execute command (binary) in Total Shield environment\nInfo: short version of this command is 'ivpn exclude <command>'\nExamples:\n    ivpn totshld -appadd firefox\n    ivpn totshld -appadd ping 1.1.1.1\n    ivpn totshld -appadd /usr/bin/google-chrome")
+		// c.StringVar(&c.appadd, "appadd", "", "COMMAND", "Execute command (binary) in Total Shield environment\nInfo: short version of this command is '"+cliplatform.CliExeName+" exclude <command>'\nExamples:\n    "+cliplatform.CliExeName+" totshld -appadd firefox\n    "+cliplatform.CliExeName+" totshld -appadd ping 1.1.1.1\n    "+cliplatform.CliExeName+" totshld -appadd /usr/bin/google-chrome")
 		// c.StringVar(&c.appremove, "appremove", "", "PID", "Remove application from Total Shield environment\n(argument: Process ID)")
 	}
 
@@ -330,13 +330,13 @@ func (c *SplitTun) Run() error {
 }
 
 func (c *SplitTun) doShowStatus(cfg types.SplitTunnelStatus, isFull bool) error {
-	w := printSplitTunState(nil, false, isFull, cfg.IsEnabled, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
+	w := printSplitTunState(nil, false, isFull, cfg.IsEnabled, cfg.EnableAppWhitelist, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
 	w.Flush()
 	return nil
 }
 
 func (c *SplitTun) doShowStatusShort(cfg types.SplitTunnelStatus) error {
-	w := printSplitTunState(nil, true, false, cfg.IsEnabled, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
+	w := printSplitTunState(nil, true, false, cfg.IsEnabled, cfg.EnableAppWhitelist, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
 	w.Flush()
 	return nil
 }
