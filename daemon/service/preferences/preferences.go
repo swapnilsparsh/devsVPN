@@ -109,6 +109,8 @@ type Preferences struct {
 	// last known account status
 	Session SessionStatus
 	Account AccountStatus
+	// Subscription data
+	PlanName string
 
 	// NOTE: update this type when adding new preferences which can be exposed to clients
 	UserPrefs UserPreferences

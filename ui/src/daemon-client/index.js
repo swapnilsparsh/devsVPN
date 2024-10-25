@@ -906,6 +906,7 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
           startNotifyDaemonOnParamsChange();
 
           PingServers();
+          SubscriptionData();
 
           resolve(); // RESOLVE
         } catch (e) {
@@ -987,7 +988,6 @@ async function SubscriptionData() {
   let resp = await sendRecv({
     Command: daemonRequests.SubscriptionData,
   });
-  console.log("subscription data <---- ", resp.RawResponse);
   const subscriptionData = resp.RawResponse;
   store.commit(`account/subscriptionData`, subscriptionData);
   return subscriptionData;
