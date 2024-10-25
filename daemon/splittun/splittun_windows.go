@@ -207,7 +207,7 @@ func implReset() error {
 	return nil
 }
 
-func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// Check if functionality available
 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
 	isFunctionalityNotAvailable := splitTunErr != nil || (isStInversed && splitTunInversedErr != nil)
@@ -310,7 +310,7 @@ func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverse
 	return nil
 }
 
-func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// mutexSplittunWin.Lock()
 	// defer func() {
 	// 	log.Debug("implApplyConfig() completed")

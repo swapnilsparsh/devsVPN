@@ -66,12 +66,12 @@ type AppIconResp struct {
 // SplitTunnelSet (request) sets the split-tunnelling configuration
 type SplitTunnelSetConfig struct {
 	RequestBase
-	IsEnabled           bool // is ST enabled
-	IsInversed          bool // when inversed - only apps added to ST will use VPN connection, all other apps will use direct unencrypted connection
-	IsAnyDns            bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
-	IsAllowWhenNoVpn    bool // (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled
-	EnclaveAllowAllApps bool // whether to allow all apps to the enclave/VPN (default), or only the whitelisted apps
-	Reset               bool // disable ST and erase all ST config (if enabled - all the rest paremeters are ignored)
+	IsEnabled          bool // is ST enabled
+	EnableAppWhitelist bool // whether to allow only the whitelisted apps to the enclave/VPN, or all apps (default)
+	IsInversed         bool // when inversed - only apps added to ST will use VPN connection, all other apps will use direct unencrypted connection
+	IsAnyDns           bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
+	IsAllowWhenNoVpn   bool // (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled
+	Reset              bool // disable ST and erase all ST config (if enabled - all the rest paremeters are ignored)
 }
 
 // GetSplitTunnelStatus (request) requests the Split-Tunnelling configuration
@@ -83,11 +83,12 @@ type SplitTunnelGetStatus struct {
 type SplitTunnelStatus struct {
 	CommandBase
 
-	IsEnabled           bool // is Split Tunnel enabled
-	IsInversed          bool // Inverse Split Tunnel (only 'splitted' apps use VPN tunnel)
-	IsAnyDns            bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
-	IsAllowWhenNoVpn    bool // (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled
-	EnclaveAllowAllApps bool // whether to allow all apps to the enclave/VPN (default), or only the specified apps
+	IsEnabled             bool // is Split Tunnel (Shield mode) enabled
+	IsAppWhitelistEnabled bool // Whether to allow only specific applications to access the enclave, or all apps (default)
+	IsInversed            bool // Inverse Split Tunnel (only 'splitted' apps use VPN tunnel)
+	IsAnyDns              bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
+	IsAllowWhenNoVpn      bool // (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled
+	EnableAppWhitelist    bool // whether to allow only whitelisted apps to the enclave/VPN, or all apps (default)
 
 	IsFunctionalityNotAvailable bool // TODO: this is redundant, remove it. Use daemon disabled functions info instead (Note: it is in use by CLI project)
 	// This parameter informs availability of the functionality to get icon for particular binary

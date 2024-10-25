@@ -100,10 +100,7 @@ func implInitialize() error {
 		funcNotAvailableError = err
 	}
 
-	if err := implApplyConfig(true, true, true, false, false, ConfigAddresses{}, []string{}); err != nil {
-		log.Error(fmt.Errorf("error implApplyConfig() on startup: %w", err))
-	}
-
+	// gotta initialize DefaultRoutesByIpFamily before calling implApplyConfig()
 	if _, defaultRouteIPv4IPNet, err := net.ParseCIDR(defaultRouteIPv4); err != nil {
 		return log.ErrorE(fmt.Errorf("error net.ParseCIDR(%s): %w", defaultRouteIPv4, err), 0)
 	} else {
@@ -113,6 +110,10 @@ func implInitialize() error {
 		return log.ErrorE(fmt.Errorf("error net.ParseCIDR(%s): %w", defaultRouteIPv6, err), 0)
 	} else {
 		DefaultRoutesByIpFamily[AF_INET6] = defaultRouteIPv6IPNet
+	}
+
+	if err := implApplyConfig(true, true, true, false, false, ConfigAddresses{}, []string{}); err != nil {
+		log.Error(fmt.Errorf("error implApplyConfig() on startup: %w", err))
 	}
 
 	// Register network change detector - we're using net_change_detector_linux now
@@ -159,7 +160,7 @@ func implReset() error {
 }
 
 /*
-func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// If VPN does not support IPv6 - block IPv6 connectivity for 'splitted' apps in inverse mode
 	vpnNoIPv6 := false
 	if isVpnEnabled && len(addrConfig.IPv6Tunnel) == 0 {
@@ -173,7 +174,7 @@ func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverse
 	return err
 }*/
 
-func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	mutexSplittunLin.Lock()
 	defer mutexSplittunLin.Unlock()
 
@@ -194,7 +195,7 @@ func implApplyConfig(isStEnabled, isStInversed, enclaveAllowAllApps, isStInverse
 	}
 
 	// TODO: Vlad - should we process splitTunnelApps here? IVPN doesn't
-	return enableDisableAppWhitelist(!enclaveAllowAllApps)
+	return enableDisableAppWhitelist(enableAppWhitelist)
 }
 
 func enableDisableSplitTunnelIPv4(enableFullTunnel bool, wgEndpoint net.IP, responseChan chan<- error) {
@@ -518,6 +519,7 @@ func appWhitelistEnabled() (bool, error) {
 	case 100:
 		return false, nil
 	default:
+		log.Error(fmt.Errorf("`%s appWhitelistEnabled` error: %w", stScriptPath, err))
 		return false, err
 	}
 }
@@ -578,7 +580,7 @@ func enableDisableAppWhitelist(isEnable bool) error {
 	}
 
 	if isEnable {
-		if _, outErrText, exitCode, _, err := shell.ExecAndGetOutput(log, 1024, "", stScriptPath, "start", "-inversed"); err != nil {
+		if _, outErrText, exitCode, _, err := shell.ExecAndGetOutput(log, 1024, "", stScriptPath, "start", "-inverse"); err != nil {
 			if len(outErrText) > 0 {
 				err = fmt.Errorf("(%w) exitCode=%d: %s", err, exitCode, outErrText)
 			}

@@ -1349,7 +1349,7 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 		isEnabled = false
 	}
 	isInversed := prefs.SplitTunnelInversed
-	enclaveAllowAllApps := prefs.EnclaveAllowAllApps
+	enableAppWhitelist := prefs.EnableAppWhitelist
 	isAnyDns := prefs.SplitTunnelAnyDns
 	isAllowWhenNoVpn := prefs.SplitTunnelAllowWhenNoVpn
 	if stInverseErr != nil {
@@ -1367,8 +1367,9 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 	ret := protocolTypes.SplitTunnelStatus{
 		IsFunctionalityNotAvailable: stErr != nil,
 		IsEnabled:                   isEnabled,
+		IsAppWhitelistEnabled:       enableAppWhitelist,
 		IsInversed:                  isInversed,
-		EnclaveAllowAllApps:         enclaveAllowAllApps,
+		EnableAppWhitelist:          enableAppWhitelist,
 		IsAnyDns:                    isAnyDns,
 		IsAllowWhenNoVpn:            isAllowWhenNoVpn,
 		IsCanGetAppIconForBinary:    oshelpers.IsCanGetAppIconForBinary(),
@@ -1378,7 +1379,7 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 	return ret, nil
 }
 
-func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enclaveAllowAllApps, isAnyDns, isAllowWhenNoVpn, reset bool) error {
+func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhitelist, isAnyDns, isAllowWhenNoVpn, reset bool) error {
 	if reset {
 		return s.splitTunnelling_Reset()
 	}
@@ -1412,7 +1413,7 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enclaveAllowA
 	prefs := prefsOld
 	prefs.IsSplitTunnel = isEnabled
 	prefs.SplitTunnelInversed = isInversed
-	prefs.EnclaveAllowAllApps = enclaveAllowAllApps
+	prefs.EnableAppWhitelist = enableAppWhitelist
 	prefs.SplitTunnelAnyDns = isAnyDns
 	prefs.SplitTunnelAllowWhenNoVpn = isAllowWhenNoVpn
 	s.setPreferences(prefs)
@@ -1438,7 +1439,7 @@ func (s *Service) splitTunnelling_Reset() error {
 	prefs := s._preferences
 	prefs.IsSplitTunnel = true // Split tunnel enabled by default, out of the box
 	prefs.SplitTunnelInversed = true
-	prefs.EnclaveAllowAllApps = true
+	prefs.EnableAppWhitelist = false
 	prefs.SplitTunnelAnyDns = false
 	prefs.SplitTunnelAllowWhenNoVpn = false
 	prefs.SplitTunnelApps = make([]string, 0)
@@ -1552,7 +1553,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	}
 
 	// Apply Split-Tun config
-	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnclaveAllowAllApps, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
+	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
 }
 
 func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAlreadyRunning bool, err error) {
@@ -1865,6 +1866,8 @@ func (s *Service) SessionNew(email string, password string, deviceName string, s
 
 	// init to split tunnel by default
 	prefs.IsSplitTunnel = true
+	// // and allow all apps into enclave by default
+	// prefs.EnableAppWhitelist = false
 
 	// propagate our prefs changes to Preferences and to settings.json
 	s.setPreferences(prefs)
