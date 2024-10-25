@@ -120,8 +120,6 @@ async function connect(me, isConnect) {
         ) {
           expired = true;
         }
-      } else {
-        expired = true;
       }
 
       if (!expired) {
