@@ -1552,6 +1552,7 @@ async function SplitTunnelGetStatus() {
 }
 async function SplitTunnelSetConfig(
   IsEnabled,
+  IsAppWhitelistEnabled,
   IsInversed,
   IsAnyDns,
   IsAllowWhenNoVpn,
@@ -1560,6 +1561,7 @@ async function SplitTunnelSetConfig(
   let stCfg = store.state.vpnState.splitTunnelling;
   if (stCfg) {
     if (IsEnabled == null) IsEnabled = stCfg.IsEnabled;
+    if (IsAppWhitelistEnabled == null) IsAppWhitelistEnabled = stCfg.IsAppWhitelistEnabled;
     if (IsInversed == null) IsInversed = stCfg.IsInversed;
     if (IsAnyDns == null) IsAnyDns = stCfg.IsAnyDns;
     if (IsAllowWhenNoVpn == null) IsAllowWhenNoVpn = stCfg.IsAllowWhenNoVpn;
@@ -1568,6 +1570,7 @@ async function SplitTunnelSetConfig(
   await sendRecv({
     Command: daemonRequests.SplitTunnelSetConfig,
     IsEnabled,
+    IsAppWhitelistEnabled,
     IsInversed,
     IsAnyDns,
     IsAllowWhenNoVpn,
@@ -1628,7 +1631,7 @@ async function SplitTunnelAddApp(execCmd, funcShowMessageBox) {
       if (!warningMes || warningMes.length <= 0) {
         // Note! Normally, this message will be never used. The text will come from daemon in 'IsAlreadyRunningMessage'
         warningMes =
-          "It appears the application is already running. Some applications must be closed before launching them in the Split Tunneling environment or they may not be excluded from the VPN tunnel.";
+          "It appears the application is already running. Some applications (like web browsers) must be closed before launching them in the App Whitelist environment, or they may not be processed properly.";
       }
 
       let msgBoxConfig = {
@@ -1650,12 +1653,12 @@ async function SplitTunnelAddApp(execCmd, funcShowMessageBox) {
 
       //-------------------
       // For a security reasons, we are not using SplitTunnelAddAppCmdResp.CmdToExecute command
-      // Instead, use hardcoded binary path to execute '/usr/bin/ivpn'
+      // Instead, use hardcoded binary path to execute '/usr/bin/privateline-connect-cli'
       let eaaArgs = "";
       if (ParanoidModeSecret) {
         eaaArgs = `-eaa_hash '${ParanoidModeSecret}' `;
       }
-      let shellCommandToRun = `/usr/bin/ivpn exclude  ${eaaArgs}${execCmd}`;
+      let shellCommandToRun = `/usr/bin/privateline-connect-cli exclude  ${eaaArgs}${execCmd}`;
 
       var exec = require("child_process").exec;
       let child = exec(shellCommandToRun, {
@@ -1669,7 +1672,7 @@ async function SplitTunnelAddApp(execCmd, funcShowMessageBox) {
       });
       //-------------------
       //var spawn = require("child_process").spawn;
-      //let child = spawn("/usr/bin/ivpn", ["exclude", execCmd], {
+      //let child = spawn("/usr/bin/privateline-connect-cli", ["exclude", execCmd], {
       //  detached: true,
       //  env: {
       //    ...process.env,
@@ -1689,7 +1692,7 @@ async function SplitTunnelAddApp(execCmd, funcShowMessageBox) {
       );
 
       // No necessary to send 'SplitTunnelAddedPidInfo'
-      // It will ne sent by '/usr/bin/ivpn'
+      // It will ne sent by '/usr/bin/privateline-connect-cli'
       //    await sendRecv({
       //      Command: daemonRequests.SplitTunnelAddedPidInfo,
       //      Pid: child.pid,

@@ -67,9 +67,9 @@ PRIVATELINE_OUT_DNSONLY=PRIVATELINE-OUT-DNSONLY
 # Using here value 0xca6c. It is the same as WireGuard marking packets which were processed.
 _splittun_packets_fwmark_value=0xca6c
 # Split Tunnel iptables rules comment
-_splittun_comment="PRIVATELINE Split Tunneling"
+_splittun_comment="privateLINE Total Shield"
 # Split Tunnel cgroup id
-_splittun_cgroup_classid=0x4956504e
+_splittun_cgroup_classid=0x70561e1d
 
 # returns 0 if chain exists
 function chain_exists()
@@ -107,7 +107,7 @@ function only_dns {
   # We can not apply this rules when firewall enabled
   get_firewall_enabled
   if (( $? == 0 )); then
-    echo "failed to apply specific DNS rule: Firewall alredy enabled" >&2
+    echo "failed to apply specific DNS rule: Firewall already enabled" >&2
     return 24
   fi
 

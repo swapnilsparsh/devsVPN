@@ -115,7 +115,7 @@ ipcMain.on("renderer-request-show-settings-antitracker", () => {
   showSettings("antitracker");
 });
 ipcMain.on("renderer-request-show-settings-SplitTunnel", () => {
-  showSettings("splittunnel");
+  showSettings("appwhitelist");
 });
 ipcMain.handle("renderer-request-connect-to-daemon", async () => {
   return await connectToDaemon();
@@ -567,7 +567,7 @@ async function isCanQuit() {
         break;
 
       case 2: // Deactivate & Quit
-        await daemonClient.SplitTunnelSetConfig(false);
+        await daemonClient.SplitTunnelSetConfig(false, false);
         break;
     }
   }
