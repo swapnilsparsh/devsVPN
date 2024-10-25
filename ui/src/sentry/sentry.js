@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/electron";
+import * as Sentry from "@sentry/electron/main";
 import { app } from "electron";
 import { DSN } from "./dsn";
 
