@@ -347,7 +347,7 @@ export default {
       //============== Write here Shield logic and remember there is much more than this
       //this is simple split tunnel as Shield and not split tunnel as Total Shield, as discussed with Satyarth
       // value = true means split tunnel 
-      this.isSTEnabledLocal = value
+      this.isSTEnabledLocal = value;
       // APPLY ST CONFIGURATION
       try {
         await sender.SplitTunnelSetConfig(
