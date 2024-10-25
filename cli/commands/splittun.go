@@ -330,13 +330,13 @@ func (c *SplitTun) Run() error {
 }
 
 func (c *SplitTun) doShowStatus(cfg types.SplitTunnelStatus, isFull bool) error {
-	w := printSplitTunState(nil, false, isFull, cfg.IsEnabled, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
+	w := printSplitTunState(nil, false, isFull, cfg.IsEnabled, cfg.EnableAppWhitelist, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
 	w.Flush()
 	return nil
 }
 
 func (c *SplitTun) doShowStatusShort(cfg types.SplitTunnelStatus) error {
-	w := printSplitTunState(nil, true, false, cfg.IsEnabled, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
+	w := printSplitTunState(nil, true, false, cfg.IsEnabled, cfg.EnableAppWhitelist, cfg.IsInversed, cfg.IsAnyDns, cfg.IsAllowWhenNoVpn, cfg.SplitTunnelApps, cfg.RunningApps)
 	w.Flush()
 	return nil
 }

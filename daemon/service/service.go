@@ -379,7 +379,7 @@ func (s *Service) unInitialise() error {
 	}
 	// Split tunnel enabled by default, out of the box
 	log.Debug("service.go unInitialise() calling splittun.ApplyConfig() with empty splittun.ConfigAddresses")
-	if err := splittun.ApplyConfig(true, true, true, false, false, splittun.ConfigAddresses{}, []string{}); err != nil {
+	if err := splittun.ApplyConfig(true, true, false, false, false, splittun.ConfigAddresses{}, []string{}); err != nil {
 		log.Error(err)
 		updateRetErr(err)
 	}

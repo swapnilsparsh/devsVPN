@@ -195,7 +195,9 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 	}
 
 	// TODO: Vlad - should we process splitTunnelApps here? IVPN doesn't
-	return enableDisableAppWhitelist(enableAppWhitelist)
+	// Enable app whitelist only when VPN is connected. If VPN is disconnected - disable the firewall tables for App Whitelist unconditionally.
+	_enableAppWhitelist := isVpnEnabled && enableAppWhitelist
+	return enableDisableAppWhitelist(_enableAppWhitelist)
 }
 
 func enableDisableSplitTunnelIPv4(enableFullTunnel bool, wgEndpoint net.IP, responseChan chan<- error) {
@@ -356,7 +358,7 @@ func implGetRunningApps() (allProcesses []RunningApp, err error) {
 		return nil, fmt.Errorf("error checking app whitelist status: %w", err)
 	}
 	if !appWhitelistEnabled {
-		return nil, log.ErrorE(errors.New("error - app whitelist is disabled"), 0)
+		return nil, errors.New("warning - app whitelist is disabled")
 	}
 
 	// https://man7.org/linux/man-pages/man5/proc.5.html

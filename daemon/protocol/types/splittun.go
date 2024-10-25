@@ -66,12 +66,12 @@ type AppIconResp struct {
 // SplitTunnelSet (request) sets the split-tunnelling configuration
 type SplitTunnelSetConfig struct {
 	RequestBase
-	IsEnabled          bool // is ST enabled
-	EnableAppWhitelist bool // whether to allow only the whitelisted apps to the enclave/VPN, or all apps (default)
-	IsInversed         bool // when inversed - only apps added to ST will use VPN connection, all other apps will use direct unencrypted connection
-	IsAnyDns           bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
-	IsAllowWhenNoVpn   bool // (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled
-	Reset              bool // disable ST and erase all ST config (if enabled - all the rest paremeters are ignored)
+	IsEnabled             bool // is ST enabled
+	IsAppWhitelistEnabled bool // whether to allow only the whitelisted apps to the enclave/VPN, or all apps (default)
+	IsInversed            bool // when inversed - only apps added to ST will use VPN connection, all other apps will use direct unencrypted connection
+	IsAnyDns              bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
+	IsAllowWhenNoVpn      bool // (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled
+	Reset                 bool // disable ST and erase all ST config (if enabled - all the rest paremeters are ignored)
 }
 
 // GetSplitTunnelStatus (request) requests the Split-Tunnelling configuration
