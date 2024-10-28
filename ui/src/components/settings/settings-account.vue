@@ -287,7 +287,7 @@ export default {
           type: "error",
           buttons: ["OK"],
           message: "API Error",
-          detail: `Profile data couldn't be fetched at this momemnt, please check your internet connection!`,
+          detail: `Profile data couldn't be fetched at this moment, please check your internet connection!`,
         });
       } finally {
         this.isProcessing = false;
