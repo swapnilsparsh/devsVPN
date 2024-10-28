@@ -3,25 +3,31 @@
     <div class="small_text">Connection type</div>
     <div class="shieldButtons">
       <div class="shieldButtonsGroup">
-        <button class="shieldButton" v-bind:class="{
-          shieldButtonActiveGreen: IsEnabled,
-        }" v-on:click="ChangeShield(true)">
+        <button
+          class="shieldButton"
+          v-bind:class="{
+            shieldButtonActiveGreen: IsEnabled,
+          }"
+          v-on:click="ChangeShield(true)"
+        >
           Shield
         </button>
 
-        <button class="shieldButton" v-bind:class="{
-          shieldButtonActiveBlue: !IsEnabled,
-        }" v-on:click="ChangeShield(false)">
+        <button
+          class="shieldButton"
+          v-bind:class="{
+            shieldButtonActiveBlue: !IsEnabled,
+          }"
+          v-on:click="checkPlanBeforeChangeShield(false)"
+        >
           Total Shield
         </button>
       </div>
     </div>
-
   </div>
 </template>
 
 <script>
-
 const sender = window.ipcSender;
 let timerBackgroundCheckOfStatus = 0;
 
@@ -37,7 +43,6 @@ import binaryInfoControl from "@/components/controls/control-app-binary-info.vue
 import spinner from "@/components/controls/control-spinner.vue";
 import linkCtrl from "@/components/controls/control-link.vue";
 
-
 export default {
   components: {
     spinner,
@@ -49,6 +54,7 @@ export default {
   data: function () {
     return {
       isSTEnabledLocal: true,
+      isAppWhitelistEnabledLocal: false,
       stInversedLocal: false,
       stAnyDnsLocal: false,
       stBlockNonVpnDnsLocal: true,
@@ -123,6 +129,10 @@ export default {
       return this.$store.state.vpnState.splitTunnelling?.IsEnabled;
     },
     // needed for 'watch'
+    IsAppWhitelistEnabled: function () {
+      return this.$store.state.vpnState.splitTunnelling?.IsAppWhitelistEnabled;
+    },
+    // needed for 'watch'
     IsInversed: function () {
       return this.$store.state.vpnState.splitTunnelling?.IsInversed;
     },
@@ -169,7 +179,7 @@ export default {
           return true;
         };
         retInstalledApps = retInstalledApps.filter((appInfo) =>
-          funcFilter(appInfo),
+          funcFilter(appInfo)
         );
       }
 
@@ -183,7 +193,7 @@ export default {
           );
         };
         retInstalledApps = retInstalledApps.filter((appInfo) =>
-          funcFilter(appInfo),
+          funcFilter(appInfo)
         );
       }
 
@@ -206,12 +216,19 @@ export default {
 
   async mounted() {
     if (this.IsEnabled) {
-      document.documentElement.style.setProperty('--connection-switch-color', '#4EAF51')
+      document.documentElement.style.setProperty(
+        "--connection-switch-color",
+        "#4EAF51"
+      );
     } else {
-      document.documentElement.style.setProperty('--connection-switch-color', '#0766FF');
+      document.documentElement.style.setProperty(
+        "--connection-switch-color",
+        "#0766FF"
+      );
     }
 
     this.isSTEnabledLocal = this.IsEnabled;
+    this.isAppWhitelistEnabledLocal = this.IsAppWhitelistEnabled;
     this.stInversedLocal = this.IsInversed;
     this.stBlockNonVpnDnsLocal = !this.IsAnyDns;
     this.stAllowWhenNoVpnLocal = this.IsAllowWhenNoVpn;
@@ -245,12 +262,21 @@ export default {
   watch: {
     IsEnabled() {
       if (this.IsEnabled) {
-        document.documentElement.style.setProperty('--connection-switch-color', '#4EAF51')
+        document.documentElement.style.setProperty(
+          "--connection-switch-color",
+          "#4EAF51"
+        );
       } else {
-        document.documentElement.style.setProperty('--connection-switch-color', '#0766FF');
+        document.documentElement.style.setProperty(
+          "--connection-switch-color",
+          "#0766FF"
+        );
       }
 
       this.isSTEnabledLocal = this.IsEnabled;
+    },
+    IsAppWhitelistEnabled() {
+      this.isAppWhitelistEnabledLocal = this.IsAppWhitelistEnabled;
     },
     IsInversed() {
       this.stInversedLocal = this.IsInversed;
@@ -275,7 +301,7 @@ export default {
 
       this.$store.dispatch(
         `settings/isMultiHop`,
-        !this.$store.state.settings.isMultiHop,
+        !this.$store.state.settings.isMultiHop
       );
 
       if (
@@ -295,25 +321,49 @@ export default {
         }
       }
     },
+    async checkPlanBeforeChangeShield(value) {
+      const subscriptionData = this.$store.state.account.subscriptionData;
+
+      // Check if the plan is "Free"
+      if (subscriptionData?.Plan.name === "Free" && value === false) {
+        // Show an error message or prevent the action
+        const result = sender.showMessageBoxSync({
+          type: "error",
+          buttons: ["Upgrade Plan"],
+          message: "Total Shield is only available for premium plans.",
+        });
+
+        if (result === 0) {
+          sender.shellOpenExternal(`https://privateline.io/#pricing`);
+        }
+        return; // Prevent switching to Total Shield
+      }
+
+      // If the plan is not "Free", proceed with changing the shield
+      await this.ChangeShield(value);
+    },
+
     async ChangeShield(value) {
       //============== Write here Shield logic and remember there is much more than this
-      //this is simple split tunnel as shield and not split tunnel as full shield as discussed with satyarth
+      //this is simple split tunnel as Shield and not split tunnel as Total Shield, as discussed with Satyarth
       // value = true means split tunnel 
-      this.isSTEnabledLocal = value
+      this.isSTEnabledLocal = value;
       // APPLY ST CONFIGURATION
       try {
         await sender.SplitTunnelSetConfig(
           this.isSTEnabledLocal,
+          this.isAppWhitelistEnabledLocal,
           this.stInversedLocal,
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
-          this.stAllowWhenNoVpnLocal,
+          this.stAllowWhenNoVpnLocal
         );
-        // Change switch connection color based on shield and total shield button selected
-        if (value) {
-          document.documentElement.style.setProperty('--connection-switch-color', '#4EAF51');
-        } else {
-          document.documentElement.style.setProperty('--connection-switch-color', '#0766FF');
-        }
+
+        // Change switch connection color based on the selected shield
+        const color = value ? "#4EAF51" : "#0766FF";
+        document.documentElement.style.setProperty(
+          "--connection-switch-color",
+          color
+        );
       } catch (e) {
         processError(e);
       }
@@ -329,6 +379,7 @@ export default {
     // ======= Split methods =======
     updateLocals() {
       this.isSTEnabledLocal = this.IsEnabled;
+      this.isAppWhitelistEnabledLocal = this.IsAppWhitelistEnabled;
       this.stInversedLocal = this.IsInversed;
       this.stBlockNonVpnDnsLocal = !this.IsAnyDns;
       this.stAllowWhenNoVpnLocal = this.IsAllowWhenNoVpn;
@@ -353,7 +404,7 @@ export default {
               detail: `The Inverse Split Tunnel mode requires disabling the privateLINE Firewall.${extraMessage}\nWould you like to proceed?`,
               buttons: ["Disable Firewall", "Cancel"],
             },
-            true,
+            true
           );
           if (ret == 1) {
             // cancel
@@ -372,9 +423,10 @@ export default {
       try {
         await sender.SplitTunnelSetConfig(
           this.isSTEnabledLocal,
+          this.isAppWhitelistEnabledLocal,
           this.stInversedLocal,
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
-          this.stAllowWhenNoVpnLocal,
+          this.stAllowWhenNoVpnLocal
         );
       } catch (e) {
         processError(e);
@@ -400,7 +452,7 @@ export default {
                 "The Inverse Split Tunnel mode has been disabled successfully. You can now use the Firewall.\n\nWould you like to enable the privateLINE Firewall?",
               buttons: ["Enable Firewall", "Cancel"],
             },
-            true,
+            true
           );
           if (ret == 1) return; // cancel
           await sender.EnableFirewall(true);
@@ -424,7 +476,7 @@ Note! The privateLINE Firewall is not functional when this feature is enabled.\n
 Do you want to enable Inverse mode for Split Tunnel?",
             buttons: ["Enable", "Cancel"],
           },
-          true,
+          true
         );
         if (ret == 1) cancel = true; // cancel
       }
@@ -458,7 +510,7 @@ Do you want to enable Inverse mode for Split Tunnel?",
         timerBackgroundCheckOfStatus = setInterval(() => {
           if (
             !this.isRunningAppsAvailable() ||
-            this.$store.state.uiState.currentSettingsViewName != "splittunnel"
+            this.$store.state.uiState.currentSettingsViewName != "appwhitelist"
           ) {
             this.stopBackgroundCheckOfStatus();
             return;
@@ -602,7 +654,7 @@ Do you want to enable Inverse mode for Split Tunnel?",
         if (app.RunningApp)
           await sender.SplitTunnelRemoveApp(
             app.RunningApp.Pid,
-            app.AppBinaryPath,
+            app.AppBinaryPath
           );
         else await sender.SplitTunnelRemoveApp(0, app.AppBinaryPath);
       } catch (e) {
@@ -632,7 +684,7 @@ Do you want to enable Inverse mode for Split Tunnel?",
       if (actionNo == 1) return;
 
       this.resetFilters();
-      await sender.SplitTunnelSetConfig(false, false, false, false, true);
+      await sender.SplitTunnelSetConfig(true, false, false, false, false, true);
     },
 
     resetFilters: function () {
@@ -704,7 +756,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-button:disabled+label {
+button:disabled + label {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -714,7 +766,7 @@ input:disabled {
   cursor: not-allowed;
 }
 
-input:disabled+label {
+input:disabled + label {
   opacity: 0.6;
   cursor: not-allowed;
 }

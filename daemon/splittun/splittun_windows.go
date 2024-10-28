@@ -195,23 +195,20 @@ func implFuncNotAvailableError() (generalStError, inversedStError error) {
 }
 
 func implReset() error {
-	// Vlad: parent Reset() call is disabled for now
+	for endpointType, endpoint := range lastConfiguredEndpoints { // reset both IPv4 and IPv6, if present
+		if endpoint == nil {
+			continue
+		}
+		if err := doApplySplitFullTunnelRoutes(endpointType, true, false, *endpoint); err != nil {
+			return fmt.Errorf("error in doApplySplitFullTunnelRoutes(): %w", err)
+		}
+	}
+
 	return nil
-
-	// for endpointType, endpoint := range lastConfiguredEndpoints { // reset both IPv4 and IPv6, if present
-	// 	if endpoint == nil {
-	// 		continue
-	// 	}
-	// 	if err := doApplySplitFullTunnelRoutes(endpointType, true, false, *endpoint); err != nil {
-	// 		return fmt.Errorf("error in doApplySplitFullTunnelRoutes(): %w", err)
-	// 	}
-	// }
-
-	// return nil
 }
 
 /*
-func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// Check if functionality available
 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
 	isFunctionalityNotAvailable := splitTunErr != nil || (isStInversed && splitTunInversedErr != nil)
@@ -315,7 +312,7 @@ func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpn
 }
 */
 
-func implApplyConfig(isStEnabled, isStInversed, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// mutexSplittunWin.Lock()
 	// defer func() {
 	// 	log.Debug("implApplyConfig() completed")
@@ -651,7 +648,6 @@ func disconnect(logging bool) (err error) {
 }
 
 func stopAndClean() (err error) {
-	// TODO: Vlad - patch this func?
 	defer catchPanic(&err)
 
 	log.Info("Split-Tunnelling: StopAndClean...")
@@ -673,7 +669,6 @@ func stopAndClean() (err error) {
 }
 
 func start() (err error) {
-	// TODO: Vlad - patch this func?
 	defer catchPanic(&err)
 
 	log.Info("Split-Tunnelling: Start...")
@@ -699,7 +694,7 @@ func start() (err error) {
 	// Initialize already running apps info
 	/// Set application PID\PPIDs which have to be splitted.
 	/// It adds new info to internal process tree but not erasing current known PID\PPIDs.
-	/// Operaion fails when 'process monitor' not running
+	/// Operation fails when 'process monitor' not running
 	retval, _, err = fSplitTun_ProcMonInitRunningApps.Call()
 
 	if err == syscall.ERROR_NO_MORE_FILES {
@@ -753,7 +748,7 @@ func setConfig(config Config) (err error) {
 	// SET APPS TO SPLIT
 	buff, err := makeRawBuffAppsConfig(config.Apps)
 	if err != nil {
-		return log.ErrorE(fmt.Errorf("failed to set split-tinnelling configuration (apps): %w", err), 0)
+		return log.ErrorE(fmt.Errorf("failed to set split-tunnelling configuration (apps): %w", err), 0)
 	}
 
 	var bufSize uint32 = uint32(len(buff))

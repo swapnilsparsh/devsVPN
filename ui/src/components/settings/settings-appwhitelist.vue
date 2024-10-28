@@ -82,35 +82,34 @@
     </div>
 
     <div class="param">
-      <input type="checkbox" id="isSTEnabledLocal" v-model="isSTEnabledLocal" @change="applyChanges" />
-      <label class="defColor" for="isSTEnabledLocal">Split Tunnel</label>
-      <button class="noBordersBtn flexRow" title="Help" v-on:click="$refs.helpSTEnabledLocal.showModal()">
+      <input type="checkbox" id="isAppWhitelistEnabledLocal" v-model="isAppWhitelistEnabledLocal" @change="applyChanges" />
+      <label class="defColor" for="isAppWhitelistEnabledLocal">App Whitelist</label>
+      <button class="noBordersBtn flexRow" title="Help" v-on:click="$refs.helpAppWhitelistEnabledLocal.showModal()">
         <img src="@/assets/question.svg" />
       </button>
       <!-- ============= TODO SPLIT Tunnel ================= -->
-      <ComponentDialog ref="helpSTEnabledLocal" header="Info">
+      <ComponentDialog ref="helpAppWhitelistEnabledLocal" header="Info">
         <div>
           <p>
-            Exclude traffic from specific applications from being routed through
-            the VPN
+            Allow only specific applications to access the enclave
           </p>
           <!-- functionality description: LINUX -->
           <p v-if="isLinux">
             <span style="font-weight: bold">Warning:</span>
             Applications must be launched from the "{{ textAddAppButton }}"
-            button. Already running applications or instances can not use Split
-            Tunneling. Some applications using shared resources (e.g. Web
+            button. Already running applications or instances can not use App
+            Whitelist. Some applications using shared resources (e.g. Web
             browsers) must be closed before launching them or they may not be
-            excluded from the VPN tunnel.
+            processed properly.
           </p>
           <!-- functionality description: WINDOWS -->
           <div v-else>
             <p>
               <span style="font-weight: bold">Warning:</span>
               When adding a running application, any connections already
-              established by the application will continue to be routed through
-              the VPN tunnel until the TCP connection/s are reset or the
-              application is restarted
+              established by the application may continue to be routed
+              outside of the enclave until the TCP connection/s are reset
+              or the application is restarted
             </p>
           </div>
           <div class="settingsGrayLongDescriptionFont">
@@ -120,8 +119,7 @@
       </ComponentDialog>
     </div>
     <div class="fwDescription">
-      Exclude traffic from specific applications from being routed through the
-      VPN
+      Allow only specific applications to access the enclave
     </div>
 
     <!-- INVERSE MODE-->
@@ -156,7 +154,7 @@
       <div style="margin-left: 16px">
         <!-- Allow connectivity for Split Tunnel apps when VPN is disabled -->
         <div class="param">
-          <input :disabled="!stInversedLocal || !isSTEnabledLocal" type="checkbox" id="stAllowWhenNoVpnLocal"
+          <input :disabled="!stInversedLocal || !isAppWhitelistEnabledLocal" type="checkbox" id="stAllowWhenNoVpnLocal"
             v-model="stAllowWhenNoVpnLocal" @change="applyChanges" />
           <label class="defColor" for="stAllowWhenNoVpnLocal">
             Allow connectivity for Split Tunnel apps when VPN is disabled</label>
@@ -182,7 +180,7 @@
 
         <!-- Block DNS servers not specified by the privateLINE application -->
         <div class="param">
-          <input :disabled="!stInversedLocal || !isSTEnabledLocal" type="checkbox" id="stBlockNonVpnDnsLocal"
+          <input :disabled="!stInversedLocal || !isAppWhitelistEnabledLocal" type="checkbox" id="stBlockNonVpnDnsLocal"
             v-model="stBlockNonVpnDnsLocal" @change="applyChanges" />
           <label class="defColor" for="stBlockNonVpnDnsLocal">Block DNS servers not specified by the privateLINE
             application</label>
@@ -227,8 +225,8 @@
 
         <!-- ADD APP BUTTON -->
         <div>
-          <button class="settingsButton" v-bind:class="{ opacityOnHoverLight: IsEnabled === true }"
-            :disabled="IsEnabled !== true" style="min-width: 156px" v-on:click="showAddApplicationPopup(true)">
+          <button class="settingsButton" v-bind:class="{ opacityOnHoverLight: IsAppWhitelistEnabled === true }"
+            :disabled="IsAppWhitelistEnabled !== true" style="min-width: 156px" v-on:click="showAddApplicationPopup(true)">
             {{ textAddAppButton }}
           </button>
         </div>
@@ -336,6 +334,7 @@ export default {
   data: function () {
     return {
       isSTEnabledLocal: true,
+      isAppWhitelistEnabledLocal: false,
       stInversedLocal: false,
       stAnyDnsLocal: false,
       stBlockNonVpnDnsLocal: true,
@@ -374,6 +373,7 @@ export default {
 
   async mounted() {
     this.isSTEnabledLocal = this.IsEnabled;
+    this.isAppWhitelistEnabledLocal = this.IsAppWhitelistEnabled;
     this.stInversedLocal = this.IsInversed;
     this.stBlockNonVpnDnsLocal = !this.IsAnyDns;
     this.stAllowWhenNoVpnLocal = this.IsAllowWhenNoVpn;
@@ -408,6 +408,9 @@ export default {
     IsEnabled() {
       this.isSTEnabledLocal = this.IsEnabled;
     },
+    IsAppWhitelistEnabled() {
+      this.isAppWhitelistEnabledLocal = this.IsAppWhitelistEnabled;
+    },
     IsInversed() {
       this.stInversedLocal = this.IsInversed;
     },
@@ -428,6 +431,7 @@ export default {
   methods: {
     updateLocals() {
       this.isSTEnabledLocal = this.IsEnabled;
+      this.isAppWhitelistEnabledLocal = this.IsAppWhitelistEnabled;
       this.stInversedLocal = this.IsInversed;
       this.stBlockNonVpnDnsLocal = !this.IsAnyDns;
       this.stAllowWhenNoVpnLocal = this.IsAllowWhenNoVpn;
@@ -471,6 +475,7 @@ export default {
       try {
         await sender.SplitTunnelSetConfig(
           this.isSTEnabledLocal,
+          this.isAppWhitelistEnabledLocal,
           this.stInversedLocal,
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
           this.stAllowWhenNoVpnLocal,
@@ -557,7 +562,7 @@ Do you want to enable Inverse mode for Split Tunnel?",
         timerBackgroundCheckOfStatus = setInterval(() => {
           if (
             !this.isRunningAppsAvailable() ||
-            this.$store.state.uiState.currentSettingsViewName != "splittunnel"
+            this.$store.state.uiState.currentSettingsViewName != "appwhitelist"
           ) {
             this.stopBackgroundCheckOfStatus();
             return;
@@ -731,7 +736,7 @@ Do you want to enable Inverse mode for Split Tunnel?",
       if (actionNo == 1) return;
 
       this.resetFilters();
-      await sender.SplitTunnelSetConfig(false, false, false, false, true);
+      await sender.SplitTunnelSetConfig(true, false, false, false, false, true);
     },
 
     resetFilters: function () {
@@ -775,6 +780,9 @@ Do you want to enable Inverse mode for Split Tunnel?",
     // needed for 'watch'
     IsEnabled: function () {
       return this.$store.state.vpnState.splitTunnelling?.IsEnabled;
+    },
+    IsAppWhitelistEnabled: function () {
+      return this.$store.state.vpnState.splitTunnelling?.IsAppWhitelistEnabled;
     },
     // needed for 'watch'
     IsInversed: function () {

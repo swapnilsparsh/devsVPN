@@ -58,14 +58,14 @@
                 PrivateLINE Firewall
               </button> -->
               <button
-                v-if="isLoggedIn && isSplitTunnelVisible"
+                v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
-                v-on:click="onView('splittunnel')"
+                v-on:click="onView('appwhitelist')"
                 v-bind:class="{
-                  activeBtn: view === 'splittunnel',
+                  activeBtn: view === 'appwhitelist',
                 }"
               >
-                Split Tunnel
+                App Whitelist
               </button>
               <!-- <button
                 v-if="isLoggedIn"
@@ -164,8 +164,8 @@
             :registerBeforeCloseHandler="doRegisterBeforeViewCloseHandler"
           />
         </div>
-        <div class="flexColumn" v-else-if="view === 'splittunnel'">
-          <splittunnelView />
+        <div class="flexColumn" v-else-if="view === 'appwhitelist'">
+          <appWhitelistView />
         </div>
         <div class="flexColumn" v-else-if="view === 'networks'">
           <networksView />
@@ -196,7 +196,7 @@ import connectionView from "@/components/settings/settings-connection.vue";
 import accountView from "@/components/settings/settings-account.vue";
 import generalView from "@/components/settings/settings-general.vue";
 import firewallView from "@/components/settings/settings-firewall.vue";
-import splittunnelView from "@/components/settings/settings-splittunnel.vue";
+import appWhitelistView from "@/components/settings/settings-appwhitelist.vue";
 import networksView from "@/components/settings/settings-networks.vue";
 import antitrackerView from "@/components/settings/settings-antitracker.vue";
 import dnsView from "@/components/settings/settings-dns.vue";
@@ -210,7 +210,7 @@ export default {
     accountView,
     generalView,
     firewallView,
-    splittunnelView,
+    appWhitelistView,
     networksView,
     antitrackerView,
     dnsView,

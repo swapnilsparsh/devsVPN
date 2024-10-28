@@ -121,18 +121,21 @@ func SetPersistant(persistant bool) error {
 
 // GetEnabled - get firewall status enabled/disabled
 func GetEnabled() (bool, error) {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
+	// TODO FIXME: Vlad - maybe re-enable the firewall after MVP 1.0?
+	// No, we cannot use firewall together with inverse split mode.
+	// We use inverse split mode to allow either all apps to the enclave (VPN), or only the specific apps -
+	// so we may need to enable inverse split mode at any time, so can't enable IVPN firewall.
 	return false, nil
 
-	mutex.Lock()
-	defer mutex.Unlock()
+	// mutex.Lock()
+	// defer mutex.Unlock()
 
-	ret, err := implGetEnabled()
-	if err != nil {
-		log.Error("Status check error: ", err)
-	}
+	// ret, err := implGetEnabled()
+	// if err != nil {
+	// 	log.Error("Status check error: ", err)
+	// }
 
-	return ret, err
+	// return ret, err
 }
 
 func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, err error) {

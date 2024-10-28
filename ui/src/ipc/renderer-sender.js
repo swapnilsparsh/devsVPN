@@ -196,6 +196,7 @@ export default {
   },
   SplitTunnelSetConfig: async (
     enabled,
+    appWhitelistEnabled,
     inversed,
     isAnyDns,
     allowWhenNoVpn,
@@ -204,6 +205,7 @@ export default {
     return await invoke(
       "renderer-request-SplitTunnelSetConfig",
       enabled,
+      appWhitelistEnabled,
       inversed,
       isAnyDns,
       allowWhenNoVpn,

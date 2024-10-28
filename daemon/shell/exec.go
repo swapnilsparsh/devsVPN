@@ -35,9 +35,9 @@ type LogInterface interface {
 	Error(v ...interface{})
 }
 
-// Exec - execute external process
+// ExecGetExitCode - execute external process
 // Synchronous operation. Waits until process finished
-func Exec(logger LogInterface, name string, args ...string) error {
+func ExecGetExitCode(logger LogInterface, name string, args ...string) (retCode int, retErr error) {
 	if logger != nil {
 		logger.Info("Shell exec: ", append([]string{name}, args...))
 	}
@@ -48,7 +48,7 @@ func Exec(logger LogInterface, name string, args ...string) error {
 		if logger != nil {
 			logger.Error("Shell exec: ", err)
 		}
-		return err
+		return 1, err
 	}
 
 	if err := cmd.Wait(); err != nil {
@@ -58,13 +58,20 @@ func Exec(logger LogInterface, name string, args ...string) error {
 
 		exCode, e := GetCmdExitCode(err)
 		if e != nil {
-			return fmt.Errorf("ExitCode=%d: %w", exCode, e)
+			return exCode, fmt.Errorf("ExitCode=%d: %v", exCode, e)
 		}
 
-		return err
+		return exCode, err
 	}
 
-	return nil
+	return 0, nil
+}
+
+// Exec - execute external process
+// Synchronous operation. Waits until process finished
+func Exec(logger LogInterface, name string, args ...string) error {
+	_, err := ExecGetExitCode(logger, name, args...)
+	return err
 }
 
 // GetCmdExitCode - try to get command ExitCode from

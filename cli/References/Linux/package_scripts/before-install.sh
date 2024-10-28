@@ -23,22 +23,22 @@ if [ -f ${PRIVATELINE_BIN} ]; then
 fi
 
 # Erasing Split Tunnel leftovers from old installation
-# Required for: 
+# Required for:
 # - RPM upgrade
 # - compatibility with old package versions (v3.12.0 and older)
-#if [ -f /opt/privateline-connect/etc/firewall.sh ] || [ -f /opt/privateline-connect/etc/splittun.sh ]; then 
-#  echo "[+] Trying to erase old Split Tunnel rules ..."
-#  if [ -f /opt/privateline-connect/etc/firewall.sh ]; then
-#    printf "    * /opt/privateline-connect/etc/firewall.sh -only_dns_off: "
-#    /opt/privateline-connect/etc/firewall.sh -only_dns_off >/dev/null 2>&1 && echo "OK" || echo "NOK"
-#  fi
-#  if [ -f /opt/privateline-connect/etc/splittun.sh ]; then
-#    printf "    * /opt/privateline-connect/etc/splittun.sh reset        : "
-#    /opt/privateline-connect/etc/splittun.sh reset >/dev/null 2>&1         && echo "OK" || echo "NOK"
-#    printf "    * /opt/privateline-connect/etc/splittun.sh stop         : "
-#    /opt/privateline-connect/etc/splittun.sh stop >/dev/null 2>&1          && echo "OK" || echo "NOK"
-#  fi
-#fi
+if [ -f /opt/privateline-connect/etc/firewall.sh ] || [ -f /opt/privateline-connect/etc/splittun.sh ]; then
+  echo "[+] Trying to erase old Split Tunnel rules ..."
+  if [ -f /opt/privateline-connect/etc/firewall.sh ]; then
+    printf "    * /opt/privateline-connect/etc/firewall.sh -only_dns_off: "
+    /opt/privateline-connect/etc/firewall.sh -only_dns_off >/dev/null 2>&1 && echo "OK" || echo "NOK"
+  fi
+  if [ -f /opt/privateline-connect/etc/splittun.sh ]; then
+    printf "    * /opt/privateline-connect/etc/splittun.sh reset        : "
+    /opt/privateline-connect/etc/splittun.sh reset >/dev/null 2>&1         && echo "OK" || echo "NOK"
+    printf "    * /opt/privateline-connect/etc/splittun.sh stop         : "
+    /opt/privateline-connect/etc/splittun.sh stop >/dev/null 2>&1          && echo "OK" || echo "NOK"
+  fi
+fi
 
 # ########################################################################################
 #

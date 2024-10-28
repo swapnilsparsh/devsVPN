@@ -379,7 +379,7 @@ func (s *Service) unInitialise() error {
 	}
 	// Split tunnel enabled by default, out of the box
 	log.Debug("service.go unInitialise() calling splittun.ApplyConfig() with empty splittun.ConfigAddresses")
-	if err := splittun.ApplyConfig(true, false, false, false, splittun.ConfigAddresses{}, []string{}); err != nil {
+	if err := splittun.ApplyConfig(true, true, false, false, false, splittun.ConfigAddresses{}, []string{}); err != nil {
 		log.Error(err)
 		updateRetErr(err)
 	}
@@ -1245,7 +1245,7 @@ func (s *Service) ResetPreferences() error {
 	s._preferences = *preferences.Create()
 
 	// erase ST config -  split tunnel config by default
-	s.SplitTunnelling_SetConfig(true, false, false, false, true)
+	s.SplitTunnelling_SetConfig(true, true, true, false, false, true)
 	return nil
 }
 
@@ -1349,6 +1349,7 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 		isEnabled = false
 	}
 	isInversed := prefs.SplitTunnelInversed
+	enableAppWhitelist := prefs.EnableAppWhitelist
 	isAnyDns := prefs.SplitTunnelAnyDns
 	isAllowWhenNoVpn := prefs.SplitTunnelAllowWhenNoVpn
 	if stInverseErr != nil {
@@ -1366,7 +1367,9 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 	ret := protocolTypes.SplitTunnelStatus{
 		IsFunctionalityNotAvailable: stErr != nil,
 		IsEnabled:                   isEnabled,
+		IsAppWhitelistEnabled:       enableAppWhitelist,
 		IsInversed:                  isInversed,
+		EnableAppWhitelist:          enableAppWhitelist,
 		IsAnyDns:                    isAnyDns,
 		IsAllowWhenNoVpn:            isAllowWhenNoVpn,
 		IsCanGetAppIconForBinary:    oshelpers.IsCanGetAppIconForBinary(),
@@ -1376,7 +1379,7 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 	return ret, nil
 }
 
-func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isAllowWhenNoVpn, reset bool) error {
+func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhitelist, isAnyDns, isAllowWhenNoVpn, reset bool) error {
 	if reset {
 		return s.splitTunnelling_Reset()
 	}
@@ -1386,6 +1389,27 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 	}
 	if isInversed && stInverseErr != nil {
 		return stInverseErr
+	}
+
+	// Check plan name. Free accounts are not allowed to use Total Shield.
+	if !isEnabled {
+		session := s.Preferences().Session
+		if !session.IsLoggedIn() {
+			return log.ErrorE(errors.New("Total Shield is only available for premium plans. You're not logged in yet, so cannot check your subscription. Please login first."), 0)
+		}
+
+		if s.Preferences().PlanName == "" { // if we haven't fetched plan name yet, fetch it now
+			if _, _, err := s.SubscriptionData(); err != nil {
+				return log.ErrorE(fmt.Errorf("error fetching plan name: %w", err), 0)
+			}
+			if s.Preferences().PlanName == "" {
+				return log.ErrorE(errors.New("error - plan name still empty after calling SubscriptionData()"), 0)
+			}
+		}
+
+		if s.Preferences().PlanName == "Free" {
+			return log.ErrorE(errors.New("Total Shield is only available for premium plans. You can upgrade your subscription at https://privateline.io/#pricing"), 0)
+		}
 	}
 
 	if isEnabled && isInversed {
@@ -1398,10 +1422,10 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 		if isAnyDns {
 			defaultParams := s.GetConnectionParams()
 			if defaultParams.Metadata.AntiTracker.Enabled {
-				return fmt.Errorf("unable to disable the non-IVPN DNS blocking feature for Inverse Split Tunnel mode: AntiTracker is currently enabled; please disable both AntiTracker and manually configured DNS settings first")
+				return fmt.Errorf("unable to disable the non-privateLINE DNS blocking feature for Inverse Split Tunnel mode: AntiTracker is currently enabled; please disable both AntiTracker and manually configured DNS settings first")
 			}
 			if !defaultParams.ManualDNS.IsEmpty() {
-				return fmt.Errorf("unable to disable the non-IVPN DNS blocking feature for Inverse Split Tunnel mode: manual DNS is currently enabled; please disable manually configured DNS settings first")
+				return fmt.Errorf("unable to disable the non-privateLINE DNS blocking feature for Inverse Split Tunnel mode: manual DNS is currently enabled; please disable manually configured DNS settings first")
 			}
 		}
 	}
@@ -1410,6 +1434,7 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 	prefs := prefsOld
 	prefs.IsSplitTunnel = isEnabled
 	prefs.SplitTunnelInversed = isInversed
+	prefs.EnableAppWhitelist = enableAppWhitelist
 	prefs.SplitTunnelAnyDns = isAnyDns
 	prefs.SplitTunnelAllowWhenNoVpn = isAllowWhenNoVpn
 	s.setPreferences(prefs)
@@ -1434,7 +1459,8 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 func (s *Service) splitTunnelling_Reset() error {
 	prefs := s._preferences
 	prefs.IsSplitTunnel = true // Split tunnel enabled by default, out of the box
-	prefs.SplitTunnelInversed = false
+	prefs.SplitTunnelInversed = true
+	prefs.EnableAppWhitelist = false
 	prefs.SplitTunnelAnyDns = false
 	prefs.SplitTunnelAllowWhenNoVpn = false
 	prefs.SplitTunnelApps = make([]string, 0)
@@ -1548,13 +1574,13 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	}
 
 	// Apply Split-Tun config
-	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
+	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
 }
 
 func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAlreadyRunning bool, err error) {
-	if !s._preferences.IsSplitTunnel {
-		return "", false, fmt.Errorf("unable to run application in Split Tunnel environment: Split Tunnel is disabled")
-	}
+	// if !s._preferences.IsSplitTunnel {
+	// 	return "", false, fmt.Errorf("unable to run application in Split Tunnel environment: Split Tunnel is disabled")
+	// }
 	// apply ST configuration after function ends
 	defer s.splitTunnelling_ApplyConfig()
 	return s.implSplitTunnelling_AddApp(exec)
@@ -1861,6 +1887,8 @@ func (s *Service) SessionNew(email string, password string, deviceName string, s
 
 	// init to split tunnel by default
 	prefs.IsSplitTunnel = true
+	// // and allow all apps into enclave by default
+	// prefs.EnableAppWhitelist = false
 
 	// propagate our prefs changes to Preferences and to settings.json
 	s.setPreferences(prefs)
@@ -2106,7 +2134,9 @@ func (s *Service) SubscriptionData() (
 		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
 	}
 
-	subscriptionDataResponse, apiCode, err = s._api.SubscriptionData(s.Preferences().Session.Session)
+	if subscriptionDataResponse, apiCode, err = s._api.SubscriptionData(s.Preferences().Session.Session); err == nil {
+		s._preferences.PlanName = subscriptionDataResponse.Plan.Name // save subscription plan name
+	}
 	return apiCode, subscriptionDataResponse, err
 }
 
