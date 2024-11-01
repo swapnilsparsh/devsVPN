@@ -24,7 +24,6 @@ package wireguard
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -407,7 +406,7 @@ func (wg *WireGuard) installService(stateChan chan<- vpn.StateInfo) error {
 	log.Info("Connecting...")
 
 	// generate configuration
-	defer os.Remove(wg.configFilePath)
+	// defer os.Remove(wg.configFilePath)
 	err := wg.generateAndSaveConfigFile(wg.configFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to save config file: %w", err)
