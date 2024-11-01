@@ -390,7 +390,7 @@ func (wg *WireGuard) initializeUnunInterface() error {
 // WireGuard configuration
 func (wg *WireGuard) setWgConfiguration() error {
 	// do not forget to remove config file after finishing configuration
-	defer os.Remove(wg.configFilePath)
+	// defer os.Remove(wg.configFilePath)
 
 	for retries := 0; ; retries++ {
 		// few retries if local port is already in use
