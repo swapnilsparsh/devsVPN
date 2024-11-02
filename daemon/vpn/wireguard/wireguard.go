@@ -293,7 +293,8 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"PrivateKey = " + wg.connectParams.clientPrivateKey,
 		"ListenPort = " + strconv.Itoa(wg.localPort),
 		"Address = " + wg.connectParams.clientLocalIP.String(),
-		"DNS = " + wg.connectParams.dnsServers,
+		// "DNS = " + wg.connectParams.dnsServers, // Vlad: disabling per https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491 , on Windows shouldn't be needed either.
+		"MTU = 1280", // on win10 1280 is the minimal value that works, on Linux 1200 works
 	}
 
 	peerCfg := []string{
