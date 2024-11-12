@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -284,11 +285,24 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	// 	return nil, fmt.Errorf("WG PresharedKey is not base64 string")
 	// }
 
+	// Vlad: don't include <ourIP>/32 in AllowedIPs, as otherwise we have no connectivity to internal resources on win11.
+	ourIP := wg.connectParams.clientLocalIP.String()
+	ourIPregex, err := regexp.CompilePOSIX(",?" + ourIP + "/32,?")
+	if err != nil {
+		return nil, fmt.Errorf("error generating regular expression: %w", err)
+	}
+	allowedIPs := wg.connectParams.allowedIPs
+	// log.Debug("allowedIPs before munging = " + allowedIPs)
+	if loc := ourIPregex.FindStringIndex(allowedIPs); loc != nil {
+		allowedIPs = allowedIPs[:loc[0]] + allowedIPs[loc[1]:]
+		// log.Debug("allowedIPs after munging = " + allowedIPs)
+	}
+
 	interfaceCfg := []string{
 		"[Interface]",
 		"PrivateKey = " + wg.connectParams.clientPrivateKey,
 		"ListenPort = " + strconv.Itoa(wg.localPort),
-		"Address = " + wg.connectParams.clientLocalIP.String(),
+		"Address = " + ourIP,
 		// "DNS = " + wg.connectParams.dnsServers, // Vlad: disabling per https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491 , on Windows shouldn't be needed either.
 		"MTU = 1280", // on win10 1280 is the minimal value that works, on Linux 1200 works
 	}
@@ -297,7 +311,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"[Peer]",
 		"PublicKey = " + wg.connectParams.hostPublicKey,
 		"Endpoint = " + wg.connectParams.hostIP.String() + ":" + strconv.Itoa(wg.connectParams.hostPort),
-		"AllowedIPs = " + wg.connectParams.allowedIPs,
+		"AllowedIPs = " + allowedIPs,
 		"PersistentKeepalive = 25",
 	}
 
