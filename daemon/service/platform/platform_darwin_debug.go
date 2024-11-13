@@ -64,7 +64,7 @@ func doOsInitForBuild() (warnings []string, errors []error) {
 	serversFile = path.Join(settingsDir, "servers.json")
 	openvpnConfigFile = path.Join(settingsDir, "openvpn.cfg")
 	openvpnProxyAuthFile = path.Join(settingsDir, "proxyauth.txt")
-	wgConfigFilePath = path.Join(settingsDir, "wireguard.conf")
+	wgConfigFilePath = path.Join(settingsDir, "wgprivateline.conf")
 
 	openVpnBinaryPath = path.Join(installDir, "References/macOS/_deps/openvpn_inst/bin/openvpn")
 	openvpnCaKeyFile = path.Join(installDir, "References/common/etc/ca.crt")

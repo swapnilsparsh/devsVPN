@@ -1391,6 +1391,27 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhit
 		return stInverseErr
 	}
 
+	// Check plan name. Free accounts are not allowed to use Total Shield.
+	if !isEnabled {
+		session := s.Preferences().Session
+		if !session.IsLoggedIn() {
+			return log.ErrorE(errors.New("Total Shield is only available for premium plans. You're not logged in yet, so cannot check your subscription. Please login first."), 0)
+		}
+
+		if s.Preferences().PlanName == "" { // if we haven't fetched plan name yet, fetch it now
+			if _, _, err := s.SubscriptionData(); err != nil {
+				return log.ErrorE(fmt.Errorf("error fetching plan name: %w", err), 0)
+			}
+			if s.Preferences().PlanName == "" {
+				return log.ErrorE(errors.New("error - plan name still empty after calling SubscriptionData()"), 0)
+			}
+		}
+
+		if s.Preferences().PlanName == "Free" {
+			return log.ErrorE(errors.New("Total Shield is only available for premium plans. You can upgrade your subscription at https://privateline.io/#pricing"), 0)
+		}
+	}
+
 	if isEnabled && isInversed {
 		// if we are going to enable INVERSE SplitTunneling - ensure that Firewall is disabled
 		if enabled, _ := s.FirewallEnabled(); enabled {
@@ -1926,7 +1947,9 @@ func (s *Service) SubscriptionData() (
 		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
 	}
 
-	subscriptionDataResponse, apiCode, err = s._api.SubscriptionData(s.Preferences().Session.Session)
+	if subscriptionDataResponse, apiCode, err = s._api.SubscriptionData(s.Preferences().Session.Session); err == nil {
+		s._preferences.PlanName = subscriptionDataResponse.Plan.Name // save subscription plan name
+	}
 	return apiCode, subscriptionDataResponse, err
 }
 
