@@ -33,7 +33,7 @@ ${StrLoc}
 !define DEVCON_BASENAME "devcon.exe"
 ;  Vlad - disabled installation/uninstallation of TAP driver for now
 ;!define PRODUCT_TAP_WIN_COMPONENT_ID "tapivpn"
-;!define DRIVER_SPLIT_TUNNEL_ID "root\privateline-split-tunnel"
+!define DRIVER_SPLIT_TUNNEL_ID "root\privateline-split-tunnel"
 
 ; The following variables will be set from the build.bat script
 ; !define PRODUCT_VERSION "2.0-b4"
@@ -430,9 +430,8 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
  */
 
   ; ============ Split-Tunnel driver ==========================================================
-  /*
   ${If} ${AtLeastWin10}
-    DetailPrint "Installing IVPN Split-Tunnel Driver..."
+    DetailPrint "Installing privateLINE Split-Tunnel Driver..."
 
     ; check if TUN/TAP driver is installed
     IntOp $R5 0 & 0
@@ -476,7 +475,7 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
       ${EndIf}
     ${EndIf}
   ${EndIf} ; AtLeastWin10
-  */
+  
   ; ============ Service ======================================================================
   ; install service
   DetailPrint "Installing privateline-connect-svc service..."
@@ -484,7 +483,7 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
   nsExec::ExecToLog '"$SYSDIR\sc.exe" sdset "privateline-connect-svc" "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPDTLO;;;S-1-1-0)"'
 
   ; add service to firewall
-  ;nsExec::ExecToLog '"$SYSDIR\netsh.exe" firewall add allowedprogram "$INSTDIR\privateline-connect-svc.exe" "privateline-connect-svc" ENABLE'
+  nsExec::ExecToLog '"$SYSDIR\netsh.exe" firewall add allowedprogram "$INSTDIR\privateline-connect-svc.exe" "privateline-connect-svc" ENABLE'
 
   ; start service
   DetailPrint "Starting privateline-connect-svc service..."
@@ -556,6 +555,7 @@ Section "Uninstall"
 */
 
   ; uninstall Split-Tunnel driver
+  ; This paragraph was commented out in original IVPN .nsi
   ;DetailPrint "Removing Split-Tunnell driver..."
   ;nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" remove ${DRIVER_SPLIT_TUNNEL_ID}'
   ;Pop $R0 # return value/error/timeout

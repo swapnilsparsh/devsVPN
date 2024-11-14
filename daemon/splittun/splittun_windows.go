@@ -31,7 +31,6 @@ import (
 	"net/netip"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -207,7 +206,6 @@ func implReset() error {
 	return nil
 }
 
-/*
 func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// Check if functionality available
 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
@@ -220,6 +218,7 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 		return err
 	}
 
+	// TODO FIXME: Vlad - adjust logic
 	// If: (VPN not connected + inverse split-tunneling enabled + isStInverseAllowWhenNoVpn==false) --> we need to set blackhole IP addresses for tunnel interface
 	// This will forward all traffic of split-tunnel apps to 'nowhere' (in fact, it will block all traffic of split-tunnel apps)
 	if isStInversed && !isStInverseAllowWhenNoVpn && !isVpnEnabled {
@@ -227,6 +226,7 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 		addrConfig.IPv6Tunnel = net.ParseIP(BlackHoleIPv6)
 	}
 
+	// TODO FIXME: Vlad - adjust logic
 	// If ST not enabled or no configuration - just disconnect driver (if connected)
 	// We do not need to start ST driver when:
 	// - ST disabled
@@ -261,6 +261,7 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 		}
 
 		addresses := addrConfig
+		// TODO FIXME: Vlad - check logic
 		// For inversed split-tunnel we just inverse IP addresses in driver configuration (defaultPublicInterfaceIP <=> tunnelInterfaceIP)
 		if isStInversed {
 			// In situation when there is no IPv6 connectivity on local machine (IPv6Public not defined) - we need to set IPv6Tunnel to IPv6Public
@@ -310,55 +311,54 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 
 	return nil
 }
-*/
 
-func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
-	// mutexSplittunWin.Lock()
-	// defer func() {
-	// 	log.Debug("implApplyConfig() completed")
-	// 	mutexSplittunWin.Unlock()
-	// }()
-	// log.Debug("implApplyConfig() started")
+// func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+// 	// mutexSplittunWin.Lock()
+// 	// defer func() {
+// 	// 	log.Debug("implApplyConfig() completed")
+// 	// 	mutexSplittunWin.Unlock()
+// 	// }()
+// 	// log.Debug("implApplyConfig() started")
 
-	// Check if functionality available
-	var err error
-	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
-	isFunctionalityNotAvailable := splitTunErr != nil || (isStInversed && splitTunInversedErr != nil)
-	if isFunctionalityNotAvailable {
-		_, file, line, _ := runtime.Caller(0)
-		log.Warning(fmt.Sprintf("%s:%d: functionality not available", file, line))
-		return nil
-	}
+// 	// Check if functionality available
+// 	var err error
+// 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
+// 	isFunctionalityNotAvailable := splitTunErr != nil || (isStInversed && splitTunInversedErr != nil)
+// 	if isFunctionalityNotAvailable {
+// 		_, file, line, _ := runtime.Caller(0)
+// 		log.Warning(fmt.Sprintf("%s:%d: functionality not available", file, line))
+// 		return nil
+// 	}
 
-	if err = isInitialised(); err != nil {
-		return fmt.Errorf("error in isInitialised(): %w", err)
-	}
+// 	if err = isInitialised(); err != nil {
+// 		return fmt.Errorf("error in isInitialised(): %w", err)
+// 	}
 
-	// Disabling default IPv6 routes doesn't work on win10 - Windows enables them back. Instead we disable/enable IPv6 on all adapters.
-	// if addrConfig.IPv6Endpoint != nil {
-	// 	if err = doApplySplitFullTunnelRoutes(windows.AF_INET6, isStEnabled, isVpnEnabled, addrConfig.IPv6Endpoint); err != nil {
-	// 		err = log.ErrorE(fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv6): %w", err), 0)
-	// 	}
-	// }
+// 	// Disabling default IPv6 routes doesn't work on win10 - Windows enables them back. Instead we disable/enable IPv6 on all adapters.
+// 	// if addrConfig.IPv6Endpoint != nil {
+// 	// 	if err = doApplySplitFullTunnelRoutes(windows.AF_INET6, isStEnabled, isVpnEnabled, addrConfig.IPv6Endpoint); err != nil {
+// 	// 		err = log.ErrorE(fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv6): %w", err), 0)
+// 	// 	}
+// 	// }
 
-	// ipv6ResponseChan := make(chan error)
-	// fork the powershell invocation in the background and forget about it, it takes 6.8-6.9 seconds on my laptop
-	go enableDisableIPv6(isStEnabled || !isVpnEnabled /*, ipv6ResponseChan*/)
+// 	// ipv6ResponseChan := make(chan error)
+// 	// fork the powershell invocation in the background and forget about it, it takes 6.8-6.9 seconds on my laptop
+// 	go enableDisableIPv6(isStEnabled || !isVpnEnabled /*, ipv6ResponseChan*/)
 
-	if addrConfig.IPv4Endpoint != nil {
-		if err = doApplySplitFullTunnelRoutes(windows.AF_INET, isStEnabled, isVpnEnabled, addrConfig.IPv4Endpoint); err != nil {
-			err = fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv4): %w", err)
-		}
-	}
+// 	if addrConfig.IPv4Endpoint != nil {
+// 		if err = doApplySplitFullTunnelRoutes(windows.AF_INET, isStEnabled, isVpnEnabled, addrConfig.IPv4Endpoint); err != nil {
+// 			err = fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv4): %w", err)
+// 		}
+// 	}
 
-	// ipv6Err := <-ipv6ResponseChan
+// 	// ipv6Err := <-ipv6ResponseChan
 
-	// if err != nil {
-	return err
-	// } else {
-	// 	return ipv6Err
-	// }
-}
+// 	// if err != nil {
+// 	return err
+// 	// } else {
+// 	// 	return ipv6Err
+// 	// }
+// }
 
 func implAddPid(pid int, commandToExecute string) error {
 	return fmt.Errorf("operation not applicable for current platform")
@@ -395,6 +395,7 @@ func implGetRunningApps() ([]RunningApp, error) {
 //	route add 192.0.0.0 MASK 192.0.0.0 192.168.1.1
 //
 // As a result, all traffic will pass through the default non-VPN interface, except for excluded apps designated by the split-tunnel driver, which will use the VPN interface.
+// TODO FIXME: Vlad - adjust logic
 func applyInverseSplitTunRoutingRules(isVpnEnabled, isStInversed, isStEnabled bool) (retErr error) {
 	isNeedApplyRoutes := isVpnEnabled && isStInversed && isStEnabled
 
@@ -411,6 +412,7 @@ func applyInverseSplitTunRoutingRules(isVpnEnabled, isStInversed, isStEnabled bo
 	return retErr
 }
 
+// TODO FIXME: Vlad - adjust logic
 func doApplyInverseRoutes(isIPv6, enable bool) error {
 	if routeBinaryPath == "" {
 		return fmt.Errorf("route.exe location not specified")

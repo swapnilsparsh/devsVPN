@@ -1,24 +1,24 @@
 //
 //  Split-Tunnel Driver for Windows
-//  https://github.com/swapnilsparsh/devsVPN/daemon/References/Windows/Native%20Projects/IVPN%20Split%20Tunnel%20Driver
+//  https://github.com/swapnilsparsh/devsVPN/daemon/References/Windows/Native%20Projects/privateLINE%20Split%20Tunnel%20Driver
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
 //
-//  This file is part of the IVPN Client for Desktop project.
+//  This file is part of the privateLINE Client for Desktop project.
 //  https://github.com/swapnilsparsh/devsVPN
 //
-//  The IVPN Client for Desktop is free software: you can redistribute it and/or
+//  The privateLINE Client for Desktop is free software: you can redistribute it and/or
 //  modify it under the terms of the GNU General Public License as published by the Free
 //  Software Foundation, either version 3 of the License, or (at your option) any later version.
 //
-//  The IVPN Client for Desktop is distributed in the hope that it will be useful,
+//  The privateLINE Client for Desktop is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 //  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 //  details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with the IVPN Client for Desktop. If not, see <https://www.gnu.org/licenses/>.
+//  along with the privateLINE Client for Desktop. If not, see <https://www.gnu.org/licenses/>.
 //
 
 /*++
@@ -41,17 +41,17 @@ Environment:
 //
 // Device name to be accessible by the applications (CreateFileW())
 //
-#define DEVICE_NAME_PUBLIC L"\\\\.\\IVPNSPLITTUNNEL"
+#define DEVICE_NAME_PUBLIC L"\\\\.\\PRIVATELINESPLITTUNNEL"
 
 //
 // Driver registration params
 //
-#define DRV_DEVICE_NAME_STRING      L"\\Device\\IVPNSPLITTUNNEL"
-#define DRV_SYMBOLIC_NAME_STRING    L"\\Global??\\IVPNSPLITTUNNEL"
+#define DRV_DEVICE_NAME_STRING      L"\\Device\\PRIVATELINESPLITTUNNEL"
+#define DRV_SYMBOLIC_NAME_STRING    L"\\Global??\\PRIVATELINESPLITTUNNEL"
 //
 // A driver-defined pool tag that the framework will assign to all of the driver's pool allocations. Debuggers display this tag. 
 //
-#define POOL_TAG                    'IVPN' 
+#define POOL_TAG                    'PL' 
 
 //
 // The IOCTL function codes.

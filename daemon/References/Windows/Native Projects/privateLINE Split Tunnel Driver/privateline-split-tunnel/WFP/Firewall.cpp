@@ -30,9 +30,9 @@ namespace wfp
 		// --------------------------------------------
 
 		FWPM_PROVIDER0 provider = { 0 };
-		provider.providerKey = KEY_IVPN_ST_PROVIDER;
-		provider.displayData.name = const_cast<wchar_t*>(L"IVPN Split Tunnel");
-		provider.displayData.description = const_cast<wchar_t*>(L"IVPN Split Tunnel filters + callouts");
+		provider.providerKey = KEY_PRIVATELINE_ST_PROVIDER;
+		provider.displayData.name = const_cast<wchar_t*>(L"privateLINE Split Tunnel");
+		provider.displayData.description = const_cast<wchar_t*>(L"privateLINE Split Tunnel filters + callouts");
 
 		status = FwpmProviderAdd0(gWfpEngineHandle, &provider, NULL);
 		if (!NT_SUCCESS(status))
@@ -43,9 +43,9 @@ namespace wfp
 		FWPM_SUBLAYER subLayer;
 		RtlZeroMemory(&subLayer, sizeof(FWPM_SUBLAYER));
 
-		subLayer.subLayerKey = KEY_IVPN_ST_SUBLAYER;
-		subLayer.displayData.name = L"IVPN Split Tunnel sub-Layer";
-		subLayer.displayData.description = L"IVPN Split Tunnel sub-Layer for use callouts";
+		subLayer.subLayerKey = KEY_PRIVATELINE_ST_SUBLAYER;
+		subLayer.displayData.name = L"privateLINE Split Tunnel sub-Layer";
+		subLayer.displayData.description = L"privateLINE Split Tunnel sub-Layer for use callouts";
 		subLayer.flags = 0;
 
 		// Useful link:

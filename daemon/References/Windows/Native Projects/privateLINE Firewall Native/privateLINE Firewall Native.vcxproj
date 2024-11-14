@@ -173,13 +173,13 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\IVPN Split Tunnel Driver\others\common\SplitTunDrvControl\ivpnSplitTunDrvControl.h" />
+    <ClInclude Include="..\privateLINE Split Tunnel Driver\others\common\SplitTunDrvControl\privatelineSplitTunDrvControl.h" />
     <ClInclude Include="Firewall.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\IVPN Split Tunnel Driver\others\common\SplitTunDrvControl\ivpnSplitTunDrvControl.cpp">
+    <ClCompile Include="..\privateLINE Split Tunnel Driver\others\common\SplitTunDrvControl\privatelineSplitTunDrvControl.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
