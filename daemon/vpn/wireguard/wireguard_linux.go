@@ -25,7 +25,6 @@ package wireguard
 import (
 	"fmt"
 	"net"
-	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -136,9 +135,9 @@ func (wg *WireGuard) connect(stateChan chan<- vpn.StateInfo) error {
 		}
 
 		// do not forget to remove config file after finishing configuration
-		if err := os.Remove(wg.configFilePath); err != nil {
-			log.Warning(fmt.Sprintf("failed to remove WG configuration: %s", err))
-		}
+		// if err := os.Remove(wg.configFilePath); err != nil {
+		// 	log.Warning(fmt.Sprintf("failed to remove WG configuration: %s", err))
+		// }
 	}()
 
 	internalRestoreDNSFunc := func() {

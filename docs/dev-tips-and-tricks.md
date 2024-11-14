@@ -14,7 +14,7 @@ Install Cygwin. If you want greyscale, non-colorized multiplex of daemon and UI 
 ```bash
 tail -F -n0 "/cygdrive/c/Program Files/privateLINE Connect/log/privateline-connect-svc.log" /cygdrive/c/Users/$USER/AppData/Roaming/privateline-connect-ui/logs/main.log
 ```
-If you want colorized log multiplex - in Cygwin installer install multitail package, either version below 7.1.3-1, or above it. Multitail v7.1.3-1 has a bug. Start Cygwin shell as an Administrator and run there:
+If you want colorized log multiplex - in Cygwin installer install multitail package. Avoid multitail versions 7.1.3-1, 7.1.5-1 - they are buggy. Start Cygwin shell as an Administrator and run there:
 ```bash
 multitail -N 0 -CS zarafa --retry-all -i "/cygdrive/c/Program Files/privateLINE Connect/log/privateline-connect-svc.log" -i /cygdrive/c/Users/$USER/AppData/Roaming/privateline-connect-ui/logs/main.log
 ```
