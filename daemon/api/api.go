@@ -44,8 +44,8 @@ import (
 const (
 	_defaultRequestTimeout = time.Second * 10 // full request time (for each request)
 	_defaultDialTimeout    = time.Second * 5  // time for the dial to the API server (for each request)
-	// _apiHost               = "api.privateline.io"
-	_apiHost = "api.privateline.dev"
+	_apiHost               = "api.privateline.io"
+	// _apiHost = "api.privateline.dev"
 
 	// temporarily fetching static servers.json from GitHub
 	// _updateHost         = "repo.privateline.io"
@@ -373,13 +373,14 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	httpClient := &http.Client{}
 
 	// Step 1: Exchange code for token by hitting the Keycloak token endpoint
-	tokenUrl := "https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/token"
+	tokenUrl := "https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/token"
 	payload := url.Values{}
 	payload.Set("grant_type", "authorization_code")
 	payload.Set("code", code)
-	payload.Set("redirect_uri", "privateline://auth") // Ensure this matches the registered redirect URI
+	payload.Set("redirect_uri", "privateline://auth") //registered redirect_uri on cloak
 	payload.Set("client_id", "pl-connect-desktop")
-	payload.Set("client_secret", "YKJ6aBMCMhJfzH9RtClcBFFNGrh5ystc")
+	payload.Set("client_secret", "0azvyAE6YtHryCgATkP4RcIx5HUprqgl") //prod client secret
+	// payload.Set("client_secret", "YKJ6aBMCMhJfzH9RtClcBFFNGrh5ystc") //dev client secret
 
 	// Send the POST request to get the token
 	tokenResp, err := httpClient.PostForm(tokenUrl, payload)

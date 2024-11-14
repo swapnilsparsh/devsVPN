@@ -414,7 +414,7 @@ export default {
     },
     openSSO() {
       sender.shellOpenExternal(
-        `https://sso.privateline.dev/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth` );
+        `https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`);
       },
     ForgotPassword() {
       sender.shellOpenExternal(

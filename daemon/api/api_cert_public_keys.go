@@ -12,7 +12,7 @@ prod APIPrivateLineHashes = "KJyZJqESixPI7jPLs0/8P2q6kI4h5kXWIkoxybZ/gzM="
 dev APIPrivateLineHashes = "3/INJ5mVSZ/bndP0j6irtFHJ3M+1PVr0+/s91l8JKzM="
 */
 var APIPrivateLineHashes = []string{
-	"3/INJ5mVSZ/bndP0j6irtFHJ3M+1PVr0+/s91l8JKzM=",
+	"KJyZJqESixPI7jPLs0/8P2q6kI4h5kXWIkoxybZ/gzM=",
 }
 
 // UpdatePrivateLineHashes - base64-encoded SHA256 hashes for 'repo.privateline.io' server public keys (in use for certificate key pinning)
