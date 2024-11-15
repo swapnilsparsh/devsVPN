@@ -12,7 +12,7 @@
           <!-- ACCOUNT ID -->
           <div class="centered">
             <div class="large_text">Login</div>
-            <div class="medium_text">to privateLINE connect</div>
+            <div class="medium_text">to privateLINE Connect</div>
             <div style="height: 12px" />
           </div>
 
