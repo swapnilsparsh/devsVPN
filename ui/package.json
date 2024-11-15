@@ -1,6 +1,6 @@
 {
   "name": "privateline-connect-ui",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "productName": "privateline-connect-ui",
   "description": "privateLINE Connect UI Client",
   "author": "PrivateLINE Limited",
@@ -25,7 +25,7 @@
   },
   "main": "./out/main/background.js",
   "dependencies": {
-    "@sentry/electron": "^5.6.0",
+    "@sentry/electron": "^5.7.0",
     "auto-launch": "5.0.6",
     "click-outside-vue3": "4.0.1",
     "electron-log": "4.4.8",
