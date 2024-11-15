@@ -240,15 +240,19 @@ export default {
       state.isMultiHop = isMH;
     },
     serverEntry(state, srv) {
-      if (srv == null || srv.gateway == null)
+      if (srv == null || srv.gateway == null) {
+        console.log("serverEntry: error: Unable to change server. Wrong server object.");
         throw new Error("Unable to change server. Wrong server object.");
-      if (!isServerContainsHost(srv, state.serverEntryHostId))
+      }
+      if (!isServerContainsHost(srv, state.serverEntryHostId)) {}
         state.serverEntryHostId = null;
       state.serverEntry = srv;
     },
     serverExit(state, srv) {
-      if (srv == null || srv.gateway == null)
+      if (srv == null || srv.gateway == null) {
+        console.log("serverExit: error: Unable to change server. Wrong server object.");
         throw new Error("Unable to change server. Wrong server object.");
+      }
       if (!isServerContainsHost(srv, state.serverExitHostId))
         state.serverExitHostId = null;
 
