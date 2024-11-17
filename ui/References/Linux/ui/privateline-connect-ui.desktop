@@ -2,8 +2,9 @@
 Name=privateLINE Connect UI
 Comment=UI interface for privateLINE Connect
 GenericName=VPN client
-Exec=/opt/privateline-connect/ui/bin/privateline-connect-ui
+Exec=/opt/privateline-connect/ui/bin/privateline-connect-ui %u
 Icon=privateline-connect
 Type=Application
 StartupNotify=true
 Categories=Network;
+MimeType=x-scheme-handler/privateline;

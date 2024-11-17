@@ -19,15 +19,15 @@ silent() {
 
 # STOPPING APPLICATION (same functionality implemented also in 'before-install.sh')
 echo "[+] Checking for 'privateline-connect-ui' running processes ..."
-ps aux | grep /opt/privateline-connect/ui/bin/privateline-connect-ui | grep -v grep  > /dev/null 2>&1
+ps aux | grep /opt/privateline-connect/ui/bin/privateline-connect-ui %u | grep -v grep  > /dev/null 2>&1
 if [ $? -eq 0 ]; then
   echo "[!] Detected: privateLINE app is running"
 
   # We should be careful here: WE SHOULD NOT KILL THIS SCRIPT :)
   # (which also can have 'privateline-connect-ui' in process description)
-  silent kill -TERM $(ps aux | grep /opt/privateline-connect/ui/bin/privateline-connect-ui | grep -v grep | awk '{print $2}')
+  silent kill -TERM $(ps aux | grep /opt/privateline-connect/ui/bin/privateline-connect-ui %u | grep -v grep | awk '{print $2}')
   silent sleep 2
-  silent kill -KILL $(ps aux | grep /opt/privateline-connect/ui/bin/privateline-connect-ui | grep -v grep | awk '{print $2}')
+  silent kill -KILL $(ps aux | grep /opt/privateline-connect/ui/bin/privateline-connect-ui %u | grep -v grep | awk '{print $2}')
 fi
 
 # DEB argument on upgrade - 'upgrade'; RPM - '1'
