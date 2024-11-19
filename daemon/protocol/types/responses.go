@@ -222,6 +222,13 @@ type SessionNewResp struct {
 	Account         preferences.AccountStatus
 	RawResponse     string
 }
+type SsoLoginResp struct {
+	CommandBase
+	APIStatus       int
+	APIErrorMessage string
+	Session         SessionResp
+	RawResponse     *api_types.SsoLoginResponse
+}
 
 type AccountInfo struct {
 	CommandBase

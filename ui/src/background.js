@@ -65,21 +65,48 @@ if (process.argv.find(arg => arg === 'uninstall-agent')) {
   wifiHelperMacOS.InstallAgent();
 }
 
+//setted up deep links here with 'privateline://' as protocol
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient("privateline", process.execPath, [
+      path.resolve(process.argv[1]),
+    ]);
+  }
+} else {
+  app.setAsDefaultProtocolClient("privateline");
+}
+
 // Only one instance of application can be started
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   console.log("Another instance of application is running.");
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  app.on("second-instance", (event, commandLine) => {
     // Someone tried to run a second instance, we should focus our window.
     console.log("The second app instance was tried to start.");
+    const url = commandLine.pop();
+    console.log(`privateLINE UI triggered from --->   ${url}`);
+    const queryString = url.split("?")[1];
+    const params = new URLSearchParams(queryString);
+
+    /*
+     * here we are looking for 'code' parameter in url
+     * then we sending that code to Vue UI
+     */
+    if (params.get("code") && params.get("session_state")) {
+      const code = params.get("code");
+      const session_state = params.get("session_state");
+      console.log("code ---> ", code);
+      console.log("session_state ---> ", session_state);
+      win.webContents.send("sso-auth", { code, session_state });
+    }
     menuOnShow();
   });
 }
 
 // Specify locale. We do not use other languages, so we can remove all other languages from "locales" folder in production build
-app.commandLine.appendSwitch ('lang', 'en-US');
+app.commandLine.appendSwitch('lang', 'en-US');
 
 // abortController can be used to cancel active messageBox dialogs when app exiting.
 // Example:
@@ -182,14 +209,14 @@ async function LaunchAppInSplitTunnel(execCmd, event) {
 
 // This method will be called when Electron has finished initialization and is ready to show the window.
 function onWindowReady(win) {
-  wifiHelperMacOS.InitWifiHelper(win, () => {showSettings("networks");} );
+  wifiHelperMacOS.InitWifiHelper(win, () => { showSettings("networks"); });
 }
 
 // INITIALIZATION
 if (gotTheLock && isAllowedToStart) {
-  InitPersistentSettings();  
+  InitPersistentSettings();
   connectToDaemon();
-  
+
   // INIT COLOR SCHEME
   try {
     if (store.state.settings.colorTheme)
@@ -198,27 +225,24 @@ if (gotTheLock && isAllowedToStart) {
     console.error("Failed to set color scheme: ", e);
   }
   // Scheme must be registered before the app is ready
-  protocol.registerSchemesAsPrivileged([
-    { scheme: "app", privileges: { secure: true, standard: true } },
-  ]);
 
   const isMac = process.platform === "darwin";
   const template = [
     // { role: 'appMenu' }
     ...(isMac
       ? [
-          {
-            label: app.name,
-            submenu: [
-              { type: "separator" },
-              { role: "hide" },
-              { role: "hideothers" },
-              { role: "unhide" },
-              { type: "separator" },
-              { role: "quit" },
-            ],
-          },
-        ]
+        {
+          label: app.name,
+          submenu: [
+            { type: "separator" },
+            { role: "hide" },
+            { role: "hideothers" },
+            { role: "unhide" },
+            { type: "separator" },
+            { role: "quit" },
+          ],
+        },
+      ]
       : []),
     // { role: 'fileMenu' }
     {
@@ -232,11 +256,11 @@ if (gotTheLock && isAllowedToStart) {
         { role: "minimize" },
         ...(isMac
           ? [
-              { type: "separator" },
-              { role: "front" },
-              { type: "separator" },
-              { role: "window" },
-            ]
+            { type: "separator" },
+            { role: "front" },
+            { type: "separator" },
+            { role: "window" },
+          ]
           : [{ role: "close" }]),
       ],
     },
@@ -332,7 +356,7 @@ if (gotTheLock && isAllowedToStart) {
     } catch (e) {
       console.error(e);
     }
-    
+
     if (store.state.settings.minimizeToTray && WasOpenedAtLogin()) {
       // do not show main application window when application was started automatically on login
       // (if enabled minimizeToTray)
@@ -342,8 +366,8 @@ if (gotTheLock && isAllowedToStart) {
       createWindow();
     }
 
-   
-    
+
+
     if (config.IsDebug()) {
       try {
         win.webContents.openDevTools();
@@ -739,7 +763,7 @@ function createWindow(doNotShowWhenReady) {
     if (isWindowVisibleOnScreen == true)
       win.setBounds({ x: lastPos.x, y: lastPos.y });
   }
- 
+
   // Load the remote URL for development or the local html file for production.
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -750,8 +774,8 @@ function createWindow(doNotShowWhenReady) {
   // show\hide app from system dock
   updateAppDockVisibility();
 
-  win.once("ready-to-show", () => {   
-    if (doNotShowWhenReady != true) {   
+  win.once("ready-to-show", () => {
+    if (doNotShowWhenReady != true) {
       win.show();
     }
 
@@ -842,9 +866,9 @@ function createSettingsWindow(viewName) {
 
   console.log("ELECTRON_RENDERER_URL: ", process.env['ELECTRON_RENDERER_URL'])
 
-    // Load the remote URL for development or the local html file for production.
+  // Load the remote URL for development or the local html file for production.
   if (process.env['ELECTRON_RENDERER_URL']) {
-    settingsWindow.loadURL(process.env['ELECTRON_RENDERER_URL']+ `#settings/${viewName}`)
+    settingsWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + `#settings/${viewName}`)
   } else {
     settingsWindow.loadURL(`file://${join(__dirname, '../renderer/index.html')}#settings/${viewName}`);
   }
