@@ -1904,6 +1904,193 @@ func (s *Service) SessionNew(email string, password string, deviceName string, s
 	return apiCode, "", accountInfo, rawResponse, nil
 }
 
+func (s *Service) SsoLogin(code string, sessionCode string) (
+	apiCode int,
+	apiErrorMsg string,
+	rawResponse *api_types.SsoLoginResponse,
+	err error) {
+
+	// Temporary allow API server access (If Firewall is enabled)
+	// Otherwise, there will not be any possibility to Login (because all connectivity is blocked)
+	fwStatus, _ := s.KillSwitchState()
+	if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
+		s.SetKillSwitchAllowAPIServers(true)
+	}
+	defer func() {
+		if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
+			// restore state for 'AllowAPIServers' configuration (previously, was enabled)
+			s.SetKillSwitchAllowAPIServers(false)
+		}
+	}()
+
+	// delete current session (if exists)
+	isCanDeleteSessionLocally := true
+	if err := s.SessionDelete(isCanDeleteSessionLocally); err != nil {
+		log.Error("Creating new session -> Failed to delete active session: ", err)
+	}
+
+	defer func() {
+		if err != nil {
+			log.Debug("sso error ----> ", err, "sso error code -----> ", apiCode)
+			var customMessage string
+			switch apiCode {
+			case 426:
+				customMessage = fmt.Sprintf("We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices. %s", err)
+			case 412:
+				customMessage = fmt.Sprintf("We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices. %s", err)
+			default:
+				customMessage = fmt.Sprintf("Logging in - FAILED: %s", err)
+			}
+
+			log.Warning(customMessage)
+			log.Error("Logging in - FAILED: ", err)
+		} else {
+			log.Info("Logging in - SUCCESS")
+		}
+	}()
+
+	var (
+		publicKey  string
+		privateKey string
+
+		wgPresharedKey        string
+		apiErr                *api_types.APIErrorResponse
+		connectDevSuccessResp *api_types.ConnectDeviceResponse
+
+		deviceID string
+	)
+
+	for {
+		// generate new keys for WireGuard
+		publicKey, privateKey, err = wireguard.GenerateKeys(platform.WgToolBinaryPath())
+		if err != nil {
+			log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
+		}
+
+		rawResponse, err = s._api.SsoLogin(code, sessionCode)
+
+		apiCode = 0
+		if err != nil {
+			return 400, "", rawResponse, err
+		}
+
+		break
+	}
+
+	// generate a random device ID
+	// Max random value, a 80-bits integer, i.e 2^80 - 1
+	max := new(big.Int)
+	max.Exp(big.NewInt(2), big.NewInt(80), nil).Sub(max, big.NewInt(1))
+
+	// Generate a cryptographically strong pseudo-random between 0 - max
+	n, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return 0, "", rawResponse, fmt.Errorf("failed to generate random machine ID: %w", err)
+	}
+
+	// String representation of n in base 16
+	deviceID = n.Text(16)
+	deviceName := "PL Connect - " + deviceID[:8]
+
+	logger.Debug(deviceID, deviceName)
+
+	// now do the Connect Device API call
+	connectRawresponse := ""
+	connectDevSuccessResp, apiErr, connectRawresponse, err = s._api.ConnectDevice(deviceID, deviceName, publicKey, rawResponse.AccessToken)
+	logger.Debug("connectRawresponse ---> ", connectRawresponse)
+
+	apiCode = 0
+	if apiErr != nil {
+		apiCode = apiErr.HttpStatusCode
+	}
+
+	if err != nil {
+		// in case of other API error
+		if apiErr != nil {
+			return apiCode, apiErr.Message, rawResponse, err
+		}
+		// not API error
+		return apiCode, "", rawResponse, err
+	}
+
+	if connectDevSuccessResp == nil {
+		return apiCode, "", rawResponse, fmt.Errorf("unexpected error when registering a device")
+	}
+
+	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
+
+	// get account status info
+	// accountInfo = s.createAccountStatus(sessionNewSuccessResp.ServiceStatus)
+
+	// we must not save the account password to settings.json on disk
+	accountInfo := preferences.AccountStatus{}
+	s.setCredentials(
+		accountInfo,
+		code,
+		rawResponse.AccessToken,
+		deviceName,
+		code,
+		"",
+		publicKey,
+		privateKey,
+		localIP,
+		0,
+		wgPresharedKey,
+		deviceID)
+
+	endpointPortStr := strings.Split(connectDevSuccessResp.Data[1].Peer.Endpoint, ":")[1]
+	endpointPort, err := strconv.Atoi(endpointPortStr)
+	if err != nil {
+		log.Error(fmt.Sprintf("Error parsing endpoint port '%s' as number: %v", endpointPortStr, err))
+		return apiCode, "", rawResponse, err
+	}
+	hostValue := api_types.WireGuardServerHostInfo{
+		HostInfoBase: api_types.HostInfoBase{
+			EndpointIP:   strings.Split(connectDevSuccessResp.Data[1].Peer.Endpoint, ":")[0],
+			EndpointPort: endpointPort,
+		},
+		LocalIP:    localIP,
+		PublicKey:  connectDevSuccessResp.Data[1].Peer.PublicKey,
+		DnsServers: connectDevSuccessResp.Data[0].Interface.DNS,
+		AllowedIPs: connectDevSuccessResp.Data[1].Peer.AllowedIPs,
+	}
+
+	// propagate the Wireguard device configuration we received to Preferences
+	prefs := s._preferences
+
+	prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
+	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
+
+	// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
+	firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
+	if firstDnsSrv != "" {
+		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
+	} else {
+		log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
+		return apiCode, "", rawResponse, err
+	}
+
+	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
+
+	// init to split tunnel by default
+	prefs.IsSplitTunnel = true
+
+	// propagate our prefs changes to Preferences and to settings.json
+	s.setPreferences(prefs)
+
+	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
+
+	// Apply SplitTunnel configuration. It is applicable for Inverse mode of SplitTunnel
+	if err := s.splitTunnelling_ApplyConfig(); err != nil {
+		log.Error(fmt.Errorf("splitTunnelling_ApplyConfig failed: %v", err))
+		return apiCode, "", rawResponse, err
+	}
+
+	return apiCode, "", rawResponse, nil
+}
+
+// @@@@@@@  END ==============================================================================================================
+
 func (s *Service) AccountInfo() (
 	apiCode int,
 	apiErrorMsg string,

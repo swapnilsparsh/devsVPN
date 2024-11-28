@@ -42,7 +42,7 @@
             <button v-on:click="onPrivateLine()" title="privateLINE">
               <img src="@/assets/logo.png" style="width: 22px; height: 22px" />
             </button>
-            <div>privateLINE connect</div>
+            <div>privateLINE Connect</div>
 
             <!-- <button v-on:click="onMaximize(true)" title="Show map">
               <img src="@/assets/maximize.svg" />

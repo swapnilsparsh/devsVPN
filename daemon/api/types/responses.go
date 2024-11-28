@@ -216,6 +216,17 @@ func (resp *DeviceListResponse) SetHttpStatusCode(newHttpStatusCode int) {
 	resp.HttpStatusCode = newHttpStatusCode
 }
 
+type SsoLoginResponse struct {
+	AccessToken      string `json:"access_token"`
+	RefreshToken     string `josn:"refresh_token"`
+	ExpiresIn        int    `json:"expires_in"`
+	RefreshExpiresIn int    `json:"refresh_expires_in"`
+	TokenType        string `json:"token_type"`
+	SessionState     string `json:"session_state"`
+	Scope            string `json:"scope"`
+	NotBeforePolicy  int    `json:"not-before-policy"`
+}
+
 type ProfileDataResponse struct {
 	Message string `json:"message"`
 	Data    struct {

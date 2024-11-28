@@ -6,6 +6,11 @@ package api
 
 // APIPrivateLineHashes - base64-encoded SHA256 hashes for 'api.privateline.io' server public keys (in use for certificate key pinning)
 // Oct 2024 privateline.io cert
+
+/*
+prod APIPrivateLineHashes = "KJyZJqESixPI7jPLs0/8P2q6kI4h5kXWIkoxybZ/gzM="
+dev APIPrivateLineHashes = "3/INJ5mVSZ/bndP0j6irtFHJ3M+1PVr0+/s91l8JKzM="
+*/
 var APIPrivateLineHashes = []string{
 	"KJyZJqESixPI7jPLs0/8P2q6kI4h5kXWIkoxybZ/gzM=",
 }

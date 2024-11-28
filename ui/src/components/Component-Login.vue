@@ -12,7 +12,7 @@
           <!-- ACCOUNT ID -->
           <div class="centered">
             <div class="large_text">Login</div>
-            <div class="medium_text">to privateLINE connect</div>
+            <div class="medium_text">to privateLINE Connect</div>
             <div style="height: 12px" />
           </div>
 
@@ -72,7 +72,8 @@
         <div style="height: 24px" />
         <button class="master" @click="Login">Log In</button>
         <div style="height: 12px" />
-
+        <button class="slave" v-on:click="openSSO">SSO Login</button>
+        <div style="height: 12px" />
         <button class="slave" @click="CreateAccount">Create an account</button>
       </div>
     </div>
@@ -102,6 +103,7 @@ import { IsOsDarkColorScheme } from "@/helpers/renderer";
 import { ColorTheme } from "@/store/types";
 
 const sender = window.ipcSender;
+const ipcRenderer = sender.GetSafeIpcRenderer();
 import {
   API_SUCCESS,
   API_SESSION_LIMIT,
@@ -194,6 +196,19 @@ export default {
     },
   },
   mounted() {
+     /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
+     ipcRenderer.on("sso-auth", async (event, authData) => {
+      try {
+        this.isProcessing = true;
+        await sender.SsoLogin(authData?.code, authData?.session_state);
+        console.log("calling SsoLogin with this param --->", authData?.code);
+      } catch (error) {
+        console.log(error.message);
+      } finally {
+        this.isProcessing = false;
+      }
+    });
+
     // COLOR SCHEME
     window.matchMedia("(prefers-color-scheme: dark)").addListener(() => {
       this.updateColorScheme();
@@ -397,6 +412,10 @@ export default {
     CreateAccount() {
       sender.shellOpenExternal(`https://privateline.io/email-signup`);
     },
+    openSSO() {
+      sender.shellOpenExternal(
+        `https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`);
+      },
     ForgotPassword() {
       sender.shellOpenExternal(
         `https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`

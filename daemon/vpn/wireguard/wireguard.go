@@ -95,6 +95,12 @@ func CreateConnectionParams(
 	dnsServers string,
 	allowedIPs string) ConnectionParams {
 
+	// TODO FIXME: Vlad - if MTU not specified explicitly, set 1380 as a reasonable default
+	// According to Windows specification: "... For IPv4 the minimum value is 576 bytes. For IPv6 the minimum value is 1280 bytes... "
+	if mtu == 0 {
+		mtu = 1380
+	}
+
 	return ConnectionParams{
 		multihopExitHostname: multihopExitHostName,
 		hostPort:             hostPort,
@@ -270,6 +276,8 @@ func (wg *WireGuard) generateAndSaveConfigFile(cfgFilePath string) error {
 }
 
 func (wg *WireGuard) generateConfig() ([]string, error) {
+	// TODO FIXME: Vlad - refactor to make use of getOSSpecificConfigParams() again, around the time we enable IPv6
+
 	log.Debug("================= generateConfig logs =======================")
 	localPort, err := netinfo.GetFreeUDPPort()
 	if err != nil {
@@ -289,7 +297,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	// 	return nil, fmt.Errorf("WG PresharedKey is not base64 string")
 	// }
 
-	// Vlad: don't include <ourIP>/32 in AllowedIPs, as otherwise we have no connectivity to internal resources on win11.
+	// Vlad: don't include <ourIP>/32 in AllowedIPs, as otherwise we have no connectivity to PL internal IPs on win11.
 	ourIP := wg.connectParams.clientLocalIP.String()
 	ourIPregex, err := regexp.CompilePOSIX(",?" + ourIP + "/32,?")
 	if err != nil {
@@ -306,12 +314,14 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 		"PrivateKey = " + wg.connectParams.clientPrivateKey,
 		"ListenPort = " + strconv.Itoa(wg.localPort),
 		"Address = " + ourIP,
-		// "DNS = " + wg.connectParams.dnsServers, // Vlad: disabling per https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491 , on Windows shouldn't be needed either.
-		"MTU = 1280", // on win10 1280 is the minimal value that works, on Linux 1200 works
-		"",           // newline between sections
+		// "DNS = " + wg.connectParams.dnsServers, // Vlad: disabling per https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491 , on Windows apparently isn't needed either.
+	}
+	if wg.connectParams.mtu > 0 {
+		interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", wg.connectParams.mtu))
 	}
 
 	peerCfg := []string{
+		"", // newline between sections
 		"[Peer]",
 		"PublicKey = " + wg.connectParams.hostPublicKey,
 		"Endpoint = " + wg.connectParams.hostIP.String() + ":" + strconv.Itoa(wg.connectParams.hostPort),
