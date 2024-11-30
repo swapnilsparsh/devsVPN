@@ -25,9 +25,15 @@ ${StrLoc}
 !define PRODUCT_IDENTIFIER "privateLINE Connect"
 !define PRODUCT_PUBLISHER "privateLINE Limited"
 
-!define APP_RUN_PATH "$INSTDIR\ui\privateline-connect-ui.exe"
-!define PROCESS_NAME "privateline-connect-ui.exe"
+!define UI_IMG_NAME "privateline-connect-ui"
+!define UI_PROCESS_NAME "${UI_IMG_NAME}.exe"
+!define APP_RUN_PATH "$INSTDIR\ui\${UI_PROCESS_NAME}"
+
 !define PRIVATELINE_SERVICE_NAME "privateline-connect-svc"
+!define SVC_PROCESS_NAME "${PRIVATELINE_SERVICE_NAME}.exe"
+
+!define WIREGUARD_SERVICE_NAME "WireGuardTunnel$$privateLINE"
+
 !define PATHDIR "$INSTDIR\cli"
 
 !define DEVCON_BASENAME "devcon.exe"
@@ -182,13 +188,238 @@ Var STR_RETURN_VAR
 !insertmacro Func_StrRepl "un."
 ;---------------------------
 
+; per https://nsis-dev.github.io/NSIS-Forums/html/t-300144.html
+
+Var _ArgSvcName
+Var _Result
+
+!macro _Call func return param1
+  Push $_ArgSvcName
+
+  StrCpy $_ArgSvcName '${param1}'
+  Call ${func}
+  StrCpy ${return} $_Result
+
+  Pop $_ArgSvcName
+!macroend
+
+; ---------------------------------------------
+; IsServiceStopped
+!define IsServiceStopped "!insertmacro _IsServiceStopped"
+
+!macro _IsServiceStopped return param1
+  !insertmacro _Call IsServiceStoppedFunc ${return} '${param1}'
+!macroend
+
+;---------------------------
+; IsServiceStopped
+; This function checks whether a named service is stopped.
+; Return values:
+;	<0 - Error
+;	0 - NOT STOPPED
+; 	1 - Stopped (SUCCESS)
+Function IsServiceStoppedFunc
+	nsExec::ExecToStack '"$SYSDIR\sc.exe" query "$_ArgSvcName"'
+	Pop $0 ; Return
+	Pop $1 ; Output
+	${If} $0 == '1060'
+		DetailPrint "$_ArgSvcName service does not exist as an installed service [1060]"
+		StrCpy $_Result 1 		; Stopped OK
+		Return
+	${EndIf}
+	${If} $0 != '0'
+		DetailPrint "Failed to execute 'sc query' command: $0; $1"
+		StrCpy $_Result -1 ; Error
+		Return
+	${EndIf}
+
+	; An example of an expected result:
+	; 	SERVICE_NAME: privateline-connect-svc
+    ;    TYPE               : 10  WIN32_OWN_PROCESS
+    ;    STATE              : 4  RUNNING
+    ;                            (STOPPABLE, NOT_PAUSABLE, ACCEPTS_SHUTDOWN)
+    ;    WIN32_EXIT_CODE    : 0  (0x0)
+    ;    SERVICE_EXIT_CODE  : 0  (0x0)
+    ;    CHECKPOINT         : 0x0
+    ;    WAIT_HINT          : 0x0
+
+	; Another example:
+	;	SERVICE_NAME: [service_name]
+    ;    TYPE               : 10  WIN32_OWN_PROCESS
+    ;    STATE              : 1  STOPPED
+    ;    WIN32_EXIT_CODE    : 0  (0x0)
+    ;    SERVICE_EXIT_CODE  : 0  (0x0)
+    ;    CHECKPOINT         : 0x0
+    ;    WAIT_HINT          : 0x0
+
+	${StrContains} $0 "STOPPED" $1
+	${If} $0 == "STOPPED"
+		StrCpy $_Result 1 		; Stopped OK
+		Return
+	${EndIf}
+
+	StrCpy $_Result 0 ; if we are here, service is NOT STOPPED
+FunctionEnd
+
+; ---------------------------------------------
+; StopService
+!define StopService "!insertmacro _StopService"
+
+!macro _StopService return param1
+  !insertmacro _Call StopServiceFunc ${return} '${param1}'
+!macroend
+
+;---------------------------
+; StopService
+; This function stops a named service.
+; Return values:
+;	<0 - Error
+;	0 - NOT STOPPED
+; 	1 - Stopped (SUCCESS)
+Function StopServiceFunc
+	DetailPrint "Checking if $_ArgSvcName service is running..."
+	${IsServiceStopped} $0 $_ArgSvcName
+	${If} $0 == 1
+		StrCpy $_Result 1 ; Stopped OK
+		Return
+	${EndIf}
+
+	DetailPrint "Stopping $_ArgSvcName service..."
+
+	; stop service
+	nsExec::ExecToStack '"$SYSDIR\sc.exe" stop "$_ArgSvcName"'
+	Pop $0 ; Return
+	Pop $1 ; Output
+	${If} $0 == '1060'
+		DetailPrint "$_ArgSvcName service does not exist as an installed service [1060]"
+		StrCpy $_Result 1 		; Stopped OK
+		Return
+	${EndIf}
+	${If} $0 != '0'
+		DetailPrint "Failed to execute 'sc stop' command: $0; $1"
+		Goto killservice
+	${EndIf}
+
+	; R1 - counter
+	StrCpy	$R1 0
+	; waiting to stop 8 seconds (500ms*16)
+	${While} $R1 < 16
+		Sleep 500
+		IntOp $R1 $R1 + 1
+
+		${IsServiceStopped} $0 $_ArgSvcName
+		${If} $0 < 0
+			Goto killservice
+		${EndIf}
+		${If} $0 == 1
+			StrCpy $_Result 1 ; stopped OK
+			Return
+		${EndIf}
+
+	${EndWhile}
+
+	killservice:
+	; if we still here - service still not stopped. Killing it manually
+	DetailPrint "WARNING: Unable to stop service $_ArgSvcName. Killing process ..."
+	nsExec::ExecToStack '"$SYSDIR\taskkill" /fi "Services eq $_ArgSvcName" /F'
+	Pop $0 ; Return
+	Pop $1 ; Output
+	${If} $0 < 0
+		DetailPrint "Failed to execute 'taskkill' command: $0; $1"
+		StrCpy $_Result -1 ; Error
+		Return
+	${EndIf}
+
+	Sleep 500
+
+	${IsServiceStopped} $0 $_ArgSvcName
+	${If} $0 < 0
+		StrCpy $_Result -1 ; Error
+		Return
+	${EndIf}
+	${If} $0 == 1
+		StrCpy $_Result 1 ; stopped OK
+		Return
+	${EndIf}
+
+	StrCpy $_Result 0 ; if we are here, service is NOT STOPPED
+FunctionEnd
+
+; Return values:
+;	<0 - Error
+;	0 - NOT STOPPED
+; 	1 - Stopped (SUCCESS)
+Function StopClient
+	DetailPrint "Checking if ${UI_PROCESS_NAME} application is running..."
+	Call IsClientStopped
+	Pop $0
+	${If} $0 == 1
+		Push 1 ; Stopped OK
+		Return
+	${EndIf}
+
+	DetailPrint "Terminating ${UI_PROCESS_NAME} application..."
+
+	; stop client
+	nsExec::ExecToStack '"$SYSDIR\taskkill" /IM "${UI_PROCESS_NAME}" /F'
+	Pop $0 ; Return
+	Pop $1 ; Output
+	${If} $0 != '0'
+		DetailPrint "Failed to execute taskkill command: $0; $1"
+	${EndIf}
+
+	; R1 - counter
+	StrCpy	$R1 0
+	; waiting to stop 3 seconds (500ms*6)
+	${While} $R1 < 6
+		Sleep 500
+		IntOp $R1 $R1 + 1
+
+		Call IsClientStopped
+		Pop $0
+		${If} $0 < 0
+			Push -1 ; Error
+			Return
+		${EndIf}
+		${If} $0 == 1
+			Push 1 ; Stopped OK
+			Return
+		${EndIf}
+
+	${EndWhile}
+
+	Push 0 ; Not stopped
+FunctionEnd
+
+Function IsClientStopped
+	nsExec::ExecToStack '"$SYSDIR\tasklist" /FI "IMAGENAME eq ${UI_PROCESS_NAME}"'
+	Pop $0 ; Return
+	Pop $1 ; Output
+	${If} $0 != '0'
+		DetailPrint "Failed to execute tasklist command: $0; $1"
+		Push -1 ; return execution error
+		Return
+	${EndIf}
+
+	; tasklist truncates the filenames, so have to use the shortened filename here, without extension
+	${StrContains} $0 "${UI_IMG_NAME}" $1
+	${If} $0 == ""
+		Push 1 ; stopped
+		Return
+	${EndIf}
+
+	Push 0	; running
+FunctionEnd
+
+;---------------------------
+
 !macro COMMON_INIT
   ; install for  'all users'
   SetShellVarContext all
 
   SetRegView 64
   StrCpy $BitDir "x86_64"
-  StrCpy $StartMenuFolder "privateLINE"
+  StrCpy $StartMenuFolder "privateLINE Connect"
   DetailPrint "Running on architecture: $BitDir"
 !macroend
 
@@ -217,7 +448,7 @@ FunctionEnd
 !define MUI_UNICON "icon.ico"
 
 !define MUI_FINISHPAGE_NOAUTOCLOSE
-!define MUI_FINISHPAGE_RUN "$INSTDIR\privateline-connect-ui.exe"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${UI_PROCESS_NAME}"
 !define MUI_FINISHPAGE_RUN_TEXT "Run ${PRODUCT_NAME} now"
 !define MUI_FINISHPAGE_RUN_FUNCTION ExecAppFile
 
@@ -312,17 +543,18 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
   done:
   ; >>> Uninstall previous section END
 
-  ; Stop privateline-connect-svc
-  stopservice:
-  Call StopService
-  Pop $0 ; 1 - SUCCESS;
+  ; Stop privateline-connect-svc and Wireguard services
+  StopServices:
+  ${StopService} $0 ${WIREGUARD_SERVICE_NAME}
+  ${StopService} $0 ${PRIVATELINE_SERVICE_NAME}
+  ; 1 - SUCCESS;
   ${if} $0 != 1
-		DetailPrint "ERROR: Failed to stop 'privateline-connect-svc' service."
-		MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "Failed to stop 'privateline-connect-svc' service.$\nIgnoring this problem can lead to issues with privateLINE Connect software in the future." IDRETRY stopservice IDIGNORE ignoreservicestop
+		DetailPrint "ERROR: Failed to stop '${PRIVATELINE_SERVICE_NAME}' service."
+		MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "Failed to stop '${PRIVATELINE_SERVICE_NAME}' service.$\nIgnoring this problem can lead to issues with privateLINE Connect software in the future." IDRETRY StopServices IDIGNORE IgnoreServicesStop
 		DetailPrint "Aborted"
 		Abort
   ${EndIf}
-  ignoreservicestop:
+  IgnoreServicesStop:
 
   ; When privateline-connect-svc stopping - privateline-connect-ui must also Close automatically
   ; anyway, there could be situations when privateline-connect-ui not connected to service (cannot receive 'service exiting' notification.)
@@ -332,8 +564,8 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
   Call StopClient
   Pop $0 ; 1 - SUCCESS
   ${if} $0 != 1
-		DetailPrint "ERROR: Failed to stop 'privateline-connect-ui' application."
-		MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "Failed to stop 'privateline-connect-ui' application.$\nIgnoring this problem can lead to issues with privateLINE Connect software in the future." IDRETRY stopclient IDIGNORE ignoreclientstop
+		DetailPrint "ERROR: Failed to stop '${UI_PROCESS_NAME}' application."
+		MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "Failed to stop '${UI_PROCESS_NAME}' application.$\nIgnoring this problem can lead to issues with privateLINE Connect software in the future." IDRETRY stopclient IDIGNORE ignoreclientstop
 		DetailPrint "Aborted"
 		Abort
   ${EndIf}
@@ -379,7 +611,7 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
   ; create StartMenu shortcuts
   CreateDirectory "$SMPROGRAMS\$StartMenuFolder"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Uninstall ${PRODUCT_NAME}.lnk" "$INSTDIR\Uninstall.exe"
-  CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${PRODUCT_NAME}.lnk" "$INSTDIR\ui\privateline-connect-ui.exe"
+  CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${PRODUCT_NAME}.lnk" "${APP_RUN_PATH}"
 
   ; ============ TAP driver ======================================================================
 ; Vlad - disabled installation/uninstallation of TAP driver for now
@@ -479,16 +711,19 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
   */
   ; ============ Service ======================================================================
   ; install service
-  DetailPrint "Installing privateline-connect-svc service..."
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" create "privateline-connect-svc" binPath= "\"$INSTDIR\privateline-connect-svc.exe\"" start= auto'
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" sdset "privateline-connect-svc" "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPDTLO;;;S-1-1-0)"'
+  DetailPrint "Installing ${PRIVATELINE_SERVICE_NAME} service..."
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" create "${PRIVATELINE_SERVICE_NAME}" binPath= "\"$INSTDIR\${SVC_PROCESS_NAME}\"" start= auto'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" sdset "${PRIVATELINE_SERVICE_NAME}" "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPDTLO;;;S-1-1-0)"'
 
-  ; add service to firewall
-  ;nsExec::ExecToLog '"$SYSDIR\netsh.exe" firewall add allowedprogram "$INSTDIR\privateline-connect-svc.exe" "privateline-connect-svc" ENABLE'
+  ; add service to WFP (Windows Firewall)
+  DetailPrint "Adding firewall rule to allow ${PRIVATELINE_SERVICE_NAME} service outbound connectivity..."
+  ; "netsh firewall" command deprecated
+  ;nsExec::ExecToLog '"$SYSDIR\netsh.exe" firewall add allowedprogram "$INSTDIR\${SVC_PROCESS_NAME}" "${PRIVATELINE_SERVICE_NAME}" ENABLE'
+  nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall add rule name="${PRIVATELINE_SERVICE_NAME}" dir=out action=allow program="$INSTDIR\${SVC_PROCESS_NAME}" enable=yes'
 
   ; start service
-  DetailPrint "Starting privateline-connect-svc service..."
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" start "privateline-connect-svc"'
+  DetailPrint "Starting ${PRIVATELINE_SERVICE_NAME} service..."
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" start "${PRIVATELINE_SERVICE_NAME}"'
 SectionEnd
 
 ; -----------
@@ -514,37 +749,44 @@ Section "Uninstall"
       ; update
   ${EndIf}
 
-  ; stop service
+  ; stop services
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop "${PRIVATELINE_SERVICE_NAME}"'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop "${WIREGUARD_SERVICE_NAME}"'
 
   ; wait a little (give change for privateline-connect-ui application to stop)
   Sleep 1500
 
-  ; When service stopping - privateline-connect-ui must also Close automatically
+  ; When privateline-connect-svc service stopping - privateline-connect-ui must also Close automatically
   ; anyway, there could be situations when privateline-connect-ui not connected to service (cannot receive 'service exiting' notification.)
   ; Therefore, here we try to stop privateline-connect-ui process manually.
   ${StrContains} $0 " -update" $CMDLINE
   ${If} $0 == ""
       ; uninstall
-      nsExec::ExecToStack '"$SYSDIR\taskkill" /IM "${PROCESS_NAME}" /T /F'
+      nsExec::ExecToStack '"$SYSDIR\taskkill" /IM "${UI_PROCESS_NAME}" /T /F'
       ; remove AutoStart item
       DetailPrint "Removing AutoStart item from the registry ..."
       DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCT_IDENTIFIER}"
   ${Else}
       ; update
       ; Do not use /T option when upgrade.
-      ; Otherwise we will kill current uninstaller process (which was spawned by ${PROCESS_NAME})
-      nsExec::ExecToStack '"$SYSDIR\taskkill" /IM "${PROCESS_NAME}" /F'
+      ; Otherwise we will kill current uninstaller process (which was spawned by ${UI_PROCESS_NAME})
+      nsExec::ExecToStack '"$SYSDIR\taskkill" /IM "${UI_PROCESS_NAME}" /F'
   ${EndIf}
 
   ; give some time to stop the process
   Sleep 1500
 
   ; remove service
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" delete "privateline-connect-svc"'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" delete "${PRIVATELINE_SERVICE_NAME}"'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" delete "${WIREGUARD_SERVICE_NAME}"'
 
-  ; removing firewall rules
+  ; removing PL firewall rules
   nsExec::ExecToLog '"$INSTDIR\privateline-connect-cli.exe" firewall disable'
+
+  ; delete service from WFP (Windows Firewall)
+  DetailPrint "Deleting firewall rule for ${PRIVATELINE_SERVICE_NAME} service..."
+  ; "netsh firewall" command deprecated
+  nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall delete rule name="${PRIVATELINE_SERVICE_NAME}" program="$INSTDIR\${SVC_PROCESS_NAME}"'
 
 ;  Vlad - disabled installation/uninstallation of TAP driver for now
 /*
@@ -604,7 +846,6 @@ Section "Uninstall"
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_IDENTIFIER}"
 
   Call un.RemovePath
-  
 SectionEnd
 
 ; ----------------
@@ -624,190 +865,6 @@ archcheck:
     MessageBox MB_ICONSTOP|MB_OK "Unsupported architecture.$\nThis version of privateLINE Connect can only be installed on 64-bit Windows."
     Quit
 end:
-FunctionEnd
-
-; Return values:
-;	<0 - Error
-;	0 - NOT STOPPED
-; 	1 - Stopped (SECCUSS)
-Function StopService
-	DetailPrint "Checking is privateline-connect-svc service is running..."
-	Call IsServiceStopped
-	Pop $0
-	${If} $0 == 1
-		Push 1 ; Stopped OK
-		Return
-	${EndIf}
-
-	DetailPrint "Stopping privateline-connect-svc service..."
-
-	; stop service
-	nsExec::ExecToStack '"$SYSDIR\sc.exe" stop "${PRIVATELINE_SERVICE_NAME}"'
-	Pop $0 ; Return
-	Pop $1 ; Output
-	${If} $0 == '1060'
-		DetailPrint "privateline-connect-svc service does not exist as an installed service [1060]"
-		Push 1 		; Stopped OK
-		Return
-	${EndIf}
-	${If} $0 != '0'
-		DetailPrint "Failed to execute 'sc stop' command: $0; $1"
-		Goto killservice
-	${EndIf}
-
-	; R1 - counter
-	StrCpy	$R1 0
-	; waiting to stop 8 seconds (500ms*16)
-	${While} $R1 < 16
-		Sleep 500
-		IntOp $R1 $R1 + 1
-
-		Call IsServiceStopped
-		Pop $0
-		${If} $0 < 0
-			Goto killservice
-		${EndIf}
-		${If} $0 == 1
-			Push 1 ; stooped OK
-			Return
-		${EndIf}
-
-	${EndWhile}
-
-	killservice:
-	; if we still here - service still not stopped. Killing it manually
-	DetailPrint "WARNING: Unable to stop service. Killing process ..."
-	nsExec::ExecToStack '"$SYSDIR\taskkill" /fi "Services eq ${PRIVATELINE_SERVICE_NAME}" /F'
-	Pop $0 ; Return
-	Pop $1 ; Output
-	${If} $0 < 0
-		DetailPrint "Failed to execute 'taskkill' command: $0; $1"
-		Push -1 ; Error
-		Return
-	${EndIf}
-
-	Sleep 500
-
-	Call IsServiceStopped
-	Pop $0
-	${If} $0 < 0
-		Push -1 ; Error
-		Return
-	${EndIf}
-	${If} $0 == 1
-		Push 1 ; stooped OK
-		Return
-	${EndIf}
-
-	Push 0 ; if we are here, service is NOT STOPPED
-FunctionEnd
-
-Function IsServiceStopped
-	nsExec::ExecToStack '"$SYSDIR\sc.exe" query "${PRIVATELINE_SERVICE_NAME}"'
-	Pop $0 ; Return
-	Pop $1 ; Output
-	${If} $0 == '1060'
-		DetailPrint "privateline-connect-svc service does not exist as an installed service [1060]"
-		Push 1 		; Stopped OK
-		Return
-	${EndIf}
-	${If} $0 != '0'
-		DetailPrint "Failed to execute 'sc query' command: $0; $1"
-		Push -1 ; Error
-		Return
-	${EndIf}
-
-	; An example of an expected result:
-	; 	SERVICE_NAME: privateline-connect-svc
-    ;    TYPE               : 10  WIN32_OWN_PROCESS
-    ;    STATE              : 4  RUNNING
-    ;                            (STOPPABLE, NOT_PAUSABLE, ACCEPTS_SHUTDOWN)
-    ;    WIN32_EXIT_CODE    : 0  (0x0)
-    ;    SERVICE_EXIT_CODE  : 0  (0x0)
-    ;    CHECKPOINT         : 0x0
-    ;    WAIT_HINT          : 0x0
-
-	; Another example:
-	;	SERVICE_NAME: [service_name]
-    ;    TYPE               : 10  WIN32_OWN_PROCESS
-    ;    STATE              : 1  STOPPED
-    ;    WIN32_EXIT_CODE    : 0  (0x0)
-    ;    SERVICE_EXIT_CODE  : 0  (0x0)
-    ;    CHECKPOINT         : 0x0
-    ;    WAIT_HINT          : 0x0
-
-	${StrContains} $0 "STOPPED" $1
-	${If} $0 == "STOPPED"
-		Push 1 		; Stopped OK
-		Return
-	${EndIf}
-
-	Push 0 ; if we are here, service is NOT STOPPED
-FunctionEnd
-
-; Return values:
-;	<0 - Error
-;	0 - NOT STOPPED
-; 	1 - Stopped (SECCUSS)
-Function StopClient
-	DetailPrint "Checking is privateline-connect-ui application is running..."
-	Call IsClientStopped
-	Pop $0
-	${If} $0 == 1
-		Push 1 ; Stopped OK
-		Return
-	${EndIf}
-
-	DetailPrint "Terminating privateline-connect-ui application..."
-
-	; stop client
-	nsExec::ExecToStack '"$SYSDIR\taskkill" /IM "${PROCESS_NAME}" /F'
-	Pop $0 ; Return
-	Pop $1 ; Output
-	${If} $0 != '0'
-		DetailPrint "Failed to execute taskkill command: $0; $1"
-	${EndIf}
-
-	; R1 - counter
-	StrCpy	$R1 0
-	; waiting to stop 3 seconds (500ms*6)
-	${While} $R1 < 6
-		Sleep 500
-		IntOp $R1 $R1 + 1
-
-		Call IsClientStopped
-		Pop $0
-		${If} $0 < 0
-			Push -1 ; Error
-			Return
-		${EndIf}
-		${If} $0 == 1
-			Push 1 ; Stopped OK
-			Return
-		${EndIf}
-
-	${EndWhile}
-
-	Push 0 ; Not stopped
-FunctionEnd
-
-Function IsClientStopped
-	nsExec::ExecToStack '"$SYSDIR\tasklist" /FI "IMAGENAME eq ${PROCESS_NAME}"'
-	Pop $0 ; Return
-	Pop $1 ; Output
-	${If} $0 != '0'
-		DetailPrint "Failed to execute tasklist command: $0; $1"
-		Push -1 ; return execution error
-		Return
-	${EndIf}
-
-	${StrContains} $0 "${PROCESS_NAME}" $1
-	${If} $0 == ""
-		Push 1 ; stopped
-		Return
-	${EndIf}
-
-	Push 0	; running
 FunctionEnd
 
 Function WaitFileOpenForWritting
