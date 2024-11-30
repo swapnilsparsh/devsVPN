@@ -31,6 +31,7 @@ import (
 	"net/netip"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -40,6 +41,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
+	"github.com/tailscale/wf"
 	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
@@ -78,6 +80,8 @@ var (
 
 	routeBinaryPath      string = "route"
 	powershellBinaryPath string = "powershell"
+
+	wfpSess *wf.Session
 )
 
 type ConfigApps struct {
@@ -87,6 +91,15 @@ type ConfigApps struct {
 type Config struct {
 	Addr ConfigAddresses
 	Apps ConfigApps
+}
+
+// dynamic = rootFS.Bool("dynamic", false, "Use a dynamic WFP session")
+func session() (*wf.Session, error) {
+	return wf.New(&wf.Options{
+		Name:        "plconnect",
+		Description: "privateLINE Connect WFP",
+		Dynamic:     false, // TODO FIXME: Vlad - clean our WFP rules when daemon program stops
+	})
 }
 
 // Initialize doing initialization stuff (called on application start)
@@ -100,11 +113,17 @@ func implInitialize() error {
 		powershellBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "WindowsPowerShell", "v1.0", "powershell.exe"), "/", "\\")
 	}
 
+	var err error
+	wfpSess, err = session()
+	if err != nil {
+		return fmt.Errorf("creating WFP session: %w", err)
+	}
+
 	wfpDllPath := platform.WindowsWFPDllPath()
 	if len(wfpDllPath) == 0 {
 		return fmt.Errorf("unable to initialize split-tunnelling wrapper: firewall dll path not initialized")
 	}
-	if _, err := os.Stat(wfpDllPath); err != nil {
+	if _, err = os.Stat(wfpDllPath); err != nil {
 		return fmt.Errorf("unable to initialize split-tunnelling wrapper (firewall dll not found) : '%s'", wfpDllPath)
 	}
 
@@ -152,7 +171,6 @@ func implInitialize() error {
 	var (
 		defaultRoutePrefixIPv4netipPrefix, defaultRoutePrefixIPv6netipPrefix         netip.Prefix
 		defaultRoutePrefixIPv4IPAddressPrefix, defaultRoutePrefixIPv6IPAddressPrefix winipcfg.IPAddressPrefix
-		err                                                                          error
 	)
 
 	if defaultRoutePrefixIPv4netipPrefix, err = netip.ParsePrefix(defaultRouteIPv4); err != nil {
@@ -183,7 +201,8 @@ func isInitialised() error {
 		fSplitTun_ProcMonInitRunningApps == nil ||
 		fSplitTun_SplitStart == nil ||
 		fSplitTun_ConfigSetAddresses == nil ||
-		fSplitTun_ConfigSetSplitAppRaw == nil {
+		fSplitTun_ConfigSetSplitAppRaw == nil ||
+		wfpSess == nil {
 		return fmt.Errorf("Split-Tunnel functionality not initialized")
 	}
 	return nil
@@ -201,6 +220,11 @@ func implReset() error {
 		if err := doApplySplitFullTunnelRoutes(endpointType, true, false, *endpoint); err != nil {
 			return fmt.Errorf("error in doApplySplitFullTunnelRoutes(): %w", err)
 		}
+	}
+
+	if wfpSess != nil {
+		wfpSess.Close()
+		wfpSess = nil
 	}
 
 	return nil
@@ -688,26 +712,46 @@ func start() (err error) {
 	///
 	/// If only IPv4 configuration defined - splitting will work only for IPv4
 	/// If only IPv6 configuration defined - splitting will work only for IPv6
-	retval, _, err := fSplitTun_SplitStart.Call()
-	if err := checkCallErrResp(retval, err, "SplitTun_SplitStart"); err != nil {
-		return err
-	}
+	// retval, _, err := fSplitTun_SplitStart.Call()
+	// if err := checkCallErrResp(retval, err, "SplitTun_SplitStart"); err != nil {
+	// 	return err
+	// }
 
 	// Initialize already running apps info
 	/// Set application PID\PPIDs which have to be splitted.
 	/// It adds new info to internal process tree but not erasing current known PID\PPIDs.
 	/// Operation fails when 'process monitor' not running
-	retval, _, err = fSplitTun_ProcMonInitRunningApps.Call()
+	// retval, _, err = fSplitTun_ProcMonInitRunningApps.Call()
 
-	if err == syscall.ERROR_NO_MORE_FILES {
-		// ignore ERROR_NO_MORE_FILES error. It is Ok after calling of 'SplitTun_ProcMonInitRunningApps'
-		err = syscall.Errno(0)
-	}
-	if err := checkCallErrResp(retval, err, "SplitTun_ProcMonInitRunningApps"); err != nil {
-		return err
-	}
+	// if err == syscall.ERROR_NO_MORE_FILES {
+	// 	// ignore ERROR_NO_MORE_FILES error. It is Ok after calling of 'SplitTun_ProcMonInitRunningApps'
+	// 	err = syscall.Errno(0)
+	// }
+	// if err := checkCallErrResp(retval, err, "SplitTun_ProcMonInitRunningApps"); err != nil {
+	// 	return err
+	// }
 
 	return nil
+}
+
+// TODO FIXME: Vlad:
+//   - dynamic
+//   - layer
+//   - sublayer
+
+var guidSublayerUniversal = wf.SublayerID{
+	Data1: 0xeebecc03,
+	Data2: 0xced4,
+	Data3: 0x4380,
+	Data4: [8]byte{0x81, 0x9a, 0x27, 0x34, 0x39, 0x7b, 0x2b, 0x74},
+}
+
+func mustGUID() windows.GUID {
+	ret, err := windows.GenerateGUID()
+	if err != nil {
+		panic(err)
+	}
+	return ret
 }
 
 func setConfig(config Config) (err error) {
@@ -748,18 +792,53 @@ func setConfig(config Config) (err error) {
 	}
 
 	// SET APPS TO SPLIT
-	buff, err := makeRawBuffAppsConfig(config.Apps)
-	if err != nil {
-		return log.ErrorE(fmt.Errorf("failed to set split-tunnelling configuration (apps): %w", err), 0)
+	for idx, appPath := range config.Apps.ImagesPathToSplit {
+		appID, _ := wf.AppID(appPath)
+		// TODO FIXME: Vlad:
+		// Link all objects to our provider. When multiple providers are installed
+		// on a computer, this makes it easy to determine who added what.
+		r := &wf.Rule{
+			// TODO FIXME: Vlad - make deterministic GUID from canonicalized path
+			ID:   wf.RuleID(mustGUID()),
+			Name: "privateLINE rule IPv4 #" + strconv.Itoa(idx),
+			//Layer: wf.LayerALEAuthConnectV4,
+			Layer:      wf.LayerALEAuthRecvAcceptV4,
+			Sublayer:   guidSublayerUniversal,
+			Weight:     900,
+			Persistent: true,
+			Conditions: []*wf.Match{
+				// &wf.Match{
+				// 	Field: wf.FieldIPLocalAddress,
+				// 	Op:    wf.MatchTypeEqual,
+				// 	Value: uint8(42),
+				// },
+				{
+					Field: wf.FieldALEAppID,
+					Op:    wf.MatchTypeEqual,
+					Value: appID,
+				},
+			},
+			Action: wf.ActionPermit,
+		}
+		if err := wfpSess.AddRule(r); err != nil {
+			return log.ErrorE(fmt.Errorf("failed to AddRule '%+v': %w", r, err), 0)
+		} else {
+			log.Debug(fmt.Sprintf("AddRule '%+v'", r))
+		}
 	}
 
-	var bufSize uint32 = uint32(len(buff))
-	retval, _, err = fSplitTun_ConfigSetSplitAppRaw.Call(
-		uintptr(unsafe.Pointer(&buff[0])),
-		uintptr(bufSize))
-	if err := checkCallErrResp(retval, err, "SplitTun_ConfigSetSplitAppRaw"); err != nil {
-		return err
-	}
+	// buff, err := makeRawBuffAppsConfig(config.Apps)
+	// if err != nil {
+	// 	return log.ErrorE(fmt.Errorf("failed to set split-tunnelling configuration (apps): %w", err), 0)
+	// }
+
+	// var bufSize uint32 = uint32(len(buff))
+	// retval, _, err = fSplitTun_ConfigSetSplitAppRaw.Call(
+	// 	uintptr(unsafe.Pointer(&buff[0])),
+	// 	uintptr(bufSize))
+	// if err := checkCallErrResp(retval, err, "SplitTun_ConfigSetSplitAppRaw"); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
