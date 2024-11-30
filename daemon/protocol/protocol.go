@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -328,6 +329,7 @@ func (p *Protocol) processClient(conn net.Conn) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("PANIC during client communication!: ", r)
+			log.Error(string(debug.Stack()))
 			if err, ok := r.(error); ok {
 				log.ErrorTrace(err)
 			}
@@ -405,6 +407,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error(fmt.Sprintf("%sPANIC during processing request!: ", p.connLogID(conn)), r)
+			log.Error(string(debug.Stack()))
 			if err, ok := r.(error); ok {
 				log.ErrorTrace(err)
 			}
@@ -1402,6 +1405,7 @@ func (p *Protocol) processConnectionRequests() {
 			defer func() {
 				if r := recover(); r != nil {
 					log.Error(fmt.Errorf("PANIC during processing connection request: %v", r))
+					log.Error(string(debug.Stack()))
 					if err, ok := r.(error); ok {
 						log.ErrorTrace(err)
 					}
@@ -1464,6 +1468,7 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 		if r := recover(); r != nil {
 			err = errors.New("panic on connect: " + fmt.Sprint(r))
 			log.Error(err)
+			log.Error(string(debug.Stack()))
 		}
 	}()
 
@@ -1479,6 +1484,7 @@ func (p *Protocol) notifyVpnStateChanged(stateObj *vpn.StateInfo) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("Panic when notifying VPN status to clients! (recovered)")
+			log.Error(string(debug.Stack()))
 			if err, ok := r.(error); ok {
 				log.ErrorTrace(err)
 			}

@@ -30,6 +30,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -308,6 +309,7 @@ func (s *Service) init() error {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Error("PANIC in Servers update notifier!: ", r)
+				log.Error(string(debug.Stack()))
 				if err, ok := r.(error); ok {
 					log.ErrorTrace(err)
 				}
