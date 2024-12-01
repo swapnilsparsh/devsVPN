@@ -948,7 +948,7 @@ async function Login(
 ) {
   let resp = await sendRecv({
     Command: daemonRequests.SessionNew,
-    Email: email,
+    EmailOrAcctID: email,
     Password: password,
     StableDeviceID: false,
     // ForceLogin: force,
