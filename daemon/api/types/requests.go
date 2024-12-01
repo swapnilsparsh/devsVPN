@@ -40,7 +40,7 @@ type KemPublicKeys struct {
 
 // SessionNewRequest request to create new session
 type SessionNewRequest struct {
-	// AccountID  string `json:"username"`
+	AccountID string `json:"account_id,omitempty"`
 	// ForceLogin bool   `json:"force"`
 
 	// PublicKey string `json:"wg_public_key"`
@@ -49,9 +49,9 @@ type SessionNewRequest struct {
 	// CaptchaID       string `json:"captcha_id,omitempty"`
 	// Captcha         string `json:"captcha,omitempty"`
 	// Confirmation2FA string `json:"confirmation,omitempty"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	SsoLogin bool   `json:"ssologin"`
+	Email    string `json:"email,omitempty"`
+	Password string `json:"password,omitempty"`
+	SsoLogin bool   `json:"ssologin,omitempty"`
 }
 
 func (req SessionNewRequest) GetSessionToken() string {
