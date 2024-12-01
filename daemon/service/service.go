@@ -1645,7 +1645,7 @@ func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountI
 }
 
 // SessionNew creates new session
-func (s *Service) SessionNew(email string, password string, deviceName string, stableDeviceID bool) (
+func (s *Service) SessionNew(email string, password string, deviceName string, stableDeviceID bool, AccountID string) (
 	apiCode int,
 	apiErrorMsg string,
 	accountInfo preferences.AccountStatus,
@@ -1733,7 +1733,7 @@ func (s *Service) SessionNew(email string, password string, deviceName string, s
 			log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
 		}
 
-		sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(email, password)
+		sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(email, password, AccountID)
 
 		apiCode = 0
 		if apiErr != nil {

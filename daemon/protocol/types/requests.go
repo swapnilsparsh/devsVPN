@@ -230,6 +230,7 @@ type SessionNew struct {
 	Password       string
 	DeviceName     string
 	StableDeviceID bool
+	AccountID      string
 }
 type SsoLogin struct {
 	RequestBase

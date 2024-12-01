@@ -53,8 +53,14 @@ type SessionNewRequest struct {
 	Password string `json:"password"`
 	SsoLogin bool   `json:"ssologin"`
 }
+type SessionNewAccountIdRequest struct {
+	AccountID string `json:"account_id"`
+}
 
 func (req SessionNewRequest) GetSessionToken() string {
+	return ""
+}
+func (req SessionNewAccountIdRequest) GetSessionToken() string {
 	return ""
 }
 

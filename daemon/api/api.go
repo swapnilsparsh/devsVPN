@@ -53,16 +53,17 @@ const (
 	_updateHost  = "raw.githubusercontent.com"
 	_serversPath = "swapnilsparsh/devsVPN/master/daemon/References/common/etc/servers.json"
 
-	_apiPathPrefix        = "v4"
-	_sessionNewPath       = "/user/login"
-	_connectDevicePath    = "/connection/push-key"
-	_sessionStatusPath    = "/session/status"
-	_sessionDeletePath    = "/user/remove-device"
-	_deviceListPath       = "/user/device-list"
-	_profileDataPath      = "/user/profile"
-	_subscriptionDataPath = "/user/check-subscription"
-	_wgKeySetPath         = _apiPathPrefix + "/session/wg/set"
-	_geoLookupPath        = _apiPathPrefix + "/geo-lookup"
+	_apiPathPrefix           = "v4"
+	_sessionNewPath          = "/user/login"
+	_sessionNewAccountIdPath = "/user/login/quick-auth"
+	_connectDevicePath       = "/connection/push-key"
+	_sessionStatusPath       = "/session/status"
+	_sessionDeletePath       = "/user/remove-device"
+	_deviceListPath          = "/user/device-list"
+	_profileDataPath         = "/user/profile"
+	_subscriptionDataPath    = "/user/check-subscription"
+	_wgKeySetPath            = _apiPathPrefix + "/session/wg/set"
+	_geoLookupPath           = _apiPathPrefix + "/geo-lookup"
 )
 
 // Alias - alias description of API request (can be requested by UI client)
@@ -304,7 +305,7 @@ func (a *API) DoRequestByAlias(apiAlias string, ipTypeRequired protocolTypes.Req
 }
 
 // SessionNew - try to register new session
-func (a *API) SessionNew(email string, password string) (
+func (a *API) SessionNew(email string, password string, AccountID string) (
 	*types.SessionNewResponse,
 	*types.SessionNewErrorLimitResponse,
 	*types.APIErrorResponse,
@@ -317,6 +318,65 @@ func (a *API) SessionNew(email string, password string) (
 
 	rawResponse := ""
 
+	log.Debug("AccountID", AccountID)
+	// ============ Login with Account Id ==============
+	if AccountID != "" {
+		// a.SessionNewAccountId(AccountID)
+		request := &types.SessionNewAccountIdRequest{
+			AccountID: AccountID,
+		}
+
+		log.Debug("Request Account Id", request)
+
+		data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewAccountIdPath, "POST", "application/json", request, 0, 0)
+		if err != nil {
+			return nil, nil, nil, rawResponse, err
+		}
+
+		rawResponse = string(data)
+
+		log.Debug("Account Id raw response :- ", rawResponse)
+
+		// Check is it API error
+		if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
+			return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+		}
+
+		log.Debug(err)
+
+		// if !apiErr.Status {
+		// 	log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
+		// 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+		// }
+
+		// success
+		if apiErr.HttpStatusCode == types.CodeSuccess {
+			err := json.Unmarshal(data, &successResp)
+			successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+			if err != nil {
+				return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+			}
+
+			return &successResp, nil, &apiErr, rawResponse, nil
+		}
+
+		log.Debug(apiErr)
+
+		// Session limit check
+		if apiErr.HttpStatusCode == types.CodeSessionsLimitReached {
+			err := json.Unmarshal(data, &errorLimitResp)
+			errorLimitResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+			if err != nil {
+				return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+			}
+			return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+		}
+		log.Debug("Last1", apiErr.HttpStatusCode)
+		log.Debug("Last2", apiErr.Message)
+
+		return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	}
+	// ============= Email & Password Login ===============
 	request := &types.SessionNewRequest{
 		Email:    email,
 		Password: password,
@@ -360,6 +420,78 @@ func (a *API) SessionNew(email string, password string) (
 		}
 		return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 	}
+
+	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+
+}
+
+// SessionNew with account id
+func (a *API) SessionNewAccountId(AccountID string) (
+	*types.SessionNewResponse,
+	*types.SessionNewErrorLimitResponse,
+	*types.APIErrorResponse,
+	string, // RAW response
+	error) {
+
+	var successResp types.SessionNewResponse
+	var errorLimitResp types.SessionNewErrorLimitResponse
+	var apiErr types.APIErrorResponse
+
+	rawResponse := ""
+
+	log.Debug("AccountID", AccountID)
+
+	request := &types.SessionNewAccountIdRequest{
+		AccountID: AccountID,
+	}
+
+	log.Debug("Request Account Id", request)
+
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewAccountIdPath, "POST", "application/json", request, 0, 0)
+	if err != nil {
+		return nil, nil, nil, rawResponse, err
+	}
+
+	rawResponse = string(data)
+
+	log.Debug("Account Id raw response :- ", rawResponse)
+
+	// Check is it API error
+	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
+		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+	}
+
+	log.Debug(err)
+
+	// if !apiErr.Status {
+	// 	log.Debug("apiErr.Status=false apiErr.Message='" + apiErr.Message + "'")
+	// 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	// }
+
+	// success
+	if apiErr.HttpStatusCode == types.CodeSuccess {
+		err := json.Unmarshal(data, &successResp)
+		successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+		if err != nil {
+			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+		}
+
+		return &successResp, nil, &apiErr, rawResponse, nil
+	}
+
+	log.Debug(apiErr)
+
+	// Session limit check
+	if apiErr.HttpStatusCode == types.CodeSessionsLimitReached {
+		err := json.Unmarshal(data, &errorLimitResp)
+		errorLimitResp.SetHttpStatusCode(apiErr.HttpStatusCode)
+		if err != nil {
+			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+		}
+		return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	}
+	log.Debug("Last1", apiErr.HttpStatusCode)
+	log.Debug("Last2", apiErr.Message)
 
 	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }

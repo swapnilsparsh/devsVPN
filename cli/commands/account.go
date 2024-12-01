@@ -61,6 +61,7 @@ type CmdLogin struct {
 	email          string
 	stableDeviceID bool
 	deviceName     string
+	AccountID      string
 }
 
 func (c *CmdLogin) Init() {
@@ -71,10 +72,10 @@ func (c *CmdLogin) Init() {
 }
 
 func (c *CmdLogin) Run() error {
-	return doLogin(c.email, c.deviceName, c.stableDeviceID)
+	return doLogin(c.email, c.deviceName, c.stableDeviceID, c.AccountID)
 }
 
-func doLogin(email string, deviceName string, stableDeviceID bool) error {
+func doLogin(email string, deviceName string, stableDeviceID bool, AccountID string) error {
 	// checking if we are logged-in
 	_proto.SessionStatus() // do not check error response (could be received 'not logged in' errors)
 	helloResp := _proto.GetHelloResponse()
@@ -93,7 +94,7 @@ func doLogin(email string, deviceName string, stableDeviceID bool) error {
 	}
 	password := string(data)
 
-	resp, err := _proto.SessionNew(email, password, deviceName, stableDeviceID)
+	resp, err := _proto.SessionNew(email, password, deviceName, stableDeviceID, AccountID)
 	if err != nil {
 		// if resp.APIStatus == types.The2FARequired {
 		// 	fmt.Println("Account has two-factor authentication enabled.")

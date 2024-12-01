@@ -18,59 +18,40 @@
 
           <div style="height: 21px" />
 
-          <input
-            ref="accountid"
-            v-model="email"
-            class="styledBig"
-            style="text-align: left"
-            placeholder="Enter your Email"
-            @keyup="keyup($event)"
-          />
+          <input v-if="isAccountIdLogin" ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
+            placeholder="Enter your account id" @keyup="keyup($event)" />
+          <input v-if="!isAccountIdLogin" ref="email" v-model="email" class="styledBig" style="text-align: left"
+            placeholder="Enter your Email" @keyup="keyup($event)" />
           <div style="height: 10px" />
-          <div style="position: relative; display: flex; align-items: center">
-            <input
-              ref="password"
-              v-model="password"
-              class="styledBig"
-              style="text-align: left"
-              placeholder="Enter your Password"
-              :type="passwordType"
-              @keyup="keyup($event)"
-            />
-            <img
-              v-if="showPassword"
-              src="@/assets/eye-close.svg"
-              alt="Eye Image"
-              style="
+          <div v-if="!isAccountIdLogin" style="position: relative; display: flex; align-items: center">
+            <input ref="password" v-model="password" class="styledBig" style="text-align: left"
+              placeholder="Enter your Password" :type="passwordType" @keyup="keyup($event)" />
+            <img v-if="showPassword" src="@/assets/eye-close.svg" alt="Eye Image" style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              "
-              @click="toggleEye"
-            />
-            <img
-              v-else
-              src="@/assets/eye-open.svg"
-              alt="Eye Image"
-              style="
+              " @click="toggleEye" />
+            <img v-else src="@/assets/eye-open.svg" alt="Eye Image" style="
                 width: 20px;
                 height: 20px;
                 position: absolute;
                 right: 10px;
                 cursor: pointer;
-              "
-              @click="toggleEye"
-            />
+              " @click="toggleEye" />
           </div>
         </div>
-        <div class="medium_text link" @click="ForgotPassword">
+        <div v-if="!isAccountIdLogin" class="medium_text link" @click="ForgotPassword">
           Forgot Password?
         </div>
 
         <div style="height: 24px" />
         <button class="master" @click="Login">Log In</button>
+        <div style="height: 12px" />
+        <button v-if="!isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Account Id</button>
+        <button v-if="isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Email and
+          Password</button>
         <div style="height: 12px" />
         <button class="slave" v-on:click="openSSO">SSO Login</button>
         <div style="height: 12px" />
@@ -140,6 +121,8 @@ export default {
       email: "",
       password: "",
       isProcessing: false,
+      isAccountIdLogin: false,
+      accountID: '',
 
       rawResponse: null,
       apiResponseStatus: 0,
@@ -196,8 +179,8 @@ export default {
     },
   },
   mounted() {
-     /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
-     ipcRenderer.on("sso-auth", async (event, authData) => {
+    /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
+    ipcRenderer.on("sso-auth", async (event, authData) => {
       try {
         this.isProcessing = true;
         await sender.SsoLogin(authData?.code, authData?.session_state);
@@ -250,6 +233,8 @@ export default {
     },
     async Login(isForceLogout, confirmation2FA) {
       try {
+
+        console.log("accountID:", this.accountID)
         // check accoundID
         // var pattern = new RegExp("^([a-zA-Z0-9]{7,8})$"); // fragment locator
         // if (this.accountID) this.accountID = this.accountID.trim();
@@ -271,36 +256,42 @@ export default {
 
         this.isProcessing = true;
         // console.log({ accountid: this.accountID, email: this.email, password: this.password });
-        if (
-          !(this.email != undefined && this.email != null && this.email != "")
-        ) {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to login",
-            detail: `Please enter email address`,
-          });
-          return;
-        }
-        if (
-          !(
-            this.password != undefined &&
-            this.password != null &&
-            this.password != ""
-          )
-        ) {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to login",
-            detail: `Please enter password`,
-          });
-          return;
+        if (this.isAccountIdLogin) {
+          // TODO: Write here validation for account id
+
+        } else {
+          if (
+            !(this.email != undefined && this.email != null && this.email != "")
+          ) {
+            sender.showMessageBoxSync({
+              type: "error",
+              buttons: ["OK"],
+              message: "Failed to login",
+              detail: `Please enter email address`,
+            });
+            return;
+          }
+          if (
+            !(
+              this.password != undefined &&
+              this.password != null &&
+              this.password != ""
+            )
+          ) {
+            sender.showMessageBoxSync({
+              type: "error",
+              buttons: ["OK"],
+              message: "Failed to login",
+              detail: `Please enter password`,
+            });
+            return;
+          }
         }
 
         const resp = await sender.Login(
           this.email,
-          this.password
+          this.password,
+          this.accountID
           // isForceLogout === true || this.isForceLogoutRequested === true,
           // this.captchaID,
           // this.captcha,
@@ -415,7 +406,10 @@ export default {
     openSSO() {
       sender.shellOpenExternal(
         `https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`);
-      },
+    },
+    onLoginWithAccountId() {
+      this.isAccountIdLogin = !this.isAccountIdLogin;
+    },
     ForgotPassword() {
       sender.shellOpenExternal(
         `https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`

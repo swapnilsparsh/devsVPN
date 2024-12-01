@@ -168,7 +168,7 @@ func (c *Client) GetHelloResponse() types.HelloResp {
 }
 
 // SessionNew creates new session
-func (c *Client) SessionNew(email string, password string, deviceName string, stableDeviceID bool) (resp types.SessionNewResp, err error) {
+func (c *Client) SessionNew(email string, password string, deviceName string, stableDeviceID bool, AccountID string) (resp types.SessionNewResp, err error) {
 	if err := c.ensureConnected(); err != nil {
 		return resp, err
 	}
