@@ -192,6 +192,8 @@
 <script>
 const sender = window.ipcSender;
 
+import { Platform, PlatformEnum } from "@/platform/platform";
+
 import connectionView from "@/components/settings/settings-connection.vue";
 import accountView from "@/components/settings/settings-account.vue";
 import generalView from "@/components/settings/settings-general.vue";
