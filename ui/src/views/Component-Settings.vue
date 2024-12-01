@@ -234,6 +234,9 @@ export default {
     isLoggedIn: function () {
       return this.$store.getters["account/isLoggedIn"];
     },
+    isLinux: function () {
+      return Platform() === PlatformEnum.Linux;
+    },
     isSplitTunnelVisible() {
       return this.$store.getters["isSplitTunnelEnabled"];
     },
