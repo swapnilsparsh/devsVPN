@@ -411,6 +411,30 @@ Function IsClientStopped
 	Push 0	; running
 FunctionEnd
 
+; Returns:
+;	0< on execution error
+;	0 if rule already exists
+;	1 if rule not found
+Function DoesFirewallRuleExist
+    nsExec::ExecToStack '"$SYSDIR\netsh.exe" advfirewall firewall show rule name="${PRIVATELINE_SERVICE_NAME}"'
+	Pop $0 ; Return
+	Pop $1 ; Output
+	${If} $0 != '0'
+		DetailPrint "advfirewall firewall show rule: $0; $1"
+		Push -1 ; return execution error
+		Return
+	${EndIf}
+
+	${StrContains} $0 "${PRIVATELINE_SERVICE_NAME}" $1
+	${If} $0 == ""
+		Push 1 ; rule not found
+		Return
+	${EndIf}
+
+	Push 0	; rule found
+FunctionEnd
+
+
 ;---------------------------
 
 !macro COMMON_INIT
@@ -545,16 +569,17 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
 
   ; Stop privateline-connect-svc and Wireguard services
   StopServices:
-  ${StopService} $0 ${WIREGUARD_SERVICE_NAME}
   ${StopService} $0 ${PRIVATELINE_SERVICE_NAME}
   ; 1 - SUCCESS;
   ${if} $0 != 1
 		DetailPrint "ERROR: Failed to stop '${PRIVATELINE_SERVICE_NAME}' service."
-		MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "Failed to stop '${PRIVATELINE_SERVICE_NAME}' service.$\nIgnoring this problem can lead to issues with privateLINE Connect software in the future." IDRETRY StopServices IDIGNORE IgnoreServicesStop
+		MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "Failed to stop '${PRIVATELINE_SERVICE_NAME}' service.$\nIgnoring this problem can lead to issues with privateLINE Connect software in the future." IDRETRY StopServices IDIGNORE IgnorePLServiceStop
 		DetailPrint "Aborted"
 		Abort
   ${EndIf}
-  IgnoreServicesStop:
+  IgnorePLServiceStop:
+  ; Try to stop Wireguard service unconditionally - for example, in case privateline-connect-svc crashed
+  ${StopService} $0 ${WIREGUARD_SERVICE_NAME}
 
   ; When privateline-connect-svc stopping - privateline-connect-ui must also Close automatically
   ; anyway, there could be situations when privateline-connect-ui not connected to service (cannot receive 'service exiting' notification.)
@@ -716,10 +741,18 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
   nsExec::ExecToLog '"$SYSDIR\sc.exe" sdset "${PRIVATELINE_SERVICE_NAME}" "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPDTLO;;;S-1-1-0)"'
 
   ; add service to WFP (Windows Firewall)
-  DetailPrint "Adding firewall rule to allow ${PRIVATELINE_SERVICE_NAME} service outbound connectivity..."
+  Call DoesFirewallRuleExist
+  Pop $0
+  ${If} $0 == 0
+    DetailPrint "Windows Firewall rule for ${PRIVATELINE_SERVICE_NAME} already exists, skipping"
+	Goto skipAddingWFPRule
+  ${EndIf}
+
+  DetailPrint "Adding Windows Firewall rule to allow ${PRIVATELINE_SERVICE_NAME} service outbound connectivity..."
   ; "netsh firewall" command deprecated
   ;nsExec::ExecToLog '"$SYSDIR\netsh.exe" firewall add allowedprogram "$INSTDIR\${SVC_PROCESS_NAME}" "${PRIVATELINE_SERVICE_NAME}" ENABLE'
   nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall add rule name="${PRIVATELINE_SERVICE_NAME}" dir=out action=allow program="$INSTDIR\${SVC_PROCESS_NAME}" enable=yes'
+  skipAddingWFPRule:
 
   ; start service
   DetailPrint "Starting ${PRIVATELINE_SERVICE_NAME} service..."
@@ -751,10 +784,10 @@ Section "Uninstall"
 
   ; stop services
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop "${PRIVATELINE_SERVICE_NAME}"'
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop "${WIREGUARD_SERVICE_NAME}"'
 
-  ; wait a little (give change for privateline-connect-ui application to stop)
+  ; wait a little (give change for Wireguard service and privateline-connect-ui application to stop)
   Sleep 1500
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop "${WIREGUARD_SERVICE_NAME}"'
 
   ; When privateline-connect-svc service stopping - privateline-connect-ui must also Close automatically
   ; anyway, there could be situations when privateline-connect-ui not connected to service (cannot receive 'service exiting' notification.)
@@ -786,7 +819,7 @@ Section "Uninstall"
   ; delete service from WFP (Windows Firewall)
   DetailPrint "Deleting firewall rule for ${PRIVATELINE_SERVICE_NAME} service..."
   ; "netsh firewall" command deprecated
-  nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall delete rule name="${PRIVATELINE_SERVICE_NAME}" program="$INSTDIR\${SVC_PROCESS_NAME}"'
+  nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall delete rule name="${PRIVATELINE_SERVICE_NAME}"'
 
 ;  Vlad - disabled installation/uninstallation of TAP driver for now
 /*
