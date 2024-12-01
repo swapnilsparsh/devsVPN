@@ -58,7 +58,7 @@
                 PrivateLINE Firewall
               </button> -->
               <button
-                v-if="isLoggedIn"
+                v-if="isLinux && isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
                 v-on:click="onView('appwhitelist')"
                 v-bind:class="{
