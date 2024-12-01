@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -73,7 +74,8 @@ func Launch() {
 
 	// Logging enabled from command line argument ('-logging').
 	// Logging can be enabled from command line or from previously saved daemon preferences
-	// TODO: Vlad - enabling logging from get-go for the time being
+	//
+	// Vlad - enabling logging from get-go for the time being
 	isLoggingEnabledArgument := true
 	// Cleanup requested ('-cleanup'). Do not start server.
 	isCleanupArgument := false
@@ -106,6 +108,18 @@ func Launch() {
 
 	// Log full version
 	logger.Info("version:" + version.GetFullVersion())
+
+	// Now that logger is initialized, set up panic handler - ensure we log panic message (at least on this goroutine) before exiting on it
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error(fmt.Errorf("PANIC at runtime: %v", r))
+			logger.Error(string(debug.Stack()))
+			if err, ok := r.(error); ok {
+				logger.ErrorTrace(err)
+			}
+			os.Exit(1)
+		}
+	}()
 
 	if isCleanupArgument {
 		// Cleanup requested: just do logout, disable firewall and exit.

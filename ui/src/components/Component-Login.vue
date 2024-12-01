@@ -118,8 +118,9 @@ export default {
     return {
       firewallIsProgress: false,
 
-      email: "",
+      emailOrAcctID: "",
       password: "",
+      passwordlessLogin: false,
       isProcessing: false,
       isAccountIdLogin: false,
       accountID: '',

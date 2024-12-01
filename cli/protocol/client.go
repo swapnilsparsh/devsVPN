@@ -155,9 +155,9 @@ func (c *Client) SendHelloEx(isSendResponseToAllClients bool) (helloResponse typ
 
 	if err := c.sendRecvTimeOut(&helloReq, &c._helloResponse, time.Second*7); err != nil {
 		if _, ok := errors.Unwrap(err).(ResponseTimeout); ok {
-			return helloResponse, fmt.Errorf("Failed to send 'Hello' request: %w", err)
+			return helloResponse, fmt.Errorf("failed to send 'Hello' request: %w", err)
 		}
-		return helloResponse, fmt.Errorf("Failed to send 'Hello' request: %w", err)
+		return helloResponse, fmt.Errorf("failed to send 'Hello' request: %w", err)
 	}
 	return c._helloResponse, nil
 }

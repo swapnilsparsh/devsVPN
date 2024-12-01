@@ -53,17 +53,17 @@ const (
 	_updateHost  = "raw.githubusercontent.com"
 	_serversPath = "swapnilsparsh/devsVPN/master/daemon/References/common/etc/servers.json"
 
-	_apiPathPrefix           = "v4"
-	_sessionNewPath          = "/user/login"
-	_sessionNewAccountIdPath = "/user/login/quick-auth"
-	_connectDevicePath       = "/connection/push-key"
-	_sessionStatusPath       = "/session/status"
-	_sessionDeletePath       = "/user/remove-device"
-	_deviceListPath          = "/user/device-list"
-	_profileDataPath         = "/user/profile"
-	_subscriptionDataPath    = "/user/check-subscription"
-	_wgKeySetPath            = _apiPathPrefix + "/session/wg/set"
-	_geoLookupPath           = _apiPathPrefix + "/geo-lookup"
+	_apiPathPrefix              = "v4"
+	_sessionNewPath             = "/user/login"
+	_sessionNewPasswordlessPath = "/user/login/quick-auth"
+	_connectDevicePath          = "/connection/push-key"
+	_sessionStatusPath          = "/session/status"
+	_sessionDeletePath          = "/user/remove-device"
+	_deviceListPath             = "/user/device-list"
+	_profileDataPath            = "/user/profile"
+	_subscriptionDataPath       = "/user/check-subscription"
+	_wgKeySetPath               = _apiPathPrefix + "/session/wg/set"
+	_geoLookupPath              = _apiPathPrefix + "/geo-lookup"
 )
 
 // Alias - alias description of API request (can be requested by UI client)
@@ -312,9 +312,16 @@ func (a *API) SessionNew(email string, password string, AccountID string) (
 	string, // RAW response
 	error) {
 
-	var successResp types.SessionNewResponse
-	var errorLimitResp types.SessionNewErrorLimitResponse
-	var apiErr types.APIErrorResponse
+	var (
+		successResp    types.SessionNewResponse
+		errorLimitResp types.SessionNewErrorLimitResponse
+		apiErr         types.APIErrorResponse
+		request        *types.SessionNewRequest
+		// apiPath        string
+		data     []byte
+		httpResp *http.Response
+		err      error
+	)
 
 	rawResponse := ""
 
@@ -328,7 +335,7 @@ func (a *API) SessionNew(email string, password string, AccountID string) (
 
 		log.Debug("Request Account Id", request)
 
-		data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewAccountIdPath, "POST", "application/json", request, 0, 0)
+		data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPasswordlessPath, "POST", "application/json", request, 0, 0)
 		if err != nil {
 			return nil, nil, nil, rawResponse, err
 		}
@@ -377,13 +384,13 @@ func (a *API) SessionNew(email string, password string, AccountID string) (
 		return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 	}
 	// ============= Email & Password Login ===============
-	request := &types.SessionNewRequest{
+	request = &types.SessionNewRequest{
 		Email:    email,
 		Password: password,
 		SsoLogin: true,
 	}
 
-	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
+	data, httpResp, err = a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPath, "POST", "application/json", request, 0, 0)
 	if err != nil {
 		return nil, nil, nil, rawResponse, err
 	}
@@ -447,7 +454,7 @@ func (a *API) SessionNewAccountId(AccountID string) (
 
 	log.Debug("Request Account Id", request)
 
-	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewAccountIdPath, "POST", "application/json", request, 0, 0)
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionNewPasswordlessPath, "POST", "application/json", request, 0, 0)
 	if err != nil {
 		return nil, nil, nil, rawResponse, err
 	}

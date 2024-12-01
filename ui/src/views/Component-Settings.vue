@@ -58,7 +58,7 @@
                 PrivateLINE Firewall
               </button> -->
               <button
-                v-if="isLoggedIn"
+                v-if="isLinux && isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
                 v-on:click="onView('appwhitelist')"
                 v-bind:class="{
@@ -192,6 +192,8 @@
 <script>
 const sender = window.ipcSender;
 
+import { Platform, PlatformEnum } from "@/platform/platform";
+
 import connectionView from "@/components/settings/settings-connection.vue";
 import accountView from "@/components/settings/settings-account.vue";
 import generalView from "@/components/settings/settings-general.vue";
@@ -233,6 +235,9 @@ export default {
   computed: {
     isLoggedIn: function () {
       return this.$store.getters["account/isLoggedIn"];
+    },
+    isLinux: function () {
+      return Platform() === PlatformEnum.Linux;
     },
     isSplitTunnelVisible() {
       return this.$store.getters["isSplitTunnelEnabled"];

@@ -222,8 +222,10 @@ type ResumeConnection struct {
 // SessionNew - create new session
 //
 // When force is set to true - all active sessions will be deleted prior to creating a new one if user reached session limit.
-// Initial call to /sessin/new should always be performed with force set to false, to display special form, when sessions limit is reached.
+// Initial call to /session/new should always be performed with force set to false, to display special form, when sessions limit is reached.
 // IVPN client apps have to set force to true only when customer clicks Log all other clients button.
+//
+// When login is passwordless, EmailOrAcctID contains account ID, and password is set to ""
 type SessionNew struct {
 	RequestBase
 	Email          string

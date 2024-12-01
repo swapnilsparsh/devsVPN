@@ -79,22 +79,34 @@ type KemCiphers struct {
 type SessionNewResponse struct {
 	APIErrorResponse
 	Data struct {
-		ID          int    `json:"id"`
-		UserType    string `json:"user_type"`
-		Username    string `json:"name"`
-		Phone       string `json:"phone"`
-		Email       string `json:"email"`
-		IsVerified  bool   `json:"isVerified"`
-		Profile     string `json:"profile"`
-		IsActive    bool   `json:"isActive"`
-		IsSuspended bool   `json:"isSuspended"`
-		IsDeleted   bool   `json:"isDeleted"`
-		LastLogin   string `json:"last_login"`
-		TempToken   string `json:"temp_token"`
-		Login       int    `json:"login"`
-		CreatedAt   string `json:"createdAt"`
-		UpdatedAt   string `json:"updatedAt"`
-		Token       string `json:"token"`
+		AccountType    string `json:"account_type,omitempty"`
+		ActivityStatus string `json:"activity_status,omitempty"`
+		Affiliatecode  string `json:"affiliate_code,omitempty"`
+		CreatedAt      string `json:"createdAt"`
+		DeletionDate   string `json:"deletion_date,omitempty"`
+		DeviceLimit    int    `json:"device_limit,omitempty"`
+		Email          string `json:"email"`
+		EmailVerified  bool   `json:"email_verified,omitempty"`
+		ID             int    `json:"id"`
+		IsActive       bool   `json:"isActive"`
+		IsDeleted      bool   `json:"isDeleted"`
+		IsSuspended    bool   `json:"isSuspended"`
+		IsVerified     bool   `json:"isVerified"`
+		LastLogin      string `json:"last_login"`
+		Login          int    `json:"login"`
+		MFAStatus      int    `json:"mfa_status,omitempty"`
+		Name           string `json:"name"`
+		ParentID       string `json:"parent_id,omitempty"`
+		Phone          string `json:"phone"`
+		Profile        string `json:"profile"`
+		SSORegistered  int    `json:"sso_registered,omitempty"`
+		Tags           string `json:"tags,omitempty"`
+		TempToken      string `json:"temp_token"`
+		Token          string `json:"token"`
+		UpdatedAt      string `json:"updatedAt"`
+		Username       string `json:"username,omitempty"`
+		UserType       string `json:"user_type"`
+		UUID           string `json:"uuid,omitempty"`
 	}
 
 	// WireGuard struct {
