@@ -18,16 +18,31 @@
 
           <div style="height: 21px" />
 
-          <input
-            ref="accountid"
-            v-model="email"
-            class="styledBig"
-            style="text-align: left"
-            placeholder="Enter your Email"
-            @keyup="keyup($event)"
-          />
+          <template v-if="passwordlessLogin">
+            <input
+              ref="accountid"
+              v-model="emailOrAcctID"
+              class="styledBig"
+              style="text-align: left"
+              placeholder="Enter your Account ID"
+              @keyup="keyup($event)"
+            />
+          </template>
+          <template v-else>
+            <input
+              ref="accountid"
+              v-model="emailOrAcctID"
+              class="styledBig"
+              style="text-align: left"
+              placeholder="Enter your Email"
+              @keyup="keyup($event)"
+            />
+          </template>
+
           <div style="height: 10px" />
-          <div style="position: relative; display: flex; align-items: center">
+          <div style="position: relative; display: flex; align-items: center"
+            v-if="!passwordlessLogin"
+          >
             <input
               ref="password"
               v-model="password"
@@ -65,7 +80,21 @@
             />
           </div>
         </div>
-        <div class="medium_text link" @click="ForgotPassword">
+
+        <div class="param">
+          <input
+            type="checkbox"
+            id="passwordlessLogin"
+            v-model="passwordlessLogin"
+          />
+          <label class="defColor" for="passwordlessLogin"
+            >Passwordless login</label
+          >
+        </div>
+
+        <div class="medium_text link" @click="ForgotPassword"
+          v-if="!passwordlessLogin"
+        >
           Forgot Password?
         </div>
 
@@ -137,8 +166,9 @@ export default {
     return {
       firewallIsProgress: false,
 
-      email: "",
+      emailOrAcctID: "",
       password: "",
+      passwordlessLogin: false,
       isProcessing: false,
 
       rawResponse: null,
@@ -250,7 +280,8 @@ export default {
     },
     async Login(isForceLogout, confirmation2FA) {
       try {
-        // check accoundID
+        // TODO FIXME: do check accoundID in case of passwordless login. Format a-xxxx-xxxx-xxxx-xxxx
+        //
         // var pattern = new RegExp("^([a-zA-Z0-9]{7,8})$"); // fragment locator
         // if (this.accountID) this.accountID = this.accountID.trim();
         // if (pattern.test(this.accountID) !== true) {
@@ -270,9 +301,9 @@ export default {
         // }
 
         this.isProcessing = true;
-        // console.log({ accountid: this.accountID, email: this.email, password: this.password });
+        // console.log({ accountid: this.accountID, email: this.emailOrAcctID, password: this.password });
         if (
-          !(this.email != undefined && this.email != null && this.email != "")
+          !(this.emailOrAcctID != undefined && this.emailOrAcctID != null && this.emailOrAcctID != "")
         ) {
           sender.showMessageBoxSync({
             type: "error",
@@ -282,13 +313,13 @@ export default {
           });
           return;
         }
-        if (
-          !(
+        if (this.passwordlessLogin) {
+            this.password = "";
+        } else if (!(
             this.password != undefined &&
             this.password != null &&
             this.password != ""
-          )
-        ) {
+        )) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
@@ -299,7 +330,7 @@ export default {
         }
 
         const resp = await sender.Login(
-          this.email,
+          this.emailOrAcctID,
           this.password
           // isForceLogout === true || this.isForceLogoutRequested === true,
           // this.captchaID,

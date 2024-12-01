@@ -942,13 +942,13 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
 }
 
 async function Login(
-  email,
+  emailOrAcctID,
   password
   //  force, captchaID, captcha, confirmation2FA
 ) {
   let resp = await sendRecv({
     Command: daemonRequests.SessionNew,
-    EmailOrAcctID: email,
+    EmailOrAcctID: emailOrAcctID,
     Password: password,
     StableDeviceID: false,
     // ForceLogin: force,

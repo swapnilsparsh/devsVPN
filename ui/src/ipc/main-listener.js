@@ -66,12 +66,12 @@ ipcMain.handle(
   "renderer-request-login",
   async (
     event,
-    email,
+    emailOrAcctID,
     password
     // force, captchaID, captcha, confirmation2FA
   ) => {
     return await client.Login(
-      email,
+      emailOrAcctID,
       password
       // force,
       // captchaID,
