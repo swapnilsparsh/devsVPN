@@ -17,9 +17,8 @@
           </div>
 
           <div style="height: 21px" />
-
           <input v-if="isAccountIdLogin" ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
-            placeholder="Enter your account ID" @keyup="keyup($event)" />
+            placeholder="Account Id  a-XXXX-XXXX-XXXX" @keyup="keyup($event)" />
           <input v-if="!isAccountIdLogin" ref="email" v-model="email" class="styledBig" style="text-align: left"
             placeholder="Enter your email" @keyup="keyup($event)" />
 
@@ -180,8 +179,8 @@ export default {
     },
   },
   mounted() {
-     /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
-     ipcRenderer.on("sso-auth", async (event, authData) => {
+    /*listening for 'sso-auth' event trigerred from background.js which send auth 'code'*/
+    ipcRenderer.on("sso-auth", async (event, authData) => {
       try {
         this.isProcessing = true;
         await sender.SsoLogin(authData?.code, authData?.session_state);
@@ -255,35 +254,40 @@ export default {
         // }
 
         this.isProcessing = true;
-        // console.log({ accountid: this.accountID, email: this.email, password: this.password });
         if (this.isAccountIdLogin) {
-          // TODO FIXME: Write here validation for accountID. Format a-xxxx-xxxx-xxxx-xxxx
+          const pattern = new RegExp("^a-([a-zA-Z0-9]{4}-){2}[a-zA-Z0-9]{4}$");
+          if (this.accountID) this.accountID = this.accountID.trim();
+          if (!pattern.test(this.accountID)) {
+            throw new Error(
+              "Your account ID has to be in 'a-xxxx-xxxx-xxxx' format. Please check and try again."
+            );
+          }
         } else {
-        if (
+          if (
             !(this.email != undefined && this.email != null && this.email != "")
-        ) {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to login",
-            detail: `Please enter email address`,
-          });
-          return;
-        }
+          ) {
+            sender.showMessageBoxSync({
+              type: "error",
+              buttons: ["OK"],
+              message: "Failed to login",
+              detail: `Please enter email address`,
+            });
+            return;
+          }
           if (
             !(
-            this.password != undefined &&
-            this.password != null &&
-            this.password != ""
+              this.password != undefined &&
+              this.password != null &&
+              this.password != ""
             )
           ) {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to login",
-            detail: `Please enter password`,
-          });
-          return;
+            sender.showMessageBoxSync({
+              type: "error",
+              buttons: ["OK"],
+              message: "Failed to login",
+              detail: `Please enter password`,
+            });
+            return;
           }
         }
 
@@ -407,7 +411,7 @@ export default {
     },
     onLoginWithAccountId() {
       this.isAccountIdLogin = !this.isAccountIdLogin;
-      },
+    },
     ForgotPassword() {
       sender.shellOpenExternal(
         `https://sso.privateline.io/realms/privateLINE/login-actions/reset-credentials`
