@@ -18,7 +18,7 @@
 
           <div style="height: 21px" />
           <input v-if="isAccountIdLogin" ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
-            placeholder="Account Id  a-XXXX-XXXX-XXXX" @keyup="keyup($event)" />
+            placeholder="Account ID a-XXXX-XXXX-XXXX" @keyup="keyup($event)" />
           <input v-if="!isAccountIdLogin" ref="email" v-model="email" class="styledBig" style="text-align: left"
             placeholder="Enter your email" @keyup="keyup($event)" />
 
@@ -255,11 +255,11 @@ export default {
 
         this.isProcessing = true;
         if (this.isAccountIdLogin) {
-          const pattern = new RegExp("^a-([a-zA-Z0-9]{4}-){2}[a-zA-Z0-9]{4}$");
+          const pattern = new RegExp("^a-([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$");
           if (this.accountID) this.accountID = this.accountID.trim();
           if (!pattern.test(this.accountID)) {
             throw new Error(
-              "Your account ID has to be in 'a-xxxx-xxxx-xxxx' format. Please check and try again."
+              "Invalid account ID. Your account ID has to be in 'a-XXXX-XXXX-XXXX' format. Please check your account ID and try again."
             );
           }
         } else {
