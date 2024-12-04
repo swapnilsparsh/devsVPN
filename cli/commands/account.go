@@ -58,23 +58,25 @@ func (c *CmdLogout) Run() error {
 // ----------------------------------------------------------------------------------------
 type CmdLogin struct {
 	flags.CmdInfo
-	email          string
-	stableDeviceID bool
-	deviceName     string
+	emailOrAcctID     string
+	stableDeviceID    bool
+	passwordlessLogin bool
+	deviceName        string
 }
 
 func (c *CmdLogin) Init() {
 	c.Initialize("login", "Login operation (register this device under your privateLINE account)")
-	c.DefaultStringVar(&c.email, "<account email>")
+	c.DefaultStringVar(&c.emailOrAcctID, "<account email, or account ID for passwordless login>")
+	c.BoolVar(&c.passwordlessLogin, "passwordless", false, "Whether this is a non-SSO, passwordless login by account ID. If so, specify your account ID instead of email, and you won't be prompted for the password.")
 	c.StringVar(&c.deviceName, "device_name", "", "<device name>", "Optionally specify device name")
 	c.BoolVar(&c.stableDeviceID, "stable_device_id", false, "Generate the device ID as a stable, yet privacy-preserving identifier. By default device ID is generated randomly.")
 }
 
 func (c *CmdLogin) Run() error {
-	return doLogin(c.email, c.deviceName, c.stableDeviceID)
+	return doLogin(c.emailOrAcctID, c.passwordlessLogin, c.deviceName, c.stableDeviceID)
 }
 
-func doLogin(email string, deviceName string, stableDeviceID bool) error {
+func doLogin(emailOrAcctID string, passwordlessLogin bool, deviceName string, stableDeviceID bool) error {
 	// checking if we are logged-in
 	_proto.SessionStatus() // do not check error response (could be received 'not logged in' errors)
 	helloResp := _proto.GetHelloResponse()
@@ -85,15 +87,20 @@ func doLogin(email string, deviceName string, stableDeviceID bool) error {
 	}
 
 	// login
-	fmt.Print("Enter your password: ")
-	data, err := term.ReadPassword(int(syscall.Stdin))
-	fmt.Println("")
-	if err != nil {
-		return fmt.Errorf("failed to read password: %w", err)
+	var password string
+	if passwordlessLogin {
+		password = ""
+	} else {
+		fmt.Print("Enter your password: ")
+		data, err := term.ReadPassword(int(syscall.Stdin))
+		fmt.Println("")
+		if err != nil {
+			return fmt.Errorf("failed to read password: %w", err)
+		}
+		password = string(data)
 	}
-	password := string(data)
 
-	resp, err := _proto.SessionNew(email, password, deviceName, stableDeviceID)
+	resp, err := _proto.SessionNew(emailOrAcctID, password, deviceName, stableDeviceID)
 	if err != nil {
 		// if resp.APIStatus == types.The2FARequired {
 		// 	fmt.Println("Account has two-factor authentication enabled.")
@@ -110,7 +117,7 @@ func doLogin(email string, deviceName string, stableDeviceID bool) error {
 		if resp.APIStatus == types.CodeSessionsLimitReached {
 			PrintTips([]TipType{TipForceLogin})
 
-			if !helpers.IsLegacyAccount(email) && len(resp.Account.DeviceManagementURL) > 0 {
+			if !helpers.IsLegacyAccount(emailOrAcctID) && len(resp.Account.DeviceManagementURL) > 0 {
 				prefixText := "Visit Device Management"
 				if !resp.Account.DeviceManagement {
 					prefixText = "Enable Device Management"
