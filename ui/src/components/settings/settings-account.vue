@@ -208,8 +208,8 @@ export default {
         this.$store.state.account.session.AccountID !== ""
       ) {
         const accountId = this.$store.state.account.session.AccountID;
-        // Check if accountId matches the pattern a-XXXX-XXXX-XXXX
-        const accountIdPattern = /^a-\w{4}-\w{4}-\w{4}$/;
+        // Check if accountId matches the pattern a-XXXX-XXXX-XXXX. Characters '0', 'O', 'I' are forbidden.
+        const accountIdPattern = /^a-([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$/;
         value = accountIdPattern.test(accountId);
       }
 
