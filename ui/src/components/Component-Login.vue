@@ -139,7 +139,7 @@ export default {
 
       password: "",
       isProcessing: false,
-      isAccountIdLogin: false,
+      isAccountIdLogin: true,
       accountID: '',
 
       rawResponse: null,
