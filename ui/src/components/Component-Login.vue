@@ -429,7 +429,6 @@ export default {
     },
     onLoginWithAccountId() {
       this.isAccountIdLogin = !this.isAccountIdLogin;
-      this.showPassword = !this.showPassword;
     },
     ForgotPassword() {
       sender.shellOpenExternal(
