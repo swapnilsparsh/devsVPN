@@ -64,7 +64,8 @@
               </div>
             </div>
           </div>
-          <div v-else>Api Error: Data couldn't be fetched at this moment.</div>
+          <div v-else>User profile data wasn't retrieved yet, please check later.</div>
+          <!-- <div v-else>Api Error: Data couldn't be fetched at this moment.</div> -->
         </div>
       </div>
 
@@ -225,7 +226,12 @@ export default {
     },
   },
   mounted() {
+    //this.accountStatusRequest();
+    this.profileData();
+    this.getSubscriptionData();
+
     // generating QRcode
+    // TODO FIXME: Vlad - what do we need QRcode for?
     const typeNumber = 2;
     const errorCorrectionLevel = "M";
     const qr = qrcode(typeNumber, errorCorrectionLevel);
@@ -240,10 +246,6 @@ export default {
     }
 
     qr.addData(accId);
-
-    //this.accountStatusRequest();
-    this.profileData();
-    this.getSubscriptionData();
   },
   methods: {
     async logOut() {
