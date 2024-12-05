@@ -30,6 +30,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -308,6 +309,7 @@ func (s *Service) init() error {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Error("PANIC in Servers update notifier!: ", r)
+				log.Error(string(debug.Stack()))
 				if err, ok := r.(error); ok {
 					log.ErrorTrace(err)
 				}
@@ -1645,7 +1647,7 @@ func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountI
 }
 
 // SessionNew creates new session
-func (s *Service) SessionNew(email string, password string, deviceName string, stableDeviceID bool) (
+func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID bool) (
 	apiCode int,
 	apiErrorMsg string,
 	accountInfo preferences.AccountStatus,
@@ -1733,7 +1735,7 @@ func (s *Service) SessionNew(email string, password string, deviceName string, s
 			log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
 		}
 
-		sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(email, password)
+		sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(emailOrAcctID, password)
 
 		apiCode = 0
 		if apiErr != nil {
@@ -1839,10 +1841,10 @@ func (s *Service) SessionNew(email string, password string, deviceName string, s
 
 	// we must not save the account password to settings.json on disk
 	s.setCredentials(accountInfo,
-		email,
+		emailOrAcctID,
 		sessionNewSuccessResp.Data.Token,
 		deviceName,
-		email,
+		emailOrAcctID,
 		"",
 		publicKey,
 		privateKey,

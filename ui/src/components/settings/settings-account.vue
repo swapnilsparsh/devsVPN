@@ -5,38 +5,19 @@
         <div class="settingsTitle">ACCOUNT DETAILS</div>
         <div class="flexRowSpace" style="align-items: flex-start">
           <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
-            <ShimmerEffect
-              :width="'100px'"
-              :height="'100px'"
-              :border-radius="'100%'"
-            />
-            <ShimmerEffect
-              v-for="(item, index) in accountShimmerItems"
-              :key="index"
-              :width="'350px'"
-              :height="'20px'"
-            />
+            <ShimmerEffect :width="'100px'" :height="'100px'" :border-radius="'100%'" />
+            <ShimmerEffect v-for="(item, index) in accountShimmerItems" :key="index" :width="'350px'"
+              :height="'20px'" />
           </div>
-          <div
-            v-else-if="$store.state.account.userDetails.name"
-            class="flexColumn"
-          >
-            <img
-              v-if="!profileImage"
-              src="@/assets/avtar.svg"
-              style="height: 100px; width: 100px"
-            />
-            <img
-              v-else
-              :src="profileImage"
-              style="
+          <div v-else-if="$store.state.account.userDetails.name" class="flexColumn">
+            <img v-if="!profileImage" src="@/assets/avtar.svg" style="height: 100px; width: 100px" />
+            <img v-else :src="profileImage" style="
                 height: 100px;
                 width: 100px;
                 border-radius: 100%;
                 border: 5px solid #fff;
                 margin-bottom: 10px;
-              "
-            />
+              " />
 
             <div>
               <div class="flexRow paramBlockDetailedConfig">
@@ -45,13 +26,19 @@
                   {{ $store.state.account.userDetails.name }}
                 </div>
               </div>
-              <div class="flexRow paramBlockDetailedConfig">
+              <div v-if="this.IsAccIdLogin" class="flexRow paramBlockDetailedConfig">
+                <div class="defColor paramName">Account Id:</div>
+                <div class="detailedParamValue">
+                  {{ this.$store.state.account.session.AccountID }}
+                </div>
+              </div>
+              <div v-if="!this.IsAccIdLogin" class="flexRow paramBlockDetailedConfig">
                 <div class="defColor paramName">Email:</div>
                 <div class="detailedParamValue">
                   {{ $store.state.account.userDetails.email }}
                 </div>
               </div>
-              <div class="flexRow paramBlockDetailedConfig">
+              <div v-if="!this.IsAccIdLogin" class="flexRow paramBlockDetailedConfig">
                 <div class="defColor paramName">Phone:</div>
                 <div class="detailedParamValue">
                   {{ $store.state.account.userDetails.phone }}
@@ -77,53 +64,36 @@
               </div>
             </div>
           </div>
-          <div v-else>Api Error: Data couldn't be fetched at this moment.</div>
+          <div v-else>User profile data wasn't retrieved yet, please check later.</div>
+          <!-- <div v-else>Api Error: Data couldn't be fetched at this moment.</div> -->
         </div>
       </div>
 
       <div>
         <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
-        <div
-          v-if="$store.state.account.subscriptionData != null"
-          class="flexRowSpace"
-          style="align-items: flex-start"
-        >
-          <div
-            v-if="isSubscriptionProcessing"
-            class="flexColumn"
-            style="gap: 10px"
-          >
+        <div v-if="$store.state.account.subscriptionData != null" class="flexRowSpace" style="align-items: flex-start">
+          <div v-if="isSubscriptionProcessing" class="flexColumn" style="gap: 10px">
             <ShimmerEffect :width="'350px'" :height="'20px'" />
             <ShimmerEffect :width="'350px'" :height="'20px'" />
             <ShimmerEffect :width="'350px'" :height="'20px'" />
           </div>
-          <div
-            v-else-if="$store.state.account.subscriptionData.Plan"
-            class="flexColumn"
-            style="width: 100%"
-          >
+          <div v-else-if="$store.state.account.subscriptionData.Plan" class="flexColumn" style="width: 100%">
             <div class="flexRow paramBlockDetailedConfig">
               <div class="defColor paramName">Plan Name:</div>
               <div class="flexRow" style="gap: 16px">
                 <div class="detailedParamValue">
                   {{ $store.state.account.subscriptionData.Plan.name }}
                 </div>
-                <div
-                  v-if="
-                    $store.state.account.subscriptionData.Plan.name === 'Free'
-                  "
-                  class="medium_text link"
-                  @click="UpgradeSubscription"
-                >
+                <div v-if="
+                  $store.state.account.subscriptionData.Plan.name === 'Free'
+                " class="medium_text link" @click="UpgradeSubscription">
                   Upgrade
                 </div>
               </div>
             </div>
 
-            <div
-              v-if="$store.state.account.subscriptionData.Plan.name === 'Group'"
-              class="flexRow paramBlockDetailedConfig"
-            >
+            <div v-if="$store.state.account.subscriptionData.Plan.name === 'Group'"
+              class="flexRow paramBlockDetailedConfig">
               <div class="defColor paramName">Group Size:</div>
 
               <div class="detailedParamValue">
@@ -138,43 +108,31 @@
               </div>
             </div>
 
-            <div
-              v-if="$store.state.account.subscriptionData.Plan.name !== 'Free'"
-              class="flexRow paramBlockDetailedConfig"
-              style="align-items: flex-start"
-            >
+            <div v-if="$store.state.account.subscriptionData.Plan.name !== 'Free'"
+              class="flexRow paramBlockDetailedConfig" style="align-items: flex-start">
               <div class="defColor paramName">Expires on:</div>
               <div style="gap: 16px">
                 <div class="detailedParamValue" style="white-space: nowrap">
                   {{ formattedSubscriptionExpiryDate }}
                 </div>
-                <div
-                  class="medium_text link"
-                  style="text-align: left"
-                  @click="RenewSubscription"
-                >
+                <div class="medium_text link" style="text-align: left" @click="RenewSubscription">
                   {{
-                    endingInDays <= 0
-                      ? "Plan Expired! Renew subscription"
-                      : `Plan ending in ${endingInDays} days`
-                  }}
+                    endingInDays <= 0 ? "Plan Expired! Renew subscription" : `Plan ending in ${endingInDays} days` }}
+                    </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div v-else style="text-align: left">
-          No active plan found.
-          <span class="medium_text link" @click="UpgradeSubscription"
-            >Upgrade</span
-          >
+          <div v-else style="text-align: left">
+            No active plan found.
+            <span class="medium_text link" @click="UpgradeSubscription">Upgrade</span>
+          </div>
         </div>
       </div>
+      <div class="flexRow">
+        <button id="logoutButton" @click="logOut()">LOG OUT</button>
+      </div>
     </div>
-    <div class="flexRow">
-      <button id="logoutButton" @click="logOut()">LOG OUT</button>
-    </div>
-  </div>
 </template>
 
 <script>
@@ -195,9 +153,10 @@ export default {
   },
   data: function () {
     return {
-      apiTimeout: null,
-      isProcessing: false,
-      isSubscriptionProcessing: false,
+      apiProfileTimeout: null,
+      apiSubscriptionTimeout: null,
+      isProcessing: true,
+      isSubscriptionProcessing: true,
       accountShimmerItems: Array(4).fill(null),
     };
   },
@@ -241,17 +200,39 @@ export default {
     IsActive: function () {
       return this.$store.state.account.accountStatus.Active;
     },
+    IsAccIdLogin: function () {
+      let value = false;
+
+      if (
+        this.$store.state.account != null &&
+        this.$store.state.account.session != null &&
+        this.$store.state.account.session.AccountID != null &&
+        this.$store.state.account.session.AccountID !== ""
+      ) {
+        const accountId = this.$store.state.account.session.AccountID;
+        // Check if accountId matches the pattern a-XXXX-XXXX-XXXX. Characters '0', 'O', 'I' are forbidden.
+        const accountIdPattern = /^a-([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$/;
+        value = accountIdPattern.test(accountId);
+      }
+
+      return value;
+    },
     IsCanUpgradeToPro: function () {
       return (
         this.IsAccountStateExists &&
         this.$store.state.account.accountStatus.Upgradable &&
         this.$store.state.account.accountStatus.CurrentPlan.toLowerCase() !=
-          "privateLINE pro"
+        "privateLINE pro"
       );
     },
   },
   mounted() {
+    //this.accountStatusRequest();
+    this.profileData();
+    this.getSubscriptionData();
+
     // generating QRcode
+    // TODO FIXME: Vlad - what do we need QRcode for?
     const typeNumber = 2;
     const errorCorrectionLevel = "M";
     const qr = qrcode(typeNumber, errorCorrectionLevel);
@@ -266,10 +247,6 @@ export default {
     }
 
     qr.addData(accId);
-
-    //this.accountStatusRequest();
-    this.profileData();
-    this.getSubscriptionData();
   },
   methods: {
     async logOut() {
@@ -347,7 +324,7 @@ export default {
       try {
         this.isProcessing = true;
 
-        this.apiTimeout = setTimeout(() => {
+        this.apiProfileTimeout = setTimeout(() => {
           throw Error("Profile API Time Out");
         }, 10 * 1000);
         await sender.ProfileData();
@@ -362,8 +339,8 @@ export default {
         });
       } finally {
         this.isProcessing = false;
-        clearTimeout(this.apiTimeout);
-        this.apiTimeout = null;
+        clearTimeout(this.apiProfileTimeout);
+        this.apiProfileTimeout = null;
       }
     },
 
@@ -371,7 +348,7 @@ export default {
       try {
         this.isSubscriptionProcessing = true;
 
-        this.apiTimeout = setTimeout(() => {
+        this.apiSubscriptionTimeout = setTimeout(() => {
           throw Error("Subscription API Time Out");
         }, 10 * 1000);
         await sender.SubscriptionData();
@@ -386,8 +363,8 @@ export default {
         });
       } finally {
         this.isSubscriptionProcessing = false;
-        clearTimeout(this.apiTimeout);
-        this.apiTimeout = null;
+        clearTimeout(this.apiSubscriptionTimeout);
+        this.apiSubscriptionTimeout = null;
       }
     },
     upgrade() {
@@ -503,17 +480,21 @@ div.param {
   @extend .flexRow;
   margin-top: 3px;
 }
+
 div.paramBlockDetailedConfig {
   @extend .flexRow;
   margin-top: 2px;
 }
+
 .defColor {
   @extend .settingsDefaultTextColor;
 }
+
 div.paramName {
   min-width: 161px;
   max-width: 161px;
 }
+
 div.detailedParamValue {
   opacity: 0.7;
   overflow-wrap: break-word;

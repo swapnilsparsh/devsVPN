@@ -30,6 +30,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -95,6 +96,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 		if r := recover(); r != nil {
 			err = errors.New("panic on connect: " + fmt.Sprint(r))
 			log.Error(err)
+			log.Error(string(debug.Stack()))
 		}
 	}()
 

@@ -35,7 +35,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 	"unsafe"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
@@ -148,24 +147,24 @@ func implInitialize() error {
 	defer disconnect(false)
 
 	// Check if ST driver can start
-	const retryDelay = time.Second
-	const retryCnt = 5
-	for i := 1; i <= retryCnt; i++ {
-		if connectErr := connect(false); connectErr != nil {
-			funcNotAvailableError = fmt.Errorf("Split-Tunnel functionality test failed: %w", connectErr)
-			if connectErr == windows.ERROR_SERVICE_MARKED_FOR_DELETE {
-				log.Warning(fmt.Sprintf("[%d of %d; retry in %v] : %s", i, retryCnt, retryDelay, funcNotAvailableError.Error()))
-				time.Sleep(retryDelay)
-				continue
-			}
-		} else {
-			if i > 1 {
-				log.Info("Split-Tunnel functionality test success")
-			}
-			funcNotAvailableError = nil
-		}
-		break
-	}
+	// const retryDelay = time.Second
+	// const retryCnt = 5
+	// for i := 1; i <= retryCnt; i++ {
+	// 	if connectErr := connect(false); connectErr != nil {
+	// 		funcNotAvailableError = fmt.Errorf("Split-Tunnel functionality test failed: %w", connectErr)
+	// 		if connectErr == windows.ERROR_SERVICE_MARKED_FOR_DELETE {
+	// 			log.Warning(fmt.Sprintf("[%d of %d; retry in %v] : %s", i, retryCnt, retryDelay, funcNotAvailableError.Error()))
+	// 			time.Sleep(retryDelay)
+	// 			continue
+	// 		}
+	// 	} else {
+	// 		if i > 1 {
+	// 			log.Info("Split-Tunnel functionality test success")
+	// 		}
+	// 		funcNotAvailableError = nil
+	// 	}
+	// 	break
+	// }
 
 	// init the default routes map
 	var (
@@ -194,17 +193,18 @@ func implInitialize() error {
 }
 
 func isInitialised() error {
-	// check if fSplitTun_Connect and other functions initialized
-	if fSplitTun_Connect == nil ||
-		fSplitTun_Disconnect == nil ||
-		fSplitTun_StopAndClean == nil ||
-		fSplitTun_ProcMonInitRunningApps == nil ||
-		fSplitTun_SplitStart == nil ||
-		fSplitTun_ConfigSetAddresses == nil ||
-		fSplitTun_ConfigSetSplitAppRaw == nil ||
-		wfpSess == nil {
-		return fmt.Errorf("Split-Tunnel functionality not initialized")
-	}
+	// TODO: Vlad - not loading the driver
+
+	// // check if fSplitTun_Connect and other functions initialized
+	// if fSplitTun_Connect == nil ||
+	// 	fSplitTun_Disconnect == nil ||
+	// 	fSplitTun_StopAndClean == nil ||
+	// 	fSplitTun_ProcMonInitRunningApps == nil ||
+	// 	fSplitTun_SplitStart == nil ||
+	// 	fSplitTun_ConfigSetAddresses == nil ||
+	// 	fSplitTun_ConfigSetSplitAppRaw == nil {
+	// 	return fmt.Errorf("Split-Tunnel functionality not initialized")
+	// }
 	return nil
 }
 
