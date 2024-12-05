@@ -153,9 +153,10 @@ export default {
   },
   data: function () {
     return {
-      apiTimeout: null,
-      isProcessing: false,
-      isSubscriptionProcessing: false,
+      apiProfileTimeout: null,
+      apiSubscriptionTimeout: null,
+      isProcessing: true,
+      isSubscriptionProcessing: true,
       accountShimmerItems: Array(4).fill(null),
     };
   },
@@ -323,7 +324,7 @@ export default {
       try {
         this.isProcessing = true;
 
-        this.apiTimeout = setTimeout(() => {
+        this.apiProfileTimeout = setTimeout(() => {
           throw Error("Profile API Time Out");
         }, 10 * 1000);
         await sender.ProfileData();
@@ -338,8 +339,8 @@ export default {
         });
       } finally {
         this.isProcessing = false;
-        clearTimeout(this.apiTimeout);
-        this.apiTimeout = null;
+        clearTimeout(this.apiProfileTimeout);
+        this.apiProfileTimeout = null;
       }
     },
 
@@ -347,7 +348,7 @@ export default {
       try {
         this.isSubscriptionProcessing = true;
 
-        this.apiTimeout = setTimeout(() => {
+        this.apiSubscriptionTimeout = setTimeout(() => {
           throw Error("Subscription API Time Out");
         }, 10 * 1000);
         await sender.SubscriptionData();
@@ -362,8 +363,8 @@ export default {
         });
       } finally {
         this.isSubscriptionProcessing = false;
-        clearTimeout(this.apiTimeout);
-        this.apiTimeout = null;
+        clearTimeout(this.apiSubscriptionTimeout);
+        this.apiSubscriptionTimeout = null;
       }
     },
     upgrade() {
