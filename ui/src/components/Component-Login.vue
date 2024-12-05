@@ -17,8 +17,26 @@
           </div>
 
           <div style="height: 21px" />
-          <input v-if="isAccountIdLogin" ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
-            placeholder="Account ID a-XXXX-XXXX-XXXX" @keyup="keyup($event)" />
+          <div v-if="isAccountIdLogin" style="position: relative; display: flex; align-items: center">
+            <input ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
+              placeholder="Account ID a-XXXX-XXXX-XXXX" :type="passwordType" @keyup="keyup($event)" />
+            <img v-if="showPassword" src="@/assets/eye-close.svg" alt="Eye Image" style="
+                width: 20px;
+                height: 20px;
+                position: absolute;
+                right: 10px;
+                cursor: pointer;
+              " @click="toggleEye" />
+            <img v-else src="@/assets/eye-open.svg" alt="Eye Image" style="
+                width: 20px;
+                height: 20px;
+                position: absolute;
+                right: 10px;
+                cursor: pointer;
+              " @click="toggleEye" />
+
+          </div>
+
           <input v-if="!isAccountIdLogin" ref="email" v-model="email" class="styledBig" style="text-align: left"
             placeholder="Enter your email" @keyup="keyup($event)" />
 
@@ -411,6 +429,7 @@ export default {
     },
     onLoginWithAccountId() {
       this.isAccountIdLogin = !this.isAccountIdLogin;
+      this.showPassword = !this.showPassword;
     },
     ForgotPassword() {
       sender.shellOpenExternal(
