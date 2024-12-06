@@ -1,6 +1,9 @@
 <template>
 	<!-- Footer with PL Meet link -->
-	<div class="footer_text" style="position: absolute; bottom: 0;">
+	<div 
+		v-if="this.$store.state.vpnState.connectionInfo !== null"
+		class="footer_text" style="position: absolute; bottom: 0;"
+	>
 		For seamless, private, and secure conferencing, open <a :href="openPLMeetWeb"@click="openPLMeetWeb">privateLINE Meet</a>.
 	</div>
 </template>
