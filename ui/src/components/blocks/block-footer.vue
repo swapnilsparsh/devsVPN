@@ -34,7 +34,7 @@ export default {
   letter-spacing: -0.08px;
 
 	a:link {
-  	color: #6900ff;
+  	color: #0000ff;
 	}
 }
 
