@@ -81,6 +81,8 @@
             </button>
           </transition>
         </div>
+
+        <FooterBlock/>
       </div>
     </transition>
   </div>
@@ -94,6 +96,7 @@ import SelectedServerBlock from "@/components/blocks/block-selected-server.vue";
 import HopButtonsBlock from "./blocks/block-hop-buttons.vue";
 import ShieldButtonsBlock from "./blocks/block-shield-buttons.vue/";
 import ConnectionDetails from "./Connection-Details.vue";
+import FooterBlock from "./blocks/block-footer.vue";
 import { getDaysDifference } from "../helpers/renderer.js";
 
 const sender = window.ipcSender;
@@ -172,6 +175,7 @@ export default {
     ConnectionDetailsBlock,
     ShieldButtonsBlock,
     ConnectionDetails,
+    FooterBlock,
   },
   mounted() {
     this.recalcScrollButtonVisiblity();
