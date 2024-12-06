@@ -20,6 +20,7 @@ export default {
     "https://sso.privateline.io/",
     "https://sso.privateline.dev/",
     "https://account.privateline.io",
+    "https://meet.privateline.network",
     "x-apple.systempreferences:",
   ],
   URLApps: "https://privateline.io/downloads/",
