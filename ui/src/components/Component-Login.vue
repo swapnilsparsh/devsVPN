@@ -37,6 +37,7 @@
 
           </div>
 
+          <!--
           <input v-if="!isAccountIdLogin" ref="email" v-model="email" class="styledBig" style="text-align: left"
             placeholder="Enter your email" @keyup="keyup($event)" />
 
@@ -59,19 +60,24 @@
                 cursor: pointer;
               " @click="toggleEye" />
           </div>
+          -->
         </div>
 
+        <!--
         <div v-if="!isAccountIdLogin" class="medium_text link" @click="ForgotPassword">
           Forgot Password?
         </div>
+        -->
 
         <div style="height: 24px" />
-        <button class="master" @click="Login">Log In</button>
+        <button class="master" @click="Login">Log In With Account ID</button>
         <div style="height: 12px" />
+        <!--
         <button v-if="!isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Account ID</button>
         <button v-if="isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Email And
           Password</button>
         <div style="height: 12px" />
+        -->
         <button class="slave" v-on:click="openSSO">SSO Login</button>
         <div style="height: 12px" />
         <button class="slave" @click="CreateAccount">Create an account</button>
