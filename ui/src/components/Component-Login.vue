@@ -421,7 +421,7 @@ export default {
       }
     },
     CreateAccount() {
-      sender.shellOpenExternal(`https://privateline.io/email-signup`);
+      sender.shellOpenExternal(`https://account.privateline.io/sign-in`);
     },
     openSSO() {
       sender.shellOpenExternal(
