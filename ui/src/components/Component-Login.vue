@@ -351,14 +351,16 @@ export default {
             message: "Failed to login",
             detail:
               resp.APIErrorMessage +
-              ". You can remove the device from your privateLINE account and try again.",
+              "\n\nYou can remove the device from your privateLINE account and try again.",
           });
         } else if (resp.APIErrorMessage != "") {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
-            detail: resp.APIErrorMessage,
+            detail: 
+              resp.APIErrorMessage +
+              "\n\nIf you don't have a privateLINE account yet, you can create one at https://account.privateline.io/sign-in",
           });
         }
 
