@@ -333,6 +333,15 @@ function clear_iptables()
     ${bin_iptables} -w ${_iptables_locktime} -X ${INPUT}
 }
 
+function addDefaultWhitelistedApps() {
+    # For default apps in whitelist, check whether they're already running, and add their PIDs
+    for APP in "${DEFAULT_WHITELISTED_APPS[@]}"; do
+        for PID in `pgrep -f "^$APP"`; do
+            addpid $PID
+        done
+    done
+}
+
 function init()
 {
     if [ -z ${_def_interface_name} ]; then
@@ -445,12 +454,7 @@ function init()
         fi
     fi
 
-    # For default apps in whitelist, check whether they're already running, and add their PIDs
-    for APP in "${DEFAULT_WHITELISTED_APPS[@]}"; do
-        for PID in `pgrep -f "^$APP"`; do
-            addpid $PID
-        done
-    done
+    addDefaultWhitelistedApps
 
     set +e
 
@@ -485,7 +489,7 @@ function clean()
     ##############################################
     # Move all processes from the privateLINE cgroup to the main cgroup
     ##############################################    
-    # removeAllPids
+    removeAllPids
 
     ##############################################
     # Remove cgroup    
@@ -790,6 +794,7 @@ elif [[ $1 = "stop" ]] ; then
 
 elif [[ $1 = "reset" ]] ; then 
     removeAllPids
+    addDefaultWhitelistedApps
 
 elif [[ $1 = "addpid" ]] ; then
     shift 
@@ -886,7 +891,7 @@ else
     echo "        Update the routing table for packets within the split tunnel."
     echo "        Linux erases split-tunnel routing rules when the default network interface is disabled/enabled. This command restores those rules."
     echo "    reset"
-    echo "        Remove all processes from Split Tunneling environment"
+    echo "        Restore App Whitelist to contain only the default applications"
     echo "    appWhitelistEnabled"
     echo "        Returns 0 if only whitelisted apps are allowed access to the privateLINE enclave"
     echo "        Returns 100 if all apps are allowed access to the privateLINE enclave"
