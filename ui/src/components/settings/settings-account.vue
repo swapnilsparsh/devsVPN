@@ -9,7 +9,7 @@
             <ShimmerEffect v-for="(item, index) in accountShimmerItems" :key="index" :width="'350px'"
               :height="'20px'" />
           </div>
-          <div v-else-if="$store.state.account.userDetails.name" class="flexColumn">
+          <div v-else-if="$store.state.account.userDetails.id" class="flexColumn">
             <img v-if="!profileImage" src="@/assets/avtar.svg" style="height: 100px; width: 100px" />
             <img v-else :src="profileImage" style="
                 height: 100px;
