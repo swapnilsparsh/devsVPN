@@ -182,10 +182,10 @@
 
       <transition name="fade">
         <div
-          v-if="IsAppWhitelistEnabled"
+          v-if="AppWhitelistAndConnected"
           class="small_text_warning"
         >
-          App Whitelist is enabled
+          App Whitelist is active
         </div>
       </transition>
 
@@ -262,8 +262,8 @@ export default {
     isCanShowPauseMenu: function () {
       return this.isCanPause && this.isPauseMenuAllowed;
     },
-    IsAppWhitelistEnabled: function () {
-      return this.$store.state.vpnState.splitTunnelling?.IsAppWhitelistEnabled;
+    AppWhitelistAndConnected: function () {
+      return this.$store.state.vpnState.splitTunnelling?.IsAppWhitelistEnabled && this.isConnected;
     },
   },
   watch: {

@@ -123,8 +123,6 @@ export default {
 
 #main {
   @extend .left_panel_block;
-  min-height: 37px;
-  max-height: 37px;
 }
 
 .small_text {
@@ -141,7 +139,7 @@ export default {
   outline-width: 0;
   cursor: pointer;
 
-  height: 45px;
+  height: 82px;
   width: 100%;
 
   padding-bottom: 4px;

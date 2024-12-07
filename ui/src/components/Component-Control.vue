@@ -63,13 +63,6 @@
             />
           </div>
 
-          <!-- VERSION -->
-          <div class="flexRow" style="flex-grow: 1">
-            <div class="flexRow" style="margin: 8px; flex-grow: 1">
-              <VersionBlock/>
-            </div>
-          </div>
-
           <ConnectionDetailsBlock
             :onShowPorts="onShowPorts"
             :onShowWifiConfig="onShowWifiConfig"
@@ -104,7 +97,6 @@ import HopButtonsBlock from "./blocks/block-hop-buttons.vue";
 import ShieldButtonsBlock from "./blocks/block-shield-buttons.vue/";
 import ConnectionDetails from "./Connection-Details.vue";
 import FooterBlock from "./blocks/block-footer.vue";
-import VersionBlock from "./blocks/block-version.vue";
 import { getDaysDifference } from "../helpers/renderer.js";
 
 const sender = window.ipcSender;
@@ -184,7 +176,6 @@ export default {
     ShieldButtonsBlock,
     ConnectionDetails,
     FooterBlock,
-    VersionBlock,
   },
   mounted() {
     this.recalcScrollButtonVisiblity();

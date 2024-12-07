@@ -7,6 +7,12 @@
         <div style="height: 16px"></div>
         <!-- <spinner :loading="isProcessing" /> -->
         <div class="flexRow paramBlockDetailedConfig">
+          <div class="defColor paramName">Version:</div>
+          <div class="detailedParamValue">
+            {{ this.$store.state.daemonVersion }}
+          </div>
+        </div>
+        <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Protocol:</div>
           <div class="detailedParamValue">
             {{ "Wireguard" }}
