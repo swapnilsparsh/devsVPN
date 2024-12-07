@@ -154,7 +154,7 @@ func implFuncNotAvailableError() (generalStError, inversedStError error) {
 }
 
 func implReset() error {
-	log.Info("Removing all PIDs")
+	log.Info("Restoring App Whitelist to contain only the default applications")
 
 	return shell.Exec(nil, stScriptPath, "reset")
 }
