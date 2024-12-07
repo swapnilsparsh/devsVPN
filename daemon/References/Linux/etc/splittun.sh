@@ -25,6 +25,17 @@
 
 echo -e "$(date '+%Y-%m-%d__%H-%M-%S_%Z')\t$@" >> /tmp/splittun_sh_ran.log
 
+# default apps to be included in App Whitelist (to be allowed access to the enclave)
+# TODO FIXME: add Trezor, Ledger
+declare -a DEFAULT_WHITELISTED_APPS=(
+    "/usr/bin/privateline-connect-svc"
+    "/usr/bin/privateline-connect-cli"
+    "/opt/privateline-connect/ui/bin/privateline-connect-ui"
+    "/usr/bin/privateline-comms-desktop"
+    "/etc/alternatives/privateline-comms-desktop"
+    "/opt/privateLINE-Comms/privateline-comms-desktop"
+)
+
 # Split Tunneling cgroup parameters
 _cgroup_name=privateline-exclude
 _cgroup_classid=0x70561e1d      # Anything from 0x00000001 to 0xFFFFFFFF
@@ -433,6 +444,13 @@ function init()
             fi
         fi
     fi
+
+    # For default apps in whitelist, check whether they're already running, and add their PIDs
+    for APP in "${DEFAULT_WHITELISTED_APPS[@]}"; do
+        for PID in `pgrep -f "^$APP"`; do
+            addpid $PID
+        done
+    done
 
     set +e
 

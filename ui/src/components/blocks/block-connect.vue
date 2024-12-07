@@ -164,6 +164,9 @@
         </div>
       </div>
       <!-- PAUSE BUTTON end-->
+       
+      <!-- Vlad: don't show inverse split tunnel mode -->
+      <!--
       <transition name="fade">
         <button
           v-show="this.$store.getters['vpnState/isInverseSplitTunnel']"
@@ -175,6 +178,7 @@
           </div>
         </button>
       </transition>
+      -->
     </div>
     <!-- SECIND LINE end-->
   </div>

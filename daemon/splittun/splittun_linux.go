@@ -65,6 +65,7 @@ const stPidsFile = "/sys/fs/cgroup/net_cls/privateline-exclude/cgroup.procs"
 
 func implInitialize() error {
 	funcNotAvailableError = nil
+	inverseModeNotAvailableError = nil
 
 	snapEvs := platform.GetSnapEnvs()
 	if snapEvs != nil {
@@ -80,7 +81,6 @@ func implInitialize() error {
 
 	// Hardcoded text for detection of inverse mode not available error
 	const inverseModeErrorDetectionText = "ERROR: Inverse mode for all_apps_allowed/some_apps_allowed functionality is not applicable."
-	inverseModeNotAvailableError = fmt.Errorf("%s", inverseModeErrorDetectionText)
 	// check if ST functionality accessible
 	outProcessFunc := func(text string, isError bool) {
 		if strings.HasPrefix(text, inverseModeErrorDetectionText) {

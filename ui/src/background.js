@@ -560,6 +560,9 @@ if (gotTheLock && isAllowedToStart) {
 }
 
 async function isCanQuit() {
+  // Vlad: skipping the logic
+  return true;
+
   if (store.getters["vpnState/isInverseSplitTunnel"]) {
     // temporary enable application icon in system dock
     setAppDockVisibility(true);
@@ -591,7 +594,7 @@ async function isCanQuit() {
         break;
 
       case 2: // Deactivate & Quit
-        await daemonClient.SplitTunnelSetConfig(false, false);
+        await daemonClient.SplitTunnelSetConfig(false);
         break;
     }
   }

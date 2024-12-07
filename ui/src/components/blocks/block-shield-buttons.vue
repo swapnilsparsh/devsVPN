@@ -93,12 +93,12 @@ export default {
 
   computed: {
     textApplicationsHeader: function () {
-      if (Platform() === PlatformEnum.Linux) return "Launched applications";
+      if (Platform() === PlatformEnum.Linux) return "Running Whitelisted Applications";
       return "Applications";
     },
 
-    textNoAppInSplittunConfig: function () {
-      return "No applications in Split Tunnel configuration";
+    textNoAppInAppWhitelist: function () {
+      return "No applications in App Whitelist";
     },
 
     textAddAppButton: function () {
@@ -352,8 +352,8 @@ export default {
       try {
         await sender.SplitTunnelSetConfig(
           this.isSTEnabledLocal,
-          this.isAppWhitelistEnabledLocal,
           this.stInversedLocal,
+          this.isAppWhitelistEnabledLocal,
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
           this.stAllowWhenNoVpnLocal
         );
@@ -423,8 +423,8 @@ export default {
       try {
         await sender.SplitTunnelSetConfig(
           this.isSTEnabledLocal,
-          this.isAppWhitelistEnabledLocal,
           this.stInversedLocal,
+          this.isAppWhitelistEnabledLocal,
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
           this.stAllowWhenNoVpnLocal
         );
@@ -684,7 +684,7 @@ Do you want to enable Inverse mode for Split Tunnel?",
       if (actionNo == 1) return;
 
       this.resetFilters();
-      await sender.SplitTunnelSetConfig(true, false, false, false, false, true);
+      await sender.SplitTunnelSetConfig(true, true, false, false, false, true);
     },
 
     resetFilters: function () {

@@ -1567,8 +1567,8 @@ async function SplitTunnelGetStatus() {
 }
 async function SplitTunnelSetConfig(
   IsEnabled,
-  IsAppWhitelistEnabled,
   IsInversed,
+  IsAppWhitelistEnabled,
   IsAnyDns,
   IsAllowWhenNoVpn,
   doReset
@@ -1585,8 +1585,8 @@ async function SplitTunnelSetConfig(
   await sendRecv({
     Command: daemonRequests.SplitTunnelSetConfig,
     IsEnabled,
-    IsAppWhitelistEnabled,
     IsInversed,
+    IsAppWhitelistEnabled,
     IsAnyDns,
     IsAllowWhenNoVpn,
     Reset: doReset === true,
