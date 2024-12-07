@@ -27,7 +27,7 @@
                 </div>
               </div>
               <div v-if="this.IsAccIdLogin" class="flexRow paramBlockDetailedConfig">
-                <div class="defColor paramName">Account Id:</div>
+                <div class="defColor paramName">Account ID:</div>
                 <div class="detailedParamValue">
                   {{ this.$store.state.account.session.AccountID }}
                 </div>
