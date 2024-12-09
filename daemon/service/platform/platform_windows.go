@@ -27,12 +27,24 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"github.com/tailscale/wf"
+)
+
+const (
+	// our sublayer must be max priority
+	SUBLAYER_MAX_WEIGHT = uint16(0xFFFF)
 )
 
 var (
 	wfpDllPath           string
 	nativeHelpersDllPath string
 	splitTunDriverPath   string
+
+	wfpSess *wf.Session
+
+	// {1C033D80-E418-45dd-9D5E-6A612EDA7E07}
+	SUBLAYER_RECV_ACCEPT_V4_GUID = wf.LayerID{0x1c033d80, 0xe418, 0x45dd, [8]byte{0x9d, 0x5e, 0x6a, 0x61, 0x2e, 0xda, 0x7e, 0x7}}
 )
 
 func doInitConstants() {
@@ -133,7 +145,43 @@ func getEtcDir() string {
 	return path.Join(getInstallDir(), "etc")
 }
 
-func doInitOperations() (w string, e error) { return "", nil }
+func initWFP() (err error) {
+	// init WFP session
+	wfpSess, err = wf.New(&wf.Options{
+		Name:        "plconnect",
+		Description: "privateLINE Connect WFP",
+		Dynamic:     true, // clean our WFP rules when daemon program stops
+	})
+
+	if err != nil {
+		return fmt.Errorf("error creating WFP session: %w", err)
+	}
+
+	// TODO: Vlad - in principle want to run below during shutdown flows. But dynamic WFP sessions close anyway when the program exits.
+	// if wfpSess != nil {
+	// 	wfpSess.Close()
+	// 	wfpSess = nil
+	// }
+
+	sl := &wf.Sublayer{
+		ID:          wf.SublayerID(SUBLAYER_RECV_ACCEPT_V4_GUID),
+		Name:        "plconnect VPN coexistence",
+		Description: "privateLINE Connect - ensure coexistence with other VPNs",
+		Persistent:  true,
+		Weight:      SUBLAYER_MAX_WEIGHT,
+		Provider:    wf.ProviderID(wf.LayerALEAuthRecvAcceptV4),
+	}
+
+	if err := wfpSess.AddSublayer(sl); err != nil {
+		return fmt.Errorf("creating sublayer: %w", err)
+	}
+
+	return nil
+}
+
+func doInitOperations() (w string, e error) {
+	return "", initWFP()
+}
 
 // WindowsWFPDllPath - Path to Windows DLL with helper methods for WFP (Windows Filtering Platform)
 func WindowsWFPDllPath() string {
@@ -148,4 +196,8 @@ func WindowsNativeHelpersDllPath() string {
 // WindowsSplitTunnelDriverPath - path to *.sys binary of Split-Tunnel driver
 func WindowsSplitTunnelDriverPath() string {
 	return splitTunDriverPath
+}
+
+func WindowsWFPSession() *wf.Session {
+	return wfpSess
 }

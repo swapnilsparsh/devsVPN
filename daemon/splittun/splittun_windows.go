@@ -31,7 +31,6 @@ import (
 	"net/netip"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -79,8 +78,6 @@ var (
 
 	routeBinaryPath      string = "route"
 	powershellBinaryPath string = "powershell"
-
-	wfpSess *wf.Session
 )
 
 type ConfigApps struct {
@@ -90,15 +87,6 @@ type ConfigApps struct {
 type Config struct {
 	Addr ConfigAddresses
 	Apps ConfigApps
-}
-
-// dynamic = rootFS.Bool("dynamic", false, "Use a dynamic WFP session")
-func session() (*wf.Session, error) {
-	return wf.New(&wf.Options{
-		Name:        "plconnect",
-		Description: "privateLINE Connect WFP",
-		Dynamic:     false, // TODO FIXME: Vlad - clean our WFP rules when daemon program stops
-	})
 }
 
 // Initialize doing initialization stuff (called on application start)
@@ -113,11 +101,6 @@ func implInitialize() error {
 	}
 
 	var err error
-	wfpSess, err = session()
-	if err != nil {
-		return fmt.Errorf("creating WFP session: %w", err)
-	}
-
 	wfpDllPath := platform.WindowsWFPDllPath()
 	if len(wfpDllPath) == 0 {
 		return fmt.Errorf("unable to initialize split-tunnelling wrapper: firewall dll path not initialized")
@@ -220,11 +203,6 @@ func implReset() error {
 		if err := doApplySplitFullTunnelRoutes(endpointType, true, false, *endpoint); err != nil {
 			return fmt.Errorf("error in doApplySplitFullTunnelRoutes(): %w", err)
 		}
-	}
-
-	if wfpSess != nil {
-		wfpSess.Close()
-		wfpSess = nil
 	}
 
 	return nil
@@ -791,41 +769,44 @@ func setConfig(config Config) (err error) {
 		return err
 	}
 
-	// SET APPS TO SPLIT
-	for idx, appPath := range config.Apps.ImagesPathToSplit {
-		appID, _ := wf.AppID(appPath)
-		// TODO FIXME: Vlad:
-		// Link all objects to our provider. When multiple providers are installed
-		// on a computer, this makes it easy to determine who added what.
-		r := &wf.Rule{
-			// TODO FIXME: Vlad - make deterministic GUID from canonicalized path
-			ID:   wf.RuleID(mustGUID()),
-			Name: "privateLINE rule IPv4 #" + strconv.Itoa(idx),
-			//Layer: wf.LayerALEAuthConnectV4,
-			Layer:      wf.LayerALEAuthRecvAcceptV4,
-			Sublayer:   guidSublayerUniversal,
-			Weight:     900,
-			Persistent: true,
-			Conditions: []*wf.Match{
-				// &wf.Match{
-				// 	Field: wf.FieldIPLocalAddress,
-				// 	Op:    wf.MatchTypeEqual,
-				// 	Value: uint8(42),
-				// },
-				{
-					Field: wf.FieldALEAppID,
-					Op:    wf.MatchTypeEqual,
-					Value: appID,
+	// TODO Vlad: disabling for now
+	/*
+		// SET APPS TO SPLIT
+		for idx, appPath := range config.Apps.ImagesPathToSplit {
+			appID, _ := wf.AppID(appPath)
+			// TODO FIXME: Vlad:
+			// Link all objects to our provider. When multiple providers are installed
+			// on a computer, this makes it easy to determine who added what.
+			r := &wf.Rule{
+				// TODO FIXME: Vlad - make deterministic GUID from canonicalized path
+				ID:   wf.RuleID(mustGUID()),
+				Name: "privateLINE rule IPv4 #" + strconv.Itoa(idx),
+				//Layer: wf.LayerALEAuthConnectV4,
+				Layer:      wf.LayerALEAuthRecvAcceptV4,
+				Sublayer:   guidSublayerUniversal,
+				Weight:     900,
+				Persistent: true,
+				Conditions: []*wf.Match{
+					// &wf.Match{
+					// 	Field: wf.FieldIPLocalAddress,
+					// 	Op:    wf.MatchTypeEqual,
+					// 	Value: uint8(42),
+					// },
+					{
+						Field: wf.FieldALEAppID,
+						Op:    wf.MatchTypeEqual,
+						Value: appID,
+					},
 				},
-			},
-			Action: wf.ActionPermit,
+				Action: wf.ActionPermit,
+			}
+			if err := platform.WindowsWFPSession().AddRule(r); err != nil {
+				return log.ErrorE(fmt.Errorf("failed to AddRule '%+v': %w", r, err), 0)
+			} else {
+				log.Debug(fmt.Sprintf("AddRule '%+v'", r))
+			}
 		}
-		if err := wfpSess.AddRule(r); err != nil {
-			return log.ErrorE(fmt.Errorf("failed to AddRule '%+v': %w", r, err), 0)
-		} else {
-			log.Debug(fmt.Sprintf("AddRule '%+v'", r))
-		}
-	}
+	*/
 
 	// buff, err := makeRawBuffAppsConfig(config.Apps)
 	// if err != nil {
