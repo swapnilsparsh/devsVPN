@@ -11,12 +11,20 @@
           >
             <button
               v-if="isLoggedIn"
-              @click="toggleMenu"
+              @click="onAccountSettings"
               title="Menu"
               class="menu-button"
             >
               <img src="@/assets/menu.svg" />
             </button>
+            <!-- <button
+              v-if="isLoggedIn"
+              @click="toggleMenu"
+              title="Menu"
+              class="menu-button"
+            >
+              <img src="@/assets/menu.svg" />
+            </button> -->
 
             <div v-if="isMenuVisible" class="menu">
               <button
