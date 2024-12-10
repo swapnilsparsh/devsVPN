@@ -326,11 +326,9 @@ export default {
       await sender.SessionStatus();
     },
     async waitForSessionInfo() {
-      // Vlad - wait for 10s for session information to come through
+      // wait for 10s for session information to come through
       for (let i = 0; !this.IsSessionInfoReceived && i < 40; i++) {
         await new Promise(r => setTimeout(r, 250));
-        if (this.IsSessionInfoReceived)
-          break;
       }
 
       // if session info received - trigger rendering account ID QR code
@@ -387,16 +385,15 @@ export default {
       }
     },
     computeAndSetAccIdQrCode() {
+      if (!this.IsAccIdLogin)
+          return;
+
       // generating QRcode
       const typeNumber = 2;
       const errorCorrectionLevel = "M";
       const qr = qrcode(typeNumber, errorCorrectionLevel);
 
       if (this.acctIdQRCodeSvg === "") {
-        if (!this.IsAccIdLogin) {
-          return;
-        }
-
         let accId = this.$store.state.account.session.AccountID;
         qr.addData(accId);
         qr.make();
@@ -404,7 +401,7 @@ export default {
       }
 
       if (this.$refs.accIdQrcodePlaceholder) {
-        this.$refs.accIdQrcodePlaceholder.innerHTML = qr.createSvgTag(3, 10);
+        this.$refs.accIdQrcodePlaceholder.innerHTML = this.acctIdQRCodeSvg;
         // this.$refs.accIdQrcodePlaceholder.getElementsByTagName("svg")[0].style.width = "100%";
         // this.$refs.accIdQrcodePlaceholder.getElementsByTagName("svg")[0].style.height = "100%";
       }
