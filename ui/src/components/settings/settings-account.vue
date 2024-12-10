@@ -389,18 +389,18 @@ export default {
           return;
 
       // generating QRcode
-      const typeNumber = 2;
-      const errorCorrectionLevel = "M";
-      const qr = qrcode(typeNumber, errorCorrectionLevel);
-
       if (this.acctIdQRCodeSvg === "") {
+        const typeNumber = 2;
+        const errorCorrectionLevel = "M";
+        const qr = qrcode(typeNumber, errorCorrectionLevel);
+
         let accId = this.$store.state.account.session.AccountID;
         qr.addData(accId);
         qr.make();
         this.acctIdQRCodeSvg = qr.createSvgTag(3, 10);
       }
 
-      if (this.$refs.accIdQrcodePlaceholder) {
+      if (this.$refs.accIdQrcodePlaceholder && this.acctIdQRCodeSvg !== "") {
         this.$refs.accIdQrcodePlaceholder.innerHTML = this.acctIdQRCodeSvg;
         // this.$refs.accIdQrcodePlaceholder.getElementsByTagName("svg")[0].style.width = "100%";
         // this.$refs.accIdQrcodePlaceholder.getElementsByTagName("svg")[0].style.height = "100%";
