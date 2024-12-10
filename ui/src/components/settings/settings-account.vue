@@ -5,7 +5,7 @@
         <div>
           <div class="settingsTitle">ACCOUNT DETAILS</div>
           <div class="flexRowSpace" style="align-items: flex-start">
-            <div v-if="isProcessing" class="flexColumn" style="gap: 10px">
+            <div v-if="isProcessing || !this.IsSessionInfoReceived" class="flexColumn" style="gap: 10px">
               <ShimmerEffect :width="'100px'" :height="'100px'" :border-radius="'100%'" />
               <ShimmerEffect v-for="(item, index) in accountShimmerItems" :key="index" :width="'350px'"
                 :height="'20px'" />
@@ -69,8 +69,8 @@
             <!-- <div v-else>Api Error: Data couldn't be fetched at this moment.</div> -->
           </div>
         </div>
-        <div class="overlay-container" style="margin: auto;" @click="toggleAccountIDBlur" title="Click to show or hide QR code">
-          <div ref="qrcode" :class="{ blurred: isAccountIDBlurred }"></div>
+        <div v-if="this.IsSessionInfoReceived && this.IsAccIdLogin" class="overlay-container" style="margin: auto;" @click="toggleAccountIDBlur" title="Click to show or hide QR code">
+          <div ref="accIdQrcodePlaceholder" :class="{ blurred: isAccountIDBlurred }"></div>
           <div v-if="isAccountIDBlurred" class="overlay">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" fill="black" viewBox="0 0 512 512">
               <path
@@ -169,7 +169,8 @@ export default {
       isProcessing: true,
       isSubscriptionProcessing: true,
       accountShimmerItems: Array(4).fill(null),
-      isAccountIDBlurred: true
+      isAccountIDBlurred: true,
+      acctIdQRCodeSvg: "",
     };
   },
   computed: {
@@ -201,6 +202,9 @@ export default {
     IsAccountStateExists: function () {
       return this.$store.getters["account/isAccountStateExists"];
     },
+    IsSessionInfoReceived: function () {
+      return this.$store.state.account.session.SessionInfoReceived;
+    },
     CurrentPlan: function () {
       return this.$store.state.account.accountStatus.CurrentPlan;
     },
@@ -216,6 +220,7 @@ export default {
       let value = false;
 
       if (
+        this.IsSessionInfoReceived &&
         this.$store.state.account != null &&
         this.$store.state.account.session != null &&
         this.$store.state.account.session.AccountID != null &&
@@ -242,25 +247,7 @@ export default {
     //this.accountStatusRequest();
     this.profileData();
     this.getSubscriptionData();
-
-    // generating QRcode
-    // TODO FIXME: Vlad - what do we need QRcode for?
-    const typeNumber = 2;
-    const errorCorrectionLevel = "M";
-    const qr = qrcode(typeNumber, errorCorrectionLevel);
-
-    let accId = "";
-    if (
-      this.$store.state.account != null &&
-      this.$store.state.account.session != null &&
-      this.$store.state.account.session.AccountID != null
-    ) {
-      accId = this.$store.state.account.session.AccountID;
-    }
-
-    qr.addData(accId);
-    qr.make();
-    this.$refs.qrcode.innerHTML = qr.createSvgTag(3, 10);
+    this.waitForSessionInfo();
   },
   methods: {
     toggleAccountIDBlur() {
@@ -332,10 +319,25 @@ export default {
       } finally {
         this.isProcessing = false;
         this.isSubscriptionProcessing = false;
+        this.acctIdQRCodeSvg = "";
       }
     },
     async accountStatusRequest() {
       await sender.SessionStatus();
+    },
+    async waitForSessionInfo() {
+      // Vlad - wait for 10s for session information to come through
+      for (let i = 0; !this.IsSessionInfoReceived && i < 40; i++) {
+        await new Promise(r => setTimeout(r, 250));
+        if (this.IsSessionInfoReceived)
+          break;
+      }
+
+      // if session info received - trigger rendering account ID QR code
+      if (this.IsSessionInfoReceived)
+        this.computeAndSetAccIdQrCode();
+      else
+        console.log("waitForSessionInfo() timed out")
     },
     async profileData() {
       try {
@@ -382,6 +384,29 @@ export default {
         this.isSubscriptionProcessing = false;
         clearTimeout(this.apiSubscriptionTimeout);
         this.apiSubscriptionTimeout = null;
+      }
+    },
+    computeAndSetAccIdQrCode() {
+      // generating QRcode
+      const typeNumber = 2;
+      const errorCorrectionLevel = "M";
+      const qr = qrcode(typeNumber, errorCorrectionLevel);
+
+      if (this.acctIdQRCodeSvg === "") {
+        if (!this.IsAccIdLogin) {
+          return;
+        }
+
+        let accId = this.$store.state.account.session.AccountID;
+        qr.addData(accId);
+        qr.make();
+        this.acctIdQRCodeSvg = qr.createSvgTag(3, 10);
+      }
+
+      if (this.$refs.accIdQrcodePlaceholder) {
+        this.$refs.accIdQrcodePlaceholder.innerHTML = qr.createSvgTag(3, 10);
+        // this.$refs.accIdQrcodePlaceholder.getElementsByTagName("svg")[0].style.width = "100%";
+        // this.$refs.accIdQrcodePlaceholder.getElementsByTagName("svg")[0].style.height = "100%";
       }
     },
     upgrade() {

@@ -21,6 +21,7 @@ export default {
       WgUsePresharedKey: false,
       WgKeyGenerated: new Date(),
       WgKeysRegenIntervalSec: 0,
+      SessionInfoReceived: false,
     },
     accountStatus: {
       Active: false,
@@ -48,6 +49,7 @@ export default {
       state.subscriptionData = subscriptionData;
     },
     session(state, sessionInfo) {
+      // console.log("module-account.js: session(): sessionInfo.AccountID=" + sessionInfo.AccountID)
       state.session = sessionInfo;
 
       // erase account state
@@ -58,6 +60,9 @@ export default {
           getLastPartOfSessionToken(state.session.Session)
       )
         state.accountStatus = null;
+
+      // if (state.session)
+      //   console.log("module-account.js: session(): AccountID=" + state.session.AccountID)
     },
     sessionStatus(state, accState) {
       if (
