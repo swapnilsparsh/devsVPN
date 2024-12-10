@@ -533,6 +533,10 @@ Do you want to enable Inverse mode for Split Tunnel?",
         if (Platform() === PlatformEnum.Linux) {
           // Linux:
           let runningApps = splitTunnelling.RunningApps;
+          if (runningApps == null) {
+            console.error("Error: runningApps are null");
+            return;
+          }
           runningApps.forEach((runningApp) => {
             // check if we can get info from the installed apps list
             let cmdLine = "";
@@ -571,6 +575,10 @@ Do you want to enable Inverse mode for Split Tunnel?",
         } else {
           // Windows:
           let configApps = splitTunnelling.SplitTunnelApps;
+          if (configApps == null) {
+            console.error("Error: configApps are null");
+            return;
+          }
           configApps.forEach((appPath) => {
             if (!appPath) return;
             // check if we can get info from the installed apps list
