@@ -479,8 +479,8 @@ function doUpdateTrayMenu() {
 
     mainMenu.push({ type: "separator" });
 
-    mainMenu.push({ label: "Account", click: menuHandlerAccount });
-    mainMenu.push({ label: "Settings", click: menuHandlerPreferences });
+    // mainMenu.push({ label: "Account", click: menuHandlerAccount });
+    mainMenu.push({ label: "Settings", click: menuHandlerAccount });
 
     if (menuHandlerCheckUpdates != null) {
       mainMenu.push({
