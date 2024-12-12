@@ -44,7 +44,7 @@ import (
 const (
 	_defaultRequestTimeout = time.Second * 10 // full request time (for each request)
 	_defaultDialTimeout    = time.Second * 5  // time for the dial to the API server (for each request)
-	_apiHost               = "api.privateline.io"
+	_apiHost               = "deskapi.privateline.io"
 	// _apiHost = "api.privateline.dev"
 
 	// temporarily fetching static servers.json from GitHub
