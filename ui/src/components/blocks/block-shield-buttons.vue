@@ -93,12 +93,12 @@ export default {
 
   computed: {
     textApplicationsHeader: function () {
-      if (Platform() === PlatformEnum.Linux) return "Launched applications";
+      if (Platform() === PlatformEnum.Linux) return "Running Whitelisted Applications";
       return "Applications";
     },
 
-    textNoAppInSplittunConfig: function () {
-      return "No applications in Split Tunnel configuration";
+    textNoAppInAppWhitelist: function () {
+      return "No applications in App Whitelist";
     },
 
     textAddAppButton: function () {
@@ -352,8 +352,8 @@ export default {
       try {
         await sender.SplitTunnelSetConfig(
           this.isSTEnabledLocal,
-          this.isAppWhitelistEnabledLocal,
           this.stInversedLocal,
+          this.isAppWhitelistEnabledLocal,
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
           this.stAllowWhenNoVpnLocal
         );
@@ -423,8 +423,8 @@ export default {
       try {
         await sender.SplitTunnelSetConfig(
           this.isSTEnabledLocal,
-          this.isAppWhitelistEnabledLocal,
           this.stInversedLocal,
+          this.isAppWhitelistEnabledLocal,
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
           this.stAllowWhenNoVpnLocal
         );
@@ -533,6 +533,10 @@ Do you want to enable Inverse mode for Split Tunnel?",
         if (Platform() === PlatformEnum.Linux) {
           // Linux:
           let runningApps = splitTunnelling.RunningApps;
+          if (runningApps == null) {
+            console.error("Error: runningApps are null");
+            return;
+          }
           runningApps.forEach((runningApp) => {
             // check if we can get info from the installed apps list
             let cmdLine = "";
@@ -571,6 +575,10 @@ Do you want to enable Inverse mode for Split Tunnel?",
         } else {
           // Windows:
           let configApps = splitTunnelling.SplitTunnelApps;
+          if (configApps == null) {
+            console.error("Error: configApps are null");
+            return;
+          }
           configApps.forEach((appPath) => {
             if (!appPath) return;
             // check if we can get info from the installed apps list
@@ -684,7 +692,7 @@ Do you want to enable Inverse mode for Split Tunnel?",
       if (actionNo == 1) return;
 
       this.resetFilters();
-      await sender.SplitTunnelSetConfig(true, false, false, false, false, true);
+      await sender.SplitTunnelSetConfig(true, true, false, false, false, true);
     },
 
     resetFilters: function () {

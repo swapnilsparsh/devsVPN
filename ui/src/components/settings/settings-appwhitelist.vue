@@ -1,6 +1,6 @@
 <template>
   <div class="flexColumn">
-    <div class="settingsTitle flexRow">SPLIT TUNNEL SETTINGS</div>
+    <div class="settingsTitle flexRow">APP WHITELIST SETTINGS</div>
 
     <!-- SELECT apps 'popup' view -->
     <div ref="appsListParent" class="flexRow" style="position: relative">
@@ -91,10 +91,19 @@
       <ComponentDialog ref="helpAppWhitelistEnabledLocal" header="Info">
         <div>
           <p>
-            Allow only specific applications to access the enclave
+            Allow only whitelisted applications to access privateLINE enclave
           </p>
           <!-- functionality description: LINUX -->
           <p v-if="isLinux">
+            Shield mode: whitelisted applications will be allowed access to
+            privateLINE enclave and the internet. Other applications will be
+            allowed access to the internet, but not to the privateLINE enclave.
+            <br><br>
+            Total Shield mode: Whitelisted applications will be allowed access 
+            to the privateLINE enclave, but not to the internet. Other 
+            applications will not have any external network connectivity, 
+            will only be allowed localhost networking.
+            <br><br>
             <span style="font-weight: bold">Warning:</span>
             Applications must be launched from the "{{ textAddAppButton }}"
             button. Already running applications or instances can not use App
@@ -106,10 +115,10 @@
           <div v-else>
             <p>
               <span style="font-weight: bold">Warning:</span>
-              When adding a running application, any connections already
-              established by the application may continue to be routed
-              outside of the enclave until the TCP connection/s are reset
-              or the application is restarted
+              When adding a running application to App Whitelist, any 
+              connections already established by the application may continue
+              to be routed outside of the enclave until the TCP connection/s
+              are reset or the application is restarted.
             </p>
           </div>
           <div class="settingsGrayLongDescriptionFont">
@@ -119,12 +128,14 @@
       </ComponentDialog>
     </div>
     <div class="fwDescription">
-      Allow only specific applications to access the enclave
+      Allow only whitelisted applications to access privateLINE enclave
     </div>
 
     <!-- INVERSE MODE-->
-    <div v-show="isSplitTunnelInverseSupported">
-      <!-- Inverse mode -->
+    <!-- Vlad: disabled showing -->
+    <!--<div v-show="isSplitTunnelInverseSupported">-->
+    <div v-show="false">  
+      <!-- Inverse mode -->  
       <div class="param">
         <input :disabled="!isSTEnabledLocal" type="checkbox" id="stInversedLocal" v-model="stInversedLocal"
           @change="onSTInversedChange" />
@@ -244,7 +255,7 @@
             padding: 50px;
           ">
           <div class="settingsGrayTextColor">
-            {{ textNoAppInSplittunConfig }}
+            {{ textNoAppInAppWhitelist }}
           </div>
         </div>
 
@@ -475,8 +486,8 @@ export default {
       try {
         await sender.SplitTunnelSetConfig(
           this.isSTEnabledLocal,
-          this.isAppWhitelistEnabledLocal,
           this.stInversedLocal,
+          this.isAppWhitelistEnabledLocal,
           !this.stBlockNonVpnDnsLocal, // isAnyDns,
           this.stAllowWhenNoVpnLocal,
         );
@@ -731,12 +742,12 @@ Do you want to enable Inverse mode for Split Tunnel?",
         type: "question",
         buttons: ["Yes", "Cancel"],
         message: "Reset all settings to default values",
-        detail: `Are you sure you want to reset the Split Tunnel configuration for all applications?`,
+        detail: `Are you sure you want to reset the App Whitelist configuration for all applications?`,
       });
       if (actionNo == 1) return;
 
       this.resetFilters();
-      await sender.SplitTunnelSetConfig(true, false, false, false, false, true);
+      await sender.SplitTunnelSetConfig(true, true, false, false, false, true);
     },
 
     resetFilters: function () {
@@ -746,12 +757,12 @@ Do you want to enable Inverse mode for Split Tunnel?",
 
   computed: {
     textApplicationsHeader: function () {
-      if (Platform() === PlatformEnum.Linux) return "Launched applications";
+      if (Platform() === PlatformEnum.Linux) return "Running Whitelisted Applications";
       return "Applications";
     },
 
-    textNoAppInSplittunConfig: function () {
-      return "No applications in Split Tunnel configuration";
+    textNoAppInAppWhitelist: function () {
+      return "No applications in the App Whitelist";
     },
 
     textAddAppButton: function () {

@@ -95,10 +95,10 @@ func CreateConnectionParams(
 	dnsServers string,
 	allowedIPs string) ConnectionParams {
 
-	// TODO FIXME: Vlad - if MTU not specified explicitly, set 1380 as a reasonable default
+	// TODO FIXME: Vlad - if MTU not specified explicitly, set 1280 as a reasonable default
 	// According to Windows specification: "... For IPv4 the minimum value is 576 bytes. For IPv6 the minimum value is 1280 bytes... "
 	if mtu == 0 {
-		mtu = 1380
+		mtu = 1280
 	}
 
 	return ConnectionParams{

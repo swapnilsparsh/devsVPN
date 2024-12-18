@@ -37,6 +37,7 @@
 
           </div>
 
+          <!--
           <input v-if="!isAccountIdLogin" ref="email" v-model="email" class="styledBig" style="text-align: left"
             placeholder="Enter your email" @keyup="keyup($event)" />
 
@@ -59,19 +60,24 @@
                 cursor: pointer;
               " @click="toggleEye" />
           </div>
+          -->
         </div>
 
+        <!--
         <div v-if="!isAccountIdLogin" class="medium_text link" @click="ForgotPassword">
           Forgot Password?
         </div>
+        -->
 
         <div style="height: 24px" />
-        <button class="master" @click="Login">Log In</button>
+        <button class="master" @click="Login">Log In With Account ID</button>
         <div style="height: 12px" />
+        <!--
         <button v-if="!isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Account ID</button>
         <button v-if="isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Email And
           Password</button>
         <div style="height: 12px" />
+        -->
         <button class="slave" v-on:click="openSSO">SSO Login</button>
         <div style="height: 12px" />
         <button class="slave" @click="CreateAccount">Create an account</button>
@@ -345,14 +351,16 @@ export default {
             message: "Failed to login",
             detail:
               resp.APIErrorMessage +
-              ". You can remove the device from your privateLINE account and try again.",
+              "\n\nYou can remove the device from your privateLINE account and try again.",
           });
         } else if (resp.APIErrorMessage != "") {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
-            detail: resp.APIErrorMessage,
+            detail: 
+              resp.APIErrorMessage +
+              "\n\nIf you don't have a privateLINE account yet, you can create one at https://account.privateline.io/sign-in",
           });
         }
 
@@ -421,7 +429,7 @@ export default {
       }
     },
     CreateAccount() {
-      sender.shellOpenExternal(`https://privateline.io/email-signup`);
+      sender.shellOpenExternal(`https://account.privateline.io/sign-in`);
     },
     openSSO() {
       sender.shellOpenExternal(

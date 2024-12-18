@@ -101,7 +101,7 @@ type Preferences struct {
 	// split-tunnelling
 	IsSplitTunnel             bool // Split Tunnel on/off
 	SplitTunnelApps           []string
-	SplitTunnelInversed       bool // Inverse Split Tunnel: only 'splitted' apps use VPN tunnel (applicable only when IsSplitTunnel=true)
+	SplitTunnelInversed       bool // Inverse Split Tunnel: only 'splitted' apps use VPN tunnel (applicable only when IsSplitTunnel=true). For App Whitelist feature must be always true.
 	EnableAppWhitelist        bool // Whether only whitelisted apps are allowed into the enclave (VPN). If false (default), then all apps are allowed into the enclave (VPN tunnel).
 	SplitTunnelAnyDns         bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
 	SplitTunnelAllowWhenNoVpn bool // (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled

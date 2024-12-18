@@ -37,6 +37,8 @@ $base-font-family: "MainIVPNFont", "SF Pro Text", "Helvetica", "sans-serif";
   --connection-switch-color-green: #4eaf51;
   --connection-switch-color-blue: #0766ff;
 
+  --link-color: #0078d7;
+
   @media (prefers-color-scheme: dark) {
     color-scheme: dark;
     --text-color-rgb: 255, 255, 255;
@@ -200,7 +202,7 @@ div.disabled {
 }
 
 .link {
-  color: #0078d7;
+  color: var(--link-color);
   width: 100%;
   text-align: right;
   font-weight: 500;

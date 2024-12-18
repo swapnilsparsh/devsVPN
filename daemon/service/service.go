@@ -1253,7 +1253,7 @@ func (s *Service) ResetPreferences() error {
 	s._preferences = *preferences.Create()
 
 	// erase ST config -  split tunnel config by default
-	s.SplitTunnelling_SetConfig(true, true, true, false, false, true)
+	s.SplitTunnelling_SetConfig(true, true, false, false, false, true)
 	return nil
 }
 
@@ -1388,6 +1388,9 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 }
 
 func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhitelist, isAnyDns, isAllowWhenNoVpn, reset bool) error {
+	// Vlad: for App Whitelist feature we keep inversed mode always on
+	isInversed = true
+
 	if reset {
 		return s.splitTunnelling_Reset()
 	}

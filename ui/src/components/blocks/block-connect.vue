@@ -164,6 +164,9 @@
         </div>
       </div>
       <!-- PAUSE BUTTON end-->
+       
+      <!-- Vlad: don't show inverse split tunnel mode -->
+      <!--
       <transition name="fade">
         <button
           v-show="this.$store.getters['vpnState/isInverseSplitTunnel']"
@@ -175,6 +178,17 @@
           </div>
         </button>
       </transition>
+      -->
+
+      <transition name="fade">
+        <div
+          v-if="AppWhitelistAndConnected"
+          class="small_text_warning"
+        >
+          App Whitelist is active
+        </div>
+      </transition>
+
     </div>
     <!-- SECIND LINE end-->
   </div>
@@ -247,6 +261,9 @@ export default {
     },
     isCanShowPauseMenu: function () {
       return this.isCanPause && this.isPauseMenuAllowed;
+    },
+    AppWhitelistAndConnected: function () {
+      return this.$store.state.vpnState.splitTunnelling?.IsAppWhitelistEnabled && this.isConnected;
     },
   },
   watch: {

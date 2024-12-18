@@ -351,8 +351,14 @@ function commitSession(sessionRespObj) {
     WgUsePresharedKey: sessionRespObj.WgUsePresharedKey,
     WgKeyGenerated: new Date(sessionRespObj.WgKeyGenerated * 1000),
     WgKeysRegenIntervalSec: sessionRespObj.WgKeysRegenInerval, // note! spelling error in received parameter name
+    SessionInfoReceived: true, // signal to .vue components we have Account ID, etc.
   };
   store.commit(`account/session`, session);
+  // let logmsg = "ui/src/daemon-client/index.js: commitSession(): store.state.session.SessionInfoReceived=" 
+  //   + " sessionRespObj.AccountID=" + sessionRespObj.AccountID
+  //   + (store.state.session != null ? "store.state.session.SessionInfoReceived=" + store.state.session.SessionInfoReceived : "");
+  // log.debug(logmsg);
+  // console.log(logmsg);
   if (session.Session)
     store.commit("settings/isExpectedAccountToBeLoggedIn", true);
   return session;
@@ -957,9 +963,8 @@ async function Login(
     // Confirmation2FA: confirmation2FA,
   });
 
-  // if (resp.APIStatus === API_SUCCESS) commitSession(resp.Session);
-
   if (resp.APIStatus === API_SUCCESS) {
+    commitSession(resp.Session);
     ProfileData();
     SubscriptionData();
   }
@@ -1567,8 +1572,8 @@ async function SplitTunnelGetStatus() {
 }
 async function SplitTunnelSetConfig(
   IsEnabled,
-  IsAppWhitelistEnabled,
   IsInversed,
+  IsAppWhitelistEnabled,
   IsAnyDns,
   IsAllowWhenNoVpn,
   doReset
@@ -1585,8 +1590,8 @@ async function SplitTunnelSetConfig(
   await sendRecv({
     Command: daemonRequests.SplitTunnelSetConfig,
     IsEnabled,
-    IsAppWhitelistEnabled,
     IsInversed,
+    IsAppWhitelistEnabled,
     IsAnyDns,
     IsAllowWhenNoVpn,
     Reset: doReset === true,
