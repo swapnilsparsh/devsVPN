@@ -93,7 +93,7 @@ func (m *Manager) Initialize() error {
 	}
 
 	var err error
-	m.session, err = CreateWfpSessionObject(false)
+	m.session, err = CreateWfpSessionObject(true) // create a dynamic WFP session
 	if err != nil {
 		log.Error("failed to initialize firewall", err)
 		return err
@@ -165,6 +165,7 @@ func (m *Manager) AddProvider(prv Provider) (retErr error) {
 	}()
 
 	if prv.isPersistence {
+		// return fmt.Errorf("AddProvider error - WFP (Windows Filtering Platform) persistence not supported")
 		if err = FWPMPROVIDER0SetFlags(prvHandle, FwpmProviderFlagPersistent); err != nil {
 			return fmt.Errorf("failed to set provider flags: %w", err)
 		}
@@ -229,7 +230,7 @@ func (m *Manager) TransactionAbort() error {
 	return nil
 }
 
-// IsSubLayerInstalled returrns true is sublayer is installed
+// IsSubLayerInstalled returns true is sublayer is installed
 func (m *Manager) IsSubLayerInstalled(sublayerKey syscall.GUID) (bool, error) {
 	if err := m.Initialize(); err != nil {
 		return false, fmt.Errorf("failed to initialize manager: %w", err)
@@ -264,6 +265,7 @@ func (m *Manager) AddSubLayer(sbl SubLayer) (retErr error) {
 	}
 
 	if sbl.isPersistence {
+		// return fmt.Errorf("AddSubLayer error - WFP (Windows Filtering Platform) persistence not supported")
 		if err = FWPMSUBLAYER0SetFlags(handler, FwpmSublayerFlagPersistent); err != nil {
 			return fmt.Errorf("failed to set sublayer flags: %w", err)
 		}

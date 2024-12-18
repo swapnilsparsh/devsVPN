@@ -39,7 +39,6 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
-	"github.com/tailscale/wf"
 	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
@@ -712,15 +711,18 @@ func start() (err error) {
 	return nil
 }
 
+// TODO Vlad: disabling for now
+/*
+
 // TODO FIXME: Vlad:
 //   - dynamic
 //   - layer
 //   - sublayer
 
 var guidSublayerUniversal = wf.SublayerID{
-	Data1: 0xeebecc03,
-	Data2: 0xced4,
-	Data3: 0x4380,
+	Data1: 0x00000000,
+	Data2: 0x0000,
+	Data3: 0x0000,
 	Data4: [8]byte{0x81, 0x9a, 0x27, 0x34, 0x39, 0x7b, 0x2b, 0x74},
 }
 
@@ -731,6 +733,7 @@ func mustGUID() windows.GUID {
 	}
 	return ret
 }
+*/
 
 func setConfig(config Config) (err error) {
 	defer catchPanic(&err)

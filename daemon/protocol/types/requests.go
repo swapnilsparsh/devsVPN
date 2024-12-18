@@ -130,7 +130,7 @@ type KillSwitchGetStatus struct {
 	RequestBase
 }
 
-// KillSwitchSetIsPersistent request to mark kill-switch persistant
+// KillSwitchSetIsPersistent request to mark kill-switch persistent
 type KillSwitchSetIsPersistent struct {
 	RequestBase
 	IsPersistent bool

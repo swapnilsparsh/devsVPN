@@ -31,9 +31,12 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 )
 
 var log *logger.Logger
+
+type GetPrefsCallback func() preferences.Preferences
 
 func init() {
 	log = logger.NewLogger("frwl")
@@ -55,11 +58,14 @@ var (
 
 	stateAllowLan          bool
 	stateAllowLanMulticast bool
+
+	getPrefsCallback GetPrefsCallback
 )
 
 // Initialize is doing initialization stuff
 // Must be called on application start
-func Initialize() error {
+func Initialize(prefsCallback GetPrefsCallback) error {
+	getPrefsCallback = prefsCallback
 	return implInitialize()
 }
 
@@ -96,14 +102,14 @@ func SetEnabled(enable bool) error {
 	return err
 }
 
-// SetPersistant - set persistant firewall state and enable it if necessary
-func SetPersistant(persistant bool) error {
+// SetPersistent - set persistent firewall state and enable it if necessary
+func SetPersistent(persistent bool) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info(fmt.Sprintf("Persistent:%t", persistant))
+	log.Info(fmt.Sprintf("Persistent:%t", persistent))
 
-	err := implSetPersistant(persistant)
+	err := implSetPersistent(persistent)
 	if err != nil {
 		log.Error(err)
 	}
@@ -212,6 +218,10 @@ func ClientDisconnected() error {
 //   - onlyForICMP	-	(applicable only for Linux) try add rule to allow only ICMP protocol for this IP
 //   - isPersistent	-	keep rule enabled even if VPN disconnected
 func AddHostsToExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) error {
+	// if isPersistent {
+	// 	return fmt.Errorf("error - WFP (Windows Filtering Platform) persistence not supported")
+	// }
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -224,6 +234,10 @@ func AddHostsToExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) err
 }
 
 func RemoveHostsFromExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) error {
+	// if isPersistent {
+	// 	return fmt.Errorf("error - WFP (Windows Filtering Platform) persistence not supported")
+	// }
+
 	mutex.Lock()
 	defer mutex.Unlock()
 

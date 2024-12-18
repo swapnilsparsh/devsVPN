@@ -82,7 +82,7 @@ type Service interface {
 
 	KillSwitchState() (status service_types.KillSwitchStatus, err error)
 	SetKillSwitchState(bool) error
-	SetKillSwitchIsPersistent(isPersistant bool) error
+	SetKillSwitchIsPersistent(isPersistent bool) error
 	SetKillSwitchAllowLANMulticast(isAllowLanMulticast bool) error
 	SetKillSwitchAllowLAN(isAllowLan bool) error
 	SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error
@@ -1169,9 +1169,9 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			p._service.ResetPreferences()
 			prefs := p._service.Preferences()
 
-			// restore active persistant Firewall state
-			if oldPrefs.IsFwPersistant != prefs.IsFwPersistant {
-				p._service.SetKillSwitchIsPersistent(oldPrefs.IsFwPersistant)
+			// restore active persistent Firewall state
+			if oldPrefs.IsFwPersistent != prefs.IsFwPersistent {
+				p._service.SetKillSwitchIsPersistent(oldPrefs.IsFwPersistent)
 			}
 
 			// set AllowLan and exceptions according to default values
@@ -1398,7 +1398,8 @@ func (p *Protocol) processConnectionRequests() {
 		}
 
 		connectRequest := <-p._connRequestChan
-		p._connRequestReady.Wait() // wait processing connection request until everything is ready
+		connectRequest.FirewallOn = true // TODO FIXME: Vlad - firewall must always be enabled on Windows in MVP
+		p._connRequestReady.Wait()       // wait processing connection request until everything is ready
 
 		// processing each connection request is wrapped into function in order to call 'defer' sections properly
 		func() {

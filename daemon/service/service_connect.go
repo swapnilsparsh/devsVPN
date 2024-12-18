@@ -142,13 +142,13 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 	}
 
 	// ------------------------ Inverse Split Tunnel block start ------------------------
-	if prefs.IsInverseSplitTunneling() {
-		if params.FirewallOn || params.FirewallOnDuringConnection {
-			log.Info("The Firewall will not be enabled for the current connection because Split Tunnel Inverse mode is active")
-			params.FirewallOn = false
-			params.FirewallOnDuringConnection = false
-		}
-	}
+	// if prefs.IsInverseSplitTunneling() {
+	// 	if params.FirewallOn || params.FirewallOnDuringConnection {
+	// 		log.Info("The Firewall will not be enabled for the current connection because Split Tunnel Inverse mode is active")
+	// 		params.FirewallOn = false
+	// 		params.FirewallOnDuringConnection = false
+	// 	}
+	// }
 	// ------------------------ Inverse Split Tunnel block end --------------------------
 
 	// ------------------------ V2RAY block start ------------------------
@@ -544,10 +544,10 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 		}
 
 		prefs = s.Preferences()
-		isInverseSplitTun := prefs.IsInverseSplitTunneling()
+		// isInverseSplitTun := prefs.IsInverseSplitTunneling()
 
 		// start connection
-		connErr := s.connect(originalEntryServerInfo, vpnObj, manualDns, antitracker, firewallOn && !isInverseSplitTun, firewallDuringConnection && !isInverseSplitTun, v2rayWrapper)
+		connErr := s.connect(originalEntryServerInfo, vpnObj, manualDns, antitracker, firewallOn /* && !isInverseSplitTun */, firewallDuringConnection /* && !isInverseSplitTun */, v2rayWrapper)
 		if connErr != nil {
 			log.Error(fmt.Sprintf("Connection error: %s", connErr))
 			if s._requiredVpnState == Connect {

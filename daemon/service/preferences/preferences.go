@@ -81,7 +81,7 @@ type Preferences struct {
 	// It allow to detect situations when settings was erased (created new Preferences object)
 	SettingsSessionUUID      string
 	IsLogging                bool
-	IsFwPersistant           bool
+	IsFwPersistent           bool
 	IsFwAllowLAN             bool
 	IsFwAllowLANMulticast    bool
 	IsFwAllowApiServers      bool
@@ -262,6 +262,8 @@ func (p *Preferences) LoadPreferences() error {
 		p.Session.WGKeysRegenInerval = DefaultWGKeysInterval
 		log.Info(fmt.Sprintf("default value for preferences: WgKeysRegenIntervalDays=%v", p.Session.WGKeysRegenInerval))
 	}
+
+	// TODO FIXME: Vlad - parse AllowedIPs here
 
 	// *** Compatibility with old versions ***
 

@@ -31,11 +31,6 @@ import (
 	"github.com/tailscale/wf"
 )
 
-const (
-	// our sublayer must be max priority
-	SUBLAYER_MAX_WEIGHT = uint16(0xFFFF)
-)
-
 var (
 	wfpDllPath           string
 	nativeHelpersDllPath string
@@ -145,6 +140,7 @@ func getEtcDir() string {
 	return path.Join(getInstallDir(), "etc")
 }
 
+/*
 func initWFP() (err error) {
 	// init WFP session
 	wfpSess, err = wf.New(&wf.Options{
@@ -167,7 +163,7 @@ func initWFP() (err error) {
 		ID:          wf.SublayerID(SUBLAYER_RECV_ACCEPT_V4_GUID),
 		Name:        "plconnect VPN coexistence",
 		Description: "privateLINE Connect - ensure coexistence with other VPNs",
-		Persistent:  true,
+		Persistent:  false,
 		Weight:      SUBLAYER_MAX_WEIGHT,
 		Provider:    wf.ProviderID(wf.LayerALEAuthRecvAcceptV4),
 	}
@@ -178,9 +174,12 @@ func initWFP() (err error) {
 
 	return nil
 }
+*/
 
 func doInitOperations() (w string, e error) {
-	return "", initWFP()
+	// TODO FIXME: Vlad - using WFP interfaces in daemon/service/firewall/winlib, instead of creating ours
+	return "", nil
+	//return "", initWFP()
 }
 
 // WindowsWFPDllPath - Path to Windows DLL with helper methods for WFP (Windows Filtering Platform)

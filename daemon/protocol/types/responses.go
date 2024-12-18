@@ -135,13 +135,13 @@ type SettingsResp struct {
 	AntiTracker                 service_types.AntiTrackerMetadata
 
 	// TODO: implement the rest of daemon settings
-	// IsFwPersistant        bool
-	// IsFwAllowLAN          bool
-	// IsFwAllowLANMulticast bool
-	// IsFwAllowApiServers   bool
-	// FwUserExceptions      string
-	// IsSplitTunnel         bool
-	// SplitTunnelApps       []string
+	IsFwPersistent        bool
+	IsFwAllowLAN          bool
+	IsFwAllowLANMulticast bool
+	IsFwAllowApiServers   bool
+	FwUserExceptions      string
+	IsSplitTunnel         bool
+	SplitTunnelApps       []string
 }
 
 // HelloResp response on initial request

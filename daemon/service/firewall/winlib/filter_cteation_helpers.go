@@ -67,6 +67,7 @@ func NewFilterAllowLocalPort(
 
 	f.Flags = FwpmFilterFlagClearActionRight
 	if isPersistent {
+		// log.Error("NewFilterAllowLocalPort error - WFP (Windows Filtering Platform) persistence not supported")
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	}
 
@@ -91,6 +92,7 @@ func NewFilterAllowRemotePort(
 
 	f.Flags = FwpmFilterFlagClearActionRight
 	if isPersistent {
+		// log.Error("NewFilterAllowRemotePort error - WFP (Windows Filtering Platform) persistence not supported")
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	}
 
@@ -115,6 +117,7 @@ func NewFilterAllowApplication(
 
 	f.Flags = FwpmFilterFlagClearActionRight
 	if isPersistent {
+		// log.Error("NewFilterAllowApplication error - WFP (Windows Filtering Platform) persistence not supported")
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	}
 
@@ -139,6 +142,7 @@ func NewFilterAllowRemoteIP(
 
 	f.Flags = FwpmFilterFlagClearActionRight
 	if isPersistent {
+		// log.Error("NewFilterAllowRemoteIP error - WFP (Windows Filtering Platform) persistence not supported")
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	}
 
@@ -164,6 +168,7 @@ func AllowRemoteLocalhostDNS(
 
 	f.Flags = FwpmFilterFlagClearActionRight
 	if isPersistent {
+		// log.Error("AllowRemoteLocalhostDNS error - WFP (Windows Filtering Platform) persistence not supported")
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	}
 
@@ -189,6 +194,7 @@ func NewFilterAllowRemoteIPV6(
 
 	f.Flags = FwpmFilterFlagClearActionRight
 	if isPersistent {
+		// log.Error("NewFilterAllowRemoteIPV6 error - WFP (Windows Filtering Platform) persistence not supported")
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	}
 
@@ -215,12 +221,14 @@ func NewFilterAllowLocalIP(
 	f.Weight = weightAllowLocalIP
 	f.Action = FwpActionPermit
 
+	// TODO FIXME: Vlad - do check whether we may need to set FwpmFilterFlagClearActionRight here
 	// Do not set FwpmFilterFlagClearActionRight (f.Flags = FwpmFilterFlagClearActionRight)
 	// Otherwise, we will overlap blocking rules from Windows Firewall (if they are)
 	// For example: if the Windows firewall have rule to block a specific application
 	//		-> using FwpmFilterFlagClearActionRight will allow to communicate from 'ip' for this application
 
 	if isPersistent {
+		// log.Error("NewFilterAllowLocalIP error - WFP (Windows Filtering Platform) persistence not supported")
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	}
 
@@ -244,12 +252,14 @@ func NewFilterAllowLocalIPV6(
 	f.Weight = weightAllowLocalIP
 	f.Action = FwpActionPermit
 
+	// TODO FIXME: Vlad - do check whether we may need to set FwpmFilterFlagClearActionRight here
 	// Do not set FwpmFilterFlagClearActionRight (f.Flags = FwpmFilterFlagClearActionRight)
 	// Otherwise, we will overlap blocking rules from Windows Firewall (if they are)
 	// For example: if the Windows firewall have rule to block a specific application
 	//		-> using FwpmFilterFlagClearActionRight will allow to communicate from 'ip' for this application
 
 	if isPersistent {
+		// log.Error("NewFilterAllowLocalIPV6 error - WFP (Windows Filtering Platform) persistence not supported")
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	}
 
@@ -277,6 +287,7 @@ func NewFilterBlockAll(
 
 	f.Flags = FwpmFilterFlagClearActionRight
 	if isPersistent {
+		// log.Error("NewFilterBlockAll error - WFP (Windows Filtering Platform) persistence not supported")
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	} else if isBootTime {
 		f.Flags = f.Flags | FwpmFilterFlagBoottime
@@ -309,6 +320,7 @@ func NewFilterBlockDNS(
 
 	f.Flags = FwpmFilterFlagClearActionRight
 	if isPersistent {
+		// log.Error("NewFilterBlockDNS error - WFP (Windows Filtering Platform) persistence not supported")
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	}
 

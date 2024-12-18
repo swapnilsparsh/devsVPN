@@ -235,7 +235,7 @@ func (s *Service) init() error {
 	}
 
 	// initialize firewall functionality
-	if err := firewall.Initialize(); err != nil {
+	if err := firewall.Initialize(s.Preferences); err != nil {
 		return fmt.Errorf("service initialization error : %w", err)
 	}
 
@@ -272,9 +272,9 @@ func (s *Service) init() error {
 		log.Error("Failed to apply firewall exceptions: ", err)
 	}
 
-	if s._preferences.IsFwPersistant {
-		log.Info("Enabling firewal (persistant configuration)")
-		if err := firewall.SetPersistant(true); err != nil {
+	if s._preferences.IsFwPersistent {
+		log.Info("Enabling firewall (persistent configuration)")
+		if err := firewall.SetPersistent(true); err != nil {
 			log.Error("Failed to enable firewall: ", err)
 		}
 	}
@@ -441,6 +441,7 @@ func (s *Service) updateAPIAddrInFWExceptions() {
 	if len(apiAddrs) > 0 {
 		const onlyForICMP = false
 		const isPersistent = true
+		// const isPersistent = false // TODO FIXME: Vlad - changed to false, can't have WFP persistent anything in MVP
 		prefs := s.Preferences()
 		if prefs.IsFwAllowApiServers {
 			firewall.AddHostsToExceptions(apiAddrs, onlyForICMP, isPersistent)
@@ -654,6 +655,7 @@ func (s *Service) Pause(durationSeconds uint32) error {
 	}
 	s._pause._killSwitchState = fwStatus.IsEnabled
 	if fwStatus.IsEnabled && !fwStatus.IsPersistent {
+		log.Error("error - disabling the firewall because IsPersistent=false")
 		if err := s.SetKillSwitchState(false); err != nil {
 			return err
 		}
@@ -863,7 +865,7 @@ func (s *Service) SetManualDNS(dnsCfg dns.DnsSettings, antiTracker types.AntiTra
 	isChanged := false
 	defer func() {
 		if isChanged {
-			// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servrers or to manually defined server
+			// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servers or to manually defined server
 			if err := s.splitTunnelling_ApplyConfig(); err != nil {
 				log.Error(err)
 			}
@@ -1045,16 +1047,15 @@ func (s *Service) onKillSwitchStateChanged() {
 
 // SetKillSwitchState enable\disable kill-switch
 func (s *Service) SetKillSwitchState(isEnabled bool) error {
-
-	if !isEnabled && s._preferences.IsFwPersistant {
+	if !isEnabled && s._preferences.IsFwPersistent {
 		return fmt.Errorf("unable to disable Firewall in 'Persistent' state. Please, disable 'Always-on firewall' first")
 	}
 	if s.IsPaused() {
 		return fmt.Errorf("unable to change the firewall state while connection is paused, please resume the connection first")
 	}
-	if isEnabled && s._preferences.IsInverseSplitTunneling() {
-		return fmt.Errorf("firewall cannot be enabled while Inverse Split Tunnel is active; please disable Inverse Split Tunnel first")
-	}
+	// if isEnabled && s._preferences.IsInverseSplitTunneling() {
+	// 	return fmt.Errorf("firewall cannot be enabled while Inverse Split Tunnel is active; please disable Inverse Split Tunnel first")
+	// }
 
 	err := firewall.SetEnabled(isEnabled)
 	if err == nil {
@@ -1079,7 +1080,7 @@ func (s *Service) KillSwitchState() (status types.KillSwitchStatus, err error) {
 
 	return types.KillSwitchStatus{
 		IsEnabled:         enabled,
-		IsPersistent:      prefs.IsFwPersistant,
+		IsPersistent:      prefs.IsFwPersistent,
 		IsAllowLAN:        prefs.IsFwAllowLAN,
 		IsAllowMulticast:  prefs.IsFwAllowLANMulticast,
 		IsAllowApiServers: prefs.IsFwAllowApiServers,
@@ -1089,20 +1090,24 @@ func (s *Service) KillSwitchState() (status types.KillSwitchStatus, err error) {
 }
 
 // SetKillSwitchIsPersistent change kill-switch value
-func (s *Service) SetKillSwitchIsPersistent(isPersistant bool) error {
+func (s *Service) SetKillSwitchIsPersistent(isPersistent bool) error {
+	// if isPersistent {
+	// 	return fmt.Errorf("error - WFP (Windows Filtering Platform) persistence not supported")
+	// }
+
 	if s.IsPaused() {
 		return fmt.Errorf("unable to change the firewall state while connection is paused, please resume the connection first")
 	}
 
-	if isPersistant && s._preferences.IsInverseSplitTunneling() {
-		return fmt.Errorf("firewall cannot be enabled while Inverse Split Tunnel is active; please disable Inverse Split Tunnel first")
-	}
+	// if isPersistent && s._preferences.IsInverseSplitTunneling() {
+	// 	return fmt.Errorf("firewall cannot be enabled while Inverse Split Tunnel is active; please disable Inverse Split Tunnel first")
+	// }
 
 	prefs := s._preferences
-	prefs.IsFwPersistant = isPersistant
+	prefs.IsFwPersistent = isPersistent
 	s.setPreferences(prefs)
 
-	err := firewall.SetPersistant(isPersistant)
+	err := firewall.SetPersistent(isPersistent)
 	if err == nil {
 		s.onKillSwitchStateChanged()
 	}
@@ -1133,6 +1138,7 @@ func (s *Service) setKillSwitchAllowLAN(isAllowLan bool, isAllowLanMulticast boo
 }
 
 func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) error {
+	log.Debug("applyKillSwitchAllowLAN")
 	prefs := s._preferences
 
 	isAllowLAN := prefs.IsFwAllowLAN
@@ -1569,6 +1575,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 			return fmt.Errorf("failed to apply the firewall rule to allow DNS requests only to the IVPN server: %w", err)
 		}
 		if !dnsCfg.IsEmpty() {
+			log.Debug("isVpnConnected && prefs.IsInverseSplitTunneling() && !prefs.SplitTunnelAnyDns - so applying SingleDnsRuleOn()")
 			if err := firewall.SingleDnsRuleOn(dnsCfg.Ip()); err != nil {
 				return fmt.Errorf("failed to apply the firewall rule to allow DNS requests only to the IVPN server: %w", err)
 			}
