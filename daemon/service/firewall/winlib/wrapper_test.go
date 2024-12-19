@@ -63,8 +63,8 @@ func DoTest() {
 	sublayer, serr := winlib.FWPMSUBLAYER0Create(guid, 0)
 	fmt.Println(sublayer, serr)
 
-	isInstalled, err = winlib.WfpSubLayerIsInstalled(engine, guid)
-	fmt.Println(isInstalled, err)
+	isInstalled, weight, err := winlib.WfpSubLayerIsInstalled(engine, guid)
+	fmt.Println(isInstalled, weight, err)
 
 	winlib.FWPMSUBLAYER0SetDisplayData(sublayer, "sbName", "sbDescription")
 	fmt.Println(err)
@@ -72,8 +72,11 @@ func DoTest() {
 	err = winlib.WfpSubLayerAdd(engine, sublayer)
 	fmt.Println(err)
 
-	isInstalled, err = winlib.WfpSubLayerIsInstalled(engine, guid)
-	fmt.Println(isInstalled, err)
+	isInstalled, weight, err = winlib.WfpSubLayerIsInstalled(engine, guid)
+	fmt.Println(isInstalled, weight, err)
+
+	found, sublayerInfo, err := winlib.WfpFindSubLayerWithMaxWeight(engine)
+	fmt.Println(found, sublayerInfo, err)
 
 	winlib.WfpSubLayerDelete(engine, guid)
 	fmt.Println(err)

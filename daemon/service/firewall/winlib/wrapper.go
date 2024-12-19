@@ -65,15 +65,16 @@ var (
 	fFWPMPROVIDER0SetDisplayData *syscall.LazyProc
 	fFWPMPROVIDER0Delete         *syscall.LazyProc
 
-	fWfpSubLayerIsInstalled      *syscall.LazyProc
-	fWfpSubLayerDelete           *syscall.LazyProc
-	fWfpSubLayerAdd              *syscall.LazyProc
-	fFWPMSUBLAYER0Create         *syscall.LazyProc
-	fFWPMSUBLAYER0SetProviderKey *syscall.LazyProc
-	fFWPMSUBLAYER0SetDisplayData *syscall.LazyProc
-	fFWPMSUBLAYER0SetWeight      *syscall.LazyProc
-	fFWPMSUBLAYER0SetFlags       *syscall.LazyProc
-	fFWPMSUBLAYER0Delete         *syscall.LazyProc
+	fWfpSubLayerIsInstalled       *syscall.LazyProc
+	fWfpFindSubLayerWithMaxWeight *syscall.LazyProc
+	fWfpSubLayerDelete            *syscall.LazyProc
+	fWfpSubLayerAdd               *syscall.LazyProc
+	fFWPMSUBLAYER0Create          *syscall.LazyProc
+	fFWPMSUBLAYER0SetProviderKey  *syscall.LazyProc
+	fFWPMSUBLAYER0SetDisplayData  *syscall.LazyProc
+	fFWPMSUBLAYER0SetWeight       *syscall.LazyProc
+	fFWPMSUBLAYER0SetFlags        *syscall.LazyProc
+	fFWPMSUBLAYER0Delete          *syscall.LazyProc
 
 	fFWPMFILTERCreate                 *syscall.LazyProc
 	fFWPMFILTERDelete                 *syscall.LazyProc
@@ -123,6 +124,7 @@ func Initialize(wfpDllPath string) error {
 	fFWPMPROVIDER0Delete = dll.NewProc("FWPM_PROVIDER0_Delete")
 
 	fWfpSubLayerIsInstalled = dll.NewProc("WfpSubLayerIsInstalledPtr")
+	fWfpFindSubLayerWithMaxWeight = dll.NewProc("WfpFindSubLayerWithMaxWeightPtr")
 	fWfpSubLayerDelete = dll.NewProc("WfpSubLayerDeletePtr")
 	fWfpSubLayerAdd = dll.NewProc("WfpSubLayerAdd")
 	fFWPMSUBLAYER0Create = dll.NewProc("FWPM_SUBLAYER0_CreatePtr")

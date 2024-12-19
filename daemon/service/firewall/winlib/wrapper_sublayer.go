@@ -34,18 +34,51 @@ import (
 // Sublayer flags
 const (
 	FwpmSublayerFlagPersistent uint32 = 0x00000001
+
+	FwpmStringBufLenWchar = 2048 // array len is in wchar_t, UTF8
+
+	SUBLAYER_MAX_WEIGHT = uint16(0xFFFF) // our sublayer must be max priority
 )
 
 // WfpSubLayerIsInstalled returns true if sublayer is installed
-func WfpSubLayerIsInstalled(engine syscall.Handle, sublayerGUID syscall.GUID) (isInstalled bool, err error) {
+func WfpSubLayerIsInstalled(engine syscall.Handle, sublayerGUID syscall.GUID) (isInstalled bool, sublayerWeight uint16, err error) {
 	defer catchPanic(&err)
 
-	retval, _, err := fWfpSubLayerIsInstalled.Call(uintptr(engine), uintptr(unsafe.Pointer(&sublayerGUID)))
+	retval, _, err := fWfpSubLayerIsInstalled.Call(uintptr(engine), uintptr(unsafe.Pointer(&sublayerGUID)), uintptr(unsafe.Pointer(&sublayerWeight)))
 	if err != syscall.Errno(0) {
-		return false, err
+		return false, 0, err
 	}
 
-	return byte(retval) != 0, nil
+	return byte(retval) != 0, sublayerWeight, nil
+}
+
+// WfpFindSubLayerWithMaxWeight looks for a sublayer with weight 0xFFFF (maximum possible weight), and returns its details if one is found
+func WfpFindSubLayerWithMaxWeight(engine syscall.Handle) (found bool, sublayerInfo SubLayer, err error) {
+	defer catchPanic(&err)
+
+	nameBuf := make([]uint16, FwpmStringBufLenWchar)
+	descriptionBuf := make([]uint16, FwpmStringBufLenWchar)
+
+	retval, _, err := fWfpFindSubLayerWithMaxWeight.Call(
+		uintptr(engine),
+		uintptr(unsafe.Pointer(&found)),
+		uintptr(unsafe.Pointer(&sublayerInfo.key)),
+		uintptr(unsafe.Pointer(&sublayerInfo.providerKey)),
+		uintptr(unsafe.Pointer(&nameBuf[0])),
+		uintptr(len(nameBuf)),
+		uintptr(unsafe.Pointer(&descriptionBuf[0])),
+		uintptr(len(descriptionBuf)),
+		uintptr(unsafe.Pointer(&sublayerInfo.isPersistence)),
+	)
+	if err = checkDefaultAPIResp(retval, err); err != nil {
+		return false, SubLayer{}, err
+	}
+
+	sublayerInfo.ddName = syscall.UTF16ToString(nameBuf)
+	sublayerInfo.ddDescription = syscall.UTF16ToString(descriptionBuf)
+	sublayerInfo.weight = SUBLAYER_MAX_WEIGHT
+
+	return found, sublayerInfo, nil
 }
 
 // WfpSubLayerDelete removes sublayer

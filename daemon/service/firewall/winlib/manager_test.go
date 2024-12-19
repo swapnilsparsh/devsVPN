@@ -86,7 +86,7 @@ func TestBlockAll(t *testing.T) {
 			}
 		}
 
-		installed, err := mgr.IsSubLayerInstalled(sublayerKey)
+		installed, _, err := mgr.IsSubLayerInstalled(sublayerKey)
 		if err != nil {
 			t.Error(err)
 		}
@@ -135,7 +135,7 @@ func TestBlockAll(t *testing.T) {
 			}
 		}
 
-		installed, err := mgr.IsSubLayerInstalled(sublayerKey)
+		installed, _, err := mgr.IsSubLayerInstalled(sublayerKey)
 		if err != nil {
 			t.Error(err)
 		}

@@ -351,3 +351,5 @@ func implSingleDnsRuleOff() (retErr error) {
 func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 	return nil // nothing to do for this platform
 }
+
+func implTopFirewallPriority() bool { return true } // nothing to do on OSX

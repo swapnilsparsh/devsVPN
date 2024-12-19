@@ -93,7 +93,7 @@ func (m *Manager) Initialize() error {
 	}
 
 	var err error
-	m.session, err = CreateWfpSessionObject(true) // create a dynamic WFP session
+	m.session, err = CreateWfpSessionObject(false)
 	if err != nil {
 		log.Error("failed to initialize firewall", err)
 		return err
@@ -231,12 +231,21 @@ func (m *Manager) TransactionAbort() error {
 }
 
 // IsSubLayerInstalled returns true is sublayer is installed
-func (m *Manager) IsSubLayerInstalled(sublayerKey syscall.GUID) (bool, error) {
+func (m *Manager) IsSubLayerInstalled(sublayerKey syscall.GUID) (IsInstalled bool, sublayerWeight uint16, err error) {
 	if err := m.Initialize(); err != nil {
-		return false, fmt.Errorf("failed to initialize manager: %w", err)
+		return false, 0, fmt.Errorf("failed to initialize manager: %w", err)
 	}
 
 	return WfpSubLayerIsInstalled(m.engine, sublayerKey)
+}
+
+// FindSubLayerWithMaxWeight looks for sublayer with weight 0xFFFF (max possible weight). If one is found, returns its info.
+func (m *Manager) FindSubLayerWithMaxWeight() (found bool, sublayerInfo SubLayer, err error) {
+	if err := m.Initialize(); err != nil {
+		return false, SubLayer{}, fmt.Errorf("failed to initialize manager: %w", err)
+	}
+
+	return WfpFindSubLayerWithMaxWeight(m.engine)
 }
 
 // AddSubLayer adds WFP sublayer

@@ -527,3 +527,5 @@ func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
 	}
 	return ret
 }
+
+func implTopFirewallPriority() bool { return true } // nothing to do on Linux

@@ -360,3 +360,11 @@ func SetUserExceptions(exceptions string, ignoreParseErrors bool) error {
 
 	return implOnUserExceptionsUpdated()
 }
+
+// Is our firewall logic registered at top priority? This is necessary on Windows
+func TopFirewallPriority() bool {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return implTopFirewallPriority()
+}

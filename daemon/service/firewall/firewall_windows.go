@@ -34,11 +34,11 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 )
 
-var ( // Vlad - will leading zeroes help with priority?
-	providerKey          = syscall.GUID{Data1: 0x00000000, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x01}}
-	sublayerKey          = syscall.GUID{Data1: 0x00000000, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x02}}
-	providerKeySingleDns = syscall.GUID{Data1: 0x00000000, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x03}}
-	sublayerKeySingleDns = syscall.GUID{Data1: 0x00000000, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x04}}
+var (
+	providerKey          = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x01}}
+	sublayerKey          = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x02}}
+	providerKeySingleDns = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x03}}
+	sublayerKeySingleDns = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x04}}
 
 	v4Layers = []syscall.GUID{winlib.FwpmLayerAleAuthConnectV4, winlib.FwpmLayerAleAuthRecvAcceptV4}
 	v6Layers = []syscall.GUID{winlib.FwpmLayerAleAuthConnectV6, winlib.FwpmLayerAleAuthRecvAcceptV6}
@@ -47,21 +47,85 @@ var ( // Vlad - will leading zeroes help with priority?
 	clientLocalIPFilterIDs []uint64
 	customDNS              net.IP
 
-	isPersistent        bool
+	isPersistent        bool = true
 	isAllowLAN          bool
 	isAllowLANMulticast bool
+
+	ourSublayerWeight uint16 = 0 // Can be out of date. If need to report to UI - recheck it.
 )
 
 const (
 	providerDName          = "privateLINE Firewall Provider"
-	sublayerDName          = "privateLINE Firewall Sub-Layer"
+	sublayerDName          = "privateLINE Firewall Sublayer"
 	filterDName            = "privateLINE Firewall Filter"
 	providerDNameSingleDns = "privateLINE Firewall Provider single DNS"
-	sublayerDNameSingleDns = "privateLINE Firewall Sub-Layer single DNS"
+	sublayerDNameSingleDns = "privateLINE Firewall Sublayer single DNS"
 	filterDNameSingleDns   = "privateLINE Firewall Filter single DNS"
-
-	SUBLAYER_MAX_WEIGHT = uint16(0xFFFF) // our sublayer must be max priority
 )
+
+func checkSublayerInstalled() (installed bool, err error) {
+	if installed, ourSublayerWeight, err = manager.IsSubLayerInstalled(sublayerKey); err != nil {
+		return false, fmt.Errorf("failed to check sublayer is installed: %w", err)
+	}
+	return installed, nil
+}
+
+func createAddSublayer() error {
+	sublayer := winlib.CreateSubLayer(sublayerKey, providerKey,
+		sublayerDName, "",
+		winlib.SUBLAYER_MAX_WEIGHT,
+		isPersistent)
+	if err := manager.AddSubLayer(sublayer); err != nil {
+		return fmt.Errorf("failed to add sublayer: %w", err)
+	}
+
+	return nil
+}
+
+// We'll check whether our provider and sublayer are up, will create if necessary.
+// If our sublayer is not registered at max weight, and max weight slot is vacant - then we'll try to reregister our sublayer at max weight.
+func checkCreateProviderAndSublayer() error {
+	// add provider
+	pInfo, err := manager.GetProviderInfo(providerKey)
+	if err != nil {
+		return fmt.Errorf("failed to get provider info: %w", err)
+	}
+	if !pInfo.IsInstalled {
+		provider := winlib.CreateProvider(providerKey, providerDName, "", isPersistent)
+		if err = manager.AddProvider(provider); err != nil {
+			return fmt.Errorf("failed to add provider : %w", err)
+		}
+	}
+
+	// add sublayer
+	installed, err := checkSublayerInstalled()
+	if err != nil {
+		return fmt.Errorf("failed to check sublayer is installed: %w", err)
+	}
+	if !installed {
+		return createAddSublayer()
+	}
+
+	if ourSublayerWeight < winlib.SUBLAYER_MAX_WEIGHT { // our sublayer installed, check if it has max weight
+		maxWeightSublayerFound, otherSublayerHasMaxWeight, err := manager.FindSubLayerWithMaxWeight() // check if max weight slot is vacant
+		if err != nil {
+			return fmt.Errorf("failed to check for sublayer with max weight: %w", err)
+		}
+		if maxWeightSublayerFound {
+			log.Warning(fmt.Sprintf("warning - another sublayer '%+v' has max weight, so we can't register our sublayer at max weight", otherSublayerHasMaxWeight))
+			return nil
+		}
+
+		// So max weight slot is vacant, try to delete our sublayer and recreate it at max weight.
+		// Not doing a transaction here, because WFP doesn't support nested transactions.
+		if err = manager.DeleteSubLayer(sublayerKey); err != nil {
+			log.Warning(fmt.Errorf("warning - failed to delete our sublayer: %w", err))
+		}
+		return createAddSublayer()
+	}
+
+	return err
+}
 
 // implInitialize doing initialization stuff (called on application start)
 func implInitialize() error {
@@ -69,15 +133,7 @@ func implInitialize() error {
 		return err
 	}
 
-	pInfo, err := manager.GetProviderInfo(providerKey)
-	if err != nil {
-		return err
-	}
-
-	// save initial persistent state into package-variable
-	isPersistent = pInfo.IsPersistent
-
-	return nil
+	return checkCreateProviderAndSublayer()
 }
 
 func implGetEnabled() (bool, error) {
@@ -289,34 +345,8 @@ func doEnable() (retErr error) {
 	multicastAddressesV6 := filterIPNetList(netinfo.GetMulticastAddresses(), true)
 	multicastAddressesV4 := filterIPNetList(netinfo.GetMulticastAddresses(), false)
 
-	provider := winlib.CreateProvider(providerKey, providerDName, "", isPersistent)
-	// If using privateline-split-tunnel.sys kernel driver - then the weight of current layer should be smaller than 0xFFFF (The layer of split-tunneling driver using weight 0xFFFF)
-	// Vlad: we're not using privateline-split-tunnel.sys kernel driver in MVP
-	sublayer := winlib.CreateSubLayer(sublayerKey, providerKey,
-		sublayerDName, "",
-		SUBLAYER_MAX_WEIGHT,
-		isPersistent)
-
-	// add provider
-	pinfo, err := manager.GetProviderInfo(providerKey)
-	if err != nil {
-		return fmt.Errorf("failed to get provider info: %w", err)
-	}
-	if !pinfo.IsInstalled {
-		if err = manager.AddProvider(provider); err != nil {
-			return fmt.Errorf("failed to add provider : %w", err)
-		}
-	}
-
-	// add sublayer
-	installed, err := manager.IsSubLayerInstalled(sublayerKey)
-	if err != nil {
-		return fmt.Errorf("failed to check sublayer is installed: %w", err)
-	}
-	if !installed {
-		if err = manager.AddSubLayer(sublayer); err != nil {
-			return fmt.Errorf("failed to add sublayer: %w", err)
-		}
+	if err = checkCreateProviderAndSublayer(); err != nil {
+		return fmt.Errorf("failed to check/create provider or sublayer: %w", err)
 	}
 
 	// TODO FIXME: Vlad - enable PL IP ranges in IPv4 loop
@@ -538,27 +568,27 @@ func doDisable() error {
 		}
 	}
 
-	// delete sublayer
-	installed, err := manager.IsSubLayerInstalled(sublayerKey)
-	if err != nil {
-		return fmt.Errorf("failed to check is sublayer installed : %w", err)
-	}
-	if installed {
-		if err := manager.DeleteSubLayer(sublayerKey); err != nil {
-			return fmt.Errorf("failed to delete sublayer : %w", err)
-		}
-	}
+	// // delete sublayer
+	// installed, err := manager.IsSubLayerInstalled(sublayerKey)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to check is sublayer installed : %w", err)
+	// }
+	// if installed {
+	// 	if err := manager.DeleteSubLayer(sublayerKey); err != nil {
+	// 		return fmt.Errorf("failed to delete sublayer : %w", err)
+	// 	}
+	// }
 
-	// delete provider
-	pinfo, err := manager.GetProviderInfo(providerKey)
-	if err != nil {
-		return fmt.Errorf("failed to get provider info : %w", err)
-	}
-	if pinfo.IsInstalled {
-		if err := manager.DeleteProvider(providerKey); err != nil {
-			return fmt.Errorf("failed to delete provider : %w", err)
-		}
-	}
+	// // delete provider
+	// pinfo, err := manager.GetProviderInfo(providerKey)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get provider info : %w", err)
+	// }
+	// if pinfo.IsInstalled {
+	// 	if err := manager.DeleteProvider(providerKey); err != nil {
+	// 		return fmt.Errorf("failed to delete provider : %w", err)
+	// 	}
+	// }
 
 	clientLocalIPFilterIDs = nil
 
@@ -644,6 +674,9 @@ func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
 }
 
 func implSingleDnsRuleOff() (retErr error) {
+	// TODO FIXME: Vlad - disable much or all of functionality
+	log.Debug("implSingleDnsRuleOff - largely disabled")
+
 	pInfo, err := manager.GetProviderInfo(providerKeySingleDns)
 	if err != nil {
 		return fmt.Errorf("failed to get provider info: %w", err)
@@ -667,27 +700,31 @@ func implSingleDnsRuleOff() (retErr error) {
 		}
 	}
 
-	// delete sublayer
-	installed, err := manager.IsSubLayerInstalled(sublayerKeySingleDns)
-	if err != nil {
-		return fmt.Errorf("failed to check is sublayer installed : %w", err)
-	}
-	if installed {
-		if err := manager.DeleteSubLayer(sublayerKeySingleDns); err != nil {
-			return fmt.Errorf("failed to delete sublayer : %w", err)
-		}
-	}
+	// // delete sublayer
+	// installed, err := manager.IsSubLayerInstalled(sublayerKeySingleDns)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to check is sublayer installed : %w", err)
+	// }
+	// if installed {
+	// 	if err := manager.DeleteSubLayer(sublayerKeySingleDns); err != nil {
+	// 		return fmt.Errorf("failed to delete sublayer : %w", err)
+	// 	}
+	// }
 
-	// delete provider
-	if err := manager.DeleteProvider(providerKeySingleDns); err != nil {
-		return fmt.Errorf("failed to delete provider : %w", err)
-	}
+	// // delete provider
+	// if err := manager.DeleteProvider(providerKeySingleDns); err != nil {
+	// 	return fmt.Errorf("failed to delete provider : %w", err)
+	// }
 	return nil
 }
 
 func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
-	log.Debug("implSingleDnsRuleOn")
-	if enabled, err := implGetEnabled(); err != err {
+	// TODO FIXME: Vlad - disable much or all of functionality
+	log.Debug("implSingleDnsRuleOn - disabled, exiting")
+	return nil
+
+	enabled, err := implGetEnabled()
+	if err != nil {
 		return err
 	} else if enabled {
 		return fmt.Errorf("failed to apply specific DNS rule: Firewall alredy enabled")
@@ -716,34 +753,8 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 		}
 	}()
 
-	provider := winlib.CreateProvider(providerKeySingleDns, providerDNameSingleDns, "", false)
-	// If using privateline-split-tunnel.sys kernel driver - then the weight of current layer should be smaller than 0xFFFF (The layer of split-tunneling driver using weight 0xFFFF)
-	sublayer := winlib.CreateSubLayer(sublayerKeySingleDns, providerKeySingleDns,
-		sublayerDNameSingleDns, "",
-		SUBLAYER_MAX_WEIGHT,
-		false)
-	log.Debug("implSingleDnsRuleOn: created provider, sublayer")
-
-	// add provider
-	pinfo, err := manager.GetProviderInfo(providerKeySingleDns)
-	if err != nil {
-		return fmt.Errorf("failed to get provider info: %w", err)
-	}
-	if !pinfo.IsInstalled {
-		if err = manager.AddProvider(provider); err != nil {
-			return fmt.Errorf("failed to add provider : %w", err)
-		}
-	}
-
-	// add sublayer
-	installed, err := manager.IsSubLayerInstalled(sublayerKeySingleDns)
-	if err != nil {
-		return fmt.Errorf("failed to check sublayer is installed: %w", err)
-	}
-	if !installed {
-		if err = manager.AddSubLayer(sublayer); err != nil {
-			return fmt.Errorf("failed to add sublayer: %w", err)
-		}
+	if err = checkCreateProviderAndSublayer(); err != nil {
+		return fmt.Errorf("failed to check/create provider or sublayer: %w", err)
 	}
 
 	var ipv6DnsIpException net.IP = nil
@@ -783,3 +794,6 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 	}
 	return nil
 }
+
+// FIXME: Vlad - ourSublayerWeight can be stale. For reporting to UI - recheck afresh. Also if we don't have max weight - fetch info on the other sublayer which does.
+func implTopFirewallPriority() bool { return ourSublayerWeight == winlib.SUBLAYER_MAX_WEIGHT }
