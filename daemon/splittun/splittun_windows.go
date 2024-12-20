@@ -396,8 +396,11 @@ func implGetRunningApps() ([]RunningApp, error) {
 //	route add 192.0.0.0 MASK 192.0.0.0 192.168.1.1
 //
 // As a result, all traffic will pass through the default non-VPN interface, except for excluded apps designated by the split-tunnel driver, which will use the VPN interface.
-// TODO FIXME: Vlad - adjust logic
+// TODO: Vlad - I don't think we need to manipulate the routing table for App Whitelist, firewall policies should suffice
 func applyInverseSplitTunRoutingRules(isVpnEnabled, isStInversed, isStEnabled bool) (retErr error) {
+	log.Debug("applyInverseSplitTunRoutingRules - disabled")
+	return nil
+
 	isNeedApplyRoutes := isVpnEnabled && isStInversed && isStEnabled
 
 	const IPv4 = false
@@ -586,6 +589,9 @@ func checkCallErrResp(retval uintptr, err error, mName string) error {
 func connect(logging bool) (err error) {
 	defer catchPanic(&err)
 
+	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	return nil
+
 	if isDriverConnected {
 		return nil
 	}
@@ -663,10 +669,11 @@ func stopAndClean() (err error) {
 	///		Stop splitting
 	///		Stop processes monitoring
 	///		Clean all configuration/statuses
-	retval, _, err := fSplitTun_StopAndClean.Call()
-	if err := checkCallErrResp(retval, err, "SplitTun_StopAndClean"); err != nil {
-		return err
-	}
+	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	// retval, _, err := fSplitTun_StopAndClean.Call()
+	// if err := checkCallErrResp(retval, err, "SplitTun_StopAndClean"); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -711,30 +718,6 @@ func start() (err error) {
 	return nil
 }
 
-// TODO Vlad: disabling for now
-/*
-
-// TODO FIXME: Vlad:
-//   - dynamic
-//   - layer
-//   - sublayer
-
-var guidSublayerUniversal = wf.SublayerID{
-	Data1: 0x00000000,
-	Data2: 0x0000,
-	Data3: 0x0000,
-	Data4: [8]byte{0x81, 0x9a, 0x27, 0x34, 0x39, 0x7b, 0x2b, 0x74},
-}
-
-func mustGUID() windows.GUID {
-	ret, err := windows.GenerateGUID()
-	if err != nil {
-		panic(err)
-	}
-	return ret
-}
-*/
-
 func setConfig(config Config) (err error) {
 	defer catchPanic(&err)
 
@@ -743,6 +726,8 @@ func setConfig(config Config) (err error) {
 	if err := isInitialised(); err != nil {
 		return err
 	}
+	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	return nil
 
 	// SET IP ADDRESSES
 	IPv4Public := config.Addr.IPv4Public.To4()
@@ -772,7 +757,7 @@ func setConfig(config Config) (err error) {
 		return err
 	}
 
-	// TODO Vlad: disabling for now
+	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
 	/*
 		// SET APPS TO SPLIT
 		for idx, appPath := range config.Apps.ImagesPathToSplit {

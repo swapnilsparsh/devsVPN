@@ -371,7 +371,7 @@ func (s *Service) unInitialise() error {
 	}
 
 	// Disable ST
-	if err := firewall.SingleDnsRuleOff(); err != nil {
+	if err := firewall.SetEnabled(false); err != nil {
 		log.Error(err)
 		updateRetErr(err)
 	}

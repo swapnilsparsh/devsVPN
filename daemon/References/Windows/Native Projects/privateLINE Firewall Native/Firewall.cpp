@@ -3,6 +3,8 @@
 
 #include "stdafx.h"
 
+#include <fwpmu.h>
+
 extern "C" {
 
 	EXPORT DWORD _cdecl WfpEngineOpen(const FWPM_SESSION0 *session, HANDLE *engineHandle)
@@ -34,6 +36,11 @@ extern "C" {
 	{
 		delete sessionObject;
 	}
+
+	// EXPORT void _cdecl FwpmFreeMemory(void **p)
+	// {
+	// 	FwpmFreeMemory0(p);
+	// }
 
 	EXPORT DWORD _cdecl WfpTransactionBegin(HANDLE engineHandle)
 	{

@@ -52,6 +52,7 @@ var (
 
 	fCreateWfpSessionObject *syscall.LazyProc
 	fDeleteWfpSessionObject *syscall.LazyProc
+	// fFwpmFreeMemory         *syscall.LazyProc
 
 	fWfpTransactionBegin  *syscall.LazyProc
 	fWfpTransactionCommit *syscall.LazyProc
@@ -110,6 +111,7 @@ func Initialize(wfpDllPath string) error {
 
 	fCreateWfpSessionObject = dll.NewProc("CreateWfpSessionObject")
 	fDeleteWfpSessionObject = dll.NewProc("DeleteWfpSessionObject")
+	// fFwpmFreeMemory = dll.NewProc("FwpmFreeMemory")
 
 	fWfpTransactionBegin = dll.NewProc("WfpTransactionBegin")
 	fWfpTransactionCommit = dll.NewProc("WfpTransactionCommit")

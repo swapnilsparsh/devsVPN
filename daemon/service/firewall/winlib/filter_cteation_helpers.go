@@ -32,10 +32,14 @@ import (
 
 // filter Weights
 const (
+	// TODO FIXME: Vlad - forced allow of all DNS w/ highest permission
+	weightAllowAllDNS = 15
+
 	// IMPORTANT! Use only for Local IP/IPv6 of VPN connection
 	weightAllowLocalIP            = 10
 	weightAllowRemoteLocalhostDNS = 10 // allow DNS requests to 127.0.0.1:53
 	weightAllowApplication        = 10 // must have higher priority than weightBlockDNS (to allow port UDP:53 for VPN connections)
+	weightAllowRemotePort         = 10
 
 	// IMPORTANT! Blocking DNS must have highest priority
 	// (only VPN connection have higher priority: weightAllowLocalIP;weightAllowLocalIPV6) //5
@@ -75,7 +79,6 @@ func NewFilterAllowLocalPort(
 	return f
 }
 
-/*
 // NewFilterAllowRemotePort creates a filter to allow remote port
 func NewFilterAllowRemotePort(
 	keyProvider syscall.GUID,
@@ -99,7 +102,6 @@ func NewFilterAllowRemotePort(
 	f.AddCondition(&ConditionIPRemotePort{Match: FwpMatchEqual, Port: port})
 	return f
 }
-*/
 
 // NewFilterAllowApplication creates a filter to allow application
 func NewFilterAllowApplication(
@@ -327,7 +329,34 @@ func NewFilterBlockDNS(
 	f.AddCondition(&ConditionIPRemotePort{Match: FwpMatchEqual, Port: 53})
 
 	if exceptionIP != nil && len(exceptionIP) > 0 && exceptionIP.To4() != nil {
-		f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchNotEqual, IP: exceptionIP, Mask: net.IPv4(255, 255, 255, 255)})
+		f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchNotEqual, IP: exceptionIP, Mask: net.IPv4bcast})
 	}
+	return f
+}
+
+// NewFilterAllowDNS creates a filter to block DNS port
+func NewFilterAllowDNS(
+	keyProvider syscall.GUID,
+	keyLayer syscall.GUID,
+	keySublayer syscall.GUID,
+	dispName string,
+	dispDescription string,
+	isPersistent bool) Filter {
+
+	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
+	f.Weight = weightAllowAllDNS
+	f.Action = FwpActionPermit
+
+	f.Flags = FwpmFilterFlagClearActionRight
+	if isPersistent {
+		// log.Error("NewFilterBlockDNS error - WFP (Windows Filtering Platform) persistence not supported")
+		f.Flags = f.Flags | FwpmFilterFlagPersistent
+	}
+
+	f.AddCondition(&ConditionIPRemotePort{Match: FwpMatchEqual, Port: 53})
+
+	// if exceptionIP != nil && len(exceptionIP) > 0 && exceptionIP.To4() != nil {
+	// 	f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchNotEqual, IP: exceptionIP, Mask: net.IPv4bcast})
+	// }
 	return f
 }

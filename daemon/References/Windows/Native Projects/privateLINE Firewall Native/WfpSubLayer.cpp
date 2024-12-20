@@ -1,37 +1,29 @@
 #include "stdafx.h"
 
+#include <stdio.h>
+
 static const UINT16 MAX_SUBLAYER_WEIGHT				= 0xFFFF;
 static const UINT32 NUM_SUBLAYER_ENTRIES_REQUESTED 	= 100;
 
 extern "C" {
 
-	EXPORT bool _cdecl WfpSubLayerIsInstalled(HANDLE engineHandle, GUID subLayerKey, INT16* _out_Weight)
+	// // EXPORT bool _cdecl WfpSubLayerIsInstalled(HANDLE engineHandle, GUID subLayerKey, UINT16* _out_Weight)
+	// EXPORT FWPM_SUBLAYER0** _cdecl WfpFwpmSubLayerGetByKey(HANDLE engineHandle, GUID subLayerKey)
+	// {
+	// 	FWPM_SUBLAYER0 *subLayer;
+	// 	DWORD result = FwpmSubLayerGetByKey0(engineHandle, &subLayerKey, &subLayer);
+	// 	if (result != 0)
+	// 		return NULL;
+	// 	return &subLayer;
+	// }
+	// EXPORT FWPM_SUBLAYER0** _cdecl WfpFwpmSubLayerGetByKeyPtr(HANDLE engineHandle, GUID* subLayerKey) { return WfpFwpmSubLayerGetByKey(engineHandle, *subLayerKey); }
+
+	// Looks for a sublayer with weight 0xFFFF (maximum possible weight).
+	// If found - copies its GUID to sublayerKey
+	// If not found - sets sublayerKey to zeroes
+	EXPORT DWORD _cdecl  WfpFindSubLayerWithMaxWeight(HANDLE engineHandle, GUID* sublayerKey)
 	{
-		FWPM_SUBLAYER0 *subLayer;
-		DWORD result = FwpmSubLayerGetByKey0(engineHandle, &subLayerKey, &subLayer);
-		*_out_Weight = subLayer->weight;
-		FwpmFreeMemory0((void **)&subLayer);
-
-		if (result == 0)
-			return true;
-
-		return false;
-	}
-	EXPORT bool _cdecl WfpSubLayerIsInstalledPtr(HANDLE engineHandle, GUID* subLayerKey, INT16* _out_Weight) { return WfpSubLayerIsInstalled(engineHandle, *subLayerKey, _out_Weight); }
-
-	// Looks for a sublayer with weight 0xFFFF (maximum possible weight)
-	EXPORT DWORD _cdecl  WfpFindSubLayerWithMaxWeight(
-		HANDLE engineHandle,
-		bool* found,
-		GUID* subLayerKey,
-		GUID* providerKey,
-		wchar_t* _out_name,
-		DWORD name_len_wchar,
-		wchar_t* _out_description,
-		DWORD description_len_wchar,
-		bool* persistent)
-	{
-		*found = *persistent = false;
+		memset(sublayerKey, 0, sizeof(GUID));
 
 		FWPM_SUBLAYER0** fwpmSubLayerList = NULL;
 		HANDLE enumHandle = NULL;
@@ -48,17 +40,7 @@ extern "C" {
 			
 			for (UINT32 i=0; i<numEntriesReturned; i++) {
 				if (fwpmSubLayerList[i]->weight == MAX_SUBLAYER_WEIGHT) {
-					*subLayerKey = fwpmSubLayerList[i]->subLayerKey;
-					*providerKey = *(fwpmSubLayerList[i]->providerKey);
-					*persistent = (fwpmSubLayerList[i]->flags & FWPM_SUBLAYER_FLAG_PERSISTENT);
-					result = wcsncpy_s(_out_name, name_len_wchar, fwpmSubLayerList[i]->displayData.name, _TRUNCATE);
-					if (result != ERROR_SUCCESS && result != STRUNCATE)
-						goto WfpFindSubLayerWithMaxWeight_end;
-					result = wcsncpy_s(_out_description, description_len_wchar, fwpmSubLayerList[i]->displayData.description, _TRUNCATE);
-					if (result != ERROR_SUCCESS && result != STRUNCATE)
-						goto WfpFindSubLayerWithMaxWeight_end;
-
-					*found = true;
+					memcpy_s(sublayerKey, sizeof(GUID), &(fwpmSubLayerList[i]->subLayerKey), sizeof(GUID));
 					result = ERROR_SUCCESS;
 					break;
 				}
@@ -78,18 +60,9 @@ extern "C" {
 		else
 			return result2;
 	}
-	EXPORT DWORD _cdecl WfpFindSubLayerWithMaxWeightPtr(
-		HANDLE engineHandle, 
-		bool* found, 
-		GUID* subLayerKey, 
-		GUID* providerKey, 
-		wchar_t* _out_name, 
-		DWORD name_len_wchar, 
-		wchar_t* _out_description, 
-		DWORD description_len_wchar, 
-		bool* persistent)
+	EXPORT DWORD _cdecl WfpFindSubLayerWithMaxWeightPtr(HANDLE engineHandle, GUID* sublayerKey)
 	{ 
-		return WfpFindSubLayerWithMaxWeight(engineHandle, found, subLayerKey, providerKey, _out_name, name_len_wchar, _out_description, description_len_wchar, persistent);
+		return WfpFindSubLayerWithMaxWeight(engineHandle, sublayerKey);
 	}
 
 	EXPORT DWORD _cdecl WfpSubLayerDelete(HANDLE engineHandle, GUID subLayerKey)

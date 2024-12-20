@@ -39,7 +39,7 @@ func doDefaultGatewayIPs() (defGatewayIPs []net.IP, err error) {
 	}
 
 	for _, route := range routes {
-		// Eample:
+		// Example:
 		// Network 		Destination  	Netmask   		Gateway    		Interface  Metric
 		// 0.0.0.0   	0.0.0.0      	192.168.1.1 	192.168.1.248	35
 		// 0.0.0.0 		128.0.0.0      	10.59.44.1   	10.59.44.2  	15 <- route to virtual VPN interface !!!
