@@ -24,7 +24,10 @@ package wireguard
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,6 +46,8 @@ var (
 	// we are using same service name for WireGuard connection
 	// Therefore, we must ensure that only one connection (service) is currently active
 	_globalInitMutex sync.Mutex
+
+	netshBinaryPath string = "netsh.exe"
 )
 
 type operation int
@@ -70,8 +75,15 @@ const (
 )
 
 func (wg *WireGuard) init() error {
-	// uninstall WG service (if installed)
+	// get path to 'route.exe' binary
+	envVarSystemroot := strings.ToLower(os.Getenv("SYSTEMROOT"))
+	if len(envVarSystemroot) == 0 {
+		log.Error("!!! ERROR !!! Unable to determine 'SYSTEMROOT' environment variable!")
+	} else {
+		netshBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "netsh.exe"), "/", "\\")
+	}
 
+	// uninstall WG service (if installed)
 	if installed, err := wg.isServiceInstalled(); !installed || err != nil {
 		if err != nil {
 			return err
@@ -304,6 +316,59 @@ func (wg *WireGuard) getServiceName() string {
 	return "WireGuardTunnel$" + wg.getTunnelName() // WireGuardTunnel$IVPN
 }
 
+func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg []string, err error) {
+	// TODO FIXME: Vlad - see how the IVPN DNS logic works out
+	manualDNS := wg.internals.manualDNSRequired
+	if !manualDNS.IsEmpty() {
+		if manualDNS.Encryption == dns.EncryptionNone {
+			interfaceCfg = append(interfaceCfg, "DNS = "+manualDNS.Ip().String())
+		} else {
+			interfaceCfg = append(interfaceCfg, "DNS = "+wg.DefaultDNS().String())
+			log.Info("(info) The DoH/DoT custom DNS configuration will be applied after connection established")
+		}
+	} else {
+		// interfaceCfg = append(interfaceCfg, "DNS = "+wg.DefaultDNS().String())
+		interfaceCfg = append(interfaceCfg, "DNS = "+wg.connectParams.dnsServers)
+	}
+
+	var MTU int
+	if wg.connectParams.mtu > 0 {
+		MTU = wg.connectParams.mtu
+	} else { // If MTU not specified explicitly, set 1280 - minimum value allowed on Windows
+		// // According to Windows specification: "... For IPv4 the minimum value is 576 bytes. For IPv6 the minimum value is 1280 bytes... "
+		MTU = 1280
+	}
+	interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", MTU))
+
+	// Vlad: don't include <ourIP>/32 in AllowedIPs, as otherwise we have no connectivity to PL internal IPs on win11.
+	ourIP := wg.connectParams.clientLocalIP.String()
+	ourIPregex, err := regexp.CompilePOSIX(",?" + ourIP + "/32,?")
+	if err != nil {
+		err = log.ErrorE(fmt.Errorf("error generating regular expression: %w", err), 0)
+		return interfaceCfg, peerCfg, err
+	}
+	allowedIPs := wg.connectParams.allowedIPs
+	// log.Debug("allowedIPs before munging = " + allowedIPs)
+	if loc := ourIPregex.FindStringIndex(allowedIPs); loc != nil {
+		allowedIPs = allowedIPs[:loc[0]] + allowedIPs[loc[1]:]
+		// log.Debug("allowedIPs after munging = " + allowedIPs)
+	}
+	interfaceCfg = append(interfaceCfg, "Address = "+ourIP)
+
+	// "128.0.0.0/1, 0.0.0.0/1" is the same as "0.0.0.0/0" but such type of configuration is disabling internal WireGuard-s Firewall
+	// (which blocks everything except WireGuard traffic)
+	// We need to disable WireGuard-s firewall because we have our own implementation of firewall.
+	// For example, we have to control 'Allow LAN' functionality
+	//  For details, refer to WireGuard-windows sources: https://git.zx2c4.com/wireguard-windows/tree/tunnel/addressconfig.go (enableFirewall(...) method)
+	// TODO: Vlad - "128.0.0.0/1, 0.0.0.0/1," made all traffic on Windows go throuh PL LAS, so disabling
+	// peerCfg = append(peerCfg, "AllowedIPs = 128.0.0.0/1, 0.0.0.0/1, "+allowedIPs)
+	peerCfg = append(peerCfg, "AllowedIPs = "+allowedIPs)
+
+	return interfaceCfg, peerCfg, nil
+}
+
+// TODO: Vlad - this was original IVPN version
+/*
 func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg []string) {
 	manualDNS := wg.internals.manualDNSRequired
 	if !manualDNS.IsEmpty() {
@@ -344,6 +409,7 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 
 	return interfaceCfg, peerCfg
 }
+*/
 
 func (wg *WireGuard) getServiceStatus(m *mgr.Mgr) (bool, svc.State, error) {
 	service, err := m.OpenService(wg.getServiceName())
@@ -411,7 +477,7 @@ func (wg *WireGuard) installService(try int, stateChan chan<- vpn.StateInfo) err
 
 	log.Info("Connecting...")
 
-	// generate configuration
+	// generate configuration, don't delete config file on exit
 	// defer os.Remove(wg.configFilePath)
 	err := wg.generateAndSaveConfigFile(wg.configFilePath)
 	if err != nil {
@@ -475,9 +541,9 @@ func (wg *WireGuard) installService(try int, stateChan chan<- vpn.StateInfo) err
 	}
 
 	// We must manually re-apply custom DNS configuration for such situations:
-	//	- the DoH/DoT configuration can be applyied only after natwork interface is activeted
+	//	- the DoH/DoT configuration can be applyied only after natwork interface is activated
 	//	- if non-ivpn interfaces must be configured to custom DNS (it needed ONLY if DNS IP located in local network)
-	// Also, it is needed to inform 'dns' package about last DNS value (used by 'protocol' to ptovide dns status to clients)
+	// Also, it is needed to inform 'dns' package about last DNS value (used by 'protocol' to provide dns status to clients)
 	manualDNS := wg.internals.manualDNSRequired
 	if !manualDNS.IsEmpty() {
 		if err := wg.setManualDNS(manualDNS); err != nil {
@@ -492,10 +558,17 @@ func (wg *WireGuard) installService(try int, stateChan chan<- vpn.StateInfo) err
 	// Initialised
 
 	// Wait for hanshake and send 'connected' notification only after 'dns' package informed about correct DNS value
-	err = wg.waitHandshakeAndNotifyConnected(stateChan)
-	if err != nil {
+	if err = wg.waitHandshakeAndNotifyConnected(stateChan); err != nil {
 		return err
 	}
+
+	// Need to set metric 0 on our interface, for interoperability with other VPNs. We need our interface to be higher priority than any other interface.
+	// TODO: Vlad - also process IPv6 interface once we have it
+	cmd := []string{"interface", "ipv4", "set", "interface", "privateLINE", "metric=0"}
+	if err := shell.Exec(log, netshBinaryPath, cmd...); err != nil {
+		return log.ErrorE(fmt.Errorf("failed set metric 0 on interface privateLINE: %w", err), 0)
+	}
+
 	return nil
 }
 

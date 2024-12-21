@@ -160,8 +160,8 @@ func printFirewallState(w *tabwriter.Writer, isEnabled, isPersistent, isAllowLAN
 	}
 
 	if isEnabled {
-		fmt.Fprintf(w, "    Allow internet\t:\t%v\n", isAllowLAN)
-		fmt.Fprintf(w, "    Allow LAN\t:\t%v\n", isAllowLAN)
+		// fmt.Fprintf(w, "    Allow internet\t:\t%v\n", isAllowLAN)
+		// fmt.Fprintf(w, "    Allow LAN\t:\t%v\n", isAllowLAN)
 		fmt.Fprintf(w, "    Allow PL servers\t:\t%v\n", isAllowApiServers)
 		if len(userExceptions) > 0 {
 			fmt.Fprintf(w, "    Allow IP masks\t:\t%v\n", userExceptions)

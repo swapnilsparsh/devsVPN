@@ -32,8 +32,8 @@ import (
 
 // filter Weights
 const (
-	// TODO FIXME: Vlad - forced allow of all DNS w/ highest permission
-	weightAllowAllDNS = 15
+	// Force allow DNS traffic to our servers w/ highest permission
+	weightAllowOurDNS = FILTER_MAX_WEIGHT
 
 	// IMPORTANT! Use only for Local IP/IPv6 of VPN connection
 	weightAllowLocalIP            = 10
@@ -63,10 +63,15 @@ func NewFilterAllowLocalPort(
 	dispName string,
 	dispDescription string,
 	port uint16,
-	isPersistent bool) Filter {
+	isPersistent bool,
+	weight ...byte) Filter {
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightAllowLocalPort
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightAllowLocalPort
+	}
 	f.Action = FwpActionPermit
 
 	f.Flags = FwpmFilterFlagClearActionRight
@@ -87,10 +92,15 @@ func NewFilterAllowRemotePort(
 	dispName string,
 	dispDescription string,
 	port uint16,
-	isPersistent bool) Filter {
+	isPersistent bool,
+	weight ...byte) Filter {
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightAllowRemotePort
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightAllowRemotePort
+	}
 	f.Action = FwpActionPermit
 
 	f.Flags = FwpmFilterFlagClearActionRight
@@ -111,10 +121,15 @@ func NewFilterAllowApplication(
 	dispName string,
 	dispDescription string,
 	binaryPath string,
-	isPersistent bool) Filter {
+	isPersistent bool,
+	weight ...byte) Filter {
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightAllowApplication
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightAllowApplication
+	}
 	f.Action = FwpActionPermit
 
 	f.Flags = FwpmFilterFlagClearActionRight
@@ -136,10 +151,15 @@ func NewFilterAllowRemoteIP(
 	dispDescription string,
 	ip net.IP,
 	mask net.IP,
-	isPersistent bool) Filter {
+	isPersistent bool,
+	weight ...byte) Filter {
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightAllowRemoteIP
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightAllowRemoteIP
+	}
 	f.Action = FwpActionPermit
 
 	f.Flags = FwpmFilterFlagClearActionRight
@@ -159,13 +179,18 @@ func AllowRemoteLocalhostDNS(
 	keySublayer syscall.GUID,
 	dispName string,
 	dispDescription string,
-	isPersistent bool) Filter {
+	isPersistent bool,
+	weight ...byte) Filter {
 
 	ip := net.ParseIP("127.0.0.1")
 	mask := net.ParseIP("255.255.255.255")
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightAllowRemoteLocalhostDNS
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightAllowRemoteLocalhostDNS
+	}
 	f.Action = FwpActionPermit
 
 	f.Flags = FwpmFilterFlagClearActionRight
@@ -188,10 +213,15 @@ func NewFilterAllowRemoteIPV6(
 	dispDescription string,
 	ip net.IP,
 	prefixLen byte,
-	isPersistent bool) Filter {
+	isPersistent bool,
+	weight ...byte) Filter {
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightAllowRemoteIP
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightAllowRemoteIP
+	}
 	f.Action = FwpActionPermit
 
 	f.Flags = FwpmFilterFlagClearActionRight
@@ -217,10 +247,15 @@ func NewFilterAllowLocalIP(
 	dispDescription string,
 	ip net.IP,
 	mask net.IP,
-	isPersistent bool) Filter {
+	isPersistent bool,
+	weight ...byte) Filter {
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightAllowLocalIP
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightAllowLocalIP
+	}
 	f.Action = FwpActionPermit
 
 	// TODO FIXME: Vlad - do check whether we may need to set FwpmFilterFlagClearActionRight here
@@ -248,10 +283,15 @@ func NewFilterAllowLocalIPV6(
 	dispDescription string,
 	ip net.IP,
 	prefixLen byte,
-	isPersistent bool) Filter {
+	isPersistent bool,
+	weight ...byte) Filter {
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightAllowLocalIP
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightAllowLocalIP
+	}
 	f.Action = FwpActionPermit
 
 	// TODO FIXME: Vlad - do check whether we may need to set FwpmFilterFlagClearActionRight here
@@ -281,10 +321,16 @@ func NewFilterBlockAll(
 	dispName string,
 	dispDescription string,
 	isIPv6 bool,
-	isPersistent bool, isBootTime bool) Filter {
+	isPersistent bool,
+	isBootTime bool,
+	weight ...byte) Filter {
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightBlockAll
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightBlockAll
+	}
 	f.Action = FwpActionBlock
 
 	f.Flags = FwpmFilterFlagClearActionRight
@@ -314,10 +360,15 @@ func NewFilterBlockDNS(
 	dispName string,
 	dispDescription string,
 	exceptionIP net.IP,
-	isPersistent bool) Filter {
+	isPersistent bool,
+	weight ...byte) Filter {
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightBlockDNS
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightBlockDNS
+	}
 	f.Action = FwpActionBlock
 
 	f.Flags = FwpmFilterFlagClearActionRight
@@ -341,10 +392,17 @@ func NewFilterAllowDNS(
 	keySublayer syscall.GUID,
 	dispName string,
 	dispDescription string,
-	isPersistent bool) Filter {
+	ip net.IP,
+	mask net.IP,
+	isPersistent bool,
+	weight ...byte) Filter {
 
 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
-	f.Weight = weightAllowAllDNS
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightAllowOurDNS
+	}
 	f.Action = FwpActionPermit
 
 	f.Flags = FwpmFilterFlagClearActionRight
@@ -353,6 +411,7 @@ func NewFilterAllowDNS(
 		f.Flags = f.Flags | FwpmFilterFlagPersistent
 	}
 
+	f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchEqual, IP: ip, Mask: mask})
 	f.AddCondition(&ConditionIPRemotePort{Match: FwpMatchEqual, Port: 53})
 
 	// if exceptionIP != nil && len(exceptionIP) > 0 && exceptionIP.To4() != nil {

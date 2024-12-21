@@ -810,7 +810,7 @@ func (s *Service) saveDefaultDnsParams(dnsCfg dns.DnsSettings, antiTrackerCfg ty
 	return s.setConnectionParams(defaultParams)
 }
 
-// GetActiveDNS() eeturns DNS active settings for current VPN connection:
+// GetActiveDNS() returns DNS active settings for current VPN connection:
 // - if 'antiTracker' is enabled - returns DNS of AntiTracker server
 // - else if manual DNS is defined - returns manual DNS
 // - else returns default DNS configuration for current VPN connection
@@ -1886,14 +1886,21 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
 	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
-	// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
-	firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
-	if firstDnsSrv != "" {
-		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
-	} else {
-		log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
-		return apiCode, "", accountInfo, "", err
+	// TODO FIXME: Vlad - disabling manual DNS, retest on win1[01], Debian 12, Ubuntu 24
+	if err = dns.DeleteManual(nil, nil); err != nil {
+		log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
 	}
+	prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{}
+	/*
+		// For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
+		firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
+		if firstDnsSrv != "" {
+			prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
+		} else {
+			log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
+			return apiCode, "", accountInfo, "", err
+		}
+	*/
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
@@ -2073,14 +2080,21 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
 	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
-	// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
-	firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
-	if firstDnsSrv != "" {
-		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
-	} else {
-		log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
-		return apiCode, "", rawResponse, err
+	// TODO FIXME: Vlad - disabling manual DNS, retest on win1[01], Debian 12, Ubuntu 24
+	if err = dns.DeleteManual(nil, nil); err != nil {
+		log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
 	}
+	prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{}
+	/*
+		// For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
+		firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
+		if firstDnsSrv != "" {
+			prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
+		} else {
+			log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
+			return apiCode, "", rawResponse, err
+		}
+	*/
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 

@@ -41,6 +41,7 @@ const (
 	FwpmStringBufLenWchar = 2048 // array len is in wchar_t, UTF8
 
 	SUBLAYER_MAX_WEIGHT = uint16(0xFFFF) // our sublayer must be max priority
+	FILTER_MAX_WEIGHT   = byte(15)       // needed to ensure our filter have higher weight than the kill switches of other VPNs
 )
 
 // // WfpSubLayerIsInstalled returns true if sublayer is installed
