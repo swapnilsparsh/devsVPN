@@ -1880,16 +1880,16 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 		AllowedIPs: connectDevSuccessResp.Data[1].Peer.AllowedIPs,
 	}
 
-	// propagate the Wireguard device configuration we received to Preferences
+	// propagate the Wireguard device configuration we received to Preferencese
 	prefs := s._preferences
 
 	prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
 	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
 	// TODO FIXME: Vlad - disabling manual DNS, retest on win1[01], Debian 12, Ubuntu 24
-	if err = dns.DeleteManual(nil, nil); err != nil {
-		log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
-	}
+	// if err = dns.DeleteManual(nil, nil); err != nil {
+	// 	log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
+	// }
 	prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{}
 	/*
 		// For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
@@ -2081,9 +2081,9 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
 	// TODO FIXME: Vlad - disabling manual DNS, retest on win1[01], Debian 12, Ubuntu 24
-	if err = dns.DeleteManual(nil, nil); err != nil {
-		log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
-	}
+	// if err = dns.DeleteManual(nil, nil); err != nil {
+	// 	log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
+	// }
 	prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{}
 	/*
 		// For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
