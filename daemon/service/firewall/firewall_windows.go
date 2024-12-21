@@ -91,7 +91,7 @@ func createAddSublayer() error {
 // We'll check whether our provider and sublayer are up, will create if necessary.
 // If our sublayer is not registered at max weight, and max weight slot is vacant - then we'll try to reregister our sublayer at max weight.
 func checkCreateProviderAndSublayer() error {
-	log.Debug("checkCreateProviderAndSublayer - entry")
+	// log.Debug("checkCreateProviderAndSublayer - entry")
 
 	// add provider
 	pInfo, err := manager.GetProviderInfo(providerKey)
@@ -345,7 +345,6 @@ func reEnable() (retErr error) {
 }
 
 func doEnable() (retErr error) {
-	log.Debug("doEnable")
 	implSingleDnsRuleOff()
 
 	enabled, err := implGetEnabled()
@@ -600,7 +599,6 @@ func doEnable() (retErr error) {
 }
 
 func doDisable() error {
-	log.Debug("doDisable")
 	implSingleDnsRuleOff()
 
 	enabled, err := implGetEnabled()
