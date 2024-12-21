@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/swapnilsparsh/devsVPN/daemon v0.0.0
-	golang.org/x/crypto v0.21.0
+	golang.org/x/crypto v0.31.0
 	golang.org/x/sys v0.18.0
 	golang.org/x/term v0.18.0
 )
