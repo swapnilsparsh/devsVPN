@@ -165,7 +165,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 			return fmt.Errorf("failed to check for sublayer with max weight: %w", err)
 		}
 		if maxWeightSublayerFound {
-			otherSublayerMsg := fmt.Sprintf("Another sublayer with key/UUID '%s' is registered with max weight.", windows.GUID(otherSublayerGUID).String())
+			otherSublayerMsg := fmt.Sprintf("Another sublayer with key/UUID '%s' is registered with max weight", windows.GUID(otherSublayerGUID).String())
 			if otherSublayerFound, otherSublayer, err := manager.GetSubLayerByKey(otherSublayerGUID); err == nil && otherSublayerFound {
 				otherSublayerMsg += ". Other sublayer information:\n" + otherSublayer.String()
 			}
