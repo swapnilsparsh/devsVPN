@@ -12,12 +12,12 @@
             {{ this.$store.state.daemonVersion }}
           </div>
         </div>
-        <div class="flexRow paramBlockDetailedConfig">
+        <!-- <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Protocol:</div>
           <div class="detailedParamValue">
             {{ "Wireguard" }}
           </div>
-        </div>
+        </div> -->
         <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Local IP Address:</div>
           <div class="detailedParamValue">
@@ -54,6 +54,17 @@
             {{ wgKeysExpirationDateStr }}
           </div>
         </div>
+
+        <div
+          v-if="this.$store.state.vpnState.connectionInfo !== null"
+          class="flexRow paramBlockDetailedConfig"
+        >
+          <div class="defColor paramName">VPN Coexistence:</div>
+          <div class="detailedParamValue">
+            {{ vpnCoexistenceState }}
+          </div>
+        </div>
+
 
         <div
           v-if="this.$store.state.vpnState.connectionInfo !== null"
@@ -226,6 +237,10 @@ export default {
       }
       // Otherwise, return the actual HandshakeTime
       return this.$store.state.vpnState.handshake.HandshakeTime;
+    },
+    vpnCoexistenceState() {
+      // TODO for Sandeep to flesh out
+      return "TODO report VPN coexistence state";
     },
     formattedElapsedTime() {
       const minutes = Math.floor(this.elapsedTime / 60);
