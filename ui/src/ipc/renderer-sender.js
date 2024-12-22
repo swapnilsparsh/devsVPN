@@ -194,6 +194,9 @@ export default {
   KillSwitchReregister: async (CanUnregisterOtherVPNFirewall) => {
     return await invoke("renderer-request-KillSwitchReregister", CanUnregisterOtherVPNFirewall);
   },
+  KillSwitchGetStatus: async () => {
+    return await invoke("renderer-request-KillSwitchGetStatus");
+  },
 
   SplitTunnelGetStatus: async () => {
     return await invoke("renderer-request-SplitTunnelGetStatus");

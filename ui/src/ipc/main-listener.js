@@ -171,6 +171,12 @@ ipcMain.handle(
     return await client.KillSwitchReregister(enable);
   }
 );
+ipcMain.handle(
+  "renderer-request-KillSwitchGetStatus",
+  async (event) => {
+    return await client.KillSwitchGetStatus();
+  }
+);
 
 ipcMain.handle("renderer-request-SplitTunnelGetStatus", async () => {
   return await client.SplitTunnelGetStatus();

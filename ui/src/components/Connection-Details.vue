@@ -55,14 +55,13 @@
           </div>
         </div>
 
-        <div v-if="isWindows"
-          class="flexRow paramBlockDetailedConfig">
+        <div v-if="isWindows" class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">VPN Coexistence:</div>
           <div class="detailedParamValue">
             <div class="failedText" v-if="!vpnCoexistenceState">
               <!-- TODO: WIll Fix Text Show According to the value received in vpnCoexistenceState -->
               <!-- {{ vpnCoexistenceState }} -->
-              FAILED 
+              FAILED
               <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()">Retry</button>
             </div>
             <div class="goodText" v-if="vpnCoexistenceState">
@@ -247,8 +246,11 @@ export default {
         //this.$store.dispatch("settings/vpnCoexistenceState", true); // This is not right.
         // Call here function to kill 
         const resp = await sender.KillSwitchReregister(true);
-        console.log(resp?.APIStatus)
         // TODO to check the result - need to call KillSwitchGetStatus and set vpnCoexistenceState=StateRegisteredAtTopPriority
+
+        let statusResp = await sender.KillSwitchGetStatus();
+        console.log(statusResp)
+
       }
     }
   },
@@ -404,15 +406,17 @@ div.paramName {
   border-color: #495057;
   background-color: #f8f9fa;
 }
-.failedText{
+
+.failedText {
   color: rgb(251, 24, 24);
   font-weight: bold;
 
 
 }
-.goodText{
+
+.goodText {
   color: rgb(34, 237, 34);
   font-weight: bold;
-  
+
 }
 </style>
