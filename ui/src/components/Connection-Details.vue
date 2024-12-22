@@ -59,12 +59,13 @@
           class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">VPN Coexistence:</div>
           <div class="detailedParamValue">
-            <div class="" v-if="!vpnCoexistenceState">
+            <div class="failedText" v-if="!vpnCoexistenceState">
               <!-- TODO: WIll Fix Text Show According to the value received in vpnCoexistenceState -->
-              FAILED {{ vpnCoexistenceState }}
+              <!-- {{ vpnCoexistenceState }} -->
+              FAILED 
               <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()">Retry</button>
             </div>
-            <div class="" v-if="vpnCoexistenceState">
+            <div class="goodText" v-if="vpnCoexistenceState">
               GOOD
             </div>
 
@@ -386,9 +387,12 @@ div.paramName {
 .retryBtn {
   font-size: 11px;
   font-weight: 500;
-  color: #6c757d;
-  background-color: transparent;
-  border: 1px solid #6c757d;
+  // color: #6c757d;
+  // background-color: transparent;
+  // border: 1px solid #6c757d;
+  color: #495057;
+  border-color: #495057;
+  background-color: #f8f9fa;
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -399,5 +403,16 @@ div.paramName {
   color: #495057;
   border-color: #495057;
   background-color: #f8f9fa;
+}
+.failedText{
+  color: rgb(251, 24, 24);
+  font-weight: bold;
+
+
+}
+.goodText{
+  color: rgb(34, 237, 34);
+  font-weight: bold;
+  
 }
 </style>
