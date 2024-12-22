@@ -81,6 +81,7 @@ type Service interface {
 	DetectAccessiblePorts(portsToTest []api_types.PortInfo) (retPorts []api_types.PortInfo, err error)
 
 	KillSwitchState() (status service_types.KillSwitchStatus, err error)
+	KillSwitchReregister(canUnregisterOtherVPNFirewall bool) error
 	SetKillSwitchState(bool) error
 	SetKillSwitchIsPersistent(isPersistent bool) error
 	SetKillSwitchAllowLANMulticast(isAllowLanMulticast bool) error
@@ -702,6 +703,17 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p._service.SetKillSwitchAllowLAN(req.AllowLAN)
 		p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
 		// all clients will be notified in case of successful change by OnKillSwitchStateChanged() handler
+
+	case "KillSwitchReregister":
+		var req types.KillSwitchReregister
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		p._service.KillSwitchReregister(req.CanUnregisterOtherVPNFirewall)
+		p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+		// ?all clients will be notified in case of successful change by OnKillSwitchStateChanged() handler?
 
 	case "KillSwitchSetUserExceptions":
 		var req types.KillSwitchSetUserExceptions

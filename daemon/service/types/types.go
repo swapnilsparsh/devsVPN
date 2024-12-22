@@ -30,5 +30,6 @@ type KillSwitchStatus struct {
 	IsAllowApiServers bool   // configuration: 'Allow API servers'
 	UserExceptions    string // configuration: Firewall exceptions: comma separated list of IP addresses (masks) in format: x.x.x.x[/xx]
 
-	StateLanAllowed bool // real state of 'Allow LAN'
+	StateLanAllowed              bool // real state of 'Allow LAN'
+	StateRegisteredAtTopPriority bool // whether PL Firewall sublayer is registered at top weight (0xFFFF) in WFP
 }

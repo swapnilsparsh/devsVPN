@@ -1150,6 +1150,12 @@ func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) er
 	return firewall.AllowLAN(isAllowLAN, prefs.IsFwAllowLANMulticast)
 }
 
+// KillSwitchReregister try to reregister our firewall logic at top
+func (s *Service) KillSwitchReregister(canUnregisterOtherVPNFirewall bool) error {
+	// TODO FIXME: Vlad - implement
+	return nil
+}
+
 func (s *Service) SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error {
 	if !isAllowAPIServers {
 		// Do not allow to disable access to IVPN API server if user logged-out

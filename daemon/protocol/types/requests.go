@@ -106,6 +106,13 @@ type KillSwitchSetAllowLAN struct {
 	AllowLAN bool
 }
 
+type KillSwitchReregister struct {
+	RequestBase
+	// If CanUnregisterOtherVPNFirewall==true: then daemon will unregister it and try to reregister ours at top priority.
+	// Otherwise we just try to reregister our at top priority.
+	CanUnregisterOtherVPNFirewall bool
+}
+
 // KillSwitchSetUserExceptions set ip masks to exclude from firewall blocking rules
 type KillSwitchSetUserExceptions struct {
 	CommandBase
