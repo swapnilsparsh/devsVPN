@@ -55,7 +55,7 @@
           </div>
         </div>
 
-        <div v-if="isWindows && this.$store.state.vpnState.connectionInfo !== null"
+        <div v-if="isWindows"
           class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">VPN Coexistence:</div>
           <div class="detailedParamValue">
