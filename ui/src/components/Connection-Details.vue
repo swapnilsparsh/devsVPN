@@ -247,9 +247,10 @@ export default {
         // Call here function to kill 
         const resp = await sender.KillSwitchReregister(true);
         // TODO to check the result - need to call KillSwitchGetStatus and set vpnCoexistenceState=StateRegisteredAtTopPriority
-
-        let statusResp = await sender.KillSwitchGetStatus();
+        console.log("Start Calling KillSwitchGetStatus... Waiting")
+        let statusResp = await sender.KillSwitchGetStatus();  // FIX ME: Not Getting Response
         console.log(statusResp)
+        console.log("Start Calling KillSwitchGetStatus... Executed Next Line")
 
       }
     }
