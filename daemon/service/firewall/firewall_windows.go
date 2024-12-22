@@ -137,6 +137,10 @@ func implReregisterFirewallAtTopPriority(unregisterOtherVpnSublayer bool) (retEr
 		}
 	}
 
+	if retErr = doAddClientIPFilters(connectedClientInterfaceIP, connectedClientInterfaceIPv6); retErr != nil {
+		return log.ErrorE(fmt.Errorf("error doAddClientIPFilters: %w", retErr), 0)
+	}
+
 	return nil
 }
 
