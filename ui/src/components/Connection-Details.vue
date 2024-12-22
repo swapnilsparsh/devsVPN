@@ -244,11 +244,11 @@ export default {
       if (ret.response == 1) return; // cancel
       if (ret.response == 0) {
         killSwitchReregisterFlag = true;
-        this.$store.dispatch("settings/vpnCoexistenceState", true);
+        //this.$store.dispatch("settings/vpnCoexistenceState", true); // This is not right.
         // Call here function to kill 
         const resp = await sender.KillSwitchReregister(true);
         console.log(resp?.APIStatus)
-
+        // TODO to check the result - need to call KillSwitchGetStatus and set vpnCoexistenceState=StateRegisteredAtTopPriority
       }
     }
   },

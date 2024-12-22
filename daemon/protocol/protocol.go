@@ -711,8 +711,11 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
-		p._service.KillSwitchReregister(req.CanUnregisterOtherVPNFirewall)
-		p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+		if err := p._service.KillSwitchReregister(req.CanUnregisterOtherVPNFirewall); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+		} else {
+			p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+		}
 		// ?all clients will be notified in case of successful change by OnKillSwitchStateChanged() handler?
 
 	case "KillSwitchSetUserExceptions":

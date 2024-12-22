@@ -105,7 +105,7 @@ func findOtherSublayerWithMaxWeight() (found bool, otherSublayerKey syscall.GUID
 		return false, syscall.GUID{}, fmt.Errorf("failed to check for sublayer with max weight: %w", err)
 	}
 
-	return found, otherSublayerKey, nil
+	return found, otherSublayerGUID, nil
 }
 
 // We'll check whether our provider and sublayer are up, will create if necessary.
@@ -159,21 +159,20 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 	}
 
 	if ourSublayerWeight < winlib.SUBLAYER_MAX_WEIGHT { // our sublayer installed, check if it has max weight
-		var maxWeightSublayerFound bool
-		maxWeightSublayerFound, otherSublayerGUID, err = findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
+		maxWeightSublayerFound, _otherSublayerGUID, err := findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
 		if err != nil {
 			return fmt.Errorf("failed to check for sublayer with max weight: %w", err)
 		}
 		if maxWeightSublayerFound {
-			otherSublayerMsg := fmt.Sprintf("Another sublayer with key/UUID '%s' is registered with max weight", windows.GUID(otherSublayerGUID).String())
-			if otherSublayerFound, otherSublayer, err := manager.GetSubLayerByKey(otherSublayerGUID); err == nil && otherSublayerFound {
+			otherSublayerMsg := fmt.Sprintf("Another sublayer with key/UUID '%s' is registered with max weight", windows.GUID(_otherSublayerGUID).String())
+			if otherSublayerFound, otherSublayer, err := manager.GetSubLayerByKey(_otherSublayerGUID); err == nil && otherSublayerFound {
 				otherSublayerMsg += ". Other sublayer information:\n" + otherSublayer.String()
 			}
 			log.Warning(otherSublayerMsg)
 
 			if unregisterOtherVpnSublayer { // if requested to unregister the other guy, try it
-				if err := manager.DeleteSubLayer(otherSublayerGUID); err != nil {
-					return log.ErrorE(fmt.Errorf("error deleting the other sublayer '%s': %w", windows.GUID(otherSublayerGUID).String(), err), 0)
+				if err := manager.DeleteSubLayer(_otherSublayerGUID); err != nil {
+					return log.ErrorE(fmt.Errorf("error deleting the other sublayer '%s': %w", windows.GUID(_otherSublayerGUID).String(), err), 0)
 				}
 			} else {
 				log.Warning("Not requested to unregister the other sublayer, so we can't register our sublayer at max weight at the moment.")
@@ -186,7 +185,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 		if err = manager.DeleteSubLayer(ourSublayerKey); err != nil {
 			log.Warning(fmt.Errorf("warning - failed to delete our sublayer: %w", err))
 		}
-		log.Debug("checkCreateProviderAndSublayer - trying to re-create our sublayer with weight " + string(winlib.SUBLAYER_MAX_WEIGHT))
+		log.Debug(fmt.Sprintf("checkCreateProviderAndSublayer - trying to re-create our sublayer with weight 0x%04X", winlib.SUBLAYER_MAX_WEIGHT))
 		return createAddSublayer() // TODO FIXME: Vlad - now, if firewall was enabled - we need to trigger reEnable(). Without getting into any deadlocks.
 	}
 
@@ -984,13 +983,13 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 	}
 
 	// ok, by this point we know that our sublayer is installed and that it doesn't have max weight
-
-	if otherSublayerFound, otherSublayerGUID, retErr = findOtherSublayerWithMaxWeight(); retErr != nil { // check if max weight slot is vacant
+	otherSublayerFound, _otherSublayerGUID, retErr := findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
+	if retErr != nil {
 		return false, "", "", "", fmt.Errorf("failed to check for other sublayer with max weight: %w", retErr)
 	}
 	if otherSublayerFound {
-		otherGuyID = windows.GUID(otherSublayerGUID).String()
-		if otherSublayerFound, otherSublayer, err := manager.GetSubLayerByKey(otherSublayerGUID); err == nil && otherSublayerFound {
+		otherGuyID = windows.GUID(_otherSublayerGUID).String()
+		if otherSublayerFound, otherSublayer, err := manager.GetSubLayerByKey(_otherSublayerGUID); err == nil && otherSublayerFound {
 			otherGuyName = otherSublayer.Name
 			otherGuyDescription = otherSublayer.Description
 		}
