@@ -156,8 +156,8 @@ func findOtherSublayerWithMaxWeight() (found bool, otherSublayerKey syscall.GUID
 // If our sublayer is not registered at max weight, and max weight slot is vacant - then we'll try to reregister our sublayer at max weight.
 func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterOtherVpnSublayer bool) (retErr error) {
 	if !wfpTransactionAlreadyInProgress {
-		if err := manager.TransactionStart(); err != nil { // start WFP transaction
-			return fmt.Errorf("failed to start transaction: %w", err)
+		if retErr = manager.TransactionStart(); retErr != nil { // start WFP transaction
+			return fmt.Errorf("failed to start transaction: %w", retErr)
 		}
 	}
 	defer func() { // do not forget to stop WFP transaction
@@ -182,41 +182,41 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 	}()
 
 	// add provider
-	pInfo, err := manager.GetProviderInfo(providerKey)
-	if err != nil {
-		return fmt.Errorf("failed to get provider info: %w", err)
+	pInfo, retErr := manager.GetProviderInfo(providerKey)
+	if retErr != nil {
+		return fmt.Errorf("failed to get provider info: %w", retErr)
 	}
 	if !pInfo.IsInstalled {
 		provider := winlib.CreateProvider(providerKey, providerDName, "", isPersistent)
-		if err = manager.AddProvider(provider); err != nil {
-			return fmt.Errorf("failed to add provider : %w", err)
+		if retErr = manager.AddProvider(provider); retErr != nil {
+			return fmt.Errorf("failed to add provider : %w", retErr)
 		}
 	}
 
 	// add sublayer
-	installed, err := checkSublayerInstalled()
-	if err != nil {
-		return fmt.Errorf("failed to check sublayer is installed: %w", err)
+	installed, retErr := checkSublayerInstalled()
+	if retErr != nil {
+		return fmt.Errorf("failed to check sublayer is installed: %w", retErr)
 	}
 	if !installed {
 		return createAddSublayer()
 	}
 
 	if ourSublayerWeight < winlib.SUBLAYER_MAX_WEIGHT { // our sublayer installed, check if it has max weight
-		maxWeightSublayerFound, _otherSublayerGUID, err := findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
-		if err != nil {
-			return fmt.Errorf("failed to check for sublayer with max weight: %w", err)
+		maxWeightSublayerFound, _otherSublayerGUID, retErr := findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
+		if retErr != nil {
+			return fmt.Errorf("failed to check for sublayer with max weight: %w", retErr)
 		}
 		if maxWeightSublayerFound {
 			otherSublayerMsg := fmt.Sprintf("Another sublayer with key/UUID '%s' is registered with max weight", windows.GUID(_otherSublayerGUID).String())
-			if otherSublayerFound, otherSublayer, err := manager.GetSubLayerByKey(_otherSublayerGUID); err == nil && otherSublayerFound {
+			if otherSublayerFound, otherSublayer, retErr := manager.GetSubLayerByKey(_otherSublayerGUID); retErr == nil && otherSublayerFound {
 				otherSublayerMsg += ". Other sublayer information:\n" + otherSublayer.String()
 			}
 			log.Warning(otherSublayerMsg)
 
 			if unregisterOtherVpnSublayer { // if requested to unregister the other guy, try it
-				if err := manager.DeleteSubLayer(_otherSublayerGUID); err != nil {
-					return log.ErrorE(fmt.Errorf("error deleting the other sublayer '%s': %w", windows.GUID(_otherSublayerGUID).String(), err), 0)
+				if retErr := manager.DeleteSubLayer(_otherSublayerGUID); retErr != nil {
+					return log.ErrorE(fmt.Errorf("error deleting the other sublayer '%s': %w", windows.GUID(_otherSublayerGUID).String(), retErr), 0)
 				}
 			} else {
 				log.Warning("Not requested to unregister the other sublayer, so we can't register our sublayer at max weight at the moment.")
@@ -227,14 +227,18 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 
 		// So max weight slot is vacant by now, try to delete our sublayer and recreate it at max weight.
 		// We can delete the sublayer only if it's empty. The caller, firewall.TryReregisterFirewallAtTopPriority(), stopped the firewall before calling us.
-		if err = manager.DeleteSubLayer(ourSublayerKey); err != nil {
+		if err := manager.DeleteSubLayer(ourSublayerKey); retErr != nil {
 			log.Warning(fmt.Errorf("warning - failed to delete our sublayer: %w", err))
 		}
-		log.Debug(fmt.Sprintf("checkCreateProviderAndSublayer - trying to re-create our sublayer with weight 0x%04X", winlib.SUBLAYER_MAX_WEIGHT))
-		return createAddSublayer()
+		reregisterMsg := fmt.Sprintf("checkCreateProviderAndSublayer - trying to re-create our sublayer with max weight 0x%04X", winlib.SUBLAYER_MAX_WEIGHT)
+		if retErr = createAddSublayer(); retErr != nil {
+			log.Error(reregisterMsg + ": FAILED")
+		} else {
+			log.Info(reregisterMsg + ": SUCCESS")
+		}
 	}
 
-	return err
+	return retErr
 }
 
 // implInitialize doing initialization stuff (called on application start)
@@ -257,8 +261,8 @@ func implGetEnabled() (bool, error) {
 
 func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress bool) (retErr error) {
 	if !wfpTransactionAlreadyInProgress {
-		if err := manager.TransactionStart(); err != nil { // start WFP transaction
-			return fmt.Errorf("failed to start transaction: %w", err)
+		if retErr := manager.TransactionStart(); retErr != nil { // start WFP transaction
+			return fmt.Errorf("failed to start transaction: %w", retErr)
 		}
 	}
 	defer func() { // do not forget to stop WFP transaction
@@ -989,8 +993,8 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 
 func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherGuyID, otherGuyName, otherGuyDescription string, retErr error) {
 	if recursionDepth == 0 { // start WFP transaction on the 1st recursion call
-		if err := manager.TransactionStart(); err != nil {
-			return false, "", "", "", fmt.Errorf("failed to start transaction: %w", err)
+		if retErr = manager.TransactionStart(); retErr != nil {
+			return false, "", "", "", fmt.Errorf("failed to start transaction: %w", retErr)
 		}
 	}
 	defer func() { // do not forget to stop WFP transaction
@@ -1039,7 +1043,8 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 	}
 	if otherSublayerFound {
 		otherGuyID = windows.GUID(_otherSublayerGUID).String()
-		if otherSublayerFound, otherSublayer, err := manager.GetSubLayerByKey(_otherSublayerGUID); err == nil && otherSublayerFound {
+		var otherSublayer winlib.SubLayer
+		if otherSublayerFound, otherSublayer, retErr = manager.GetSubLayerByKey(_otherSublayerGUID); retErr == nil && otherSublayerFound {
 			otherGuyName = otherSublayer.Name
 			otherGuyDescription = otherSublayer.Description
 		}
