@@ -55,21 +55,23 @@
           </div>
         </div>
 
-        <div
-          v-if="isWindows && this.$store.state.vpnState.connectionInfo !== null"
-          class="flexRow paramBlockDetailedConfig"
-        >
+        <div v-if="isWindows && this.$store.state.vpnState.connectionInfo !== null"
+          class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">VPN Coexistence:</div>
           <div class="detailedParamValue">
-            {{ vpnCoexistenceState }}
+            <div class="">
+              FAILED
+              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()">Retry</button>
+            </div>
+            <!-- <div class="">
+              GOOD
+            </div> -->
+
           </div>
         </div>
 
 
-        <div
-          v-if="this.$store.state.vpnState.connectionInfo !== null"
-          class="flexRow paramBlockDetailedConfig"
-        >
+        <div v-if="this.$store.state.vpnState.connectionInfo !== null" class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Transfer:</div>
           <div class="detailedParamValue">
             {{ this.$store.state.vpnState.transferredData.ReceivedData }}
@@ -78,10 +80,7 @@
           </div>
         </div>
 
-        <div
-          v-if="this.$store.state.vpnState.connectionInfo !== null"
-          class="flexRow paramBlockDetailedConfig"
-        >
+        <div v-if="this.$store.state.vpnState.connectionInfo !== null" class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Latest Handshake:</div>
           <div class="detailedParamValue">
             {{ formattedElapsedTime }}
@@ -228,6 +227,25 @@ export default {
       if (d == null) return null;
       return dateDefaultFormat(d);
     },
+
+    async vpnCoexistRetryConfirmPopup() {
+      let killSwitchReregister = false;
+      let ret = await sender.showMessageBox(
+        {
+          type: "warning",
+          buttons: ["OK", "Cancel"],
+          message: "Confirm",
+          detail: `Are you sure you want to allow privateLINE to stop temporarily the tunneling feature of other VPN and get permissions automatically. Press Ok to continue?`,
+        },
+        true
+      );
+      if (ret.response == 1) return; // cancel
+      if (ret.response == 0) {
+        killSwitchReregister = true;
+        // Call here function to kill 
+
+      }
+    }
   },
   computed: {
     adjustedHandshakeTime() {
@@ -287,7 +305,7 @@ export default {
 
       t.setSeconds(
         t.getSeconds() +
-          this.$store.state.account.session.WgKeysRegenIntervalSec
+        this.$store.state.account.session.WgKeysRegenIntervalSec
       );
 
       let now = new Date();
@@ -355,5 +373,23 @@ div.paramName {
   min-width: 120px;
   max-width: 120px;
   font-size: 11px;
+}
+
+.retryBtn {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6c757d;
+  background-color: transparent;
+  border: 1px solid #6c757d;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.retryBtn:hover {
+  color: #495057;
+  border-color: #495057;
+  background-color: #f8f9fa;
 }
 </style>
