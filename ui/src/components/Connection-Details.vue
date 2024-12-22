@@ -56,7 +56,7 @@
         </div>
 
         <div
-          v-if="this.$store.state.vpnState.connectionInfo !== null"
+          v-if="isWindows && this.$store.state.vpnState.connectionInfo !== null"
           class="flexRow paramBlockDetailedConfig"
         >
           <div class="defColor paramName">VPN Coexistence:</div>
@@ -316,6 +316,9 @@ export default {
       if (this.$store.state.account.session.WgUsePresharedKey === true)
         return "Enabled";
       return "Disabled";
+    },
+    isWindows: function () {
+      return Platform() === PlatformEnum.Windows;
     },
   },
 };
