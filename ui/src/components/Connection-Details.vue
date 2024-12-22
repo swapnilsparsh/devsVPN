@@ -123,6 +123,7 @@
 import { dateDefaultFormat } from "@/helpers/helpers";
 
 import ComponentDialog from "@/components/component-dialog.vue";
+import { Platform, PlatformEnum } from "@/platform/platform";
 
 const sender = window.ipcSender;
 
