@@ -87,6 +87,7 @@ const daemonRequests = Object.freeze({
   KillSwitchSetAllowLAN: "KillSwitchSetAllowLAN",
   KillSwitchSetIsPersistent: "KillSwitchSetIsPersistent",
   KillSwitchSetUserExceptions: "KillSwitchSetUserExceptions",
+  KillSwitchReregister: "KillSwitchReregister",
 
   SplitTunnelGetStatus: "SplitTunnelGetStatus",
   SplitTunnelSetConfig: "SplitTunnelSetConfig",
@@ -1561,6 +1562,13 @@ async function KillSwitchSetUserExceptions(userExceptions) {
   });
 }
 
+async function KillSwitchReregister(CanUnregisterOtherVPNFirewall) {
+  await sendRecv({
+    Command: daemonRequests.KillSwitchReregister,
+    CanUnregisterOtherVPNFirewall,
+  });
+}
+
 async function SplitTunnelGetStatus() {
   let ret = await sendRecv(
     {
@@ -1940,6 +1948,7 @@ export default {
   KillSwitchSetAllowLAN,
   KillSwitchSetIsPersistent,
   KillSwitchSetUserExceptions,
+  KillSwitchReregister,
 
   SplitTunnelGetStatus,
   SplitTunnelSetConfig,

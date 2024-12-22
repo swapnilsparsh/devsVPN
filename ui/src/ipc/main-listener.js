@@ -165,6 +165,13 @@ ipcMain.handle(
   }
 );
 
+ipcMain.handle(
+  "renderer-request-KillSwitchReregister",
+  async (event, enable) => {
+    return await client.KillSwitchReregister(enable);
+  }
+);
+
 ipcMain.handle("renderer-request-SplitTunnelGetStatus", async () => {
   return await client.SplitTunnelGetStatus();
 });
@@ -283,9 +290,8 @@ ipcMain.handle("renderer-request-get-diagnostic-logs", async () => {
   let accInfo = "";
   try {
     const acc = s.account;
-    accInfo = `${acc.accountStatus.CurrentPlan} (${
-      acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
-    })`;
+    accInfo = `${acc.accountStatus.CurrentPlan} (${acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
+      })`;
     if (acc.session.WgPublicKey)
       accInfo += `; wgKeys=OK ${acc.session.WgKeyGenerated}`;
     else accInfo += "; wgKeys=EMPTY";

@@ -191,12 +191,16 @@ export default {
     );
   },
 
+  KillSwitchReregister: async (CanUnregisterOtherVPNFirewall) => {
+    return await invoke("renderer-request-KillSwitchReregister", CanUnregisterOtherVPNFirewall);
+  },
+
   SplitTunnelGetStatus: async () => {
     return await invoke("renderer-request-SplitTunnelGetStatus");
   },
   SplitTunnelSetConfig: async (
     enabled,
-    inversed,    
+    inversed,
     appWhitelistEnabled,
     isAnyDns,
     allowWhenNoVpn,

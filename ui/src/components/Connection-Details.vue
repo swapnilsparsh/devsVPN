@@ -229,7 +229,7 @@ export default {
     },
 
     async vpnCoexistRetryConfirmPopup() {
-      let killSwitchReregister = false;
+      let killSwitchReregisterFlag = false;
       let ret = await sender.showMessageBox(
         {
           type: "warning",
@@ -241,8 +241,10 @@ export default {
       );
       if (ret.response == 1) return; // cancel
       if (ret.response == 0) {
-        killSwitchReregister = true;
+        killSwitchReregisterFlag = true;
         // Call here function to kill 
+        const resp = await sender.KillSwitchReregister(true);
+        console.log(resp?.APIStatus)
 
       }
     }
