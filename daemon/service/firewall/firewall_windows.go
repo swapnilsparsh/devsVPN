@@ -92,8 +92,52 @@ func createAddSublayer() error {
 	return nil
 }
 
-func implReregisterFirewallAtTopPriority(unregisterOtherVpnSublayer bool) error {
-	return checkCreateProviderAndSublayer(false, unregisterOtherVpnSublayer)
+func implReregisterFirewallAtTopPriority(unregisterOtherVpnSublayer bool) (retErr error) {
+	// Can't delete the sublayer if there are rules registered under it. So if VPN is connected - disable firewall, reregister sublayer, enable firewall.
+
+	if err := manager.TransactionStart(); err != nil { // start WFP transaction
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer func() { // do not forget to stop WFP transaction
+		var r any = recover()
+		if retErr == nil && r == nil {
+			manager.TransactionCommit() // commit WFP transaction
+		} else {
+			manager.TransactionAbort() // abort WFP transaction
+
+			if r != nil {
+				log.Error("PANIC (recovered): ", r)
+				if e, ok := r.(error); ok {
+					retErr = e
+				} else {
+					retErr = errors.New(fmt.Sprint(r))
+				}
+			}
+		}
+	}()
+
+	wasEnabled, retErr := implGetEnabled()
+	if retErr != nil {
+		return log.ErrorE(fmt.Errorf("status check error: %w", retErr), 0)
+	}
+
+	if wasEnabled {
+		if retErr = implSetEnabled(false, true); retErr != nil {
+			return log.ErrorE(fmt.Errorf("error disabling firewall: %w", retErr), 0)
+		}
+	}
+
+	if retErr = checkCreateProviderAndSublayer(true, unregisterOtherVpnSublayer); retErr != nil {
+		return log.ErrorE(fmt.Errorf("error re-registering firewall sublayer at top priority: %w", retErr), 0)
+	}
+
+	if wasEnabled {
+		if retErr = implSetEnabled(true, true); retErr != nil {
+			return log.ErrorE(fmt.Errorf("error re-enabling firewall: %w", retErr), 0)
+		}
+	}
+
+	return nil
 }
 
 func findOtherSublayerWithMaxWeight() (found bool, otherSublayerKey syscall.GUID, err error) {
@@ -182,6 +226,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 		}
 
 		// So max weight slot is vacant by now, try to delete our sublayer and recreate it at max weight.
+		// We can delete the sublayer only if it's empty. The caller, firewall.TryReregisterFirewallAtTopPriority(), stopped the firewall before calling us.
 		if err = manager.DeleteSubLayer(ourSublayerKey); err != nil {
 			log.Warning(fmt.Errorf("warning - failed to delete our sublayer: %w", err))
 		}
@@ -210,11 +255,16 @@ func implGetEnabled() (bool, error) {
 	return pInfo.IsInstalled && _isEnabled, nil
 }
 
-func implSetEnabled(isEnabled bool) (retErr error) {
-	if err := manager.TransactionStart(); err != nil { // start WFP transaction
-		return fmt.Errorf("failed to start transaction: %w", err)
+func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress bool) (retErr error) {
+	if !wfpTransactionAlreadyInProgress {
+		if err := manager.TransactionStart(); err != nil { // start WFP transaction
+			return fmt.Errorf("failed to start transaction: %w", err)
+		}
 	}
 	defer func() { // do not forget to stop WFP transaction
+		if wfpTransactionAlreadyInProgress {
+			return
+		}
 		var r any = recover()
 		if retErr == nil && r == nil {
 			manager.TransactionCommit() // commit WFP transaction

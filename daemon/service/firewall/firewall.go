@@ -83,7 +83,7 @@ func SetEnabled(enable bool) error {
 		log.Info("Disabling...")
 	}
 
-	err := implSetEnabled(enable)
+	err := implSetEnabled(enable, false)
 	if err != nil {
 		log.Error(err)
 		return fmt.Errorf("failed to change firewall state : %w", err)
@@ -383,28 +383,5 @@ func TryReregisterFirewallAtTopPriority(unregisterOtherGuy bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	// Can't delete the sublayer if there are rules registered under it. So if VPN is connected - disable firewall, reregister sublayer, enable firewall.
-
-	wasEnabled, err := implGetEnabled()
-	if err != nil {
-		return log.ErrorE(fmt.Errorf("status check error: %w", err), 0)
-	}
-
-	if wasEnabled {
-		if err = implSetEnabled(false); err != nil {
-			return log.ErrorE(fmt.Errorf("error disabling firewall: %w", err), 0)
-		}
-	}
-
-	if err = implReregisterFirewallAtTopPriority(unregisterOtherGuy); err != nil {
-		return log.ErrorE(fmt.Errorf("error re-registering firewall sublayer at top priority: %w", err), 0)
-	}
-
-	if wasEnabled {
-		if err = implSetEnabled(true); err != nil {
-			return log.ErrorE(fmt.Errorf("error re-enabling firewall: %w", err), 0)
-		}
-	}
-
-	return nil
+	return implReregisterFirewallAtTopPriority(unregisterOtherGuy)
 }
