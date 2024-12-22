@@ -28,6 +28,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
@@ -38,7 +39,7 @@ import (
 
 var (
 	providerKey          = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x01}}
-	sublayerKey          = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x02}}
+	ourSublayerKey       = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x02}}
 	providerKeySingleDns = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x03}}
 	sublayerKeySingleDns = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x04}}
 
@@ -54,7 +55,10 @@ var (
 	isAllowLAN          bool
 	isAllowLANMulticast bool
 
-	ourSublayerWeight uint16 = 0 // Can be out of date. If need to report to UI - recheck it.
+	// These vars can be out of date. If need to report to UI - recheck all. Also lock the mutex when retrieving the otherSublayerGUID
+	otherSublayerMutex sync.Mutex
+	ourSublayerWeight  uint16       = 0
+	otherSublayerGUID  syscall.GUID // If we could not register our sublayer with max weight (0xFFFF) yet, this will hold the GUID of another sublayer, who has max weight.
 )
 
 const (
@@ -67,7 +71,7 @@ const (
 )
 
 func checkSublayerInstalled() (installed bool, err error) {
-	installed, ourSublayer, err := manager.GetSubLayerByKey(sublayerKey)
+	installed, ourSublayer, err := manager.GetSubLayerByKey(ourSublayerKey)
 	if err != nil {
 		return false, fmt.Errorf("failed to check whether sublayer is installed: %w", err)
 	} else if installed {
@@ -77,7 +81,7 @@ func checkSublayerInstalled() (installed bool, err error) {
 }
 
 func createAddSublayer() error {
-	sublayer := winlib.CreateSubLayer(sublayerKey, providerKey,
+	sublayer := winlib.CreateSubLayer(ourSublayerKey, providerKey,
 		sublayerDName, "",
 		winlib.SUBLAYER_MAX_WEIGHT,
 		isPersistent)
@@ -88,10 +92,50 @@ func createAddSublayer() error {
 	return nil
 }
 
+func implReregisterFirewallAtTopPriority(unregisterOtherVpnSublayer bool) error {
+	return checkCreateProviderAndSublayer(false, unregisterOtherVpnSublayer)
+}
+
+func findOtherSublayerWithMaxWeight() (found bool, otherSublayerKey syscall.GUID, err error) {
+	otherSublayerMutex.Lock()
+	defer otherSublayerMutex.Unlock()
+
+	found, otherSublayerGUID, err = manager.FindSubLayerWithMaxWeight() // check if max weight slot is vacant
+	if err != nil {
+		return false, syscall.GUID{}, fmt.Errorf("failed to check for sublayer with max weight: %w", err)
+	}
+
+	return found, otherSublayerKey, nil
+}
+
 // We'll check whether our provider and sublayer are up, will create if necessary.
 // If our sublayer is not registered at max weight, and max weight slot is vacant - then we'll try to reregister our sublayer at max weight.
-func checkCreateProviderAndSublayer() error {
-	// log.Debug("checkCreateProviderAndSublayer - entry")
+func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterOtherVpnSublayer bool) (retErr error) {
+	if !wfpTransactionAlreadyInProgress {
+		if err := manager.TransactionStart(); err != nil { // start WFP transaction
+			return fmt.Errorf("failed to start transaction: %w", err)
+		}
+	}
+	defer func() { // do not forget to stop WFP transaction
+		if wfpTransactionAlreadyInProgress {
+			return
+		}
+		var r any = recover()
+		if retErr == nil && r == nil {
+			manager.TransactionCommit() // commit WFP transaction
+		} else {
+			manager.TransactionAbort() // abort WFP transaction
+
+			if r != nil {
+				log.Error("PANIC (recovered): ", r)
+				if e, ok := r.(error); ok {
+					retErr = e
+				} else {
+					retErr = errors.New(fmt.Sprint(r))
+				}
+			}
+		}
+	}()
 
 	// add provider
 	pInfo, err := manager.GetProviderInfo(providerKey)
@@ -115,26 +159,35 @@ func checkCreateProviderAndSublayer() error {
 	}
 
 	if ourSublayerWeight < winlib.SUBLAYER_MAX_WEIGHT { // our sublayer installed, check if it has max weight
-		maxWeightSublayerFound, otherSublayerGUID, err := manager.FindSubLayerWithMaxWeight() // check if max weight slot is vacant
+		var maxWeightSublayerFound bool
+		maxWeightSublayerFound, otherSublayerGUID, err = findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
 		if err != nil {
 			return fmt.Errorf("failed to check for sublayer with max weight: %w", err)
 		}
 		if maxWeightSublayerFound {
-			log.Warning(fmt.Sprintf("another sublayer with key/UUID '%s' has max weight, so we can't register our sublayer at max weight at the moment.",
-				windows.GUID(otherSublayerGUID).String()))
+			otherSublayerMsg := fmt.Sprintf("Another sublayer with key/UUID '%s' is registered with max weight.", windows.GUID(otherSublayerGUID).String())
 			if otherSublayerFound, otherSublayer, err := manager.GetSubLayerByKey(otherSublayerGUID); err == nil && otherSublayerFound {
-				log.Warning("information about another sublayer registered with max weight:\n" + otherSublayer.String())
+				otherSublayerMsg += ". Other sublayer information:\n" + otherSublayer.String()
 			}
-			return nil
+			log.Warning(otherSublayerMsg)
+
+			if unregisterOtherVpnSublayer { // if requested to unregister the other guy, try it
+				if err := manager.DeleteSubLayer(otherSublayerGUID); err != nil {
+					return log.ErrorE(fmt.Errorf("error deleting the other sublayer '%s': %w", windows.GUID(otherSublayerGUID).String(), err), 0)
+				}
+			} else {
+				log.Warning("Not requested to unregister the other sublayer, so we can't register our sublayer at max weight at the moment.")
+				return nil
+			}
+
 		}
 
-		// So max weight slot is vacant, try to delete our sublayer and recreate it at max weight.
-		// TODO FIXME: do it transactionally. Add a function arg to let us know whether a transaction is already taking place.
-		if err = manager.DeleteSubLayer(sublayerKey); err != nil {
+		// So max weight slot is vacant by now, try to delete our sublayer and recreate it at max weight.
+		if err = manager.DeleteSubLayer(ourSublayerKey); err != nil {
 			log.Warning(fmt.Errorf("warning - failed to delete our sublayer: %w", err))
 		}
 		log.Debug("checkCreateProviderAndSublayer - trying to re-create our sublayer with weight " + string(winlib.SUBLAYER_MAX_WEIGHT))
-		return createAddSublayer()
+		return createAddSublayer() // TODO FIXME: Vlad - now, if firewall was enabled - we need to trigger reEnable(). Without getting into any deadlocks.
 	}
 
 	return err
@@ -146,7 +199,7 @@ func implInitialize() error {
 		return err
 	}
 
-	return checkCreateProviderAndSublayer()
+	return checkCreateProviderAndSublayer(false, false)
 }
 
 func implGetEnabled() (bool, error) {
@@ -159,30 +212,31 @@ func implGetEnabled() (bool, error) {
 }
 
 func implSetEnabled(isEnabled bool) (retErr error) {
-	// start transaction
-	if err := manager.TransactionStart(); err != nil {
+	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
-	// do not forget to stop transaction
-	defer func() {
-		if r := recover(); r == nil {
+	defer func() { // do not forget to stop WFP transaction
+		var r any = recover()
+		if retErr == nil && r == nil {
 			manager.TransactionCommit() // commit WFP transaction
 		} else {
-			manager.TransactionAbort() // abort WFPtransaction
+			manager.TransactionAbort() // abort WFP transaction
 
-			log.Error("PANIC (recovered): ", r)
-			if e, ok := r.(error); ok {
-				retErr = e
-			} else {
-				retErr = errors.New(fmt.Sprint(r))
+			if r != nil {
+				log.Error("PANIC (recovered): ", r)
+				if e, ok := r.(error); ok {
+					retErr = e
+				} else {
+					retErr = errors.New(fmt.Sprint(r))
+				}
 			}
 		}
 	}()
 
 	if isEnabled {
-		return doEnable()
+		return doEnable(true)
 	}
-	return doDisable()
+	return doDisable(true)
 }
 
 func implSetPersistent(persistent bool) (retErr error) {
@@ -208,22 +262,30 @@ func implSetPersistent(persistent bool) (retErr error) {
 		return reEnable()
 	}
 
-	return doEnable()
+	return doEnable(false)
 }
 
 // ClientConnected - allow communication for local vpn/client IP address
 func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net.IP, clientPort int, serverIP net.IP, serverPort int, isTCP bool) (retErr error) {
 	// TODO FIXME: Vlad - do we need this?
-	// start / commit transaction
-	if err := manager.TransactionStart(); err != nil {
+	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
-	defer func() {
-		if retErr == nil {
-			manager.TransactionCommit()
+	defer func() { // do not forget to stop WFP transaction
+		var r any = recover()
+		if retErr == nil && r == nil {
+			manager.TransactionCommit() // commit WFP transaction
 		} else {
-			// abort transaction if there was an error
-			manager.TransactionAbort()
+			manager.TransactionAbort() // abort WFP transaction
+
+			if r != nil {
+				log.Error("PANIC (recovered): ", r)
+				if e, ok := r.(error); ok {
+					retErr = e
+				} else {
+					retErr = errors.New(fmt.Sprint(r))
+				}
+			}
 		}
 	}()
 
@@ -237,16 +299,24 @@ func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net
 // ClientDisconnected - Disable communication for local vpn/client IP address
 func implClientDisconnected() (retErr error) {
 	// TODO FIXME: Vlad - do we need this?
-	// start / commit transaction
-	if err := manager.TransactionStart(); err != nil {
+	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
-	defer func() {
-		if retErr == nil {
-			manager.TransactionCommit()
+	defer func() { // do not forget to stop WFP transaction
+		var r any = recover()
+		if retErr == nil && r == nil {
+			manager.TransactionCommit() // commit WFP transaction
 		} else {
-			// abort transaction if there was an error
-			manager.TransactionAbort()
+			manager.TransactionAbort() // abort WFP transaction
+
+			if r != nil {
+				log.Error("PANIC (recovered): ", r)
+				if e, ok := r.(error); ok {
+					retErr = e
+				} else {
+					retErr = errors.New(fmt.Sprint(r))
+				}
+			}
 		}
 	}()
 
@@ -318,25 +388,33 @@ func implOnUserExceptionsUpdated() error {
 
 func reEnable() (retErr error) {
 	log.Debug("reEnable")
-	// start / commit transaction
-	if err := manager.TransactionStart(); err != nil {
+	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
-	defer func() {
-		if retErr == nil {
-			manager.TransactionCommit()
+	defer func() { // do not forget to stop WFP transaction
+		var r any = recover()
+		if retErr == nil && r == nil {
+			manager.TransactionCommit() // commit WFP transaction
 		} else {
-			// abort transaction if there was an error
-			manager.TransactionAbort()
+			manager.TransactionAbort() // abort WFP transaction
+
+			if r != nil {
+				log.Error("PANIC (recovered): ", r)
+				if e, ok := r.(error); ok {
+					retErr = e
+				} else {
+					retErr = errors.New(fmt.Sprint(r))
+				}
+			}
 		}
 	}()
 
-	err := doDisable()
+	err := doDisable(true)
 	if err != nil {
 		return fmt.Errorf("failed to disable firewall: %w", err)
 	}
 
-	err = doEnable()
+	err = doEnable(true)
 	if err != nil {
 		return fmt.Errorf("failed to enable firewall: %w", err)
 	}
@@ -344,7 +422,7 @@ func reEnable() (retErr error) {
 	return doAddClientIPFilters(connectedClientInterfaceIP, connectedClientInterfaceIPv6)
 }
 
-func doEnable() (retErr error) {
+func doEnable(wfpTransactionAlreadyInProgress bool) (retErr error) {
 	implSingleDnsRuleOff()
 
 	enabled, err := implGetEnabled()
@@ -367,7 +445,7 @@ func doEnable() (retErr error) {
 		}
 	}
 
-	if err = checkCreateProviderAndSublayer(); err != nil {
+	if err = checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, false); err != nil {
 		return fmt.Errorf("failed to check/create provider or sublayer: %w", err)
 	}
 
@@ -400,11 +478,11 @@ func doEnable() (retErr error) {
 		ipv6llocal := net.IP{0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} // LINKLOCAL		fe80::/10 // TODO: "fe80::/10" is already part of localAddressesV6. To think: do we need it here?
 
 		// TODO FIXME: Vlad - do we need IPv6 loopback?
-		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, sublayerKey, filterDName, "ipv6loopback", ipv6loopback, 128, isPersistent, winlib.FILTER_MAX_WEIGHT))
+		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, ourSublayerKey, filterDName, "ipv6loopback", ipv6loopback, 128, isPersistent, winlib.FILTER_MAX_WEIGHT))
 		if err != nil {
 			return fmt.Errorf("failed to add filter 'allow remote IP' for ipv6loopback: %w", err)
 		}
-		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, sublayerKey, filterDName, "ipv6llocal", ipv6llocal, 10, isPersistent, winlib.FILTER_MAX_WEIGHT))
+		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, ourSublayerKey, filterDName, "ipv6llocal", ipv6llocal, 10, isPersistent, winlib.FILTER_MAX_WEIGHT))
 		if err != nil {
 			return fmt.Errorf("failed to add filter 'allow remote IP' for ipv6llocal: %w", err)
 		}
@@ -415,7 +493,7 @@ func doEnable() (retErr error) {
 		if isAllowLAN { // LAN
 			for _, ip := range localAddressesV6 {
 				prefixLen, _ := ip.Mask.Size()
-				_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, sublayerKey, filterDName, "allow lan IPv6", ip.IP, byte(prefixLen), isPersistent, winlib.FILTER_MAX_WEIGHT))
+				_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, ourSublayerKey, filterDName, "allow lan IPv6", ip.IP, byte(prefixLen), isPersistent, winlib.FILTER_MAX_WEIGHT))
 				if err != nil {
 					return fmt.Errorf("failed to add filter 'allow lan IPv6': %w", err)
 				}
@@ -424,7 +502,7 @@ func doEnable() (retErr error) {
 			if isAllowLANMulticast { // LAN multicast
 				for _, ip := range multicastAddressesV6 {
 					prefixLen, _ := ip.Mask.Size()
-					_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, sublayerKey, filterDName, "allow LAN multicast IPv6", ip.IP, byte(prefixLen), isPersistent, winlib.FILTER_MAX_WEIGHT))
+					_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, ourSublayerKey, filterDName, "allow LAN multicast IPv6", ip.IP, byte(prefixLen), isPersistent, winlib.FILTER_MAX_WEIGHT))
 					if err != nil {
 						return fmt.Errorf("failed to add filter 'allow LAN multicast IPv6': %w", err)
 					}
@@ -436,7 +514,7 @@ func doEnable() (retErr error) {
 		userExpsNets := getUserExceptions(false, true)
 		for _, n := range userExpsNets {
 			prefixLen, _ := n.Mask.Size()
-			_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, sublayerKey, filterDName, "user exception", n.IP, byte(prefixLen), isPersistent, winlib.FILTER_MAX_WEIGHT))
+			_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, ourSublayerKey, filterDName, "user exception", n.IP, byte(prefixLen), isPersistent, winlib.FILTER_MAX_WEIGHT))
 			if err != nil {
 				return fmt.Errorf("failed to add filter 'user exception': %w", err)
 			}
@@ -474,7 +552,7 @@ func doEnable() (retErr error) {
 		// Allow our Wireguard gateway(s), including ICMP
 		// TODO FIXME: Vlad - parse endpoint IP once and cache it in the prefs
 		for _, vpnEntryHost := range prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {
-			_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, sublayerKey, filterDName, "allow remote IP - Wireguard gateway", net.ParseIP(vpnEntryHost.EndpointIP), net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT))
+			_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, ourSublayerKey, filterDName, "allow remote IP - Wireguard gateway", net.ParseIP(vpnEntryHost.EndpointIP), net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT))
 			if err != nil {
 				return fmt.Errorf("failed to add filter 'allow remote IP - Wireguard gateway': '%s': %w", vpnEntryHost.EndpointIP, err)
 			}
@@ -491,7 +569,7 @@ func doEnable() (retErr error) {
 		if err != nil {
 			return fmt.Errorf("failed to obtain executable info: %w", err)
 		}
-		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, sublayerKey, sublayerDName, "", binaryPath, isPersistent, winlib.FILTER_MAX_WEIGHT))
+		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, ourSublayerKey, sublayerDName, "", binaryPath, isPersistent, winlib.FILTER_MAX_WEIGHT))
 		if err != nil {
 			return fmt.Errorf("failed to add filter 'allow application': \"%s\": %w", binaryPath, err)
 		}
@@ -502,11 +580,11 @@ func doEnable() (retErr error) {
 		// 	return fmt.Errorf("failed to add filter 'allow application - openvpn': %w", err)
 		// }
 		// allow WireGuard executable and wg-quick
-		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, sublayerKey, sublayerDName, "", platform.WgBinaryPath(), isPersistent, winlib.FILTER_MAX_WEIGHT))
+		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, ourSublayerKey, sublayerDName, "", platform.WgBinaryPath(), isPersistent, winlib.FILTER_MAX_WEIGHT))
 		if err != nil {
 			return fmt.Errorf("failed to add filter 'allow application': \"%s\": %w", platform.WgBinaryPath(), err)
 		}
-		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, sublayerKey, sublayerDName, "", platform.WgToolBinaryPath(), isPersistent, winlib.FILTER_MAX_WEIGHT))
+		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, ourSublayerKey, sublayerDName, "", platform.WgToolBinaryPath(), isPersistent, winlib.FILTER_MAX_WEIGHT))
 		if err != nil {
 			return fmt.Errorf("failed to add filter 'allow application': \"%s\": %w", platform.WgToolBinaryPath(), err)
 		}
@@ -528,7 +606,7 @@ func doEnable() (retErr error) {
 		// }
 
 		// TODO FIXME: Vlad - do we need AllowRemoteIP for 127.0.0.1?
-		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, sublayerKey, filterDName, "allow remote IP 127.0.0.1", net.ParseIP("127.0.0.1"), net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT))
+		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, ourSublayerKey, filterDName, "allow remote IP 127.0.0.1", net.ParseIP("127.0.0.1"), net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT))
 		if err != nil {
 			return fmt.Errorf("failed to add filter 'allow remote IP 127.0.0.1': %w", err)
 		}
@@ -541,7 +619,7 @@ func doEnable() (retErr error) {
 			// TODO FIXME: Vlad - do we need to allow inbound DNS packets on port 53? ... and outbound
 			for _, dnsSrv := range strings.Split(vpnEntryHost.DnsServers, ",") {
 				dnsSrv = strings.TrimSpace(dnsSrv)
-				_, err = manager.AddFilter(winlib.NewFilterAllowDNS(providerKey, layer, sublayerKey, sublayerDName, "Allow PL DNS "+dnsSrv, net.ParseIP(dnsSrv), net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT))
+				_, err = manager.AddFilter(winlib.NewFilterAllowDNS(providerKey, layer, ourSublayerKey, sublayerDName, "Allow PL DNS "+dnsSrv, net.ParseIP(dnsSrv), net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT))
 				if err != nil {
 					return fmt.Errorf("failed to add filter 'Allow PL DNS %s': %w", dnsSrv, err)
 				}
@@ -556,7 +634,7 @@ func doEnable() (retErr error) {
 				}
 				netmaskAsIP := net.IPv4(allowedIPNet.Mask[0], allowedIPNet.Mask[1], allowedIPNet.Mask[2], allowedIPNet.Mask[3])
 
-				_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, sublayerKey, filterDName, "allow remote IP - allowedIPs entry", allowedIP, netmaskAsIP, isPersistent, winlib.FILTER_MAX_WEIGHT))
+				_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, ourSublayerKey, filterDName, "allow remote IP - allowedIPs entry", allowedIP, netmaskAsIP, isPersistent, winlib.FILTER_MAX_WEIGHT))
 				if err != nil {
 					return fmt.Errorf("failed to add filter 'allow remote IP - allowedIPs entry': '%s': %w", allowedIpCIDR, err)
 				}
@@ -567,7 +645,7 @@ func doEnable() (retErr error) {
 		// TODO FIXME: Vlad - do we really need to enable these LAN rules?
 		if isAllowLAN { // LAN
 			for _, ip := range localAddressesV4 {
-				_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, sublayerKey, filterDName, "allow LAN", ip.IP, net.IP(ip.Mask), isPersistent, winlib.FILTER_MAX_WEIGHT))
+				_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, ourSublayerKey, filterDName, "allow LAN", ip.IP, net.IP(ip.Mask), isPersistent, winlib.FILTER_MAX_WEIGHT))
 				if err != nil {
 					return fmt.Errorf("failed to add filter 'allow LAN': %w", err)
 				}
@@ -576,7 +654,7 @@ func doEnable() (retErr error) {
 			// Multicast
 			if isAllowLANMulticast { // LAN multicast
 				for _, ip := range multicastAddressesV4 {
-					_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, sublayerKey, filterDName, "allow LAN multicast", ip.IP, net.IP(ip.Mask), isPersistent, winlib.FILTER_MAX_WEIGHT))
+					_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, ourSublayerKey, filterDName, "allow LAN multicast", ip.IP, net.IP(ip.Mask), isPersistent, winlib.FILTER_MAX_WEIGHT))
 					if err != nil {
 						return fmt.Errorf("failed to add filter 'allow LAN multicast': %w", err)
 					}
@@ -587,7 +665,7 @@ func doEnable() (retErr error) {
 		// user exceptions
 		userExpsNets := getUserExceptions(true, false)
 		for _, n := range userExpsNets {
-			_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, sublayerKey, filterDName, "user exception", n.IP, net.IP(n.Mask), isPersistent, winlib.FILTER_MAX_WEIGHT))
+			_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, ourSublayerKey, filterDName, "user exception", n.IP, net.IP(n.Mask), isPersistent, winlib.FILTER_MAX_WEIGHT))
 			if err != nil {
 				return fmt.Errorf("failed to add filter 'user exception': %w", err)
 			}
@@ -598,7 +676,7 @@ func doEnable() (retErr error) {
 	return nil
 }
 
-func doDisable() error {
+func doDisable(wfpTransactionAlreadyInProgress bool) error {
 	implSingleDnsRuleOff()
 
 	enabled, err := implGetEnabled()
@@ -607,7 +685,7 @@ func doDisable() error {
 	}
 
 	// retry moving our sublayer to top priority
-	if err = checkCreateProviderAndSublayer(); err != nil {
+	if err = checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, false); err != nil {
 		err = log.ErrorE(fmt.Errorf("failed to check/create provider or sublayer: %w", err), 0)
 	}
 
@@ -673,7 +751,7 @@ func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr 
 
 	filters := make([]uint64, 0, len(v4Layers))
 	for _, layer := range v4Layers {
-		f := winlib.NewFilterAllowLocalIP(providerKey, layer, sublayerKey, filterDName, "clientLocalIP", clientLocalIP, net.IPv4bcast, false)
+		f := winlib.NewFilterAllowLocalIP(providerKey, layer, ourSublayerKey, filterDName, "clientLocalIP", clientLocalIP, net.IPv4bcast, false)
 		id, err := manager.AddFilter(f)
 		if err != nil {
 			return fmt.Errorf("failed to add filter 'clientLocalIP' : %w", err)
@@ -684,7 +762,7 @@ func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr 
 	// IPv6: allow IPv6 communication inside tunnel
 	if clientLocalIPv6 != nil {
 		for _, layer := range v6Layers {
-			f := winlib.NewFilterAllowLocalIPV6(providerKey, layer, sublayerKey, filterDName, "clientLocalIPv6", clientLocalIPv6, byte(128), false)
+			f := winlib.NewFilterAllowLocalIPV6(providerKey, layer, ourSublayerKey, filterDName, "clientLocalIPv6", clientLocalIPv6, byte(128), false)
 			id, err := manager.AddFilter(f)
 			if err != nil {
 				return fmt.Errorf("failed to add filter 'clientLocalIPv6' : %w", err)
@@ -782,81 +860,150 @@ func implSingleDnsRuleOff() (retErr error) {
 }
 
 func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
-	// TODO FIXME: Vlad - disable much or all of functionality
+	// TODO FIXME: Vlad - disabled
 	log.Debug("implSingleDnsRuleOn - disabled, exiting")
 	return nil
 
-	enabled, err := implGetEnabled()
-	if err != nil {
-		return err
-	} else if enabled {
-		return fmt.Errorf("failed to apply specific DNS rule: Firewall already enabled")
-	}
+	/*
+		enabled, err := implGetEnabled()
+		if err != nil {
+			return err
+		} else if enabled {
+			return fmt.Errorf("failed to apply specific DNS rule: Firewall already enabled")
+		}
 
-	if dnsAddr == nil {
-		return fmt.Errorf("DNS address not defined")
-	}
+		if dnsAddr == nil {
+			return fmt.Errorf("DNS address not defined")
+		}
 
-	if err := manager.TransactionStart(); err != nil {
-		return fmt.Errorf("failed to start transaction: %w", err)
+		if err := manager.TransactionStart(); err != nil {
+			return fmt.Errorf("failed to start transaction: %w", err)
+		}
+		// do not forget to stop WFP transaction
+		defer func() {
+			if r := recover(); r == nil {
+				manager.TransactionCommit() // commit WFP transaction
+			} else {
+				manager.TransactionAbort() // abort WFP transaction
+
+				log.Error("PANIC (recovered): ", r)
+				if e, ok := r.(error); ok {
+					retErr = e
+				} else {
+					retErr = errors.New(fmt.Sprint(r))
+				}
+			}
+		}()
+
+		if err = checkCreateProviderAndSublayer(true, false); err != nil {
+			return fmt.Errorf("failed to check/create provider or sublayer: %w", err)
+		}
+
+		var ipv6DnsIpException net.IP = nil
+		var ipv4DnsIpException net.IP = nil
+		if dnsAddr.To4() == nil {
+			ipv6DnsIpException = dnsAddr
+		} else {
+			ipv4DnsIpException = dnsAddr
+		}
+
+		// IPv6 filters
+		for _, layer := range v6Layers {
+			// block DNS
+			_, err = manager.AddFilter(winlib.NewFilterBlockDNS(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "Block DNS", ipv6DnsIpException, false, winlib.FILTER_MAX_WEIGHT))
+			if err != nil {
+				return fmt.Errorf("failed to add filter 'block dns': %w", err)
+			}
+		}
+
+		// IPv4 filters
+		for _, layer := range v4Layers {
+			// block DNS
+			_, err = manager.AddFilter(winlib.NewFilterBlockDNS(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "Block DNS", ipv4DnsIpException, false, winlib.FILTER_MAX_WEIGHT))
+			if err != nil {
+				return fmt.Errorf("failed to add filter 'block dns': %w", err)
+			}
+			// allow DNS requests to 127.0.0.1:53
+			_, err = manager.AddFilter(winlib.AllowRemoteLocalhostDNS(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "", false, winlib.FILTER_MAX_WEIGHT))
+			if err != nil {
+				return fmt.Errorf("failed to add filter 'allow localhost dns': %w", err)
+			}
+			// allow V2Ray: to avoid blocking connections to V2Ray port 53
+			_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "", platform.V2RayBinaryPath(), false, winlib.FILTER_MAX_WEIGHT))
+			if err != nil {
+				return fmt.Errorf("failed to add filter 'allow application - V2Ray': %w", err)
+			}
+		}
+		return nil
+	*/
+}
+
+func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherGuyID, otherGuyName, otherGuyDescription string, retErr error) {
+	if recursionDepth == 0 { // start WFP transaction on the 1st recursion call
+		if err := manager.TransactionStart(); err != nil {
+			return false, "", "", "", fmt.Errorf("failed to start transaction: %w", err)
+		}
 	}
-	// do not forget to stop transaction
-	defer func() {
-		if r := recover(); r == nil {
+	defer func() { // do not forget to stop WFP transaction
+		if recursionDepth > 1 {
+			return
+		}
+		var r any = recover()
+		if retErr == nil && r == nil {
 			manager.TransactionCommit() // commit WFP transaction
 		} else {
-			manager.TransactionAbort() // abort WFPtransaction
+			manager.TransactionAbort() // abort WFP transaction
 
-			log.Error("PANIC (recovered): ", r)
-			if e, ok := r.(error); ok {
-				retErr = e
-			} else {
-				retErr = errors.New(fmt.Sprint(r))
+			if r != nil {
+				log.Error("PANIC (recovered): ", r)
+				if e, ok := r.(error); ok {
+					retErr = e
+				} else {
+					retErr = errors.New(fmt.Sprint(r))
+				}
 			}
 		}
 	}()
 
-	if err = checkCreateProviderAndSublayer(); err != nil {
-		return fmt.Errorf("failed to check/create provider or sublayer: %w", err)
+	var ourSublayerInstalled, otherSublayerFound bool
+	if ourSublayerInstalled, retErr = checkSublayerInstalled(); retErr != nil {
+		return false, "", "", "", fmt.Errorf("error checking whether our sublayer is installed: %w", retErr)
+	}
+	if !ourSublayerInstalled {
+		if recursionDepth == 0 { // if our sublayer wasn't installed - try to create and add it
+			if retErr = checkCreateProviderAndSublayer(true, false); retErr != nil {
+				return false, "", "", "", fmt.Errorf("error creating our sublayer: %w", retErr)
+			}
+			return implHaveTopFirewallPriority(recursionDepth + 1)
+		}
+		return false, "", "", "", fmt.Errorf("error - our sublayer isn't installed: %w", retErr) // already tried creating it in the parent call
 	}
 
-	var ipv6DnsIpException net.IP = nil
-	var ipv4DnsIpException net.IP = nil
-	if dnsAddr.To4() == nil {
-		ipv6DnsIpException = dnsAddr
-	} else {
-		ipv4DnsIpException = dnsAddr
+	if ourSublayerWeight == winlib.SUBLAYER_MAX_WEIGHT {
+		return true, "", "", "", nil
 	}
 
-	// IPv6 filters
-	for _, layer := range v6Layers {
-		// block DNS
-		_, err = manager.AddFilter(winlib.NewFilterBlockDNS(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "Block DNS", ipv6DnsIpException, false, winlib.FILTER_MAX_WEIGHT))
-		if err != nil {
-			return fmt.Errorf("failed to add filter 'block dns': %w", err)
+	// ok, by this point we know that our sublayer is installed and that it doesn't have max weight
+
+	if otherSublayerFound, otherSublayerGUID, retErr = findOtherSublayerWithMaxWeight(); retErr != nil { // check if max weight slot is vacant
+		return false, "", "", "", fmt.Errorf("failed to check for other sublayer with max weight: %w", retErr)
+	}
+	if otherSublayerFound {
+		otherGuyID = windows.GUID(otherSublayerGUID).String()
+		if otherSublayerFound, otherSublayer, err := manager.GetSubLayerByKey(otherSublayerGUID); err == nil && otherSublayerFound {
+			otherGuyName = otherSublayer.Name
+			otherGuyDescription = otherSublayer.Description
 		}
+		return false, otherGuyID, otherGuyName, otherGuyDescription, nil
 	}
 
-	// IPv4 filters
-	for _, layer := range v4Layers {
-		// block DNS
-		_, err = manager.AddFilter(winlib.NewFilterBlockDNS(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "Block DNS", ipv4DnsIpException, false, winlib.FILTER_MAX_WEIGHT))
-		if err != nil {
-			return fmt.Errorf("failed to add filter 'block dns': %w", err)
-		}
-		// allow DNS requests to 127.0.0.1:53
-		_, err = manager.AddFilter(winlib.AllowRemoteLocalhostDNS(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "", false, winlib.FILTER_MAX_WEIGHT))
-		if err != nil {
-			return fmt.Errorf("failed to add filter 'allow localhost dns': %w", err)
-		}
-		// allow V2Ray: to avoid blocking connections to V2Ray port 53
-		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "", platform.V2RayBinaryPath(), false, winlib.FILTER_MAX_WEIGHT))
-		if err != nil {
-			return fmt.Errorf("failed to add filter 'allow application - V2Ray': %w", err)
-		}
+	if recursionDepth >= 2 { // terminate the recursion finally
+		return false, "", "", "", nil
 	}
-	return nil
+
+	// yay, we haven't reached bottom of recursion yet, and the top slot is vacant - try to occupy it
+	if retErr = checkCreateProviderAndSublayer(true, false); retErr != nil {
+		return false, "", "", "", retErr
+	}
+	return implHaveTopFirewallPriority(recursionDepth + 1)
 }
-
-// FIXME: Vlad - ourSublayerWeight can be stale. For reporting to UI - recheck afresh. Also if we don't have max weight - fetch info on the other sublayer which does.
-func implTopFirewallPriority() bool { return ourSublayerWeight == winlib.SUBLAYER_MAX_WEIGHT }

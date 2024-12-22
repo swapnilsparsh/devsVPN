@@ -1076,16 +1076,20 @@ func (s *Service) SetKillSwitchState(isEnabled bool) error {
 // KillSwitchState returns kill-switch state
 func (s *Service) KillSwitchState() (status types.KillSwitchStatus, err error) {
 	prefs := s._preferences
-	enabled, isLanAllowed, _, err := firewall.GetState()
+	enabled, isLanAllowed, _, weHaveTopFirewallPriority, otherGuyID, otherGuyName, otherGuyDescription, err := firewall.GetState()
 
 	return types.KillSwitchStatus{
-		IsEnabled:         enabled,
-		IsPersistent:      prefs.IsFwPersistent,
-		IsAllowLAN:        prefs.IsFwAllowLAN,
-		IsAllowMulticast:  prefs.IsFwAllowLANMulticast,
-		IsAllowApiServers: prefs.IsFwAllowApiServers,
-		UserExceptions:    prefs.FwUserExceptions,
-		StateLanAllowed:   isLanAllowed,
+		IsEnabled:                    enabled,
+		IsPersistent:                 prefs.IsFwPersistent,
+		IsAllowLAN:                   prefs.IsFwAllowLAN,
+		IsAllowMulticast:             prefs.IsFwAllowLANMulticast,
+		IsAllowApiServers:            prefs.IsFwAllowApiServers,
+		UserExceptions:               prefs.FwUserExceptions,
+		StateLanAllowed:              isLanAllowed,
+		StateRegisteredAtTopPriority: weHaveTopFirewallPriority,
+		OtherGuyID:                   otherGuyID,
+		OtherGuyName:                 otherGuyName,
+		OtherGuyDescription:          otherGuyDescription,
 	}, err
 }
 
@@ -1152,8 +1156,7 @@ func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) er
 
 // KillSwitchReregister try to reregister our firewall logic at top
 func (s *Service) KillSwitchReregister(canUnregisterOtherVPNFirewall bool) error {
-	// TODO FIXME: Vlad - implement
-	return nil
+	return firewall.TryReregisterFirewallAtTopPriority(canUnregisterOtherVPNFirewall)
 }
 
 func (s *Service) SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error {

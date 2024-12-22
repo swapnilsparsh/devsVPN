@@ -32,4 +32,8 @@ type KillSwitchStatus struct {
 
 	StateLanAllowed              bool // real state of 'Allow LAN'
 	StateRegisteredAtTopPriority bool // whether PL Firewall sublayer is registered at top weight (0xFFFF) in WFP
+	// if PL Firewall sublayer is not registered at top weight, then this is the information about the other guy
+	OtherGuyID          string
+	OtherGuyName        string
+	OtherGuyDescription string
 }

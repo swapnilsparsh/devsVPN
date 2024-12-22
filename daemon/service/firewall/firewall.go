@@ -65,6 +65,9 @@ var (
 // Initialize is doing initialization stuff
 // Must be called on application start
 func Initialize(prefsCallback GetPrefsCallback) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	getPrefsCallback = prefsCallback
 	return implInitialize()
 }
@@ -129,16 +132,20 @@ func GetEnabled() (bool, error) {
 	return ret, err
 }
 
-func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, err error) {
+func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, weHaveTopFirewallPriority bool, otherGuyID, otherGuyName, otherGuyDescription string, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	ret, err := implGetEnabled()
 	if err != nil {
-		log.Error("Status check error: ", err)
+		log.Error(fmt.Errorf("status check error: %w", err))
 	}
 
-	return ret, stateAllowLan, stateAllowLanMulticast, err
+	if weHaveTopFirewallPriority, otherGuyID, otherGuyName, otherGuyDescription, err = implHaveTopFirewallPriority(0); err != nil {
+		log.Error(fmt.Errorf("error checking whether we have top firewall priority: %w", err))
+	}
+
+	return ret, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherGuyID, otherGuyName, otherGuyDescription, err
 }
 
 // SingleDnsRuleOn - add rule to allow DNS communication with specified IP only
@@ -321,6 +328,9 @@ func OnChangeDNS(newDnsCfg *dns.DnsSettings) error {
 // Parameters:
 //   - exceptions - comma separated list of IP addresses in format: x.x.x.x[/xx]
 func SetUserExceptions(exceptions string, ignoreParseErrors bool) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	userExceptions = []net.IPNet{}
 
 	splitFunc := func(c rune) bool {
@@ -362,9 +372,16 @@ func SetUserExceptions(exceptions string, ignoreParseErrors bool) error {
 }
 
 // Is our firewall logic registered at top priority? This is necessary on Windows
-func TopFirewallPriority() bool {
+func HaveTopFirewallPriority() (weHaveTopFirewallPriority bool, otherGuyID, otherGuyName, otherGuyDescription string, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implTopFirewallPriority()
+	return implHaveTopFirewallPriority(0)
+}
+
+func TryReregisterFirewallAtTopPriority(unregisterOtherGuy bool) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return implReregisterFirewallAtTopPriority(unregisterOtherGuy)
 }
