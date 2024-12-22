@@ -59,13 +59,14 @@
           class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">VPN Coexistence:</div>
           <div class="detailedParamValue">
-            <div class="">
-              FAILED
+            <div class="" v-if="!vpnCoexistenceState">
+              <!-- TODO: WIll Fix Text Show According to the value received in vpnCoexistenceState -->
+              FAILED {{ vpnCoexistenceState }}
               <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()">Retry</button>
             </div>
-            <!-- <div class="">
+            <div class="" v-if="vpnCoexistenceState">
               GOOD
-            </div> -->
+            </div>
 
           </div>
         </div>
@@ -242,6 +243,7 @@ export default {
       if (ret.response == 1) return; // cancel
       if (ret.response == 0) {
         killSwitchReregisterFlag = true;
+        this.$store.dispatch("settings/vpnCoexistenceState", true);
         // Call here function to kill 
         const resp = await sender.KillSwitchReregister(true);
         console.log(resp?.APIStatus)
@@ -259,9 +261,13 @@ export default {
       // Otherwise, return the actual HandshakeTime
       return this.$store.state.vpnState.handshake.HandshakeTime;
     },
-    vpnCoexistenceState() {
-      // TODO for Sandeep to flesh out
-      return "TODO report VPN coexistence state";
+    vpnCoexistenceState: {
+      get() {
+        return this.$store.state.settings.vpnCoexistenceState;
+      },
+      set(value) {
+        this.$store.dispatch("settings/vpnCoexistenceState", value);
+      },
     },
     formattedElapsedTime() {
       const minutes = Math.floor(this.elapsedTime / 60);
