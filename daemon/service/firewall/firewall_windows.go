@@ -186,7 +186,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 			log.Warning(fmt.Errorf("warning - failed to delete our sublayer: %w", err))
 		}
 		log.Debug(fmt.Sprintf("checkCreateProviderAndSublayer - trying to re-create our sublayer with weight 0x%04X", winlib.SUBLAYER_MAX_WEIGHT))
-		return createAddSublayer() // TODO FIXME: Vlad - now, if firewall was enabled - we need to trigger reEnable(). Without getting into any deadlocks.
+		return createAddSublayer()
 	}
 
 	return err
