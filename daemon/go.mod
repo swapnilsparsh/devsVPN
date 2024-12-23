@@ -9,7 +9,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/net v0.33.0
 	golang.org/x/sync v0.6.0
-	golang.org/x/sys v0.18.0
+	golang.org/x/sys v0.28.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
 	golang.zx2c4.com/wireguard/windows v0.5.3
 )
