@@ -66,7 +66,6 @@ const getDefaultState = () => {
     // general
     quitWithoutConfirmation: false,
     disconnectOnQuit: true,
-    vpnCoexistenceState: false,
 
     // This object received out FROM DAEMON!
     daemonSettings: {
@@ -306,9 +305,6 @@ export default {
     // general
     disconnectOnQuit(state, val) {
       state.disconnectOnQuit = val;
-    },
-    vpnCoexistenceState(state, val) {
-      state.vpnCoexistenceState = val;
     },
     quitWithoutConfirmation(state, val) {
       state.quitWithoutConfirmation = val;
@@ -772,9 +768,6 @@ export default {
     // general
     disconnectOnQuit(context, val) {
       context.commit("disconnectOnQuit", val);
-    },
-    vpnCoexistenceState(context, val) {
-      context.commit("vpnCoexistenceState", val);
     },
     quitWithoutConfirmation(context, val) {
       context.commit("quitWithoutConfirmation", val);

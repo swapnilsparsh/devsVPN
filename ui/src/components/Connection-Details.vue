@@ -58,13 +58,13 @@
         <div v-if="isWindows" class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">VPN Coexistence:</div>
           <div class="detailedParamValue">
-            <div class="failedText" v-if="!vpnCoexistenceState">
-              <!-- TODO: WIll Fix Text Show According to the value received in vpnCoexistenceState -->
+            <div class="failedText" v-if="!vpnCoexistenceInGoodState">
+              <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
               <!-- {{ vpnCoexistenceState }} -->
               FAILED
               <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()">Retry</button>
             </div>
-            <div class="goodText" v-if="vpnCoexistenceState">
+            <div class="goodText" v-if="vpnCoexistenceInGoodState">
               GOOD
             </div>
 
@@ -137,9 +137,12 @@ export default {
       startTime: null, // To keep track of when the stopwatch started
       elapsedTime: 0, // To keep track of elapsed time in seconds
       intervalId: null, // To store the interval ID for clearing it later
+      vpnCoexistenceInGoodState: false,
     };
   },
   mounted() {
+    this.vpnCoexistenceInGoodState = this.weHaveTopFirewallPriority;
+
     // Parse the timestamp
     const ConnectedSince =
       this.$store.state.vpnState.connectionInfo?.ConnectedSince;
@@ -177,6 +180,9 @@ export default {
         }
       }
     },
+    weHaveTopFirewallPriority() {
+      this.vpnCoexistenceInGoodState = this.weHaveTopFirewallPriority;
+    }
   },
 
   methods: {
@@ -230,28 +236,40 @@ export default {
     },
 
     async vpnCoexistRetryConfirmPopup() {
-      let killSwitchReregisterFlag = false;
       let ret = await sender.showMessageBox(
         {
           type: "warning",
           buttons: ["OK", "Cancel"],
           message: "Confirm",
-          detail: `Are you sure you want to allow privateLINE to stop temporarily the tunneling feature of other VPN and get permissions automatically. Press Ok to continue?`,
+          detail: `Do you allow privateLINE to stop temporarily the other VPN '${this.$store.state.vpnState.firewallState.OtherVpnName}' and get permissions automatically? Press Ok to continue`,
         },
         true
       );
       if (ret.response == 1) return; // cancel
       if (ret.response == 0) {
-        killSwitchReregisterFlag = true;
-        //this.$store.dispatch("settings/vpnCoexistenceState", true); // This is not right.
-        // Call here function to kill 
-        const resp = await sender.KillSwitchReregister(true);
-        // TODO to check the result - need to call KillSwitchGetStatus and set vpnCoexistenceState=StateRegisteredAtTopPriority
-        console.log("Start Calling KillSwitchGetStatus... Waiting")
-        let statusResp = await sender.KillSwitchGetStatus();  // FIX ME: Not Getting Response
-        console.log(statusResp)
-        console.log("Start Calling KillSwitchGetStatus... Executed Next Line")
+        let errMsg = "Error: failed to get top firewall permissions - please try again later or contact tech support";
+        try {
+          await sender.KillSwitchReregister(true);
+          await sender.KillSwitchGetStatus();
+        } catch (e) {
+          console.error(e);
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: errMsg,
+            detail: e,
+          });
+          return;
+        }
 
+        // TODO to check the result - recheck this.weHaveTopFirewallPriority
+        if (!this.weHaveTopFirewallPriority) {
+          sender.showMessageBoxSync({
+             type: "error",
+             buttons: ["OK"],
+             message: errMsg,
+          });
+        }
       }
     }
   },
@@ -265,13 +283,8 @@ export default {
       // Otherwise, return the actual HandshakeTime
       return this.$store.state.vpnState.handshake.HandshakeTime;
     },
-    vpnCoexistenceState: {
-      get() {
-        return this.$store.state.settings.vpnCoexistenceState;
-      },
-      set(value) {
-        this.$store.dispatch("settings/vpnCoexistenceState", value);
-      },
+    weHaveTopFirewallPriority() {
+       return this.$store.state.vpnState.firewallState.WeHaveTopFirewallPriority;
     },
     formattedElapsedTime() {
       const minutes = Math.floor(this.elapsedTime / 60);
