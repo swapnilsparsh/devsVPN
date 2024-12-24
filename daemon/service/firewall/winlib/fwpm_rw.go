@@ -167,7 +167,7 @@ func FwpmSubLayerGetByKey0(engineHandle windows.Handle, guid SublayerID, sublaye
 	if r0 == ERROR_FWP_E_SUBLAYER_NOT_FOUND {
 		return false, nil
 	} else if r0 != 0 {
-		return false, syscall.Errno(r0)
+		return false, checkDefaultAPIResp(r0, nil)
 	}
 
 	return true, nil

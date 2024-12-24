@@ -162,7 +162,7 @@ func checkDefaultAPIResp(retval uintptr, err error) error {
 		return err
 	}
 	if retval != 0 {
-		return fmt.Errorf("WFP error: 0x%X", retval)
+		return fmt.Errorf("WFP error: 0x%X (%s)", retval, syscall.Errno(retval))
 	}
 	return nil
 }

@@ -116,7 +116,8 @@ func implReregisterFirewallAtTopPriority(unregisterOtherVpnSublayer bool) (retEr
 		}
 	}()
 
-	wasEnabled, retErr := implGetEnabled()
+	var wasEnabled bool
+	wasEnabled, retErr = implGetEnabled()
 	if retErr != nil {
 		return log.ErrorE(fmt.Errorf("status check error: %w", retErr), 0)
 	}
@@ -185,8 +186,15 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 		}
 	}()
 
+	var (
+		pInfo                                                 winlib.ProviderInfo
+		installed, maxWeightSublayerFound, otherSublayerFound bool
+		otherSublayer                                         winlib.SubLayer
+		_otherSublayerGUID                                    syscall.GUID
+	)
+
 	// add provider
-	pInfo, retErr := manager.GetProviderInfo(providerKey)
+	pInfo, retErr = manager.GetProviderInfo(providerKey)
 	if retErr != nil {
 		return fmt.Errorf("failed to get provider info: %w", retErr)
 	}
@@ -198,7 +206,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 	}
 
 	// add sublayer
-	installed, retErr := checkSublayerInstalled()
+	installed, retErr = checkSublayerInstalled()
 	if retErr != nil {
 		return fmt.Errorf("failed to check sublayer is installed: %w", retErr)
 	}
@@ -207,20 +215,21 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 	}
 
 	if ourSublayerWeight < winlib.SUBLAYER_MAX_WEIGHT { // our sublayer installed, check if it has max weight
-		maxWeightSublayerFound, _otherSublayerGUID, retErr := findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
+		maxWeightSublayerFound, _otherSublayerGUID, retErr = findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
 		if retErr != nil {
 			return fmt.Errorf("failed to check for sublayer with max weight: %w", retErr)
 		}
 		if maxWeightSublayerFound {
 			otherSublayerMsg := fmt.Sprintf("Another sublayer with key/UUID '%s' is registered with max weight", windows.GUID(_otherSublayerGUID).String())
-			if otherSublayerFound, otherSublayer, retErr := manager.GetSubLayerByKey(_otherSublayerGUID); retErr == nil && otherSublayerFound {
+			otherSublayerFound, otherSublayer, retErr = manager.GetSubLayerByKey(_otherSublayerGUID)
+			if retErr == nil && otherSublayerFound {
 				otherSublayerMsg += ". Other sublayer information:\n" + otherSublayer.String()
 			}
 			log.Warning(otherSublayerMsg)
 
 			if unregisterOtherVpnSublayer { // if requested to unregister the other guy, try it
-				if retErr := manager.DeleteSubLayer(_otherSublayerGUID); retErr != nil {
-					return log.ErrorE(fmt.Errorf("error deleting the other sublayer '%s': %w", windows.GUID(_otherSublayerGUID).String(), retErr), 0)
+				if retErr = manager.DeleteSubLayer(_otherSublayerGUID); retErr != nil {
+					return log.ErrorE(fmt.Errorf("error deleting the other sublayer '%s' '%s': %w", otherSublayer.Name, windows.GUID(_otherSublayerGUID).String(), retErr), 0)
 				}
 			} else {
 				log.Warning("Not requested to unregister the other sublayer, so we can't register our sublayer at max weight at the moment.")
@@ -265,7 +274,7 @@ func implGetEnabled() (bool, error) {
 
 func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress bool) (retErr error) {
 	if !wfpTransactionAlreadyInProgress {
-		if retErr := manager.TransactionStart(); retErr != nil { // start WFP transaction
+		if retErr = manager.TransactionStart(); retErr != nil { // start WFP transaction
 			return fmt.Errorf("failed to start transaction: %w", retErr)
 		}
 	}
@@ -444,7 +453,7 @@ func implOnUserExceptionsUpdated() error {
 }
 
 func reEnable() (retErr error) {
-	log.Debug("reEnable")
+	log.Info("reEnable")
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
@@ -480,6 +489,7 @@ func reEnable() (retErr error) {
 }
 
 func doEnable(wfpTransactionAlreadyInProgress bool) (retErr error) {
+	log.Info("doEnable")
 	implSingleDnsRuleOff()
 
 	enabled, err := implGetEnabled()
@@ -734,6 +744,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (retErr error) {
 }
 
 func doDisable(wfpTransactionAlreadyInProgress bool) error {
+	log.Info("doDisable")
 	implSingleDnsRuleOff()
 
 	enabled, err := implGetEnabled()
@@ -995,7 +1006,7 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 	*/
 }
 
-func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherGuyID, otherGuyName, otherGuyDescription string, retErr error) {
+func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
 	if recursionDepth == 0 { // start WFP transaction on the 1st recursion call
 		if retErr = manager.TransactionStart(); retErr != nil {
 			return false, "", "", "", fmt.Errorf("failed to start transaction: %w", retErr)
@@ -1022,7 +1033,11 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 		}
 	}()
 
-	var ourSublayerInstalled, otherSublayerFound bool
+	var (
+		ourSublayerInstalled, otherSublayerFound bool
+		_otherSublayerGUID                       syscall.GUID
+	)
+
 	if ourSublayerInstalled, retErr = checkSublayerInstalled(); retErr != nil {
 		return false, "", "", "", fmt.Errorf("error checking whether our sublayer is installed: %w", retErr)
 	}
@@ -1041,18 +1056,18 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 	}
 
 	// ok, by this point we know that our sublayer is installed and that it doesn't have max weight
-	otherSublayerFound, _otherSublayerGUID, retErr := findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
+	otherSublayerFound, _otherSublayerGUID, retErr = findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
 	if retErr != nil {
 		return false, "", "", "", fmt.Errorf("failed to check for other sublayer with max weight: %w", retErr)
 	}
 	if otherSublayerFound {
-		otherGuyID = windows.GUID(_otherSublayerGUID).String()
+		otherVpnID = windows.GUID(_otherSublayerGUID).String()
 		var otherSublayer winlib.SubLayer
 		if otherSublayerFound, otherSublayer, retErr = manager.GetSubLayerByKey(_otherSublayerGUID); retErr == nil && otherSublayerFound {
-			otherGuyName = otherSublayer.Name
-			otherGuyDescription = otherSublayer.Description
+			otherVpnName = otherSublayer.Name
+			otherVpnDescription = otherSublayer.Description
 		}
-		return false, otherGuyID, otherGuyName, otherGuyDescription, nil
+		return false, otherVpnID, otherVpnName, otherVpnDescription, nil
 	}
 
 	if recursionDepth >= 2 { // terminate the recursion finally

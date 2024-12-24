@@ -1076,20 +1076,20 @@ func (s *Service) SetKillSwitchState(isEnabled bool) error {
 // KillSwitchState returns kill-switch state
 func (s *Service) KillSwitchState() (status types.KillSwitchStatus, err error) {
 	prefs := s._preferences
-	enabled, isLanAllowed, _, weHaveTopFirewallPriority, otherGuyID, otherGuyName, otherGuyDescription, err := firewall.GetState()
+	enabled, isLanAllowed, _, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err := firewall.GetState()
 
 	return types.KillSwitchStatus{
-		IsEnabled:                    enabled,
-		IsPersistent:                 prefs.IsFwPersistent,
-		IsAllowLAN:                   prefs.IsFwAllowLAN,
-		IsAllowMulticast:             prefs.IsFwAllowLANMulticast,
-		IsAllowApiServers:            prefs.IsFwAllowApiServers,
-		UserExceptions:               prefs.FwUserExceptions,
-		StateLanAllowed:              isLanAllowed,
-		StateRegisteredAtTopPriority: weHaveTopFirewallPriority,
-		OtherGuyID:                   otherGuyID,
-		OtherGuyName:                 otherGuyName,
-		OtherGuyDescription:          otherGuyDescription,
+		IsEnabled:                 enabled,
+		IsPersistent:              prefs.IsFwPersistent,
+		IsAllowLAN:                prefs.IsFwAllowLAN,
+		IsAllowMulticast:          prefs.IsFwAllowLANMulticast,
+		IsAllowApiServers:         prefs.IsFwAllowApiServers,
+		UserExceptions:            prefs.FwUserExceptions,
+		StateLanAllowed:           isLanAllowed,
+		WeHaveTopFirewallPriority: weHaveTopFirewallPriority,
+		OtherVpnID:                otherVpnID,
+		OtherVpnName:              otherVpnName,
+		OtherVpnDescription:       otherVpnDescription,
 	}, err
 }
 

@@ -128,11 +128,12 @@ func GetEnabled() (bool, error) {
 	if err != nil {
 		log.Error("Status check error: ", err)
 	}
+	log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t", ret, stateAllowLan, stateAllowLanMulticast))
 
 	return ret, err
 }
 
-func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, weHaveTopFirewallPriority bool, otherGuyID, otherGuyName, otherGuyDescription string, err error) {
+func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -141,11 +142,12 @@ func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, weHaveTopFire
 		log.Error(fmt.Errorf("status check error: %w", err))
 	}
 
-	if weHaveTopFirewallPriority, otherGuyID, otherGuyName, otherGuyDescription, err = implHaveTopFirewallPriority(0); err != nil {
+	if weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err = implHaveTopFirewallPriority(0); err != nil {
 		log.Error(fmt.Errorf("error checking whether we have top firewall priority: %w", err))
 	}
+	log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t", ret, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast))
 
-	return ret, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherGuyID, otherGuyName, otherGuyDescription, err
+	return ret, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err
 }
 
 // SingleDnsRuleOn - add rule to allow DNS communication with specified IP only
@@ -372,16 +374,16 @@ func SetUserExceptions(exceptions string, ignoreParseErrors bool) error {
 }
 
 // Is our firewall logic registered at top priority? This is necessary on Windows
-func HaveTopFirewallPriority() (weHaveTopFirewallPriority bool, otherGuyID, otherGuyName, otherGuyDescription string, err error) {
+func HaveTopFirewallPriority() (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	return implHaveTopFirewallPriority(0)
 }
 
-func TryReregisterFirewallAtTopPriority(unregisterOtherGuy bool) (err error) {
+func TryReregisterFirewallAtTopPriority(unregisterOtherVpn bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implReregisterFirewallAtTopPriority(unregisterOtherGuy)
+	return implReregisterFirewallAtTopPriority(unregisterOtherVpn)
 }
