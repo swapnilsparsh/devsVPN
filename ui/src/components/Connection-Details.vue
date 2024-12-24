@@ -240,7 +240,7 @@ export default {
         {
           type: "warning",
           buttons: ["OK", "Cancel"],
-          message: "Confirm",
+          message: "Please Confirm",
           detail: `Do you allow privateLINE to stop temporarily the other VPN '${this.$store.state.vpnState.firewallState.OtherVpnName}' and get permissions automatically? Press Ok to continue`,
         },
         true
