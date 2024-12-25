@@ -259,7 +259,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 			}
 		}
 
-		// So max weight slot should be vacant by now, try to delete our sublayer and recreate it at max weight.
+		// So max weight slot should be vacant by now, so try to delete our sublayer and recreate it at max weight.
 		// We can delete the sublayer only if it's empty. The caller, firewall.TryReregisterFirewallAtTopPriority(), stopped the firewall before calling us.
 		if sublayerNotFound, err := manager.DeleteSubLayer(ourSublayerKey); err != nil {
 			if sublayerNotFound {
@@ -271,8 +271,8 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 		reregisterMsg := fmt.Sprintf("checkCreateProviderAndSublayer - trying to re-create our sublayer with max weight 0x%04X", winlib.SUBLAYER_MAX_WEIGHT)
 		if retErr = createAddSublayer(); retErr != nil {
 			log.Error(reregisterMsg + ": FAILED")
-		} else {
-			log.Info(reregisterMsg + ": SUCCESS")
+			// } else {
+			// 	log.Info(reregisterMsg + ": SUCCESS")
 		}
 	}
 
