@@ -561,86 +561,86 @@ if (gotTheLock && isAllowedToStart) {
 
 async function isCanQuit() {
   // Vlad: skipping the logic
-  return true;
+  // TODO: Sandeep Ask for confirmation when closing -> Managing on existing functionality since we have check boxes for them
 
-  if (store.getters["vpnState/isInverseSplitTunnel"]) {
-    // temporary enable application icon in system dock
-    setAppDockVisibility(true);
+  // if (store.getters["vpnState/isInverseSplitTunnel"]) {
+  //   // temporary enable application icon in system dock
+  //   setAppDockVisibility(true);
 
-    let msgBoxConfig = {
-      type: "question",
-      message: "Deactivate Split Tunnel?",
-      detail:
-        "The Inverse Split Tunnel mode is active.\nDo you want to deactivate Split Tunnel before exiting the application?",
-      buttons: [
-        "Cancel",
-        "Keep Split Tunnel active",
-        "Deactivate Split Tunnel",
-      ],
-    };
+  //   let msgBoxConfig = {
+  //     type: "question",
+  //     message: "Deactivate Split Tunnel?",
+  //     detail:
+  //       "The Inverse Split Tunnel mode is active.\nDo you want to deactivate Split Tunnel before exiting the application?",
+  //     buttons: [
+  //       "Cancel",
+  //       "Keep Split Tunnel active",
+  //       "Deactivate Split Tunnel",
+  //     ],
+  //   };
 
-    let actionNo = 0;
-    let action = null;
-    if (win == null) action = await dialog.showMessageBox(msgBoxConfig);
-    else action = await dialog.showMessageBox(win, msgBoxConfig);
-    actionNo = action.response;
+  //   let actionNo = 0;
+  //   let action = null;
+  //   if (win == null) action = await dialog.showMessageBox(msgBoxConfig);
+  //   else action = await dialog.showMessageBox(win, msgBoxConfig);
+  //   actionNo = action.response;
 
-    switch (actionNo) {
-      case 0: // Cancel
-        return false;
+  //   switch (actionNo) {
+  //     case 0: // Cancel
+  //       return false;
 
-      case 1: // Keep & Quit
-        // do nothing here
-        break;
+  //     case 1: // Keep & Quit
+  //       // do nothing here
+  //       break;
 
-      case 2: // Deactivate & Quit
-        await daemonClient.SplitTunnelSetConfig(false);
-        break;
-    }
-  }
+  //     case 2: // Deactivate & Quit
+  //       await daemonClient.SplitTunnelSetConfig(false);
+  //       break;
+  //   }
+  // }
 
   // if disconnected -> close application immediately
-  if (store.getters["vpnState/isDisconnected"]) {
-    if (
-      store.state.vpnState.firewallState.IsPersistent == false &&
-      store.state.vpnState.firewallState.IsEnabled == true
-    ) {
-      let msgBoxConfig = {
-        type: "question",
-        message: "Deactivate Firewall?",
-        detail:
-          "The PrivateLINE Firewall is active.\nDo you want to deactivate it before exiting the application?",
-        buttons: [
-          "Cancel",
-          "Keep Firewall activated and Quit",
-          "Deactivate Firewall and Quit",
-        ],
-      };
+  // if (store.getters["vpnState/isDisconnected"]) {
+  //   if (
+  //     store.state.vpnState.firewallState.IsPersistent == false &&
+  //     store.state.vpnState.firewallState.IsEnabled == true
+  //   ) {
+  //     let msgBoxConfig = {
+  //       type: "question",
+  //       message: "Deactivate Firewall?",
+  //       detail:
+  //         "The PrivateLINE Firewall is active.\nDo you want to deactivate it before exiting the application?",
+  //       buttons: [
+  //         "Cancel",
+  //         "Keep Firewall activated and Quit",
+  //         "Deactivate Firewall and Quit",
+  //       ],
+  //     };
 
-      // temporary enable application icon in system dock
-      setAppDockVisibility(true);
+  //     // temporary enable application icon in system dock
+  //     setAppDockVisibility(true);
 
-      let actionNo = 0;
-      let action = null;
-      if (win == null) action = await dialog.showMessageBox(msgBoxConfig);
-      else action = await dialog.showMessageBox(win, msgBoxConfig);
-      actionNo = action.response;
+  //     let actionNo = 0;
+  //     let action = null;
+  //     if (win == null) action = await dialog.showMessageBox(msgBoxConfig);
+  //     else action = await dialog.showMessageBox(win, msgBoxConfig);
+  //     actionNo = action.response;
 
-      switch (actionNo) {
-        case 0: // Cancel
-          return false;
+  //     switch (actionNo) {
+  //       case 0: // Cancel
+  //         return false;
 
-        case 1: // Keep Firewall activate & Quit
-          // do nothing here
-          break;
+  //       case 1: // Keep Firewall activate & Quit
+  //         // do nothing here
+  //         break;
 
-        case 2: // Deactivate Firewall & Quit
-          await daemonClient.EnableFirewall(false);
-          break;
-      }
-    }
-    return true;
-  }
+  //       case 2: // Deactivate Firewall & Quit
+  //         await daemonClient.EnableFirewall(false);
+  //         break;
+  //     }
+  //   }
+  //   return true;
+  // }
 
   let actionNo = 0;
   if (store.state.settings.quitWithoutConfirmation) {
