@@ -136,7 +136,7 @@ func TestBlockAll(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		} else if found {
-			if err := mgr.DeleteSubLayer(sublayerKey); err != nil {
+			if _, err := mgr.DeleteSubLayer(sublayerKey); err != nil {
 				t.Error(err)
 			}
 		}

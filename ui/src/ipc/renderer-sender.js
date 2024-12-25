@@ -191,8 +191,8 @@ export default {
     );
   },
 
-  KillSwitchReregister: async (CanUnregisterOtherVPNFirewall) => {
-    return await invoke("renderer-request-KillSwitchReregister", CanUnregisterOtherVPNFirewall);
+  KillSwitchReregister: async (CanStopOtherVpn) => {
+    return await invoke("renderer-request-KillSwitchReregister", CanStopOtherVpn);
   },
   KillSwitchGetStatus: async () => {
     return await invoke("renderer-request-KillSwitchGetStatus");

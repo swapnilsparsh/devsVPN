@@ -108,9 +108,9 @@ type KillSwitchSetAllowLAN struct {
 
 type KillSwitchReregister struct {
 	RequestBase
-	// If CanUnregisterOtherVPNFirewall==true: then daemon will unregister it and try to reregister ours at top priority.
-	// Otherwise we just try to reregister our at top priority.
-	CanUnregisterOtherVPNFirewall bool
+	// If CanStopOtherVpn==true: then daemon will stop the other VPN service, unregister their firewall module, and try to reregister our firewall module at top priority.
+	// Otherwise we just try to reregister ours at top priority.
+	CanStopOtherVpn bool
 }
 
 // KillSwitchSetUserExceptions set ip masks to exclude from firewall blocking rules

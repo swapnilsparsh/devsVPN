@@ -311,9 +311,9 @@ func (m *Manager) AddSubLayer(sbl SubLayer) (retErr error) {
 }
 
 // DeleteSubLayer removes WFP sublayer
-func (m *Manager) DeleteSubLayer(sublayerKey syscall.GUID) error {
+func (m *Manager) DeleteSubLayer(sublayerKey syscall.GUID) (sublayerNotFound bool, err error) {
 	if !m.isInitialized() {
-		return errors.New("unable to delete WFP sublayer (engine not initialized)")
+		return false, errors.New("unable to delete WFP sublayer (engine not initialized)")
 	}
 
 	return WfpSubLayerDelete(m.engine, sublayerKey)

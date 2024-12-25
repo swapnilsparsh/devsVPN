@@ -26,12 +26,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"syscall"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"golang.org/x/sys/windows"
@@ -92,29 +92,29 @@ func createAddSublayer() error {
 	return nil
 }
 
-func implReregisterFirewallAtTopPriority(unregisterOtherVpnSublayer bool) (retErr error) {
+func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
 	// Can't delete the sublayer if there are rules registered under it. So if VPN is connected - disable firewall, reregister sublayer, enable firewall.
 
-	if err := manager.TransactionStart(); err != nil { // start WFP transaction
-		return fmt.Errorf("failed to start transaction: %w", err)
-	}
-	defer func() { // do not forget to stop WFP transaction
-		var r any = recover()
-		if retErr == nil && r == nil {
-			manager.TransactionCommit() // commit WFP transaction
-		} else {
-			manager.TransactionAbort() // abort WFP transaction
+	// if err := manager.TransactionStart(); err != nil { // start WFP transaction
+	// 	return fmt.Errorf("failed to start transaction: %w", err)
+	// }
+	// defer func() { // do not forget to stop WFP transaction
+	// 	var r any = recover()
+	// 	if retErr == nil && r == nil {
+	// 		manager.TransactionCommit() // commit WFP transaction
+	// 	} else {
+	// 		manager.TransactionAbort() // abort WFP transaction
 
-			if r != nil {
-				log.Error("PANIC (recovered): ", r)
-				if e, ok := r.(error); ok {
-					retErr = e
-				} else {
-					retErr = errors.New(fmt.Sprint(r))
-				}
-			}
-		}
-	}()
+	// 		if r != nil {
+	// 			log.Error("PANIC (recovered): ", r)
+	// 			if e, ok := r.(error); ok {
+	// 				retErr = e
+	// 			} else {
+	// 				retErr = errors.New(fmt.Sprint(r))
+	// 			}
+	// 		}
+	// 	}
+	// }()
 
 	var wasEnabled bool
 	wasEnabled, retErr = implGetEnabled()
@@ -123,17 +123,17 @@ func implReregisterFirewallAtTopPriority(unregisterOtherVpnSublayer bool) (retEr
 	}
 
 	if wasEnabled {
-		if retErr = implSetEnabled(false, true); retErr != nil {
+		if retErr = implSetEnabled(false, false); retErr != nil {
 			return log.ErrorE(fmt.Errorf("error disabling firewall: %w", retErr), 0)
 		}
 	}
 
-	if retErr = checkCreateProviderAndSublayer(true, unregisterOtherVpnSublayer); retErr != nil {
+	if retErr = checkCreateProviderAndSublayer(false, canStopOtherVpn); retErr != nil {
 		return log.ErrorE(fmt.Errorf("error re-registering firewall sublayer at top priority: %w", retErr), 0)
 	}
 
 	if wasEnabled {
-		if retErr = implSetEnabled(true, true); retErr != nil {
+		if retErr = implSetEnabled(true, false); retErr != nil {
 			return log.ErrorE(fmt.Errorf("error re-enabling firewall: %w", retErr), 0)
 		}
 	}
@@ -159,38 +159,39 @@ func findOtherSublayerWithMaxWeight() (found bool, otherSublayerKey syscall.GUID
 
 // We'll check whether our provider and sublayer are up, will create if necessary.
 // If our sublayer is not registered at max weight, and max weight slot is vacant - then we'll try to reregister our sublayer at max weight.
-func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterOtherVpnSublayer bool) (retErr error) {
-	if !wfpTransactionAlreadyInProgress {
-		if retErr = manager.TransactionStart(); retErr != nil { // start WFP transaction
-			return fmt.Errorf("failed to start transaction: %w", retErr)
-		}
-	}
-	defer func() { // do not forget to stop WFP transaction
-		if wfpTransactionAlreadyInProgress {
-			return
-		}
-		var r any = recover()
-		if retErr == nil && r == nil {
-			manager.TransactionCommit() // commit WFP transaction
-		} else {
-			manager.TransactionAbort() // abort WFP transaction
+func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOtherVpn bool) (retErr error) {
+	// if !wfpTransactionAlreadyInProgress {
+	// 	if retErr = manager.TransactionStart(); retErr != nil { // start WFP transaction
+	// 		return fmt.Errorf("failed to start transaction: %w", retErr)
+	// 	}
+	// }
+	// defer func() { // do not forget to stop WFP transaction
+	// 	if wfpTransactionAlreadyInProgress {
+	// 		return
+	// 	}
+	// 	var r any = recover()
+	// 	if retErr == nil && r == nil {
+	// 		manager.TransactionCommit() // commit WFP transaction
+	// 	} else {
+	// 		manager.TransactionAbort() // abort WFP transaction
 
-			if r != nil {
-				log.Error("PANIC (recovered): ", r)
-				if e, ok := r.(error); ok {
-					retErr = e
-				} else {
-					retErr = errors.New(fmt.Sprint(r))
-				}
-			}
-		}
-	}()
+	// 		if r != nil {
+	// 			log.Error("PANIC (recovered): ", r)
+	// 			if e, ok := r.(error); ok {
+	// 				retErr = e
+	// 			} else {
+	// 				retErr = errors.New(fmt.Sprint(r))
+	// 			}
+	// 		}
+	// 	}
+	// }()
 
 	var (
 		pInfo                                                 winlib.ProviderInfo
 		installed, maxWeightSublayerFound, otherSublayerFound bool
 		otherSublayer                                         winlib.SubLayer
 		_otherSublayerGUID                                    syscall.GUID
+		otherVpn                                              *vpncoexistence.OtherVpnInfoParsed = nil
 	)
 
 	// add provider
@@ -227,21 +228,45 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 			}
 			log.Warning(otherSublayerMsg)
 
-			if unregisterOtherVpnSublayer { // if requested to unregister the other guy, try it
-				if retErr = manager.DeleteSubLayer(_otherSublayerGUID); retErr != nil {
-					return log.ErrorE(fmt.Errorf("error deleting the other sublayer '%s' '%s': %w", otherSublayer.Name, windows.GUID(_otherSublayerGUID).String(), retErr), 0)
+			if canStopOtherVpn { // if requested to stop other VPN and unregister their firewall sublayer, try it
+				// func ParseOtherVpn(otherSublayerGUID syscall.GUID) (otherVpn *OtherVpnInfoParsed, err error) {
+				otherVpn, retErr = vpncoexistence.ParseOtherVpn(_otherSublayerGUID)
+				if retErr != nil {
+					retErr = log.ErrorE(fmt.Errorf("error parsing VPN info for other VPN '%s' - '%s', so not taking any VPN-specific steps, taking only generic interoperation approach",
+						windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name), 0)
+				} else if otherVpn == nil {
+					log.Warning(fmt.Sprintf("other VPN '%s' '%s' is not known to us, so we can only try generic interoperation approach",
+						windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name))
+				} else {
+					log.Debug(fmt.Sprintf("otherVpn = %+v", otherVpn))
+					if retErr = otherVpn.PreSteps(); retErr != nil {
+						retErr = log.ErrorE(fmt.Errorf("error taking pre-steps for other VPN '%s' '%s', continuing with generic interoperation approach. Error: %w",
+							windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name, retErr), 0)
+					}
+					defer otherVpn.PostSteps()
+				}
+
+				if sublayerNotFound, err := manager.DeleteSubLayer(_otherSublayerGUID); err != nil { // now try to delete the WFP sublayer of the other VPN
+					if sublayerNotFound {
+						log.Info(fmt.Sprintf("Couldn't delete the other sublayer '%s' '%s' - sublayer not found", otherSublayer.Name, windows.GUID(_otherSublayerGUID).String()))
+					} else {
+						log.Error(fmt.Errorf("error deleting the other sublayer '%s' '%s': %w", otherSublayer.Name, windows.GUID(_otherSublayerGUID).String(), retErr))
+					}
 				}
 			} else {
 				log.Warning("Not requested to unregister the other sublayer, so we can't register our sublayer at max weight at the moment.")
 				return nil
 			}
-
 		}
 
-		// So max weight slot is vacant by now, try to delete our sublayer and recreate it at max weight.
+		// So max weight slot should be vacant by now, try to delete our sublayer and recreate it at max weight.
 		// We can delete the sublayer only if it's empty. The caller, firewall.TryReregisterFirewallAtTopPriority(), stopped the firewall before calling us.
-		if err := manager.DeleteSubLayer(ourSublayerKey); retErr != nil {
-			log.Warning(fmt.Errorf("warning - failed to delete our sublayer: %w", err))
+		if sublayerNotFound, err := manager.DeleteSubLayer(ourSublayerKey); err != nil {
+			if sublayerNotFound {
+				log.Info("Couldn't delete our sublayer - sublayer not found")
+			} else {
+				log.Warning(fmt.Errorf("warning - failed to delete our sublayer: %w", err))
+			}
 		}
 		reregisterMsg := fmt.Sprintf("checkCreateProviderAndSublayer - trying to re-create our sublayer with max weight 0x%04X", winlib.SUBLAYER_MAX_WEIGHT)
 		if retErr = createAddSublayer(); retErr != nil {
@@ -255,9 +280,9 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, unregisterO
 }
 
 // implInitialize doing initialization stuff (called on application start)
-func implInitialize() error {
-	if err := winlib.Initialize(platform.WindowsWFPDllPath()); err != nil {
-		return err
+func implInitialize() (retErr error) {
+	if retErr = winlib.Initialize(platform.WindowsWFPDllPath()); retErr != nil {
+		return retErr
 	}
 
 	return checkCreateProviderAndSublayer(false, false)
@@ -631,14 +656,12 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (retErr error) {
 		// 	return fmt.Errorf("failed to add filter 'allow dhcp': %w", err)
 		// }
 
-		// allow current executable
-		binaryPath, err := os.Executable()
-		if err != nil {
-			return fmt.Errorf("failed to obtain executable info: %w", err)
-		}
-		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, ourSublayerKey, filterDName, "", binaryPath, isPersistent, winlib.FILTER_MAX_WEIGHT))
-		if err != nil {
-			return fmt.Errorf("failed to add filter 'allow application': \"%s\": %w", binaryPath, err)
+		// allow service binaries
+		for _, svcExe := range platform.PLServiceBinariesForFirewallToUnblock() {
+			_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, ourSublayerKey, filterDName, svcExe, svcExe, isPersistent, winlib.FILTER_MAX_WEIGHT))
+			if err != nil {
+				return fmt.Errorf("failed to add filter 'allow application': \"%s\": %w", svcExe, err)
+			}
 		}
 
 		// // allow OpenVPN executable
@@ -646,15 +669,6 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (retErr error) {
 		// if err != nil {
 		// 	return fmt.Errorf("failed to add filter 'allow application - openvpn': %w", err)
 		// }
-		// allow WireGuard executable and wg-quick
-		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, ourSublayerKey, filterDName, "", platform.WgBinaryPath(), isPersistent, winlib.FILTER_MAX_WEIGHT))
-		if err != nil {
-			return fmt.Errorf("failed to add filter 'allow application': \"%s\": %w", platform.WgBinaryPath(), err)
-		}
-		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, ourSublayerKey, filterDName, "", platform.WgToolBinaryPath(), isPersistent, winlib.FILTER_MAX_WEIGHT))
-		if err != nil {
-			return fmt.Errorf("failed to add filter 'allow application': \"%s\": %w", platform.WgToolBinaryPath(), err)
-		}
 		// // allow obfsproxy
 		// _, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, sublayerKey, filterDName, "", platform.ObfsproxyStartScript(), isPersistent, winlib.FILTER_MAX_WEIGHT))
 		// if err != nil {

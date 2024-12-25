@@ -381,9 +381,9 @@ func HaveTopFirewallPriority() (weHaveTopFirewallPriority bool, otherVpnID, othe
 	return implHaveTopFirewallPriority(0)
 }
 
-func TryReregisterFirewallAtTopPriority(unregisterOtherVpn bool) (err error) {
+func TryReregisterFirewallAtTopPriority(canStopOtherVpn bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implReregisterFirewallAtTopPriority(unregisterOtherVpn)
+	return implReregisterFirewallAtTopPriority(canStopOtherVpn)
 }

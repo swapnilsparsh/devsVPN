@@ -236,7 +236,7 @@ func (s *Service) init() error {
 
 	// initialize firewall functionality
 	if err := firewall.Initialize(s.Preferences); err != nil {
-		return fmt.Errorf("service initialization error : %w", err)
+		return fmt.Errorf("firewall initialization error : %w", err)
 	}
 
 	// initialize dns functionality
@@ -347,14 +347,14 @@ func (s *Service) init() error {
 // - disable Split Tunnel mode
 // - etc. ...
 func (s *Service) UnInitialise() error {
-	return s.unInitialise()
+	return s.unInitialise(false)
 }
 
 // unInitialise - stop service on logout or daemon is going to stop
 // - disconnect VPN (if connected)
 // - enable Split Tunnel mode
 // - etc. ...
-func (s *Service) unInitialise() error {
+func (s *Service) unInitialise(isLogout bool) error {
 	log.Info("Uninitialising service...")
 	var retErr error
 	updateRetErr := func(e error) {
@@ -370,11 +370,13 @@ func (s *Service) unInitialise() error {
 		updateRetErr(err)
 	}
 
-	// Disable ST
+	// Disable firewall
 	if err := firewall.SetEnabled(false); err != nil {
 		log.Error(err)
 		updateRetErr(err)
 	}
+
+	// Disable Split Tunnel
 	if err := splittun.Reset(); err != nil {
 		log.Error(err)
 		updateRetErr(err)
@@ -1155,8 +1157,8 @@ func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) er
 }
 
 // KillSwitchReregister try to reregister our firewall logic at top
-func (s *Service) KillSwitchReregister(canUnregisterOtherVPNFirewall bool) error {
-	return firewall.TryReregisterFirewallAtTopPriority(canUnregisterOtherVPNFirewall)
+func (s *Service) KillSwitchReregister(canStopOtherVpn bool) error {
+	return firewall.TryReregisterFirewallAtTopPriority(canStopOtherVpn)
 }
 
 func (s *Service) SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error {
@@ -2195,7 +2197,7 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend bool, isCanDeleteSessionLo
 	// - disconnect VPN (if connected)
 	// - disable Split Tunnel mode
 	// - etc. ...
-	if err := s.unInitialise(); err != nil {
+	if err := s.unInitialise(true); err != nil {
 		log.Error(err)
 	}
 

@@ -1562,10 +1562,10 @@ async function KillSwitchSetUserExceptions(userExceptions) {
   });
 }
 
-async function KillSwitchReregister(CanUnregisterOtherVPNFirewall) {
+async function KillSwitchReregister(CanStopOtherVpn) {
   await sendRecv({
     Command: daemonRequests.KillSwitchReregister,
-    CanUnregisterOtherVPNFirewall,
+    CanStopOtherVpn,
   });
 }
 

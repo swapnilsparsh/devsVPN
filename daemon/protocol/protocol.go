@@ -81,7 +81,7 @@ type Service interface {
 	DetectAccessiblePorts(portsToTest []api_types.PortInfo) (retPorts []api_types.PortInfo, err error)
 
 	KillSwitchState() (status service_types.KillSwitchStatus, err error)
-	KillSwitchReregister(canUnregisterOtherVPNFirewall bool) error
+	KillSwitchReregister(canStopOtherVpn bool) error
 	SetKillSwitchState(bool) error
 	SetKillSwitchIsPersistent(isPersistent bool) error
 	SetKillSwitchAllowLANMulticast(isAllowLanMulticast bool) error
@@ -711,7 +711,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
-		if err := p._service.KillSwitchReregister(req.CanUnregisterOtherVPNFirewall); err != nil {
+		if err := p._service.KillSwitchReregister(req.CanStopOtherVpn); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 		} else {
 			p.sendResponse(conn, &types.EmptyResp{}, req.Idx)

@@ -32,6 +32,8 @@ import (
 	"errors"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 // Sublayer flags
@@ -61,11 +63,12 @@ const (
 // }
 
 // WfpSubLayerDelete removes sublayer
-func WfpSubLayerDelete(engine syscall.Handle, sublayerGUID syscall.GUID) (err error) {
+func WfpSubLayerDelete(engine syscall.Handle, sublayerGUID syscall.GUID) (sublayerNotFound bool, err error) {
 	defer catchPanic(&err)
 
 	retval, _, err := fWfpSubLayerDelete.Call(uintptr(engine), uintptr(unsafe.Pointer(&sublayerGUID)))
-	return checkDefaultAPIResp(retval, err)
+	sublayerNotFound = (retval == uintptr(windows.FWP_E_SUBLAYER_NOT_FOUND))
+	return sublayerNotFound, checkDefaultAPIResp(retval, err)
 }
 
 // WfpSubLayerAdd adds sublayer

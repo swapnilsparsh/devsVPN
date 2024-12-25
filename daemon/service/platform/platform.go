@@ -361,3 +361,8 @@ func DnsCryptProxyInfo() (binPath, configPathTemplate, configPathMutable, logPat
 func KemHelperBinaryPath() string {
 	return kemHelperBinaryPath
 }
+
+func PLServiceBinariesForFirewallToUnblock() []string {
+	daemonBinaryPath, _ := os.Executable()
+	return []string{daemonBinaryPath, WgBinaryPath(), WgToolBinaryPath()}
+}

@@ -61,7 +61,7 @@ func implGetEnabled() (bool, error) {
 	return !(err != nil && exitCode != 0), nil
 }
 
-func implSetEnabled(isEnabled bool) error {
+func implSetEnabled(isEnabled, _ bool) error {
 	curStateEnabled = isEnabled
 
 	if isEnabled {
@@ -91,7 +91,7 @@ func implSetPersistent(persistent bool) error {
 		// This means we just have to ensure that firewall enabled.
 
 		// Just ensure that firewall is enabled
-		ret := implSetEnabled(true)
+		ret := implSetEnabled(true, false)
 
 		// Some Linux distributions erasing IVPN rules during system boot
 		// During some period of time (60 seconds should be enough)
@@ -121,7 +121,7 @@ func ensurePersistent(secondsToWait int) {
 		}
 		if isPersistent && !enabled {
 			log.Warning("[ensurePersistent] Persistent FW rules not available. Retry to apply...")
-			implSetEnabled(true)
+			implSetEnabled(true, false)
 		}
 	}
 	log.Info("[ensurePersistent] stopped.")
@@ -528,4 +528,10 @@ func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
 	return ret
 }
 
-func implTopFirewallPriority() bool { return true } // nothing to do on Linux
+func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
+	return true, "", "", "", nil
+}
+
+func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
+	return nil
+}
