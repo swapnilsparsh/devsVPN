@@ -711,6 +711,12 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
+		if status, err := p._service.KillSwitchState(); err != nil { // check whether we may have top firewall priority already
+			p.sendErrorResponse(conn, reqCmd, err)
+		} else if status.WeHaveTopFirewallPriority {
+			p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+		}
+
 		if err := p._service.KillSwitchReregister(req.CanStopOtherVpn); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 		} else {
