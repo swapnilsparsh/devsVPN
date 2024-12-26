@@ -60,17 +60,14 @@
           <div class="detailedParamValue">
             <div class="failedText" v-if="!vpnCoexistenceInGoodState">
               <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
-              <!-- {{ vpnCoexistenceState }} -->
               FAILED
               <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()">Retry</button>
             </div>
             <div class="goodText" v-if="vpnCoexistenceInGoodState">
               GOOD
             </div>
-
           </div>
         </div>
-
 
         <div v-if="this.$store.state.vpnState.connectionInfo !== null" class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Transfer:</div>
@@ -250,7 +247,7 @@ export default {
         let errMsg = "Error: failed to get top firewall permissions - please try again later or contact tech support";
         try {
           await sender.KillSwitchReregister(true);
-          await sender.KillSwitchGetStatus();
+          // await sender.KillSwitchGetStatus(); // not needed, as daemon will notify clients abt firewall state change
         } catch (e) {
           console.error(e);
           sender.showMessageBoxSync({
@@ -263,13 +260,13 @@ export default {
         }
 
         // TODO to check the result - recheck this.weHaveTopFirewallPriority
-        if (!this.weHaveTopFirewallPriority) {
-          sender.showMessageBoxSync({
-             type: "error",
-             buttons: ["OK"],
-             message: errMsg,
-          });
-        }
+        //if (!this.weHaveTopFirewallPriority) {
+        //  sender.showMessageBoxSync({
+        //     type: "error",
+        //     buttons: ["OK"],
+        //     message: errMsg,
+        //  });
+        //}
       }
     }
   },

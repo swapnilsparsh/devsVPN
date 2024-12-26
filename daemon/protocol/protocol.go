@@ -662,8 +662,9 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		if status, err := p._service.KillSwitchState(); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 		} else {
-			p.sendResponse(conn,
-				&types.KillSwitchStatusResp{KillSwitchStatus: status}, reqCmd.Idx)
+			resp := types.KillSwitchStatusResp{KillSwitchStatus: status}
+			p.notifyClients(&resp)
+			p.sendResponse(conn, &resp, reqCmd.Idx)
 		}
 
 	case "KillSwitchSetEnabled":
@@ -713,16 +714,24 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 
 		if status, err := p._service.KillSwitchState(); err != nil { // check whether we may have top firewall priority already
 			p.sendErrorResponse(conn, reqCmd, err)
-		} else if status.WeHaveTopFirewallPriority {
+			break
+		} else if status.WeHaveTopFirewallPriority { // on success notify clients
+			p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
 			p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+			break
 		}
 
-		if err := p._service.KillSwitchReregister(req.CanStopOtherVpn); err != nil {
+		if err := p._service.KillSwitchReregister(req.CanStopOtherVpn); err != nil { // try to reregister at top firewall pri
 			p.sendErrorResponse(conn, reqCmd, err)
-		} else {
+			break
+		}
+
+		if status, err := p._service.KillSwitchState(); err != nil { // now re-check whether we have top firewall pri
+			p.sendErrorResponse(conn, reqCmd, err)
+		} else { // and notify clients
+			p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
 			p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
 		}
-		// ?all clients will be notified in case of successful change by OnKillSwitchStateChanged() handler?
 
 	case "KillSwitchSetUserExceptions":
 		var req types.KillSwitchSetUserExceptions
