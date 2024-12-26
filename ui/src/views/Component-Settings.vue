@@ -75,7 +75,7 @@
                   activeBtn: view === 'networks',
                 }"
               >
-                WiFi control
+                Wi-Fi control
               </button> -->
 
               <!-- <button

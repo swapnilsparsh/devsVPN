@@ -451,7 +451,7 @@ export default {
       this.isForceLogoutRequested = false;
     },
     keyup(event) {
-      if (event.keyCode === 13) {
+      if (event.keyCode === 13 && !this.isProcessing && !this.$store.getters["account/isLoggedIn"]) {
         // Cancel the default action, if needed
         event.preventDefault();
         this.Login();
