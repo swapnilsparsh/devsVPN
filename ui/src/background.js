@@ -635,7 +635,7 @@ async function isCanQuit() {
   //         break;
 
   //       case 2: // Deactivate Firewall & Quit
-  //         await daemonClient.EnableFirewall(false);
+  //         //await daemonClient.EnableFirewall(false); // must never disable firewall from client, firewall must always remain enabled
   //         break;
   //     }
   //   }
@@ -677,8 +677,8 @@ async function isCanQuit() {
           !store.state.settings.quitWithoutConfirmation ||
           store.state.settings.disconnectOnQuit
         ) {
-          if (store.state.settings.firewallDeactivateOnDisconnect)
-            await daemonClient.EnableFirewall(false);
+          // if (store.state.settings.firewallDeactivateOnDisconnect)
+          //   await daemonClient.EnableFirewall(false); // must never disable firewall from client, firewall must always remain enabled
           await daemonClient.Disconnect();
         }
       } catch (e) {
