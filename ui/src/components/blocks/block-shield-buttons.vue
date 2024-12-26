@@ -325,19 +325,19 @@ export default {
       const subscriptionData = this.$store.state.account.subscriptionData;
 
       // Check if the plan is "Free"
-      if (subscriptionData?.Plan.name === "Free" && value === false) {
-        // Show an error message or prevent the action
-        const result = sender.showMessageBoxSync({
-          type: "error",
-          buttons: ["Upgrade Plan"],
-          message: "Total Shield is only available for premium plans.",
-        });
+      // if (subscriptionData?.Plan.name === "Free" && value === false) {
+      //   // Show an error message or prevent the action
+      //   const result = sender.showMessageBoxSync({
+      //     type: "error",
+      //     buttons: ["Upgrade Plan"],
+      //     message: "Total Shield is only available for premium plans.",
+      //   });
 
-        if (result === 0) {
-          sender.shellOpenExternal(`https://privateline.io/#pricing`);
-        }
-        return; // Prevent switching to Total Shield
-      }
+      //   if (result === 0) {
+      //     sender.shellOpenExternal(`https://privateline.io/#pricing`);
+      //   }
+      //   return; // Prevent switching to Total Shield
+      // }
 
       // If the plan is not "Free", proceed with changing the shield
       await this.ChangeShield(value);
