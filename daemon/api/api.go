@@ -57,6 +57,7 @@ const (
 	_sessionNewPath             = "/user/login"
 	_sessionNewPasswordlessPath = "/user/login/quick-auth"
 	_connectDevicePath          = "/connection/push-key"
+	_checkDevicePath            = "/connection/check-device-id"
 	_sessionStatusPath          = "/session/status"
 	_sessionDeletePath          = "/user/remove-device"
 	_deviceListPath             = "/user/device-list"
@@ -471,6 +472,61 @@ func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string
 			return nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 		}
 
+		return &successResp, &apiErr, rawResponse, nil
+	}
+
+	return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+}
+
+func (a *API) CheckDeviceID(deviceID string, sessionToken string) (
+	*types.CheckDeviceResponse,
+	*types.APIErrorResponse,
+	string, // RAW response
+	error,
+) {
+	var successResp types.CheckDeviceResponse
+	var apiErr types.APIErrorResponse
+
+	rawResponse := ""
+
+	log.Debug("=========================== deviceID ===========================", deviceID)
+	log.Debug("=========================== sessionToken ===========================", sessionToken)
+	// Construct the endpoint URL
+	endpoint := fmt.Sprintf("%s/%s", _checkDevicePath, deviceID)
+	log.Debug("=========================== endpoint ===========================", endpoint)
+
+	request := &types.DeviceListRequest{
+		SessionTokenStruct: types.SessionTokenStruct{SessionToken: sessionToken},
+	}
+
+	// Send the GET request
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, endpoint, "GET", "application/json", request, 0, 0)
+	log.Debug("=========================== data ===========================", data)
+	log.Debug("=========================== httpResp ===========================", httpResp)
+	log.Debug("=========================== api.go err ===========================", err)
+
+	if err != nil {
+		return nil, nil, rawResponse, err
+	}
+
+	rawResponse = string(data)
+	log.Debug("=========================== rawResponse ===========================", rawResponse)
+
+	// Check if the response contains an API error
+	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
+		return nil, nil, rawResponse, fmt.Errorf("failed to deserialize API error response: %w", err)
+	}
+
+	if !apiErr.Status {
+		return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	}
+
+	// Success case
+	if apiErr.HttpStatusCode == types.CodeSuccess {
+		err := json.Unmarshal(data, &successResp)
+		if err != nil {
+			return nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API success response: %w", err)
+		}
 		return &successResp, &apiErr, rawResponse, nil
 	}
 

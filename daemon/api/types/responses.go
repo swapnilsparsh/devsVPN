@@ -162,6 +162,10 @@ func (resp *ConnectDeviceResponse) SetHttpStatusCode(newHttpStatusCode int) {
 	resp.HttpStatusCode = newHttpStatusCode
 }
 
+type CheckDeviceResponse struct {
+	Device string `json:"device"` // Indicates the device status ("deleted" or "active")
+}
+
 // SessionStatusResponse session status response
 type SessionStatusResponse struct {
 	APIErrorResponse

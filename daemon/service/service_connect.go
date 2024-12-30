@@ -883,6 +883,28 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		}
 	}()
 
+	log.Debug("====================== Start CheckDeviceID service_connect.go ======================")
+	log.Debug("====================== s._preferences.Session.DeviceID ======================", s._preferences.Session.DeviceID)
+	log.Debug("====================== s._preferences.Session.Session ======================", s._preferences.Session.Session)
+
+	CheckDeviceResponse, APIErrorResponse, result, err := s._api.CheckDeviceID(s._preferences.Session.DeviceID, s._preferences.Session.Session)
+
+	log.Debug("====================== CheckDeviceResponse ======================", CheckDeviceResponse)
+	log.Debug("====================== APIErrorResponse ======================", APIErrorResponse)
+	log.Debug("====================== result ======================", result)
+	log.Debug("====================== service_connect.go err ======================", err)
+
+	// if err != nil {
+	// 	log.Error(fmt.Errorf("failed to check device ID: %w", err))
+	// 	return err
+	// }
+	log.Info(fmt.Sprintf("CheckDeviceResponse %s, APIErrorResponse %v, Device Type: %s", CheckDeviceResponse, APIErrorResponse, result))
+
+	log.Debug("====================== End CheckDeviceID service_connect.go ======================")
+
+	// isCanDeleteSessionLocally := true
+	// log.Debug("=========================== SessionDelete ==========================", s.SessionDelete(isCanDeleteSessionLocally))
+
 	// Initialize VPN: ensure everything is prepared for a new connection
 	// (e.g. correct OpenVPN version or a previously started WireGuard service is stopped)
 	log.Info("Initializing connection...")
