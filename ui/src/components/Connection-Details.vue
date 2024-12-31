@@ -60,6 +60,7 @@
           class="flexRow paramBlockDetailedConfig"
         >
           <div class="defColor paramName">Transfer:</div>
+          <div class="greenBlinkingDot"></div>
           <div class="detailedParamValue">
             {{ this.$store.state.vpnState.transferredData.ReceivedData }}
             received,
@@ -72,6 +73,7 @@
           class="flexRow paramBlockDetailedConfig"
         >
           <div class="defColor paramName">Latest Handshake:</div>
+          <div class="greenBlinkingDot"></div>
           <div class="detailedParamValue">
             {{ formattedElapsedTime }}
           </div>
@@ -336,5 +338,27 @@ div.paramName {
   min-width: 120px;
   max-width: 120px;
   font-size: 11px;
+}
+
+div.greenBlinkingDot {
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  margin-right: 10px;
+  background-color: green;
+  border-radius: 50%;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 </style>
