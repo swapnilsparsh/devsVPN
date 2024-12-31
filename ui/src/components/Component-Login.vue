@@ -17,7 +17,7 @@
           </div>
 
           <div style="height: 21px" />
-          <div v-if="isAccountIdLogin" style="position: relative; display: flex; align-items: center">
+          <!-- <div v-if="isAccountIdLogin" style="position: relative; display: flex; align-items: center">
             <input ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
               placeholder="Account ID a-XXXX-XXXX-XXXX" :type="passwordType" @keyup="keyup($event)" />
             <img v-if="showPassword" src="@/assets/eye-close.svg" alt="Eye Image" style="
@@ -35,7 +35,13 @@
                 cursor: pointer;
               " @click="toggleEye" />
 
+          </div> -->
+          <!-- ============ a- prefill feature start ============= -->
+          <div v-if="isAccountIdLogin" style="position: relative; display: flex; align-items: center">
+            <input ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
+              placeholder="Account ID a-XXXX-XXXX-XXXX" :type="'text'" @keyup="keyup($event)" />
           </div>
+          <!-- ============ a- prefill feature end ============= -->
 
           <!--
           <input v-if="!isAccountIdLogin" ref="email" v-model="email" class="styledBig" style="text-align: left"
@@ -358,7 +364,7 @@ export default {
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
-            detail: 
+            detail:
               resp.APIErrorMessage +
               "\n\nIf you don't have a privateLINE account yet, you can create one at https://account.privateline.io/sign-in",
           });
@@ -450,13 +456,36 @@ export default {
       this.confirmation2FA = "";
       this.isForceLogoutRequested = false;
     },
+    // keyup(event) {
+    //   if (event.keyCode === 13) {
+    //     // Cancel the default action, if needed
+    //     event.preventDefault();
+    //     this.Login();
+    //   }
+
+    // },
     keyup(event) {
-      if (event.keyCode === 13) {
+      // Ensure the input starts with "a-"
+      let input = this.accountID || '';
+      if (!input.startsWith("a-")) {
+        input = `a-`;
+      }
+      const prefix = "a-";
+      const sanitized = input.replace(/^a-/, '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+
+      // Limit to 12 characters after "a-" and format as XXXX-XXXX-XXXX
+      const formatted = sanitized.substring(0, 12).match(/.{1,4}/g)?.join('-') || '';
+
+      this.accountID = `${prefix}${formatted}`;
+
+      // Enter key pressed
+      if (event.key === 'Enter' && !this.isProcessing && !this.$store.getters["account/isLoggedIn"]) {
         // Cancel the default action, if needed
         event.preventDefault();
         this.Login();
       }
     },
+    
     updateColorScheme() {
       let isDarkTheme = false;
       let scheme = sender.ColorScheme();

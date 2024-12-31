@@ -30,7 +30,7 @@
           :checked="!isOpenVPN"
           @click="onVpnChange"
         />
-        <label class="defColor" for="wireguard">Wireguard</label>
+        <label class="defColor" for="wireguard">WireGuard</label>
       </div>
     </div> -->
 
@@ -185,9 +185,9 @@
       </div>
     </div>
 
-    <!-- Wireguard -->
+    <!-- WireGuard -->
     <div v-show="!isOpenVPN">
-      <!-- <div class="settingsBoldFont">Wireguard configuration:</div>
+      <!-- <div class="settingsBoldFont">WireGuard configuration:</div>
 
       <div
         v-bind:class="{ disabled: prefferedPorts.length <= 1 }"
@@ -297,7 +297,7 @@
       </div> -->
 
       <div v-if="IsAccountActive">
-        <div class="settingsBoldFont">Wireguard key information:</div>
+        <div class="settingsBoldFont">WireGuard key information:</div>
 
         <spinner :loading="isProcessing" />
         <div class="flexRow paramBlockDetailedConfig">
