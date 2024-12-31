@@ -8,6 +8,7 @@ package vpncoexistence
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 	"unsafe"
 
@@ -47,6 +48,47 @@ func OpenSCManager() (*scmanager, error) {
 
 func (sc *scmanager) Close() error {
 	return sc.mgr.Disconnect()
+}
+
+// OpenServiceIfRunning - returns opened service if its running. Returns (nil, nil), if service is not running, but no errors.
+func (sc *scmanager) OpenServiceIfRunning(serviceName string) (service *mgr.Service, err error) {
+	if service, err = sc.mgr.OpenService(serviceName); err != nil {
+		return nil, err
+	}
+
+	// check whether other VPN service was running
+	var serviceStatus ServiceStatus
+	if serviceStatus, err = QueryServiceStatusEx(service); err != nil {
+		service.Close()
+		return nil, log.ErrorE(fmt.Errorf("error QueryServiceStatusEx(): %w", err), 0)
+	}
+	if serviceStatus.State != svc.Running {
+		service.Close()
+		return nil, nil
+	}
+
+	return service, nil
+}
+
+func (sc *scmanager) FindRunningServicesMatchingRegex(otherVpnSvcNameRE *regexp.Regexp) (servicesRunning []*mgr.Service, err error) {
+	servicesRunning = make([]*mgr.Service, 0, 2)
+
+	var svcList []string
+	if svcList, err = sc.mgr.ListServices(); err != nil {
+		return servicesRunning, err
+	}
+
+	for _, svcName := range svcList {
+		if otherVpnSvcNameRE.MatchString(svcName) {
+			if svc, err := sc.OpenServiceIfRunning(svcName); err != nil {
+				return servicesRunning, err
+			} else {
+				servicesRunning = append(servicesRunning, svc)
+			}
+		}
+	}
+
+	return servicesRunning, nil
 }
 
 // ServiceStatus combines State and Accepted commands to fully describe running service.

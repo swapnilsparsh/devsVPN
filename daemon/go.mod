@@ -1,8 +1,9 @@
 module github.com/swapnilsparsh/devsVPN/daemon
 
-go 1.21
+go 1.22
 
 require (
+	github.com/deckarep/golang-set/v2 v2.7.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/google/uuid v1.5.0
 	github.com/panta/machineid v1.0.2

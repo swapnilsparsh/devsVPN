@@ -246,3 +246,7 @@ func SplitTunScript() string {
 func ResolvectlBinPath() string {
 	return resolvectlBinPath
 }
+
+func implPLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) {
+	return []string{}, nil // TODO FIXME: Vlad - implement on Linux also
+}

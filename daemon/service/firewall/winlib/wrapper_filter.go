@@ -191,6 +191,16 @@ func FWPMFILTERSetConditionV6AddrMask(filter syscall.Handle, conditionIndex uint
 	return checkDefaultAPIResp(retval, err)
 }
 
+// FWPMFILTERSetConditionUINT8 sets conditions parameters
+func FWPMFILTERSetConditionUINT8(filter syscall.Handle, conditionIndex uint32, val uint8) (err error) {
+	defer catchPanic(&err)
+
+	retval, _, err := fFWPMFILTERSetConditionUINT8.Call(uintptr(filter),
+		uintptr(conditionIndex),
+		uintptr(val))
+	return checkDefaultAPIResp(retval, err)
+}
+
 // FWPMFILTERSetConditionUINT16 sets conditions parameters
 func FWPMFILTERSetConditionUINT16(filter syscall.Handle, conditionIndex uint32, val uint16) (err error) {
 	defer catchPanic(&err)

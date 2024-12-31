@@ -797,6 +797,10 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 							s.systemLog(Info, "VPN connected")
 						}
 
+						if err = firewall.DeployPostConnectionRules(); err != nil {
+							log.Error(fmt.Errorf("error deploying firewall post-connection rules: %w", err))
+						}
+
 						// Inform firewall about client local IP
 						firewall.ClientConnected(
 							state.ClientIP, state.ClientIPv6,

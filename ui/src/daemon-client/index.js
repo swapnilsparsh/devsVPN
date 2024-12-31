@@ -134,6 +134,7 @@ const daemonResponses = Object.freeze({
   SetAlternateDNSResp: "SetAlternateDNSResp",
   DnsPredefinedConfigsResp: "DnsPredefinedConfigsResp",
   KillSwitchStatusResp: "KillSwitchStatusResp",
+  KillSwitchReregisterErrorResp: "KillSwitchReregisterErrorResp",
   SessionStatusResp: "SessionStatusResp",
 
   SplitTunnelStatus: "SplitTunnelStatus",
@@ -1563,10 +1564,13 @@ async function KillSwitchSetUserExceptions(userExceptions) {
 }
 
 async function KillSwitchReregister(CanStopOtherVpn) {
-  await sendRecv({
+  let ret = await sendRecv({
     Command: daemonRequests.KillSwitchReregister,
     CanStopOtherVpn,
-  });
+  },
+  [daemonResponses.KillSwitchReregisterErrorResp]
+  );
+  return ret;
 }
 
 async function SplitTunnelGetStatus() {

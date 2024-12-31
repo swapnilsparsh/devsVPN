@@ -244,10 +244,36 @@ export default {
       );
       if (ret.response == 1) return; // cancel
       if (ret.response == 0) {
-        let errMsg = "Error: failed to get top firewall permissions - please try again later or contact tech support";
+        let errMsg = "Error: failed to get top firewall permissions - please try again later or contact support@privateline.io";
         try {
-          await sender.KillSwitchReregister(true);
-          // await sender.KillSwitchGetStatus(); // not needed, as daemon will notify clients abt firewall state change
+          let resp = await sender.KillSwitchReregister(true);
+          //console.log("resp", resp);
+          if (resp && resp !== null) {
+            if (resp.OtherVpnUnknownToUs != null && resp.OtherVpnUnknownToUs) {
+              errMsg = "Error: failed to get top firewall permissions - please take a screenshot or photo of this error message and email it to support@privateline.io";
+              let detailMsg = `Error: ${resp.ErrorMessage}\n\n` +
+                `Other VPN \'${resp.OtherVpnName}\' - \'${resp.OtherVpnGUID}\' is not registered in our database, we don't know how to stop it.\n\n` +
+                "You can also try the following manual steps to try to allow PL Connect get the necessary top firewall permissions:\n\n" +
+                "(1) Disconnect the other VPN and click Retry in PL Connect again. If successful - then reconnect to the other VPN.\n\n" +
+                "(2) If previous step failed - stop the Windows service of the other VPN (via Services tab in Task Manager) and click Retry " +
+                "in PL Connect again. If successful - then restart the service of the other VPN and reconnect to the other VPN.\n\n" +
+                "(3) If previous step failed - uninstall the other VPN and click Retry in PL Connect again. Then reinstall the other VPN and reconnect to it.";
+              sender.showMessageBoxSync({
+                type: "error",
+                buttons: ["OK"],
+                message: errMsg,
+                detail: detailMsg,
+              });
+            } else if (resp.ErrorMessage != null && resp.ErrorMessage) {
+              console.error(resp.ErrorMessage);
+              sender.showMessageBoxSync({
+                type: "error",
+                buttons: ["OK"],
+                message: errMsg,
+                detail: resp.ErrorMessage,
+              });
+            }
+          }
         } catch (e) {
           console.error(e);
           sender.showMessageBoxSync({

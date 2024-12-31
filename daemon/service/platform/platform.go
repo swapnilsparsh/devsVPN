@@ -65,6 +65,9 @@ var (
 	wgToolBinaryPath string
 	wgConfigFilePath string
 
+	// other PL apps, which need firewall rules to accept incoming connections
+	plCommsBinaryPath string
+
 	kemHelperBinaryPath string
 
 	dnscryptproxyBinPath        string
@@ -146,7 +149,7 @@ func Init() (warnings []string, errors []error, logInfo []string) {
 		warnings = append(warnings, fmt.Errorf("v2ray functionality not accessible: %w", err).Error())
 	}
 
-	// checling availability of WireGuard binaries
+	// checking availability of WireGuard binaries
 	if err := checkFileAccessRightsExecutable("wgBinaryPath", wgBinaryPath); err != nil {
 		warnings = append(warnings, fmt.Errorf("WireGuard functionality not accessible: %w", err).Error())
 	}
@@ -365,4 +368,12 @@ func KemHelperBinaryPath() string {
 func PLServiceBinariesForFirewallToUnblock() []string {
 	daemonBinaryPath, _ := os.Executable()
 	return []string{daemonBinaryPath, WgBinaryPath(), WgToolBinaryPath()}
+}
+
+func PLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) {
+	return implPLOtherAppsToAcceptIncomingConnections()
+}
+
+func PLInternalHostnamesToAcceptIncomingUdpFrom() []string {
+	return []string{"meet.privateline.network"}
 }

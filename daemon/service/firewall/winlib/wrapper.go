@@ -66,7 +66,7 @@ var (
 	fFWPMPROVIDER0SetDisplayData *syscall.LazyProc
 	fFWPMPROVIDER0Delete         *syscall.LazyProc
 
-	fWfpSubLayerIsInstalled       *syscall.LazyProc
+	// fWfpSubLayerIsInstalled       *syscall.LazyProc
 	fWfpFindSubLayerWithMaxWeight *syscall.LazyProc
 	fWfpSubLayerDelete            *syscall.LazyProc
 	fWfpSubLayerAdd               *syscall.LazyProc
@@ -86,6 +86,7 @@ var (
 	fFWPMFILTERSetConditionMatchType  *syscall.LazyProc
 	fFWPMFILTERSetConditionV4AddrMask *syscall.LazyProc
 	fFWPMFILTERSetConditionV6AddrMask *syscall.LazyProc
+	fFWPMFILTERSetConditionUINT8      *syscall.LazyProc
 	fFWPMFILTERSetConditionUINT16     *syscall.LazyProc
 	fFWPMFILTERSetConditionBlobString *syscall.LazyProc
 	fFWPMFILTERSetAction              *syscall.LazyProc
@@ -125,7 +126,7 @@ func Initialize(wfpDllPath string) error {
 	fFWPMPROVIDER0SetDisplayData = dll.NewProc("FWPM_PROVIDER0_SetDisplayData")
 	fFWPMPROVIDER0Delete = dll.NewProc("FWPM_PROVIDER0_Delete")
 
-	fWfpSubLayerIsInstalled = dll.NewProc("WfpSubLayerIsInstalledPtr")
+	// fWfpSubLayerIsInstalled = dll.NewProc("WfpSubLayerIsInstalledPtr")
 	fWfpFindSubLayerWithMaxWeight = dll.NewProc("WfpFindSubLayerWithMaxWeightPtr")
 	fWfpSubLayerDelete = dll.NewProc("WfpSubLayerDeletePtr")
 	fWfpSubLayerAdd = dll.NewProc("WfpSubLayerAdd")
@@ -145,6 +146,7 @@ func Initialize(wfpDllPath string) error {
 	fFWPMFILTERSetConditionMatchType = dll.NewProc("FWPM_FILTER_SetConditionMatchType")
 	fFWPMFILTERSetConditionV4AddrMask = dll.NewProc("FWPM_FILTER_SetConditionV4AddrMask")
 	fFWPMFILTERSetConditionV6AddrMask = dll.NewProc("FWPM_FILTER_SetConditionV6AddrMask")
+	fFWPMFILTERSetConditionUINT8 = dll.NewProc("FWPM_FILTER_SetConditionUINT8")
 	fFWPMFILTERSetConditionUINT16 = dll.NewProc("FWPM_FILTER_SetConditionUINT16")
 	fFWPMFILTERSetConditionBlobString = dll.NewProc("FWPM_FILTER_SetConditionBlobString")
 	fFWPMFILTERSetAction = dll.NewProc("FWPM_FILTER_SetAction")

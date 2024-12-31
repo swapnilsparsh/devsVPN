@@ -6,8 +6,6 @@ static const UINT16 MAX_SUBLAYER_WEIGHT				= 0xFFFF;
 static const UINT32 NUM_SUBLAYER_ENTRIES_REQUESTED 	= 100;
 
 extern "C" {
-
-	// // EXPORT bool _cdecl WfpSubLayerIsInstalled(HANDLE engineHandle, GUID subLayerKey, UINT16* _out_Weight)
 	// EXPORT FWPM_SUBLAYER0** _cdecl WfpFwpmSubLayerGetByKey(HANDLE engineHandle, GUID subLayerKey)
 	// {
 	// 	FWPM_SUBLAYER0 *subLayer;

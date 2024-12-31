@@ -1,6 +1,6 @@
 module github.com/swapnilsparsh/devsVPN/cli
 
-go 1.21
+go 1.22
 
 require (
 	github.com/swapnilsparsh/devsVPN/daemon v0.0.0

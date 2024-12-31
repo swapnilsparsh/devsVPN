@@ -25,6 +25,8 @@ package preferences
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,13 +65,30 @@ type LinuxSpecificUserPrefs struct {
 	IsDnsMgmtOldStyle bool
 }
 
+type IPAndNetmask struct {
+	IP      net.IP
+	Netmask net.IP
+}
+
+// VPN entry host info in parsed form, ready to be fed to WFP rules
+type VpnEntryHostParsed struct {
+	VpnEntryHostIP net.IP
+	DnsServersIPv4 []net.IP
+	AllowedIPs     []IPAndNetmask
+}
+
+type WindowsSpecificUserPrefs struct {
+	VpnEntryHostsParsed []*VpnEntryHostParsed
+}
+
 // UserPreferences - IVPN service preferences which can be exposed to client
 type UserPreferences struct {
 	// NOTE: update this type when adding new preferences which can be exposed for clients
 	// ...
 
 	// The platform-specific preferences
-	Linux LinuxSpecificUserPrefs
+	Linux   LinuxSpecificUserPrefs
+	Windows WindowsSpecificUserPrefs
 }
 
 // Preferences - IVPN service preferences
@@ -132,6 +151,38 @@ func Create() *Preferences {
 		SettingsSessionUUID: uuid.New().String(),
 		IsFwAllowApiServers: true,
 		WiFiControl:         WiFiParamsCreate(),
+	}
+}
+
+// ParseWindowsPreferences - parse endpoint(s) information once per change, to be reused many times in firewall_windows.go
+func (p *Preferences) ParseWindowsPreferences() {
+	log.Debug("ParseWindowsPreferences")
+	p.UserPrefs.Windows = WindowsSpecificUserPrefs{VpnEntryHostsParsed: make([]*VpnEntryHostParsed, len(p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts))}
+
+	for idx, vpnEntryHost := range p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {
+		var vpnEntryHostParsed VpnEntryHostParsed
+
+		vpnEntryHostParsed.VpnEntryHostIP = net.ParseIP(vpnEntryHost.EndpointIP)
+
+		vpnEntryHostParsed.DnsServersIPv4 = make([]net.IP, 0, 2)
+		for _, dnsSrv := range strings.Split(vpnEntryHost.DnsServers, ",") {
+			vpnEntryHostParsed.DnsServersIPv4 = append(vpnEntryHostParsed.DnsServersIPv4, net.ParseIP(strings.TrimSpace(dnsSrv)))
+		}
+
+		vpnEntryHostParsed.AllowedIPs = make([]IPAndNetmask, 0, 6)
+		for _, allowedIpCIDR := range strings.Split(vpnEntryHost.AllowedIPs, ",") { // CIDR format like "10.0.0.3/24"
+			allowedIpCIDR = strings.TrimSpace(allowedIpCIDR)
+			allowedIP, allowedIPNet, err := net.ParseCIDR(allowedIpCIDR)
+			if err != nil {
+				log.Error("error ParseCIDR '" + allowedIpCIDR + "'")
+				continue
+			}
+			netmaskAsIP := net.IPv4(allowedIPNet.Mask[0], allowedIPNet.Mask[1], allowedIPNet.Mask[2], allowedIPNet.Mask[3])
+
+			vpnEntryHostParsed.AllowedIPs = append(vpnEntryHostParsed.AllowedIPs, IPAndNetmask{allowedIP, netmaskAsIP})
+		}
+
+		p.UserPrefs.Windows.VpnEntryHostsParsed[idx] = &vpnEntryHostParsed
 	}
 }
 
@@ -219,6 +270,11 @@ func (p *Preferences) SavePreferences() error {
 	// Remove temp file after successful saving
 	os.Remove(settingsFileTmp)
 
+	// if on Windows - also parse VPN entry hosts here, to use as input for WFP rules
+	if runtime.GOOS == "windows" {
+		p.ParseWindowsPreferences()
+	}
+
 	return nil
 }
 
@@ -263,8 +319,6 @@ func (p *Preferences) LoadPreferences() error {
 		log.Info(fmt.Sprintf("default value for preferences: WgKeysRegenIntervalDays=%v", p.Session.WGKeysRegenInerval))
 	}
 
-	// TODO FIXME: Vlad - parse AllowedIPs here
-
 	// *** Compatibility with old versions ***
 
 	// Convert parameters from v3.10.23 (and releases older than 2023-05-15)
@@ -302,6 +356,11 @@ func (p *Preferences) LoadPreferences() error {
 			}
 
 		}
+	}
+
+	// if on Windows - also parse VPN entry hosts here, to use as input for WFP rules
+	if runtime.GOOS == "windows" {
+		p.ParseWindowsPreferences()
 	}
 
 	return nil

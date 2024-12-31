@@ -42,6 +42,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/eaa"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
@@ -81,7 +82,7 @@ type Service interface {
 	DetectAccessiblePorts(portsToTest []api_types.PortInfo) (retPorts []api_types.PortInfo, err error)
 
 	KillSwitchState() (status service_types.KillSwitchStatus, err error)
-	KillSwitchReregister(canStopOtherVpn bool) error
+	KillSwitchReregister(canStopOtherVpn bool) (err error)
 	SetKillSwitchState(bool) error
 	SetKillSwitchIsPersistent(isPersistent bool) error
 	SetKillSwitchAllowLANMulticast(isAllowLanMulticast bool) error
@@ -722,7 +723,18 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 
 		if err := p._service.KillSwitchReregister(req.CanStopOtherVpn); err != nil { // try to reregister at top firewall pri
-			p.sendErrorResponse(conn, reqCmd, err)
+			var fe *firewall.FirewallError
+			if errors.As(err, &fe) && fe.OtherVpnUnknownToUs() { // if grabbing 0xFFFF failed, and other VPN is not registered in our database - report to client
+				log.Error(fmt.Errorf("%sError processing request '%s': %w", p.connLogID(conn), req.Command, fe.GetContainedErr()))
+				resp := types.KillSwitchReregisterErrorResp{
+					ErrorMessage:        helpers.CapitalizeFirstLetter(fe.GetContainedErr().Error()),
+					OtherVpnUnknownToUs: fe.OtherVpnUnknownToUs(),
+					OtherVpnName:        fe.OtherVpnName(),
+					OtherVpnGUID:        fe.OtherVpnGUID()}
+				p.sendResponse(conn, &resp, req.Idx)
+			} else {
+				p.sendErrorResponse(conn, reqCmd, err)
+			}
 			break
 		}
 

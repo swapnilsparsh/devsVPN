@@ -1157,8 +1157,20 @@ func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) er
 }
 
 // KillSwitchReregister try to reregister our firewall logic at top
-func (s *Service) KillSwitchReregister(canStopOtherVpn bool) error {
-	return firewall.TryReregisterFirewallAtTopPriority(canStopOtherVpn)
+func (s *Service) KillSwitchReregister(canStopOtherVpn bool) (err error) {
+	if err = firewall.TryReregisterFirewallAtTopPriority(canStopOtherVpn); err != nil {
+		return err
+	}
+
+	if s.Connected() {
+		if haveTopFirewallPriority, _, _, _, err := firewall.HaveTopFirewallPriority(); err != nil {
+			return err
+		} else if haveTopFirewallPriority {
+			return firewall.DeployPostConnectionRules()
+		}
+	}
+
+	return err
 }
 
 func (s *Service) SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error {

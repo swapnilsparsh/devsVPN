@@ -62,6 +62,34 @@ var (
 	getPrefsCallback GetPrefsCallback
 )
 
+type FirewallError struct {
+	containedErr error
+
+	otherVpnUnknownToUs bool
+	otherVpnName        string
+	otherVpnGUID        string
+}
+
+func (fe *FirewallError) Error() string {
+	return fe.containedErr.Error()
+}
+
+func (fe *FirewallError) GetContainedErr() error {
+	return fe.containedErr
+}
+
+func (fe *FirewallError) OtherVpnName() string {
+	return fe.otherVpnName
+}
+
+func (fe *FirewallError) OtherVpnGUID() string {
+	return fe.otherVpnGUID
+}
+
+func (fe *FirewallError) OtherVpnUnknownToUs() bool {
+	return fe.otherVpnUnknownToUs
+}
+
 // Initialize is doing initialization stuff
 // Must be called on application start
 func Initialize(prefsCallback GetPrefsCallback) error {
@@ -73,7 +101,7 @@ func Initialize(prefsCallback GetPrefsCallback) error {
 }
 
 // SetEnabled - change firewall state
-func SetEnabled(enable bool) error {
+func SetEnabled(enable bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -83,8 +111,7 @@ func SetEnabled(enable bool) error {
 		log.Info("Disabling...")
 	}
 
-	err := implSetEnabled(enable, false)
-	if err != nil {
+	if err = implSetEnabled(enable, false); err != nil {
 		log.Error(err)
 		return fmt.Errorf("failed to change firewall state : %w", err)
 	}
@@ -102,18 +129,18 @@ func SetEnabled(enable bool) error {
 			}
 		}
 	}
+
 	return err
 }
 
 // SetPersistent - set persistent firewall state and enable it if necessary
-func SetPersistent(persistent bool) error {
+func SetPersistent(persistent bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	log.Info(fmt.Sprintf("Persistent:%t", persistent))
 
-	err := implSetPersistent(persistent)
-	if err != nil {
+	if err = implSetPersistent(persistent); err != nil {
 		log.Error(err)
 	}
 	return err
@@ -176,6 +203,13 @@ func ClientPaused() {
 // ClientResumed saves info about resumed state of vpn
 func ClientResumed() {
 	isClientPaused = false
+}
+
+func DeployPostConnectionRules() (retErr error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return implDeployPostConnectionRules()
 }
 
 // ClientConnected - allow communication for local vpn/client IP address

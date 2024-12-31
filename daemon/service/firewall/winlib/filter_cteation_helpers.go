@@ -28,12 +28,16 @@ package winlib
 import (
 	"net"
 	"syscall"
+
+	"golang.org/x/sys/windows"
 )
 
 // filter Weights
 const (
 	// Force allow DNS traffic to our servers w/ highest permission
 	weightAllowOurDNS = FILTER_MAX_WEIGHT
+
+	weightICMP = 14
 
 	// IMPORTANT! Use only for Local IP/IPv6 of VPN connection
 	weightAllowLocalIP            = 10
@@ -142,6 +146,70 @@ func NewFilterAllowApplication(
 	return f
 }
 
+// NewFilterAllowApplicationProto creates a filter to allow application, specifying IP protocol
+func NewFilterAllowApplicationProto(
+	keyProvider syscall.GUID,
+	keyLayer syscall.GUID,
+	keySublayer syscall.GUID,
+	dispName string,
+	dispDescription string,
+	binaryPath string,
+	protocol uint8,
+	isPersistent bool,
+	weight ...byte) Filter {
+
+	var _weight byte
+	if len(weight) > 0 {
+		_weight = weight[0]
+	} else {
+		_weight = weightAllowApplication
+	}
+
+	f := NewFilterAllowApplication(
+		keyProvider,
+		keyLayer,
+		keySublayer,
+		dispName,
+		dispDescription,
+		binaryPath,
+		isPersistent,
+		_weight)
+
+	f.AddCondition(&ConditionIPProtocol{Match: FwpMatchEqual, IPProtocol: protocol})
+	return f
+}
+
+// NewFilterAllowApplication creates a filter to allow application
+// func NewFilterAllowDnsNameProto(
+// 	keyProvider syscall.GUID,
+// 	keyLayer syscall.GUID,
+// 	keySublayer syscall.GUID,
+// 	dispName string,
+// 	dispDescription string,
+// 	dnsName string,
+// 	protocol uint8,
+// 	isPersistent bool,
+// 	weight ...byte) Filter {
+
+// 	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
+// 	if len(weight) > 0 {
+// 		f.Weight = weight[0]
+// 	} else {
+// 		f.Weight = weightAllowRemoteIP
+// 	}
+// 	f.Action = FwpActionPermit
+
+// 	f.Flags = FwpmFilterFlagClearActionRight
+// 	if isPersistent {
+// 		// log.Error("NewFilterAllowApplication error - WFP (Windows Filtering Platform) persistence not supported")
+// 		f.Flags = f.Flags | FwpmFilterFlagPersistent
+// 	}
+
+// 	f.AddCondition(&ConditionPeerName{Match: FwpMatchEqual, DnsName: dnsName})
+// 	f.AddCondition(&ConditionIPProtocol{Match: FwpMatchEqual, IPProtocol: protocol})
+// 	return f
+// }
+
 // NewFilterAllowRemoteIP creates a filter to allow remote IP
 func NewFilterAllowRemoteIP(
 	keyProvider syscall.GUID,
@@ -169,6 +237,41 @@ func NewFilterAllowRemoteIP(
 	}
 
 	f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchEqual, IP: ip, Mask: mask})
+	return f
+}
+
+// NewFilterAllowRemoteIPProto creates a filter to allow remote IP, with IP protocol specified
+func NewFilterAllowRemoteIPProto(
+	keyProvider syscall.GUID,
+	keyLayer syscall.GUID,
+	keySublayer syscall.GUID,
+	dispName string,
+	dispDescription string,
+	ip net.IP,
+	mask net.IP,
+	protocol uint8,
+	isPersistent bool,
+	weight ...byte) Filter {
+
+	var _weight byte
+	if len(weight) > 0 {
+		_weight = weight[0]
+	} else {
+		_weight = weightAllowRemoteIP
+	}
+
+	f := NewFilterAllowRemoteIP(
+		keyProvider,
+		keyLayer,
+		keySublayer,
+		dispName,
+		dispDescription,
+		ip,
+		mask,
+		isPersistent,
+		_weight)
+
+	f.AddCondition(&ConditionIPProtocol{Match: FwpMatchEqual, IPProtocol: protocol})
 	return f
 }
 
@@ -385,8 +488,38 @@ func NewFilterBlockDNS(
 	return f
 }
 
-// NewFilterAllowDNS creates a filter to block DNS port
-func NewFilterAllowDNS(
+// NewFilterBlockLocalPort creates a filter to block incoming traffic on a given local listening port (proto unspecified)
+func NewFilterBlockLocalPort(
+	keyProvider syscall.GUID,
+	keyLayer syscall.GUID,
+	keySublayer syscall.GUID,
+	dispName string,
+	dispDescription string,
+	port uint16,
+	isPersistent bool,
+	weight ...byte) Filter {
+
+	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightBlockDNS
+	}
+	f.Action = FwpActionBlock
+
+	f.Flags = FwpmFilterFlagClearActionRight
+	if isPersistent {
+		// log.Error("NewFilterBlockDNS error - WFP (Windows Filtering Platform) persistence not supported")
+		f.Flags = f.Flags | FwpmFilterFlagPersistent
+	}
+
+	f.AddCondition(&ConditionIPLocalPort{Match: FwpMatchEqual, Port: port})
+
+	return f
+}
+
+// NewFilterAllowDnsUdpIPv4 creates a filter to allow DNS port
+func NewFilterAllowDnsUdpIPv4(
 	keyProvider syscall.GUID,
 	keyLayer syscall.GUID,
 	keySublayer syscall.GUID,
@@ -413,9 +546,87 @@ func NewFilterAllowDNS(
 
 	f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchEqual, IP: ip, Mask: mask})
 	f.AddCondition(&ConditionIPRemotePort{Match: FwpMatchEqual, Port: 53})
+	f.AddCondition(&ConditionIPProtocol{Match: FwpMatchEqual, IPProtocol: windows.IPPROTO_UDP})
 
 	// if exceptionIP != nil && len(exceptionIP) > 0 && exceptionIP.To4() != nil {
 	// 	f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchNotEqual, IP: exceptionIP, Mask: net.IPv4bcast})
 	// }
+	return f
+}
+
+// NewFilterICMP creates a filter to permit/block ICMP with a given type
+func NewFilterICMPType(
+	keyProvider syscall.GUID,
+	keyLayer syscall.GUID,
+	keySublayer syscall.GUID,
+	dispName string,
+	dispDescription string,
+	action FwpActionType,
+	icmpType uint16,
+	ip net.IP,
+	mask net.IP,
+	isPersistent bool,
+	weight ...byte) Filter {
+
+	f := NewFilter(keyProvider, keyLayer, keySublayer, dispName, dispDescription)
+	if len(weight) > 0 {
+		f.Weight = weight[0]
+	} else {
+		f.Weight = weightICMP
+	}
+	f.Action = action
+
+	f.Flags = FwpmFilterFlagClearActionRight
+	if isPersistent {
+		// log.Error("NewFilterBlockDNS error - WFP (Windows Filtering Platform) persistence not supported")
+		f.Flags = f.Flags | FwpmFilterFlagPersistent
+	}
+
+	f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchEqual, IP: ip, Mask: mask})
+	f.AddCondition(&ConditionIcmpType{Match: FwpMatchEqual, IcmpType: icmpType})
+
+	// if exceptionIP != nil && len(exceptionIP) > 0 && exceptionIP.To4() != nil {
+	// 	f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchNotEqual, IP: exceptionIP, Mask: net.IPv4bcast})
+	// }
+	return f
+}
+
+// NewFilterICMP creates a filter to permit/block ICMP with a given type, code
+func NewFilterICMPTypeCode(
+	keyProvider syscall.GUID,
+	keyLayer syscall.GUID,
+	keySublayer syscall.GUID,
+	dispName string,
+	dispDescription string,
+	action FwpActionType,
+	icmpType uint16,
+	icmpCode uint16,
+	ip net.IP,
+	mask net.IP,
+	isPersistent bool,
+	weight ...byte) Filter {
+
+	var _weight byte
+	if len(weight) > 0 {
+		_weight = weight[0]
+	} else {
+		_weight = weightICMP
+	}
+
+	f := NewFilterICMPType(
+		keyProvider,
+		keyLayer,
+		keySublayer,
+		dispName,
+		dispDescription,
+		action,
+		icmpType,
+		ip,
+		mask,
+		isPersistent,
+		_weight)
+
+	f.AddCondition(&ConditionIcmpCode{Match: FwpMatchEqual, IcmpCode: icmpCode})
+
 	return f
 }

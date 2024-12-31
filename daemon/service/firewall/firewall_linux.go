@@ -535,3 +535,7 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
 	return nil
 }
+
+func implDeployPostConnectionRules() (retErr error) {
+	return nil
+}

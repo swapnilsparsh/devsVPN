@@ -263,6 +263,14 @@ type KillSwitchStatusResp struct {
 	service_types.KillSwitchStatus
 }
 
+type KillSwitchReregisterErrorResp struct {
+	CommandBase
+	ErrorMessage        string
+	OtherVpnUnknownToUs bool
+	OtherVpnName        string
+	OtherVpnGUID        string
+}
+
 // KillSwitchGetIsPestistentResp returns kill-switch persistance status
 type KillSwitchGetIsPestistentResp struct {
 	CommandBase
