@@ -32,11 +32,10 @@ type OtherVpnInfoParsed struct {
 	OtherVpnInfo
 }
 
-var ( // TODO FIXME: test
+var (
 	invalidServiceNamePrefixes mapset.Set[string] = mapset.NewSet[string]("Microsoft", "windefend", "Edge", "Intel")
 
-	FirstWordRE *regexp.Regexp = regexp.MustCompilePOSIX("^[^\\s_\\.-]+") // regexp for the 1st word: "^[^[:space:]_\.-]+"
-
+	FirstWordRE *regexp.Regexp = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+") // regexp for the 1st word: "^[^[:space:]_\.-]+"
 )
 
 func (otherVpn *OtherVpnInfoParsed) Close() {
@@ -125,7 +124,7 @@ func ParseOtherVpn(otherSublayerName string, otherSublayerGUID syscall.GUID) (ot
 			otherVpnInfoParsed.servicesThatWereRunning = append(otherVpnInfoParsed.servicesThatWereRunning, service)
 		}
 	} else { // other VPN not in our db, so try guessing the Windows service names from the 1st word of the other VPN sublayer name
-		if serviceNameRE, err = regexp.CompilePOSIX("(?i)^" + firstWord + ".*"); err != nil { // (?i) for case-insensitive matching
+		if serviceNameRE, err = regexp.Compile("(?i)^" + firstWord); err != nil { // (?i) for case-insensitive matching
 			return otherVpnInfoParsed, log.ErrorE(fmt.Errorf("error compiling regular expression from first word '%s'", firstWord), 0)
 		}
 		if otherVpnInfoParsed.servicesThatWereRunning, err = otherVpnInfoParsed.scmgr.FindRunningServicesMatchingRegex(serviceNameRE); err != nil {

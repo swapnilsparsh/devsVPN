@@ -556,6 +556,7 @@ func (wg *WireGuard) installService(try int, stateChan chan<- vpn.StateInfo) err
 	}
 
 	// Initialised
+	log.Debug("installService(): Initialised")
 
 	// Wait for hanshake and send 'connected' notification only after 'dns' package informed about correct DNS value
 	if err = wg.waitHandshakeAndNotifyConnected(stateChan); err != nil {
@@ -569,6 +570,7 @@ func (wg *WireGuard) installService(try int, stateChan chan<- vpn.StateInfo) err
 		return log.ErrorE(fmt.Errorf("failed set metric 0 on interface privateLINE: %w", err), 0)
 	}
 
+	log.Debug("installService(): finished")
 	return nil
 }
 

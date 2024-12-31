@@ -764,6 +764,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						}
 
 					case vpn.INITIALISED:
+						log.Debug("(s *Service) connect(): case vpn.INITIALISED:")
 						// start routing change detection
 						// if netInterface, err := netinfo.InterfaceByIPAddr(state.ClientIP); err != nil {
 						// 	log.Error(fmt.Sprintf("Unable to initialize routing change detection. Failed to get interface '%s'", state.ClientIP.String()))
