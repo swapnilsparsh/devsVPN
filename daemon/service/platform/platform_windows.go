@@ -165,7 +165,7 @@ func getPLCommsPaths() (plCommsPaths []string, err error) {
 		return []string{}, errors.New("error looking up environment variable %PUBLIC%")
 	}
 
-	return filepath.Glob(Public + "/../*/AppData/Local/privateline-comms-desktop/app*/privateLINE-Comms.exe")
+	return filepath.Glob(Public + "/../*/AppData/Local/p*-comms-desktop/app-*/*Comms.exe")
 }
 
 func implPLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) {
