@@ -31,9 +31,7 @@ type OtherVpnInfo struct {
 
 var (
 	// sublayer GUIDS of other VPNs known to us
-	// TODO FIXME: Vlad - revert after testing
-	// mullvadSublayerKey = syscall.GUID{Data1: 0xC78056FF, Data2: 0x2BC1, Data3: 0x4211, Data4: [8]byte{0xAA, 0xDD, 0x7F, 0x35, 0x8D, 0xEF, 0x20, 0x2D}}
-	mullvadSublayerKey = syscall.GUID{Data1: 0xC78056FE, Data2: 0x2BC1, Data3: 0x4211, Data4: [8]byte{0xAA, 0xDD, 0x7F, 0x35, 0x8D, 0xEF, 0x20, 0x2E}}
+	mullvadSublayerKey = syscall.GUID{Data1: 0xC78056FF, Data2: 0x2BC1, Data3: 0x4211, Data4: [8]byte{0xAA, 0xDD, 0x7F, 0x35, 0x8D, 0xEF, 0x20, 0x2D}} // good
 
 	// map from WFP sublayer GUID to the information about the other VPN that created and owns that sublayer
 	OtherVpnsBySublayerGUID = map[syscall.GUID]OtherVpnInfo{
