@@ -413,7 +413,7 @@ export default {
           }
           if (fwState.IsPersistent)
             await sender.KillSwitchSetIsPersistent(false);
-          await sender.EnableFirewall(false);
+          // await sender.EnableFirewall(false); // must never disable firewall from client, firewall must always remain enabled
         } catch (e) {
           processError(e);
         }

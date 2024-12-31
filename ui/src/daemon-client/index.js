@@ -511,9 +511,9 @@ async function processResponse(response) {
       // No need to disable firewall in this case
       if (obj.IsStateInfo === true) break;
 
-      if (store.state.settings.firewallDeactivateOnDisconnect === true) {
-        await EnableFirewall(false);
-      }
+      // if (store.state.settings.firewallDeactivateOnDisconnect === true) {
+      //   await EnableFirewall(false); // must never disable firewall from client, firewall must always remain enabled
+      // }
       requestGeoLookupAsync();
       break;
 
