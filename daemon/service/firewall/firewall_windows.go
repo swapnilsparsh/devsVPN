@@ -476,6 +476,7 @@ func implAllowLAN(allowLan bool, allowLanMulticast bool) error {
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
 func implOnChangeDNS(addr net.IP) error {
+	log.Info("implOnChangeDNS addr=" + addr.String())
 	if addr.Equal(customDNS) {
 		return nil
 	}
@@ -862,6 +863,14 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 					"Allow PL DNS "+dnsSrv.String(), dnsSrv, net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
 					return fmt.Errorf("failed to add filter 'Allow PL DNS %s': %w", dnsSrv, err)
 				}
+			}
+		}
+
+		// Also custom DNS
+		if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
+			if _, err = manager.AddFilter(winlib.NewFilterAllowDnsUdpIPv4(providerKey, ipv4LayerIn, ourSublayerKey, filterDName,
+				"Allow PL DNS "+customDNS.String(), customDNS, net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
+				return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDNS, err)
 			}
 		}
 
