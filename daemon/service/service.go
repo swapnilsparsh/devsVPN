@@ -1047,6 +1047,11 @@ func (s *Service) onKillSwitchStateChanged() {
 	}
 }
 
+// ReEnableKillSwitch disable-then-enable kill-switch
+func (s *Service) ReEnableKillSwitch() error {
+	return firewall.ReEnable()
+}
+
 // SetKillSwitchState enable\disable kill-switch
 func (s *Service) SetKillSwitchState(isEnabled bool) error {
 	if !isEnabled && s._preferences.IsFwPersistent {
@@ -1166,7 +1171,7 @@ func (s *Service) KillSwitchReregister(canStopOtherVpn bool) (err error) {
 		if haveTopFirewallPriority, _, _, _, err := firewall.HaveTopFirewallPriority(); err != nil {
 			return err
 		} else if haveTopFirewallPriority {
-			return firewall.DeployPostConnectionRules()
+			return firewall.DeployPostConnectionRules(false) // here meet.privateline.network hostname lookup succeds, no need to wait in the background
 		}
 	}
 

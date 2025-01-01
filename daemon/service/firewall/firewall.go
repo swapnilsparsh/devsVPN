@@ -27,6 +27,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
@@ -133,6 +134,20 @@ func SetEnabled(enable bool) (err error) {
 	return err
 }
 
+func ReEnable() error {
+	// if enabled, err := GetEnabled(); err != nil {
+	// 	return log.ErrorE(fmt.Errorf("failed to check firewall state: %w", err), 0)
+	// } else if !enabled {
+	// 	log.Info("firewall was not enabled, but disabling-then-enabling anyway")
+	// }
+
+	// GetEnabled() also grabs mutex, so have to wait for it to finish
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return implReEnable()
+}
+
 // SetPersistent - set persistent firewall state and enable it if necessary
 func SetPersistent(persistent bool) (err error) {
 	mutex.Lock()
@@ -205,11 +220,32 @@ func ClientResumed() {
 	isClientPaused = false
 }
 
-func DeployPostConnectionRules() (retErr error) {
+func deployPostConnectionRulesAsync() {
+	time.Sleep(time.Second * 5)
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implDeployPostConnectionRules()
+	// check whether firewall is still enabled after timeout
+	if enabled, err := implGetEnabled(); err != nil {
+		log.Error(fmt.Errorf("status check error: %w", err))
+	} else if enabled {
+		implDeployPostConnectionRules()
+	}
+}
+
+// If Mullvad stays connected, PL Connect has max firewall priority (0xFFFF sublayer weight), and goes from disconnected to connected - then looking up
+// hosts immediately after WG connection is established fails. In that case need to fork post-connection rules to run asynchronously 5-10sec later.
+func DeployPostConnectionRules(async bool) (retErr error) {
+	if async {
+		go deployPostConnectionRulesAsync()
+		return nil
+	} else {
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		return implDeployPostConnectionRules()
+	}
 }
 
 // ClientConnected - allow communication for local vpn/client IP address

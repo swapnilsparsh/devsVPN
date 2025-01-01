@@ -1440,8 +1440,9 @@ func (p *Protocol) processConnectionRequests() {
 		}
 
 		connectRequest := <-p._connRequestChan
-		connectRequest.FirewallOn = true // TODO FIXME: Vlad - firewall must always be enabled on Windows in MVP
-		p._connRequestReady.Wait()       // wait processing connection request until everything is ready
+		connectRequest.FirewallOn = false                // Vlad - firewall must be enabled before VPN connection on Windows, for VPN coexistence to work,
+		connectRequest.FirewallOnDuringConnection = true // ... and we disable firewall after VPN is disconnected.
+		p._connRequestReady.Wait()                       // wait processing connection request until everything is ready
 
 		// processing each connection request is wrapped into function in order to call 'defer' sections properly
 		func() {

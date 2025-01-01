@@ -603,8 +603,8 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 // Connect connect vpn.
 //   - Param 'originalEntryServerInfo' - contains original info about EntryServer/Port (it is not 'nil' for V2Ray connections).
 //     We need this info to notify correct data about vpn.CONNECTED state: for V2Ray connection the original parameters are overwriten by local V2Ray proxy params ('127.0.0.1:local_port')
-//   - Param 'firewallOn' - enable firewall before connection (if true - the parameter 'firewallDuringConnection' will be ignored).
-//   - Param 'firewallDuringConnection' - enable firewall before connection and disable after disconnection (has effect only if Firewall not enabled before)
+//   - Param 'firewallOn' - unconditionally reenable firewall before connection (if true - the parameter 'firewallDuringConnection' will be ignored).
+//   - Param 'firewallDuringConnection' - unconditionally reenable firewall before connection, and disable after disconnection
 func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Process, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper) error {
 	var connectRoutinesWaiter sync.WaitGroup
 
@@ -634,6 +634,15 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 	var err error
 
+	// Firewall must be enabled before starting VPN connection, required for VPN coexistence.
+	// Unconditionally run disable-then-enable, even if firewall was disabled before (this is to clean out old rules).
+	if firewallOn || firewallDuringConnection {
+		if err := s.ReEnableKillSwitch(); err != nil {
+			log.Error("Failed to reenable firewall:", err.Error())
+			return err
+		}
+	}
+
 	log.Info("Connecting...")
 
 	// save vpn object
@@ -642,7 +651,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 	internalStateChan := make(chan vpn.StateInfo, 1)
 	stopChannel := make(chan bool, 1)
 
-	fwInitState := false
+	// fwInitState := false
 	// finalize everything
 	defer func() {
 		if r := recover(); r != nil {
@@ -664,9 +673,12 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 			log.Error("(stopping) error on notifying FW about disconnected client:", err)
 		}
 
-		// when we were requested to enable firewall for this connection
-		// And initial FW state was disabled - we have to disable it back
-		if firewallDuringConnection && !fwInitState {
+		/*
+			// when we were requested to enable firewall for this connection
+			// And initial FW state was disabled - we have to disable it back
+			if firewallDuringConnection && !fwInitState {
+		*/
+		if !firewallOn && firewallDuringConnection { // per firewallOn, firewallDuringConnection description
 			if err = s.SetKillSwitchState(false); err != nil {
 				log.Error("(stopping) failed to disable firewall:", err)
 			}
@@ -823,10 +835,8 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						// It is important to call it after 's._vpn' initialised. So ST functionality will be correctly informed about 'VPN connected' status
 						s.splitTunnelling_ApplyConfig()
 
-						// Run at the end, as meet.privateline.network lookup fails if its ran here earlier
-						if err = firewall.DeployPostConnectionRules(); err != nil {
-							log.Error(fmt.Errorf("error deploying firewall post-connection rules: %w", err))
-						}
+						// Run at the end, as meet.privateline.network lookup fails if it's called too soon after WG connects. Run asynchronously, it'll sleep for 5s.
+						firewall.DeployPostConnectionRules(true)
 					default:
 					}
 				}()
@@ -912,37 +922,40 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 	log.Info("Initializing firewall")
 	// ensure firewall has no rules for DNS
 	firewall.OnChangeDNS(nil)
+
 	// firewallOn - enable firewall before connection (if true - the parameter 'firewallDuringConnection' will be ignored)
 	// firewallDuringConnection - enable firewall before connection and disable after disconnection (has effect only if Firewall not enabled before)
-	if firewallOn {
-		fw, err := firewall.GetEnabled()
-		if err != nil {
-			log.Error("Failed to check firewall state:", err.Error())
-			return err
-		}
-		if !fw {
-			if err := s.SetKillSwitchState(true); err != nil {
-				log.Error("Failed to enable firewall:", err.Error())
+	/*
+		if firewallOn {
+			enabled, err := firewall.GetEnabled()
+			if err != nil {
+				log.Error("Failed to check firewall state:", err.Error())
 				return err
 			}
-		}
-	} else if firewallDuringConnection {
-		// in case to enable FW for this connection parameter:
-		// - check initial FW state
-		// - if it disabled - enable it (will be disabled on disconnect)
-		fw, err := firewall.GetEnabled()
-		if err != nil {
-			log.Error("Failed to check firewall state:", err.Error())
-			return err
-		}
-		fwInitState = fw
-		if !fwInitState {
-			if err := s.SetKillSwitchState(true); err != nil {
-				log.Error("Failed to enable firewall:", err.Error())
+			if !enabled {
+				if err := s.SetKillSwitchState(true); err != nil {
+					log.Error("Failed to enable firewall:", err.Error())
+					return err
+				}
+			}
+		} else if firewallDuringConnection {
+			// in case to enable FW for this connection parameter:
+			// - check initial FW state
+			// - if it disabled - enable it (will be disabled on disconnect)
+			enabled, err := firewall.GetEnabled()
+			if err != nil {
+				log.Error("Failed to check firewall state:", err.Error())
 				return err
 			}
+			fwInitState := enabled
+			if !fwInitState {
+				if err := s.SetKillSwitchState(true); err != nil {
+					log.Error("Failed to enable firewall:", err.Error())
+					return err
+				}
+			}
 		}
-	}
+	*/
 
 	// Add host IP to firewall exceptions
 	const onlyForICMP = false

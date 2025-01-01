@@ -379,7 +379,7 @@ func implSetPersistent(persistent bool) (retErr error) {
 		}
 
 		log.Info(fmt.Sprintf("Re-enabling with persistent flag = %t", isPersistent))
-		return reEnable()
+		return implReEnable()
 	}
 
 	return doEnable(false)
@@ -471,7 +471,7 @@ func implAllowLAN(allowLan bool, allowLanMulticast bool) error {
 		return nil
 	}
 
-	return reEnable()
+	return implReEnable()
 }
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
@@ -491,7 +491,7 @@ func implOnChangeDNS(addr net.IP) error {
 		return nil
 	}
 
-	return reEnable()
+	return implReEnable() // TODO FIXME: Vlad - do we really need full reenable here? maybe just add the allow inbound rule for the new DNS srv?
 }
 
 // implOnUserExceptionsUpdated() called when 'userExceptions' value were updated. Necessary to update firewall rules.
@@ -504,11 +504,12 @@ func implOnUserExceptionsUpdated() error {
 		return nil
 	}
 
-	return reEnable()
+	return implReEnable()
 }
 
-func reEnable() (retErr error) {
-	log.Info("reEnable")
+// implReEnable unconditionally starts WFP transaction, so callers must not have started one already
+func implReEnable() (retErr error) {
+	log.Info("implReEnable")
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
@@ -869,7 +870,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		// Also custom DNS
 		if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
 			if _, err = manager.AddFilter(winlib.NewFilterAllowDnsUdpIPv4(providerKey, ipv4LayerIn, ourSublayerKey, filterDName,
-				"Allow PL DNS "+customDNS.String(), customDNS, net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
+				"Allow PL customDNS "+customDNS.String(), customDNS, net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
 				return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDNS, err)
 			}
 		}
@@ -905,6 +906,7 @@ func doDisable(wfpTransactionAlreadyInProgress bool) error {
 	log.Info("doDisable")
 	implSingleDnsRuleOff()
 
+	var err error
 	enabled, err := implGetEnabled()
 	if err != nil {
 		return fmt.Errorf("failed to get info if firewall is on: %w", err)
@@ -915,8 +917,9 @@ func doDisable(wfpTransactionAlreadyInProgress bool) error {
 		err = log.ErrorE(fmt.Errorf("failed to check/create provider or sublayer: %w", err), 0)
 	}
 
-	if !enabled {
-		return nil
+	if !enabled { // Vlad - doDisable() is essentially cleaning out old rules, may need to run this even if firewall was disabled to begin with
+		log.Info("firewall was already disabled, but cleaning out rules in all our layers anyway")
+		//return nil
 	}
 
 	// delete filters
@@ -955,9 +958,10 @@ func doDisable(wfpTransactionAlreadyInProgress bool) error {
 	return err
 }
 
+// implDeployPostConnectionRules might be called asynchronously w/o checking return, so log everything
 func implDeployPostConnectionRules() (retErr error) {
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
-		return fmt.Errorf("failed to start transaction: %w", err)
+		return log.ErrorE(fmt.Errorf("failed to start transaction: %w", err), 0)
 	}
 	defer func() { // do not forget to stop WFP transaction
 		var r any = recover()
@@ -1090,48 +1094,59 @@ func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
 }
 
 func implSingleDnsRuleOff() (retErr error) {
-	// TODO FIXME: Vlad - disable much or all of functionality
-	log.Debug("implSingleDnsRuleOff - largely disabled")
-
-	pInfo, err := manager.GetProviderInfo(providerKeySingleDns)
-	if err != nil {
-		return fmt.Errorf("failed to get provider info: %w", err)
-	}
-	if !pInfo.IsInstalled {
-		return nil
-	}
-
-	// delete filters
-	for _, l := range v6LayersAll {
-		// delete filters and callouts registered for the provider+layer
-		if err := manager.DeleteFilterByProviderKey(providerKeySingleDns, l); err != nil {
-			return fmt.Errorf("failed to delete filter : %w", err)
-		}
-	}
-
-	for _, l := range v4LayersAll {
-		// delete filters and callouts registered for the provider+layer
-		if err := manager.DeleteFilterByProviderKey(providerKeySingleDns, l); err != nil {
-			return fmt.Errorf("failed to delete filter : %w", err)
-		}
-	}
-
-	// // delete sublayer
-	// installed, err := manager.IsSubLayerInstalled(sublayerKeySingleDns)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to check is sublayer installed : %w", err)
-	// }
-	// if installed {
-	// 	if err := manager.DeleteSubLayer(sublayerKeySingleDns); err != nil {
-	// 		return fmt.Errorf("failed to delete sublayer : %w", err)
-	// 	}
-	// }
-
-	// // delete provider
-	// if err := manager.DeleteProvider(providerKeySingleDns); err != nil {
-	// 	return fmt.Errorf("failed to delete provider : %w", err)
-	// }
+	// TODO FIXME: Vlad - disabled
+	log.Debug("implSingleDnsRuleOn - disabled (providerKeySingleDns not installed), exiting")
 	return nil
+
+	/*
+		// TODO FIXME: Vlad - disable much or all of functionality
+		log.Debug("implSingleDnsRuleOff - largely disabled")
+
+		pInfo, err := manager.GetProviderInfo(providerKeySingleDns)
+		if err != nil {
+			return fmt.Errorf("failed to get provider info: %w", err)
+		}
+		if !pInfo.IsInstalled {
+			log.Debug("providerKeySingleDns not installed, returning from implSingleDnsRuleOff early")
+			return nil
+		}
+
+		// delete filters
+		for _, l := range v6LayersAll {
+			// delete filters and callouts registered for the provider+layer
+			if err := manager.DeleteFilterByProviderKey(providerKeySingleDns, l); err != nil {
+				return fmt.Errorf("failed to delete filter : %w", err)
+			}
+		}
+
+		for _, l := range v4LayersAll {
+			// delete filters and callouts registered for the provider+layer
+			if err := manager.DeleteFilterByProviderKey(providerKeySingleDns, l); err != nil {
+				return fmt.Errorf("failed to delete filter : %w", err)
+			}
+		}
+
+		// delete sublayer
+		installed, _, err := manager.GetSubLayerByKey(sublayerKeySingleDns)
+		if err != nil {
+			return fmt.Errorf("failed to check whether sublayer is installed: %w", err)
+		}
+		if installed {
+			var notFound bool
+			if notFound, err = manager.DeleteSubLayer(sublayerKeySingleDns); err != nil {
+				return fmt.Errorf("failed to delete sublayer : %w", err)
+			}
+			if notFound {
+				log.Info("sublayer sublayerKeySingleDns='" + windows.GUID(sublayerKeySingleDns).String() + "' not found, so couldn't delete")
+			}
+		}
+
+		// delete provider
+		if err := manager.DeleteProvider(providerKeySingleDns); err != nil {
+			return fmt.Errorf("failed to delete provider : %w", err)
+		}
+		return nil
+	*/
 }
 
 func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {

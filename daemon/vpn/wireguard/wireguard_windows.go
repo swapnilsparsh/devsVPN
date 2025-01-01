@@ -91,7 +91,7 @@ func (wg *WireGuard) init() error {
 		return nil // service not available (so, nothing to uninstall)
 	}
 
-	log.Warning("The IVPN WireGuard service is installed (it is not expected). Uninstalling it...")
+	log.Warning("The privateLINE WireGuard service (WireGuardTunnel$privateLINE) is installed (it is not expected). Uninstalling it...")
 	return wg.uninstallService()
 }
 
