@@ -73,7 +73,9 @@
           class="flexRow paramBlockDetailedConfig"
         >
           <div class="defColor paramName">Latest Handshake:</div>
-          <div class="greenBlinkingDot"></div>
+          <div
+            :class="{ greenBlinkingDot: isBlinking, greenDot: !isBlinking }"
+          ></div>
           <div class="detailedParamValue">
             {{ formattedElapsedTime }}
           </div>
@@ -127,6 +129,8 @@ export default {
       startTime: null, // To keep track of when the stopwatch started
       elapsedTime: 0, // To keep track of elapsed time in seconds
       intervalId: null, // To store the interval ID for clearing it later
+      isBlinking: false, // Control the blinking state
+      blinkTimeout: null, // Store the timeout ID to stop blinking
     };
   },
   mounted() {
@@ -164,6 +168,7 @@ export default {
           this.resetStopwatch();
           this.startTime = Date.now();
           this.startStopwatch();
+          this.triggerBlinking();
         }
       }
     },
@@ -188,6 +193,20 @@ export default {
       }
       this.startTime = null;
       this.elapsedTime = 0;
+    },
+    triggerBlinking() {
+      // Start blinking
+      this.isBlinking = true;
+
+      // Clear any existing timeout
+      if (this.blinkTimeout) {
+        clearTimeout(this.blinkTimeout);
+      }
+
+      // Stop blinking after 3 seconds
+      this.blinkTimeout = setTimeout(() => {
+        this.isBlinking = false;
+      }, 3000);
     },
     onWgKeyRegenerate: async function () {
       try {
@@ -338,6 +357,15 @@ div.paramName {
   min-width: 120px;
   max-width: 120px;
   font-size: 11px;
+}
+
+div.greenDot {
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  background-color: green;
+  border-radius: 50%;
+  margin-right: 10px;
 }
 
 div.greenBlinkingDot {
