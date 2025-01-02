@@ -55,13 +55,10 @@
           </div>
         </div>
 
-        <div
-          v-if="this.$store.state.vpnState.connectionInfo !== null"
-          class="flexRow paramBlockDetailedConfig"
-        >
+        <div v-if="this.$store.state.vpnState.connectionInfo !== null" class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Transfer:</div>
-          <!-- FIXME: @Swapnil Suggestion-> Please check previous data with new if there is change in both case send and receive then only blink -->
-          <div class="greenBlinkingDot"></div>
+          <!-- Sugestion: Blue for idle state and green for data exchanged -->
+          <div :class="{ greenBlinkingDot: isReceivedSendChanging, blueDot: !isReceivedSendChanging }"></div>
           <div class="detailedParamValue">
             {{ this.$store.state.vpnState.transferredData.ReceivedData }}
             received,
@@ -69,14 +66,9 @@
           </div>
         </div>
 
-        <div
-          v-if="this.$store.state.vpnState.connectionInfo !== null"
-          class="flexRow paramBlockDetailedConfig"
-        >
+        <div v-if="this.$store.state.vpnState.connectionInfo !== null" class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Latest Handshake:</div>
-          <div
-            :class="{ greenBlinkingDot: isBlinking, greenDot: !isBlinking }"
-          ></div>
+          <div :class="{ greenBlinkingDot: isBlinking, greenDot: !isBlinking }"></div>
           <div class="detailedParamValue">
             {{ formattedElapsedTime }}
           </div>
@@ -132,6 +124,8 @@ export default {
       intervalId: null, // To store the interval ID for clearing it later
       isBlinking: false, // Control the blinking state
       blinkTimeout: null, // Store the timeout ID to stop blinking
+      blinkTimeoutReceivedSend: null, // Store the timeout ID to stop blinking
+      isReceivedSendChanging: false,
     };
   },
   mounted() {
@@ -163,16 +157,22 @@ export default {
       if (newValue === 0) {
         // Reset the stopwatch if adjustedHandshakeTime is 0
         this.resetStopwatch();
+        this.isBlinking = false;
       } else {
         // Reset and restart the stopwatch if HandshakeTime changes and is not 0
         if (oldValue !== newValue) {
           this.resetStopwatch();
           this.startTime = Date.now();
           this.startStopwatch();
-          // FIX ME: @Swapnil  no need of this function as we can start blinking when oldValue !== newValue and stop oldValue == newValue no need of timeout here 
           this.triggerBlinking();
         }
       }
+    },
+    receivedData(newValue, oldValue) {
+      this.checkReceivedSendChange(newValue, oldValue, "received");
+    },
+    sentData(newValue, oldValue) {
+      this.checkReceivedSendChange(newValue, oldValue, "sent");
     },
   },
 
@@ -197,18 +197,11 @@ export default {
       this.elapsedTime = 0;
     },
     triggerBlinking() {
-      // Start blinking
       this.isBlinking = true;
-
-      // Clear any existing timeout
-      if (this.blinkTimeout) {
-        clearTimeout(this.blinkTimeout);
-      }
-
-      // Stop blinking after 3 seconds
+      clearTimeout(this.blinkTimeout);
       this.blinkTimeout = setTimeout(() => {
         this.isBlinking = false;
-      }, 3000);
+      }, 500);
     },
     onWgKeyRegenerate: async function () {
       try {
@@ -238,6 +231,17 @@ export default {
     formatDate: function (d) {
       if (d == null) return null;
       return dateDefaultFormat(d);
+    },
+    checkReceivedSendChange(newValue, oldValue, type) {
+      this.isReceivedSendChanging = false;
+      if (newValue !== oldValue) {
+        this.isReceivedSendChanging = true;
+        // Stop blinking after a short period
+        clearTimeout(this.blinkTimeoutReceivedSend);
+        this.blinkTimeoutReceivedSend = setTimeout(() => {
+          this.isReceivedSendChanging = false;
+        }, 500);
+      }
     },
   },
   computed: {
@@ -294,7 +298,7 @@ export default {
 
       t.setSeconds(
         t.getSeconds() +
-          this.$store.state.account.session.WgKeysRegenIntervalSec
+        this.$store.state.account.session.WgKeysRegenIntervalSec
       );
 
       let now = new Date();
@@ -324,6 +328,12 @@ export default {
       if (this.$store.state.account.session.WgUsePresharedKey === true)
         return "Enabled";
       return "Disabled";
+    },
+    receivedData() {
+      return this.$store.state.vpnState.transferredData.ReceivedData;
+    },
+    sentData() {
+      return this.$store.state.vpnState.transferredData.SentData;
     },
   },
 };
@@ -370,6 +380,15 @@ div.greenDot {
   margin-right: 10px;
 }
 
+div.blueDot {
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  background-color: #449cf8;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
 div.greenBlinkingDot {
   flex-shrink: 0;
   width: 11px;
@@ -377,16 +396,18 @@ div.greenBlinkingDot {
   margin-right: 10px;
   background-color: green;
   border-radius: 50%;
-  animation: blink 1s infinite;
+  animation: blink 0.5s infinite;
 }
 
 @keyframes blink {
   0% {
     opacity: 1;
   }
+
   50% {
     opacity: 0;
   }
+
   100% {
     opacity: 1;
   }
