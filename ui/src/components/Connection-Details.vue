@@ -60,6 +60,7 @@
           class="flexRow paramBlockDetailedConfig"
         >
           <div class="defColor paramName">Transfer:</div>
+          <!-- FIXME: @Swapnil Suggestion-> Please check previous data with new if there is change in both case send and receive then only blink -->
           <div class="greenBlinkingDot"></div>
           <div class="detailedParamValue">
             {{ this.$store.state.vpnState.transferredData.ReceivedData }}
@@ -168,6 +169,7 @@ export default {
           this.resetStopwatch();
           this.startTime = Date.now();
           this.startStopwatch();
+          // FIX ME: @Swapnil  no need of this function as we can start blinking when oldValue !== newValue and stop oldValue == newValue no need of timeout here 
           this.triggerBlinking();
         }
       }
