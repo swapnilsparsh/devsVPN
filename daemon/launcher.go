@@ -217,7 +217,7 @@ func Stop() {
 // Logout can be requested by Linux Snap package 'remove' hook (using command line argument)
 // IMPORTANT! This operation must be executed ONLY when no any daemon instances running!
 func doCleanup() (osExitCode int) {
-	log = logger.NewLogger("cleanup!")
+	log = logger.NewLogger("clean!")
 	log.Info("disabled")
 	return 0
 

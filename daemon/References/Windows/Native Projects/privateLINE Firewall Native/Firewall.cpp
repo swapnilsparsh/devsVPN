@@ -37,11 +37,6 @@ extern "C" {
 		delete sessionObject;
 	}
 
-	// EXPORT void _cdecl FwpmFreeMemory(void **p)
-	// {
-	// 	FwpmFreeMemory0(p);
-	// }
-
 	EXPORT DWORD _cdecl WfpTransactionBegin(HANDLE engineHandle)
 	{
 		return FwpmTransactionBegin0(engineHandle, 0);
