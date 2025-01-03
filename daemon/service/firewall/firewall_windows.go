@@ -208,6 +208,9 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 		}
 	}()
 
+	// to figure out who called us
+	// log.LogCallStack()
+
 	// add provider
 	pInfo, err = manager.GetProviderInfo(providerKey)
 	if err != nil {
@@ -912,50 +915,73 @@ func doDisable(wfpTransactionAlreadyInProgress bool) error {
 		return fmt.Errorf("failed to get info if firewall is on: %w", err)
 	}
 
-	// retry moving our sublayer to top priority
-	if err = checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, false); err != nil {
-		err = log.ErrorE(fmt.Errorf("failed to check/create provider or sublayer: %w", err), 0)
-	}
+	// retry moving our sublayer to top priority - actually don't, as otherwise cleanup on uninstall doesn't work properly
+	// if err = checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, false); err != nil {
+	// 	err = log.ErrorE(fmt.Errorf("failed to check/create provider or sublayer: %w", err), 0)
+	// }
 
 	if !enabled { // Vlad - doDisable() is essentially cleaning out old rules, may need to run this even if firewall was disabled to begin with
 		log.Info("firewall was already disabled, but cleaning out rules in all our layers anyway")
 		//return nil
 	}
 
-	// delete filters
-	for _, l := range layersAllToClean {
+	for _, l := range layersAllToClean { // delete filters
 		// delete filters and callouts registered for the provider+layer
 		if err := manager.DeleteFilterByProviderKey(providerKey, l); err != nil {
 			return fmt.Errorf("failed to delete filter : %w", err)
 		}
 	}
 
-	// // delete sublayer
-	// installed, err := manager.IsSubLayerInstalled(sublayerKey)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to check is sublayer installed : %w", err)
-	// }
-	// if installed {
-	// 	if err := manager.DeleteSubLayer(sublayerKey); err != nil {
-	// 		return fmt.Errorf("failed to delete sublayer : %w", err)
-	// 	}
-	// }
-
-	// // delete provider
-	// pinfo, err := manager.GetProviderInfo(providerKey)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get provider info : %w", err)
-	// }
-	// if pinfo.IsInstalled {
-	// 	if err := manager.DeleteProvider(providerKey); err != nil {
-	// 		return fmt.Errorf("failed to delete provider : %w", err)
-	// 	}
-	// }
-
 	clientLocalIPFilterIDs = nil
 
 	_isEnabled = false
 	return err
+}
+
+func deleteSublayerAndProvider(sublayerKey, _providerKey syscall.GUID) (retErr error) {
+	// delete sublayer
+	installed, _, err := manager.GetSubLayerByKey(sublayerKey)
+	if err != nil {
+		retErr = log.ErrorE(fmt.Errorf("failed to check whether sublayer '%s' is installed: %w", windows.GUID(sublayerKey).String(), err), 0)
+	} else if installed {
+		for _, l := range layersAllToClean { // delete filters
+			// delete filters and callouts registered for the provider+layer
+			if err := manager.DeleteFilterByProviderKey(_providerKey, l); err != nil {
+				retErr = log.ErrorE(fmt.Errorf("failed to delete filter under provider '%s' : %w", windows.GUID(_providerKey).String(), err), 0)
+			}
+		}
+
+		if _, err := manager.DeleteSubLayer(sublayerKey); err != nil {
+			retErr = log.ErrorE(fmt.Errorf("failed to delete sublayer '%s': %w", windows.GUID(sublayerKey).String(), err), 0)
+		}
+	}
+
+	// delete provider
+	if pinfo, err := manager.GetProviderInfo(_providerKey); err != nil {
+		retErr = log.ErrorE(fmt.Errorf("failed to get provider '%s' info: %w", windows.GUID(_providerKey).String(), err), 0)
+	} else if pinfo.IsInstalled {
+		if err := manager.DeleteProvider(_providerKey); err != nil {
+			retErr = log.ErrorE(fmt.Errorf("failed to delete provider '%s': %w", windows.GUID(_providerKey).String(), err), 0)
+		}
+	}
+
+	return retErr
+}
+
+func implCleanupRegistration() (retErr error) {
+	log.Info("========================================================================================================================")
+	log.Info("implCleanupRegistration")
+
+	if retErr = deleteSublayerAndProvider(ourSublayerKey, providerKey); retErr != nil {
+		retErr = log.ErrorE(fmt.Errorf("error deleting main sublayer and provider: %w", retErr), 0)
+	}
+
+	if err := deleteSublayerAndProvider(sublayerKeySingleDns, providerKeySingleDns); err != nil {
+		log.Warning(fmt.Errorf("error deleting single DNS sublayer and provider: %w", err), 0)
+	}
+
+	log.Info("========================================================================================================================")
+	return retErr
 }
 
 // implDeployPostConnectionRules might be called asynchronously w/o checking return, so log everything

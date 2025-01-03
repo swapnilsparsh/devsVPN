@@ -143,6 +143,10 @@ type KillSwitchSetIsPersistent struct {
 	IsPersistent bool
 }
 
+type KillSwitchCleanup struct {
+	RequestBase
+}
+
 // SetPreference sets daemon configuration parameter
 // (This is an old implementation. It is necessary to use 'SetUserPreferences/SettingsResp' for future extensions)
 type SetPreference struct {

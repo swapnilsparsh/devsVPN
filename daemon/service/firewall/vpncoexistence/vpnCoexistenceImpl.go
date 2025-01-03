@@ -14,7 +14,6 @@ import (
 	"strings"
 	"syscall"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"golang.org/x/sys/windows/svc/mgr"
@@ -33,8 +32,6 @@ type OtherVpnInfoParsed struct {
 }
 
 var (
-	invalidServiceNamePrefixes mapset.Set[string] = mapset.NewSet[string]("Microsoft", "windefend", "Edge", "Intel")
-
 	FirstWordRE *regexp.Regexp = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+") // regexp for the 1st word: "^[^[:space:]_\.-]+"
 )
 
@@ -93,7 +90,7 @@ func ParseOtherVpn(otherSublayerName string, otherSublayerGUID syscall.GUID) (ot
 		if firstWord = FirstWordRE.FindString(otherSublayerName); firstWord == "" {
 			return nil, nil
 		}
-		if len(firstWord) <= 4 {
+		if len(firstWord) < MIN_BRAND_FIRST_WORD_LEN {
 			return nil, log.ErrorE(fmt.Errorf("error - trying to guess service name for other VPN sublayer '%s', but first word '%s' is too short",
 				otherSublayerName, firstWord), 0)
 		}

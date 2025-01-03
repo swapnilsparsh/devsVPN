@@ -539,3 +539,7 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
 func implDeployPostConnectionRules() (retErr error) {
 	return nil
 }
+
+func implCleanupRegistration() (err error) {
+	return nil
+}

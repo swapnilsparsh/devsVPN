@@ -83,9 +83,9 @@ func Launch() {
 	// Checking command line arguments
 	for _, arg := range os.Args {
 		arg = strings.ToLower(arg)
-		if arg == "-logging" || arg == "--logging" {
-			isLoggingEnabledArgument = true
-		}
+		// if arg == "-logging" || arg == "--logging" {
+		// 	isLoggingEnabledArgument = true
+		// }
 		if arg == "-cleanup" || arg == "--cleanup" {
 			// Cleanup requested.
 			// IMPORTANT! This operation must be executed ONLY when no any daemon instances running!
@@ -217,9 +217,11 @@ func Stop() {
 // Logout can be requested by Linux Snap package 'remove' hook (using command line argument)
 // IMPORTANT! This operation must be executed ONLY when no any daemon instances running!
 func doCleanup() (osExitCode int) {
-	log = logger.NewLogger("clean!")
+	log = logger.NewLogger("cleanup!")
+	log.Info("disabled")
+	return 0
 
-	f := func() error {
+	f := func() (retErr error) {
 		if !doCheckIsAdmin() {
 			return fmt.Errorf("not privileged environment")
 		}
@@ -228,40 +230,52 @@ func doCleanup() (osExitCode int) {
 			return err
 		}
 
-		// Disable firewall (if enabled)
-		fwEnabled, fwErr := firewall.GetEnabled()
-		if fwErr != nil {
-			log.Error(fwErr)
+		// Try to logout
+		session := prefs.Session
+		if !session.IsLoggedIn() {
+			log.Info("Not logged in")
+		} else {
+			if apiObj, err := api.CreateAPI(); err != nil { // API object
+				retErr = log.ErrorE(fmt.Errorf("api.CreateAPI() failed: %w", err), 0)
+			} else {
+				log.Info("Logging out ...")
+				if err = apiObj.SessionDelete(session.Session, prefs.Session.WGPublicKey); err != nil {
+					retErr = log.ErrorE(fmt.Errorf("apiObj.SessionDelete() failed: %w", err), 0)
+				} else {
+					log.Info("Logging out: done")
+				}
+			}
+		}
+
+		// Disable firewall (if enabled) - must be done after logging out, because firewall rules assure we have access to api.privateline.io
+		var fwErr error
+		fwEnabled, err := firewall.GetEnabled()
+		if err != nil {
+			fwErr = log.ErrorE(fmt.Errorf("firewall.GetEnabled() failed: %w", err), 0)
 		} else if fwEnabled {
 			log.Info("Disabling firewall ...")
-			if fwErr = firewall.SetEnabled(false); fwErr != nil {
-				log.Error(fwErr)
+			if err = firewall.SetEnabled(false); err != nil {
+				fwErr = log.ErrorE(fmt.Errorf("firewall.SetEnabled() failed: %w", err), 0)
 			} else {
 				log.Info("Firewall disabled")
 			}
 		}
 
-		// Logout
-		session := prefs.Session
-		if !session.IsLoggedIn() {
-			log.Info("Not logged in")
-			return nil
+		// Clean-up our firewall registration, delete all firewall objects
+		log.Info("Cleaning up firewall registration ...")
+		if err = firewall.CleanupRegistration(); err != nil {
+			fwErr = log.ErrorE(fmt.Errorf("firewall.CleanupRegistration() failed: %w", err), 0)
+		} else {
+			log.Info("Firewall registration cleaned up")
 		}
 
-		// API object
-		apiObj, err := api.CreateAPI()
-		if err != nil {
-			return fmt.Errorf("the API object initialization failed: %w", err)
+		if retErr != nil {
+			return retErr
+		} else {
+			return fwErr
 		}
-
-		log.Info("Logging out ...")
-		err = apiObj.SessionDelete(session.Session, prefs.Session.WGPublicKey)
-		if err != nil {
-			return err
-		}
-		log.Info("Logging out: done")
-		return nil
 	}
+
 	if err := f(); err != nil {
 		log.Error(err)
 		return 2

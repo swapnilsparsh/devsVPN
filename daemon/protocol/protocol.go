@@ -89,6 +89,7 @@ type Service interface {
 	SetKillSwitchAllowLAN(isAllowLan bool) error
 	SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error
 	SetKillSwitchUserExceptions(exceptions string, ignoreParsingErrors bool) error
+	KillSwitchCleanup() error
 
 	GetConnectionParams() service_types.ConnectionParams
 	SetConnectionParams(params service_types.ConnectionParams) error
@@ -683,6 +684,20 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		// send the response to the requestor
 		p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
 		// all clients will be notified in case of successful change by OnKillSwitchStateChanged() handler
+
+	case "KillSwitchCleanup":
+		var req types.KillSwitchCleanup
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		if err := p._service.KillSwitchCleanup(); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
 
 	case "KillSwitchSetAllowLANMulticast":
 		var req types.KillSwitchSetAllowLANMulticast

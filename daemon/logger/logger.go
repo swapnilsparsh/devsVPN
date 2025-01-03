@@ -248,7 +248,11 @@ func (l *Logger) Panic(v ...interface{}) {
 	_panic(l.pref, v...)
 }
 
-func PrintStackToStderr() {
+func (l *Logger) LogCallStack() {
+	l.Debug(string(debug.Stack()))
+}
+
+func PrintCallStackToStderr() {
 	debug.PrintStack()
 }
 

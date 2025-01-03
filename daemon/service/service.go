@@ -1211,6 +1211,15 @@ func (s *Service) SetKillSwitchUserExceptions(exceptions string, ignoreParsingEr
 	return err
 }
 
+func (s *Service) KillSwitchCleanup() error {
+	err := firewall.CleanupRegistration()
+	// don't run onKillSwitchStateChanged() - otherwise it recreates our provider and sublayer
+	// if err == nil {
+	// 	s.onKillSwitchStateChanged()
+	// }
+	return err
+}
+
 //////////////////////////////////////////////////////////
 // PREFERENCES
 //////////////////////////////////////////////////////////

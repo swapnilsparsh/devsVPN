@@ -148,6 +148,22 @@ func ReEnable() error {
 	return implReEnable()
 }
 
+// CleanupRegistration will completely clean up firewall registation, all of its objects. To be used only during uninstallation.
+func CleanupRegistration() (err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if err = implSetEnabled(false, false); err != nil {
+		return log.ErrorE(fmt.Errorf("failed to disable firewall: %w", err), 0)
+	}
+
+	if err = implCleanupRegistration(); err != nil {
+		return log.ErrorE(fmt.Errorf("implCleanupRegistration() failed: %w", err), 0)
+	}
+
+	return nil
+}
+
 // SetPersistent - set persistent firewall state and enable it if necessary
 func SetPersistent(persistent bool) (err error) {
 	mutex.Lock()

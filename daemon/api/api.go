@@ -525,7 +525,7 @@ func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, 
 	if resp.HttpStatusCode != types.CodeSuccess {
 		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
-	log.Debug(fmt.Sprintf("Device list fetched successfully: %#v", resp))
+	// log.Debug(fmt.Sprintf("Device list fetched successfully: %#v", resp))
 	return resp, nil
 }
 

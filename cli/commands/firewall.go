@@ -33,6 +33,7 @@ type CmdFirewall struct {
 	status             bool
 	on                 bool
 	off                bool
+	cleanup            bool
 	allowLan           bool
 	blockLan           bool
 	ivpnSvrAccessAllow bool
@@ -51,6 +52,7 @@ func (c *CmdFirewall) Init() {
 	c.BoolVar(&c.status, "status", false, "(default) Show info about current firewall status")
 	c.BoolVar(&c.off, "off", false, "Switch-off firewall")
 	c.BoolVar(&c.on, "on", false, "Switch-on firewall")
+	c.BoolVar(&c.cleanup, "cleanup", false, "Switch-off firewall and clean up all firewall objects")
 	c.BoolVar(&c.allowLan, "lan_allow", false, "Set configuration: allow LAN communication (take effect when firewall enabled)")
 	c.BoolVar(&c.blockLan, "lan_block", false, "Set configuration: block LAN communication (take effect when firewall enabled)")
 	c.BoolVar(&c.ivpnSvrAccessAllow, "ivpn_access_allow", false, "Allow access to IVPN servers when Firewall is enabled")
@@ -63,6 +65,10 @@ func (c *CmdFirewall) Init() {
 }
 func (c *CmdFirewall) Run() error {
 	if c.on && c.off {
+		return flags.BadParameter{}
+	}
+
+	if c.cleanup && (c.on || c.off) {
 		return flags.BadParameter{}
 	}
 
@@ -128,19 +134,20 @@ func (c *CmdFirewall) Run() error {
 		}
 	}
 
-	if c.on {
+	if c.cleanup {
+		return _proto.FirewallCleanup() // don't query firewall state afterwards - as that would recreate the provider and sublayer we just deleted
+	} else if c.on {
 		if err := _proto.FirewallSet(true); err != nil {
 			return err
 		}
 	} else if c.off {
-
 		state, err := _proto.FirewallStatus()
 		if err != nil {
 			return err
 		}
 		if err == nil && state.IsPersistent {
 			PrintTips([]TipType{TipFirewallDisablePersistent})
-			return fmt.Errorf("Not possible to disable Firewall in 'Always-on' state")
+			return fmt.Errorf("not possible to disable Firewall in 'Always-on' state")
 		}
 
 		if err := _proto.FirewallSet(false); err != nil {
@@ -158,11 +165,12 @@ func (c *CmdFirewall) Run() error {
 
 	// TIPS
 	tips := make([]TipType, 0, 2)
-	if state.IsEnabled == false {
+	if !state.IsEnabled {
 		tips = append(tips, TipFirewallEnable)
 	} else {
 		tips = append(tips, TipFirewallDisable)
 	}
 	PrintTips(tips)
+
 	return nil
 }

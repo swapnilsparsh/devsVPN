@@ -5,6 +5,8 @@
 ; include Modern UI
 ; -----------------
 
+!define ENABLE_LOGGING
+
 !include "MUI.nsh"
 !include "LogicLib.nsh"
 !include "StrFunc.nsh"
@@ -14,6 +16,77 @@
 !include "winmessages.nsh"
 
 ${StrLoc}
+
+; -------
+; logging
+; -------
+
+; !define NSIS_CONFIG_LOG "c:\Windows\temp\privateLINE_Connect.log"
+
+!define /IfNDef LVM_GETITEMCOUNT 0x1004
+!define /IfNDef LVM_GETITEMTEXTA 0x102D
+!define /IfNDef LVM_GETITEMTEXTW 0x1073
+!if "${NSIS_CHAR_SIZE}" > 1
+!define /IfNDef LVM_GETITEMTEXT ${LVM_GETITEMTEXTW}
+!else
+!define /IfNDef LVM_GETITEMTEXT ${LVM_GETITEMTEXTA}
+!endif
+
+!define DumpLog "!insertmacro DumpLog"
+!macro DumpLog logfile
+    Push `${logfile}`
+    !ifdef __UNINSTALL__
+        Call un.DumpLog
+    !else
+        Call DumpLog
+    !endif
+!macroend
+
+
+!macro Func_DumpLog un
+  Function ${un}DumpLog
+    Exch $5
+    Push $0
+    Push $1
+    Push $2
+    Push $3
+    Push $4
+    Push $6
+    FindWindow $0 "#32770" "" $HWNDPARENT
+    GetDlgItem $0 $0 1016
+    StrCmp $0 0 exit
+    FileOpen $5 $5 "w"
+    StrCmp $5 "" exit
+      SendMessage $0 ${LVM_GETITEMCOUNT} 0 0 $6
+      System::Call '*(&t${NSIS_MAX_STRLEN})p.r3'
+      StrCpy $2 0
+      System::Call "*(i, i, i, i, i, p, i, i, i) i  (0, 0, 0, 0, 0, r3, ${NSIS_MAX_STRLEN}) .r1"
+      loop: StrCmp $2 $6 done
+        System::Call "User32::SendMessage(i, i, i, i) i ($0, ${LVM_GETITEMTEXT}, $2, r1)"
+        System::Call "*$3(&t${NSIS_MAX_STRLEN} .r4)"
+        !ifdef DumpLog_As_UTF16LE
+        FileWriteUTF16LE ${DumpLog_As_UTF16LE} $5 "$4$\r$\n"
+        !else
+        FileWrite $5 "$4$\r$\n" ; Unicode will be translated to ANSI!
+        !endif
+        IntOp $2 $2 + 1
+        Goto loop
+      done:
+        FileClose $5
+        System::Free $1
+        System::Free $3
+    exit:
+      Pop $6
+      Pop $4
+      Pop $3
+      Pop $2
+      Pop $1
+      Pop $0
+      Pop $5
+  FunctionEnd
+!macroend
+!insertmacro Func_DumpLog ""
+!insertmacro Func_DumpLog "un."
 
 ; -------
 ; general
@@ -37,8 +110,7 @@ ${StrLoc}
 !define PATHDIR "$INSTDIR\cli"
 
 !define DEVCON_BASENAME "devcon.exe"
-;  Vlad - disabled installation/uninstallation of TAP driver for now
-;!define PRODUCT_TAP_WIN_COMPONENT_ID "tapivpn"
+!define PRODUCT_TAP_WIN_COMPONENT_ID "tapivpn"
 !define DRIVER_SPLIT_TUNNEL_ID "root\privateline-split-tunnel"
 
 ; The following variables will be set from the build.bat script
@@ -449,6 +521,8 @@ FunctionEnd
 
 Function .onInit
   !insertmacro COMMON_INIT
+  ; To get install.log, install NSIS Special Build / Advanced Logging: https://nsis.sourceforge.io/Special_Builds#Advanced_logging
+  ;LogSet on
 
   CreateFont $HEADLINE_FONT "$(^Font)" "12" "600"
 
@@ -459,6 +533,9 @@ FunctionEnd
 
 Function un.onInit
   !insertmacro COMMON_INIT
+  
+  ; To get install.log, install NSIS Special Build / Advanced Logging: https://nsis.sourceforge.io/Special_Builds#Advanced_logging
+  ;LogSet on
 FunctionEnd
 
 ; --------------
@@ -638,9 +715,9 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Uninstall ${PRODUCT_NAME}.lnk" "$INSTDIR\Uninstall.exe"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${PRODUCT_NAME}.lnk" "${APP_RUN_PATH}"
 
-  ; ============ TAP driver ======================================================================
-; Vlad - disabled installation/uninstallation of TAP driver for now
+;  TODO: Vlad - disabled installation of TAP driver and privatelineline-split-tunnel driver for now
 /*
+  ; ============ TAP driver ======================================================================
   DetailPrint "Installing TAP Driver..."
 
   ; check if TUN/TAP driver is installed
@@ -684,7 +761,6 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
     MessageBox MB_OK "An error occurred installing the TAP device driver."
     Abort
   ${EndIf}
- */
 
   ; ============ Split-Tunnel driver ==========================================================
   ${If} ${AtLeastWin10}
@@ -732,6 +808,7 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
       ${EndIf}
     ${EndIf}
   ${EndIf} ; AtLeastWin10
+ */
   
   ; ============ Service ======================================================================
   ; install service
@@ -756,6 +833,12 @@ Section "${PRODUCT_NAME}" SecPRIVATELINE
   ; start service
   DetailPrint "Starting ${PRIVATELINE_SERVICE_NAME} service..."
   nsExec::ExecToLog '"$SYSDIR\sc.exe" start "${PRIVATELINE_SERVICE_NAME}"'
+
+  ; dump log window to file
+  GetTempFileName $0
+  DetailPrint "Writing installation log to $0"
+  ; Push $0
+  ${DumpLog} $0
 SectionEnd
 
 ; -----------
@@ -777,6 +860,12 @@ Section "Uninstall"
 
       DetailPrint "Logout..."
       nsExec::ExecToLog '"${PATHDIR}\privateline-connect-cli.exe" logout'
+
+      ; kill UI before cleanup, so that it doesn't query firewall state - that would recreate our provider and sublayer
+      nsExec::ExecToStack '"$SYSDIR\taskkill" /IM "${UI_PROCESS_NAME}" /T /F'
+
+      DetailPrint "Cleaning up firewall registration ..."
+      nsExec::ExecToLog '"${PATHDIR}\privateline-connect-cli.exe" firewall -cleanup'
   ${Else}
       ; update
   ${EndIf}
@@ -820,21 +909,18 @@ Section "Uninstall"
   ; "netsh firewall" command deprecated
   nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall delete rule name="${PRIVATELINE_SERVICE_NAME}"'
 
-;  Vlad - disabled installation/uninstallation of TAP driver for now
-/*
   ; uninstall TUN/TAP driver
   DetailPrint "Removing TUN/TAP device..."
   nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" remove ${PRODUCT_TAP_WIN_COMPONENT_ID}'
   Pop $R0 # return value/error/timeout
   DetailPrint "${DEVCON_BASENAME} remove returned: $R0"
-*/
 
   ; uninstall Split-Tunnel driver
   ; This paragraph was commented out in original IVPN .nsi
-  ;DetailPrint "Removing Split-Tunnell driver..."
-  ;nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" remove ${DRIVER_SPLIT_TUNNEL_ID}'
-  ;Pop $R0 # return value/error/timeout
-  ;DetailPrint "${DEVCON_BASENAME} remove returned: $R0"
+  DetailPrint "Removing Split-Tunnel driver..."
+  nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" remove ${DRIVER_SPLIT_TUNNEL_ID}'
+  Pop $R0 # return value/error/timeout
+  DetailPrint "${DEVCON_BASENAME} remove returned: $R0"
 
   DetailPrint "Removing files..."
   ; remove all
@@ -879,6 +965,12 @@ Section "Uninstall"
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_IDENTIFIER}"
 
   Call un.RemovePath
+
+  ; dump log window to file
+  GetTempFileName $0
+  DetailPrint "Writing uninstallation log to $0"
+  ; Push $0
+  ${DumpLog} $0
 SectionEnd
 
 ; ----------------

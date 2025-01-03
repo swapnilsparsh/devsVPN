@@ -71,7 +71,7 @@ func (sc *scmanager) OpenServiceIfRunning(serviceName string) (service *mgr.Serv
 }
 
 func (sc *scmanager) FindRunningServicesMatchingRegex(otherVpnSvcNameRE *regexp.Regexp) (servicesRunning []*mgr.Service, err error) {
-	servicesRunning = make([]*mgr.Service, 0, 2)
+	servicesRunning = make([]*mgr.Service, 0, 1)
 
 	var svcList []string
 	if svcList, err = sc.mgr.ListServices(); err != nil {
@@ -84,6 +84,9 @@ func (sc *scmanager) FindRunningServicesMatchingRegex(otherVpnSvcNameRE *regexp.
 				return servicesRunning, err
 			} else {
 				servicesRunning = append(servicesRunning, svc)
+				if len(servicesRunning) >= MAX_WINDOWS_SERVICE_CANDIDATES {
+					return servicesRunning, nil
+				}
 			}
 		}
 	}

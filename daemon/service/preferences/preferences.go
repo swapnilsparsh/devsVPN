@@ -156,7 +156,6 @@ func Create() *Preferences {
 
 // ParseWindowsPreferences - parse endpoint(s) information once per change, to be reused many times in firewall_windows.go
 func (p *Preferences) ParseWindowsPreferences() {
-	log.Debug("ParseWindowsPreferences")
 	p.UserPrefs.Windows = WindowsSpecificUserPrefs{VpnEntryHostsParsed: make([]*VpnEntryHostParsed, len(p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts))}
 
 	for idx, vpnEntryHost := range p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {

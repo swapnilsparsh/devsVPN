@@ -8,6 +8,13 @@ package vpncoexistence
 
 import (
 	"syscall"
+
+	mapset "github.com/deckarep/golang-set/v2"
+)
+
+const (
+	MIN_BRAND_FIRST_WORD_LEN       = 4 // first word must be at least 4 characters long to be a candidate for brand name
+	MAX_WINDOWS_SERVICE_CANDIDATES = 5
 )
 
 type otherVpnCliCmds struct {
@@ -30,6 +37,9 @@ type OtherVpnInfo struct {
 }
 
 var (
+	// blacklist of words that can't be brand name candidates
+	invalidServiceNamePrefixes mapset.Set[string] = mapset.NewSet[string]("Microsoft", "windefend", "Edge", "Intel")
+
 	// sublayer GUIDS of other VPNs known to us
 	mullvadSublayerKey = syscall.GUID{Data1: 0xC78056FF, Data2: 0x2BC1, Data3: 0x4211, Data4: [8]byte{0xAA, 0xDD, 0x7F, 0x35, 0x8D, 0xEF, 0x20, 0x2D}} // good
 
