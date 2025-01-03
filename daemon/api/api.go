@@ -478,7 +478,7 @@ func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string
 	return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
 
-func (a *API) CheckDeviceID(deviceID string, sessionToken string) (
+func (a *API) CheckDeviceID(InternalID int, sessionToken string) (
 	*types.CheckDeviceResponse,
 	*types.APIErrorResponse,
 	string, // RAW response
@@ -489,11 +489,8 @@ func (a *API) CheckDeviceID(deviceID string, sessionToken string) (
 
 	rawResponse := ""
 
-	log.Debug("=========================== deviceID ===========================", deviceID)
-	log.Debug("=========================== sessionToken ===========================", sessionToken)
 	// Construct the endpoint URL
-	endpoint := fmt.Sprintf("%s/%s", _checkDevicePath, deviceID)
-	log.Debug("=========================== endpoint ===========================", endpoint)
+	endpoint := fmt.Sprintf("%s/%d", _checkDevicePath, InternalID)
 
 	request := &types.DeviceListRequest{
 		SessionTokenStruct: types.SessionTokenStruct{SessionToken: sessionToken},
@@ -501,16 +498,12 @@ func (a *API) CheckDeviceID(deviceID string, sessionToken string) (
 
 	// Send the GET request
 	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, endpoint, "GET", "application/json", request, 0, 0)
-	log.Debug("=========================== data ===========================", data)
-	log.Debug("=========================== httpResp ===========================", httpResp)
-	log.Debug("=========================== api.go err ===========================", err)
 
 	if err != nil {
 		return nil, nil, rawResponse, err
 	}
 
 	rawResponse = string(data)
-	log.Debug("=========================== rawResponse ===========================", rawResponse)
 
 	// Check if the response contains an API error
 	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
@@ -581,7 +574,6 @@ func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, 
 	if resp.HttpStatusCode != types.CodeSuccess {
 		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
-	log.Debug(fmt.Sprintf("Device list fetched successfully: %#v", resp))
 	return resp, nil
 }
 

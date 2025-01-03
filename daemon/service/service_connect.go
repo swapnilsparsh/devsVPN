@@ -883,24 +883,50 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		}
 	}()
 
-	log.Debug("====================== Start CheckDeviceID service_connect.go ======================")
-	log.Debug("====================== s._preferences.Session.DeviceID ======================", s._preferences.Session.DeviceID)
-	log.Debug("====================== s._preferences.Session.Session ======================", s._preferences.Session.Session)
+	// Check device ID
+	deviceList, deviceListErr := s._api.DeviceList(s._preferences.Session.Session)
 
-	CheckDeviceResponse, APIErrorResponse, result, err := s._api.CheckDeviceID(s._preferences.Session.DeviceID, s._preferences.Session.Session)
+	if deviceListErr != nil {
+		log.Error(fmt.Errorf("failed to fetch device list: %w", deviceListErr))
+		return deviceListErr
+	}
 
-	log.Debug("====================== CheckDeviceResponse ======================", CheckDeviceResponse)
-	log.Debug("====================== APIErrorResponse ======================", APIErrorResponse)
-	log.Debug("====================== result ======================", result)
-	log.Debug("====================== service_connect.go err ======================", err)
+	deviceWGPublicKey := s._preferences.Session.WGPublicKey
 
-	// if err != nil {
-	// 	log.Error(fmt.Errorf("failed to check device ID: %w", err))
-	// 	return err
+	internalDeviceID := 0
+	for _, dev := range deviceList.Data.Rows {
+		if dev.PublicKey == deviceWGPublicKey {
+			internalDeviceID = dev.InternalID
+			break
+		}
+	}
+
+	if internalDeviceID == 0 {
+		return errors.New("error - no devices with the given WG public key found under the current user")
+	}
+
+	// Below code is commented out because above check is working with the help of WGPublicKey which is unique for each device
+
+	// CheckDeviceResponse, APIErrorResponse, result, err := s._api.CheckDeviceID(internalDeviceID, s._preferences.Session.Session)
+
+	// log.Info(fmt.Sprintf("CheckDeviceResponse %s, APIErrorResponse %v, Device Type: %s", CheckDeviceResponse, APIErrorResponse, result))
+
+	// type DeviceStatus struct {
+	// 	Device string `json:"device"`
 	// }
-	log.Info(fmt.Sprintf("CheckDeviceResponse %s, APIErrorResponse %v, Device Type: %s", CheckDeviceResponse, APIErrorResponse, result))
 
-	log.Debug("====================== End CheckDeviceID service_connect.go ======================")
+	// var deviceStatus DeviceStatus
+	// err = json.Unmarshal([]byte(result), &deviceStatus)
+	// if err != nil {
+	// 	log.Error("Failed to parse device status:", err)
+	// 	return fmt.Errorf("invalid device status response")
+	// }
+
+	// // Check if the device is active
+	// if deviceStatus.Device != "active" {
+	// 	log.Error("Device is not active. Cannot initialize connection.")
+	// 	return fmt.Errorf("device is not active")
+	// }
 
 	// isCanDeleteSessionLocally := true
 	// log.Debug("=========================== SessionDelete ==========================", s.SessionDelete(isCanDeleteSessionLocally))
