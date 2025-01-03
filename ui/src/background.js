@@ -646,20 +646,31 @@ async function isCanQuit() {
   if (store.state.settings.quitWithoutConfirmation) {
     actionNo = 1;
   } else {
-    let msgBoxConfig = {
-      type: "question",
-      message: "Are you sure you want to quit?",
-      detail: "You are connected to the VPN.",
-      buttons: ["Cancel", "Disconnect VPN and Quit"],
-    };
+    let msgBoxConfig = null;
+    if (store.getters["vpnState/isDisconnected"] || !store.state.settings.disconnectOnQuit) {
+      msgBoxConfig = {
+        type: "question",
+        message: "Are you sure you want to quit?",
+        buttons: ["Cancel", "Quit"],
+      };
+    } else {
+      msgBoxConfig = {
+        type: "question",
+        message: "Are you sure you want to quit?",
+        detail: "You are connected to the VPN.",
+        buttons: ["Cancel", "Disconnect VPN and Quit"],
+      };
+    }
 
     // temporary enable application icon in system dock
     setAppDockVisibility(true);
 
     // Using 'showMessageBox' not 'showMessageBoxSync' - this is required to not to block Tray menu items
     let action = null;
-    if (win == null) action = await dialog.showMessageBox(msgBoxConfig);
-    else action = await dialog.showMessageBox(win, msgBoxConfig);
+    if (win == null) 
+      action = await dialog.showMessageBox(msgBoxConfig);
+    else 
+      action = await dialog.showMessageBox(win, msgBoxConfig);
     actionNo = action.response;
 
     // restore default visibility of the application icon in system dock
@@ -670,13 +681,10 @@ async function isCanQuit() {
     case 0: // Cancel
       return false;
 
-    case 1: // Exit & Disconnect VPN
+    case 1: // Exit & maybe Disconnect VPN
       // Quit application only after connection closed
       try {
-        if (
-          !store.state.settings.quitWithoutConfirmation ||
-          store.state.settings.disconnectOnQuit
-        ) {
+        if (!store.getters["vpnState/isDisconnected"] && store.state.settings.disconnectOnQuit) {
           // if (store.state.settings.firewallDeactivateOnDisconnect)
           //   await daemonClient.EnableFirewall(false); // must never disable firewall from client, firewall must always remain enabled
           await daemonClient.Disconnect();
