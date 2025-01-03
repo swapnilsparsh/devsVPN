@@ -909,11 +909,14 @@ Section "Uninstall"
   ; "netsh firewall" command deprecated
   nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall delete rule name="${PRIVATELINE_SERVICE_NAME}"'
 
+  ;  TODO: Vlad - disabled uninstallation of TAP driver
+  /*
   ; uninstall TUN/TAP driver
   DetailPrint "Removing TUN/TAP device..."
   nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" remove ${PRODUCT_TAP_WIN_COMPONENT_ID}'
   Pop $R0 # return value/error/timeout
   DetailPrint "${DEVCON_BASENAME} remove returned: $R0"
+  */
 
   ; uninstall Split-Tunnel driver
   ; This paragraph was commented out in original IVPN .nsi
