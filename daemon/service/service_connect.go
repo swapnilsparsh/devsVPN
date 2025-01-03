@@ -39,6 +39,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/obfsproxy"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
@@ -142,13 +143,13 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 	}
 
 	// ------------------------ Inverse Split Tunnel block start ------------------------
-	if prefs.IsInverseSplitTunneling() {
-		if params.FirewallOn || params.FirewallOnDuringConnection {
-			log.Info("The Firewall will not be enabled for the current connection because Split Tunnel Inverse mode is active")
-			params.FirewallOn = false
-			params.FirewallOnDuringConnection = false
-		}
-	}
+	// if prefs.IsInverseSplitTunneling() {
+	// 	if params.FirewallOn || params.FirewallOnDuringConnection {
+	// 		log.Info("The Firewall will not be enabled for the current connection because Split Tunnel Inverse mode is active")
+	// 		params.FirewallOn = false
+	// 		params.FirewallOnDuringConnection = false
+	// 	}
+	// }
 	// ------------------------ Inverse Split Tunnel block end --------------------------
 
 	// ------------------------ V2RAY block start ------------------------
@@ -605,7 +606,7 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 //     We need this info to notify correct data about vpn.CONNECTED state: for V2Ray connection the original parameters are overwriten by local V2Ray proxy params ('127.0.0.1:local_port')
 //   - Param 'firewallOn' - enable firewall before connection (if true - the parameter 'firewallDuringConnection' will be ignored).
 //   - Param 'firewallDuringConnection' - enable firewall before connection and disable after disconnection (has effect only if Firewall not enabled before)
-func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Process, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper) error {
+func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Process, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper) (err error) {
 	var connectRoutinesWaiter sync.WaitGroup
 
 	// stop active connection (if exists)
@@ -631,8 +632,6 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 			close(done)
 		}
 	}()
-
-	var err error
 
 	log.Info("Connecting...")
 
@@ -882,6 +881,13 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 			}
 		}
 	}()
+
+	// Check whether this device registration is active
+	if deviceFound, err := s._api.CheckDeviceID(s._preferences.Session.Session, s._preferences.Session.WGPublicKey); err != nil {
+		return log.ErrorFE("error checking device ID: %w", err)
+	} else if !deviceFound { // this device not registered, report up - upper callers will logout and attempt to re-login
+		return &protocol.ErrorDeviceNotFound
+	}
 
 	// Initialize VPN: ensure everything is prepared for a new connection
 	// (e.g. correct OpenVPN version or a previously started WireGuard service is stopped)

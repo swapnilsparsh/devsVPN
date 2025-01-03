@@ -250,7 +250,7 @@ export default {
           sender.showMessageBox({
             type: "info",
             buttons: ["OK"],
-            message: `You are logged out.\n\nYou have been redirected to the login page to re-enter your credentials.`,
+            message: `You have been logged out. (Maybe because you deleted this device accidentally?)\n\nYou need to login again.`,
           });
         }, 0);
       }
