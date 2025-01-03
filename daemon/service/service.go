@@ -1694,7 +1694,7 @@ func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountI
 }
 
 // SessionNew creates new session
-func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID bool) (
+func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID bool, notifyClientsOnSessionDelete bool) (
 	apiCode int,
 	apiErrorMsg string,
 	accountInfo preferences.AccountStatus,
@@ -1716,7 +1716,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 
 	// delete current session (if exists)
 	isCanDeleteSessionLocally := true
-	if err := s.SessionDelete(isCanDeleteSessionLocally); err != nil {
+	if err := s.SessionDelete(isCanDeleteSessionLocally, notifyClientsOnSessionDelete); err != nil {
 		log.Error("Creating new session -> Failed to delete active session: ", err)
 	}
 
@@ -1981,7 +1981,7 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 
 	// delete current session (if exists)
 	isCanDeleteSessionLocally := true
-	if err := s.SessionDelete(isCanDeleteSessionLocally); err != nil {
+	if err := s.SessionDelete(isCanDeleteSessionLocally, true); err != nil {
 		log.Error("Creating new session -> Failed to delete active session: ", err)
 	}
 
@@ -2204,9 +2204,9 @@ func (s *Service) SubscriptionData() (
 }
 
 // SessionDelete removes session info
-func (s *Service) SessionDelete(isCanDeleteSessionLocally bool) error {
+func (s *Service) SessionDelete(isCanDeleteSessionLocally, notifyClientsOnSessionChange bool) error {
 	sessionNeedToDeleteOnBackend := true
-	return s.logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally)
+	return s.logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally, notifyClientsOnSessionChange)
 }
 
 // logOut performs log out from current session
@@ -2218,7 +2218,7 @@ func (s *Service) SessionDelete(isCanDeleteSessionLocally bool) error {
 // 3) if 'isCanDeleteSessionLocally' == true (and 'sessionNeedToDeleteOnBackend' == true): app is trying to make API request to logout correctly
 //	  in case if API request failed we just erasing session info locally (no errors returned)
 
-func (s *Service) logOut(sessionNeedToDeleteOnBackend bool, isCanDeleteSessionLocally bool) error {
+func (s *Service) logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally, notifyClientsOnSessionChange bool) error {
 	// Stop service:
 	// - disconnect VPN (if connected)
 	// - disable Split Tunnel mode
@@ -2257,7 +2257,7 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend bool, isCanDeleteSessionLo
 			log.Info("Logging out")
 			err := s._api.SessionDelete(session.Session, s.Preferences().Session.WGPublicKey)
 			if err != nil {
-				log.Info("Logging out error:", err)
+				log.Info(fmt.Errorf("error logging out: %w", err))
 				if !isCanDeleteSessionLocally {
 					return err // do not allow to logout if failed to delete session on backend
 				}
@@ -2271,7 +2271,10 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend bool, isCanDeleteSessionLo
 	log.Info("Logged out locally")
 
 	// notify clients about session update
-	s._evtReceiver.OnServiceSessionChanged()
+	if notifyClientsOnSessionChange {
+		s._evtReceiver.OnServiceSessionChanged()
+	}
+
 	return nil
 }
 
@@ -2280,7 +2283,7 @@ func (s *Service) OnSessionNotFound() {
 	log.Info("Session not found. Logging out.")
 	needToDeleteOnBackend := false
 	canLogoutOnlyLocally := true
-	s.logOut(needToDeleteOnBackend, canLogoutOnlyLocally)
+	s.logOut(needToDeleteOnBackend, canLogoutOnlyLocally, true)
 }
 
 func (s *Service) OnSessionStatus(sessionToken string, sessionData preferences.SessionMutableData) {

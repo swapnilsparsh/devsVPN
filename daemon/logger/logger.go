@@ -232,6 +232,11 @@ func (l *Logger) ErrorE(err error, callerStackOffset int) error {
 	return err
 }
 
+// ErrorE - Log args in errorf format, and return the created error object
+func (l *Logger) ErrorFE(format string, a ...any) error {
+	return l.ErrorE(fmt.Errorf(format, a...), 0)
+}
+
 // ErrorTrace - Log error with trace
 func (l *Logger) ErrorTrace(e error) {
 	if l.isDisabled {

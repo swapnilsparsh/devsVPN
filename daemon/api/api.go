@@ -57,6 +57,7 @@ const (
 	_sessionNewPath             = "/user/login"
 	_sessionNewPasswordlessPath = "/user/login/quick-auth"
 	_connectDevicePath          = "/connection/push-key"
+	_checkDevicePath            = "/connection/check-device-id"
 	_sessionStatusPath          = "/session/status"
 	_sessionDeletePath          = "/user/remove-device"
 	_deviceListPath             = "/user/device-list"
@@ -476,6 +477,73 @@ func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string
 
 	return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
+
+// CheckDeviceID - TODO: temporary implementation by checking our WG public key against the list
+func (a *API) CheckDeviceID(session, deviceWGPublicKey string) (deviceFound bool, err error) {
+	deviceList, err := a.DeviceList(session)
+	if err != nil {
+		return false, log.ErrorE(fmt.Errorf("failed to fetch device list: %w", err), 0)
+	}
+
+	for _, dev := range deviceList.Data.Rows {
+		if dev.PublicKey == deviceWGPublicKey {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// TODO FIXME: Vlad - use the below CheckDeviceID() implementation once the client knows its internal device ID
+/*
+func (a *API) CheckDeviceID(InternalID int, sessionToken string) (
+	*types.CheckDeviceResponse,
+	*types.APIErrorResponse,
+	string, // RAW response
+	error,
+) {
+	var successResp types.CheckDeviceResponse
+	var apiErr types.APIErrorResponse
+
+	rawResponse := ""
+
+	// Construct the endpoint URL
+	endpoint := fmt.Sprintf("%s/%d", _checkDevicePath, InternalID)
+
+	request := &types.DeviceListRequest{
+		SessionTokenStruct: types.SessionTokenStruct{SessionToken: sessionToken},
+	}
+
+	// Send the GET request
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, endpoint, "GET", "application/json", request, 0, 0)
+
+	if err != nil {
+		return nil, nil, rawResponse, err
+	}
+
+	rawResponse = string(data)
+
+	// Check if the response contains an API error
+	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
+		return nil, nil, rawResponse, fmt.Errorf("failed to deserialize API error response: %w", err)
+	}
+
+	if !apiErr.Status {
+		return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	}
+
+	// Success case
+	if apiErr.HttpStatusCode == types.CodeSuccess {
+		err := json.Unmarshal(data, &successResp)
+		if err != nil {
+			return nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API success response: %w", err)
+		}
+		return &successResp, &apiErr, rawResponse, nil
+	}
+
+	return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+}
+*/
 
 // SessionStatus - get session status
 func (a *API) SessionStatus(session string) (
