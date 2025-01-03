@@ -39,6 +39,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/obfsproxy"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
@@ -142,13 +143,13 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 	}
 
 	// ------------------------ Inverse Split Tunnel block start ------------------------
-	if prefs.IsInverseSplitTunneling() {
-		if params.FirewallOn || params.FirewallOnDuringConnection {
-			log.Info("The Firewall will not be enabled for the current connection because Split Tunnel Inverse mode is active")
-			params.FirewallOn = false
-			params.FirewallOnDuringConnection = false
-		}
-	}
+	// if prefs.IsInverseSplitTunneling() {
+	// 	if params.FirewallOn || params.FirewallOnDuringConnection {
+	// 		log.Info("The Firewall will not be enabled for the current connection because Split Tunnel Inverse mode is active")
+	// 		params.FirewallOn = false
+	// 		params.FirewallOnDuringConnection = false
+	// 	}
+	// }
 	// ------------------------ Inverse Split Tunnel block end --------------------------
 
 	// ------------------------ V2RAY block start ------------------------
@@ -605,7 +606,7 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 //     We need this info to notify correct data about vpn.CONNECTED state: for V2Ray connection the original parameters are overwriten by local V2Ray proxy params ('127.0.0.1:local_port')
 //   - Param 'firewallOn' - enable firewall before connection (if true - the parameter 'firewallDuringConnection' will be ignored).
 //   - Param 'firewallDuringConnection' - enable firewall before connection and disable after disconnection (has effect only if Firewall not enabled before)
-func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Process, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper) error {
+func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Process, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper) (err error) {
 	var connectRoutinesWaiter sync.WaitGroup
 
 	// stop active connection (if exists)
@@ -631,8 +632,6 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 			close(done)
 		}
 	}()
-
-	var err error
 
 	log.Info("Connecting...")
 
@@ -883,53 +882,12 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		}
 	}()
 
-	// Check device ID
-	deviceList, deviceListErr := s._api.DeviceList(s._preferences.Session.Session)
-
-	if deviceListErr != nil {
-		log.Error(fmt.Errorf("failed to fetch device list: %w", deviceListErr))
-		return deviceListErr
+	// Check whether this device registration is active
+	if deviceFound, err := s._api.CheckDeviceID(s._preferences.Session.Session, s._preferences.Session.WGPublicKey); err != nil {
+		return log.ErrorFE("error checking device ID: %w", err)
+	} else if !deviceFound { // this device not registered, report up - upper callers will logout and attempt to re-login
+		return &protocol.ErrorDeviceNotFound
 	}
-
-	deviceWGPublicKey := s._preferences.Session.WGPublicKey
-
-	internalDeviceID := 0
-	for _, dev := range deviceList.Data.Rows {
-		if dev.PublicKey == deviceWGPublicKey {
-			internalDeviceID = dev.InternalID
-			break
-		}
-	}
-
-	if internalDeviceID == 0 {
-		return errors.New("error - no devices with the given WG public key found under the current user")
-	}
-
-	// Below code is commented out because above check is working with the help of WGPublicKey which is unique for each device
-
-	// CheckDeviceResponse, APIErrorResponse, result, err := s._api.CheckDeviceID(internalDeviceID, s._preferences.Session.Session)
-
-	// log.Info(fmt.Sprintf("CheckDeviceResponse %s, APIErrorResponse %v, Device Type: %s", CheckDeviceResponse, APIErrorResponse, result))
-
-	// type DeviceStatus struct {
-	// 	Device string `json:"device"`
-	// }
-
-	// var deviceStatus DeviceStatus
-	// err = json.Unmarshal([]byte(result), &deviceStatus)
-	// if err != nil {
-	// 	log.Error("Failed to parse device status:", err)
-	// 	return fmt.Errorf("invalid device status response")
-	// }
-
-	// // Check if the device is active
-	// if deviceStatus.Device != "active" {
-	// 	log.Error("Device is not active. Cannot initialize connection.")
-	// 	return fmt.Errorf("device is not active")
-	// }
-
-	// isCanDeleteSessionLocally := true
-	// log.Debug("=========================== SessionDelete ==========================", s.SessionDelete(isCanDeleteSessionLocally))
 
 	// Initialize VPN: ensure everything is prepared for a new connection
 	// (e.g. correct OpenVPN version or a previously started WireGuard service is stopped)

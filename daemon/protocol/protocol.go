@@ -41,6 +41,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/eaa"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
@@ -54,6 +55,31 @@ var log *logger.Logger
 func init() {
 	log = logger.NewLogger("prtcl")
 }
+
+type ServiceError struct {
+	errorCode        uint
+	errorDescription string
+}
+
+func (se *ServiceError) Error() string {
+	return string(se.errorDescription) + ": " + se.errorDescription
+}
+
+func (se *ServiceError) ErrorCode() uint {
+	return se.errorCode
+}
+
+func (se *ServiceError) ErrorDescr() string {
+	return se.errorDescription
+}
+
+const (
+	ErrorDeviceNotFoundCode uint = iota + 1
+)
+
+var (
+	ErrorDeviceNotFound = ServiceError{ErrorDeviceNotFoundCode, "device not found"}
+)
 
 // Service - service interface
 type Service interface {
@@ -122,7 +148,7 @@ type Service interface {
 	IsPaused() bool
 	PausedTill() time.Time
 
-	SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID bool) (
+	SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID bool, notifyClientsOnSessionDelete bool) (
 		apiCode int,
 		apiErrorMsg string,
 		accountInfo preferences.AccountStatus,
@@ -150,7 +176,7 @@ type Service interface {
 		rawResponse string,
 		err error)
 
-	SessionDelete(isCanDeleteSessionLocally bool) error
+	SessionDelete(isCanDeleteSessionLocally bool, notifyClientsOnSessionChange bool) error
 
 	RequestSessionStatus() (
 		apiCode int,
@@ -955,7 +981,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 
 		var resp types.SessionNewResp
-		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.EmailOrAcctID, req.Password, req.DeviceName, req.StableDeviceID)
+		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.EmailOrAcctID, req.Password, req.DeviceName, req.StableDeviceID, true)
 		if err != nil {
 			if apiCode == 0 {
 				// if apiCode == 0 - it is not API error. Sending error response
@@ -1146,7 +1172,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
-		err := p._service.SessionDelete(req.IsCanDeleteSessionLocally)
+		err := p._service.SessionDelete(req.IsCanDeleteSessionLocally, true)
 		if err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 			break
@@ -1477,7 +1503,42 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 		return p._service.Disconnect()
 	}
 
-	return p._service.Connect(r)
+	// 1st attempt to connect. If the device registration is stale - try to logout and re-login.
+	if err = p._service.Connect(r); err != nil {
+		var svcError *ServiceError
+		if errors.As(err, &svcError) && svcError.ErrorCode() == ErrorDeviceNotFoundCode { // this device is not registered, try to logout and re-login
+			log.Info("1st attempt to Connect() failed because the device registation is stale")
+			prefs := p._service.Preferences()
+			if helpers.IsAValidAccountID(prefs.Session.AccountID) { // if we have stored an account ID - try to logout and re-login
+				if apiCode, apiErrMsg, _, _, err := p._service.SessionNew(prefs.Session.AccountID, "", prefs.Session.DeviceName, false, false); err != nil {
+					return log.ErrorFE("error logging in after logout: '%w'. apiCode=%d, apiErrMsg='%s'", err, apiCode, apiErrMsg)
+				}
+				log.Info("Attempt to logout-login successful, now trying to connect to VPN again")
+
+				// reflect new Wireguard parameters in connection request
+				// TODO FIXME: Vlad - unconditionally using the Wireguard entry server info from Preferences, not the passed parameter
+				prefs = p._service.Preferences() // read again, getter returns a copy
+				if len(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) <= 0 {
+					return log.ErrorE(errors.New("error - invalid Preferences after logout-login, zero-length prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts"), 0)
+				}
+				r.WireGuardParameters.EntryVpnServer = prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer
+				r.WireGuardParameters.Port.Port = prefs.LastConnectionParams.WireGuardParameters.Port.Port
+				r.ManualDNS = prefs.LastConnectionParams.ManualDNS
+
+				// try to connect again
+				return p._service.Connect(r)
+			} else { // otherwise logout locally and tell the user to re-login
+				log.Info("We don't have an account ID stored in Preferences, so logout locally and report an error to the user")
+				if err = p._service.SessionDelete(true, true); err != nil {
+					log.Warning(err)
+				}
+
+				err = log.ErrorE(errors.New("Error - this device is not found under this user account. Maybe you deleted this device accidentally? You need to login again."), 0)
+			}
+		}
+	}
+
+	return err
 }
 
 func (p *Protocol) notifyVpnStateChanged(stateObj *vpn.StateInfo) {

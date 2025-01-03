@@ -478,6 +478,24 @@ func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string
 	return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
 
+// CheckDeviceID - TODO: temporary implementation by checking our WG public key against the list
+func (a *API) CheckDeviceID(session, deviceWGPublicKey string) (deviceFound bool, err error) {
+	deviceList, err := a.DeviceList(session)
+	if err != nil {
+		return false, log.ErrorE(fmt.Errorf("failed to fetch device list: %w", err), 0)
+	}
+
+	for _, dev := range deviceList.Data.Rows {
+		if dev.PublicKey == deviceWGPublicKey {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// TODO FIXME: Vlad - use the below CheckDeviceID() implementation once the client knows its internal device ID
+/*
 func (a *API) CheckDeviceID(InternalID int, sessionToken string) (
 	*types.CheckDeviceResponse,
 	*types.APIErrorResponse,
@@ -525,6 +543,7 @@ func (a *API) CheckDeviceID(InternalID int, sessionToken string) (
 
 	return nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
+*/
 
 // SessionStatus - get session status
 func (a *API) SessionStatus(session string) (
