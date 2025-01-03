@@ -87,11 +87,6 @@ func DeleteWfpSessionObject(session syscall.Handle) (err error) {
 	return err
 }
 
-// // FwpmFreeMemory naturally wraps FwpmFreeMemory0 :-)
-// func FwpmFreeMemory(obj syscall.Handle) {
-// 	fFwpmFreeMemory.Call(uintptr(obj))
-// }
-
 // WfpTransactionBegin starts transaction
 func WfpTransactionBegin(engine syscall.Handle) (err error) {
 	defer catchPanic(&err)
