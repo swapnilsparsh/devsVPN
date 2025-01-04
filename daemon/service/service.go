@@ -1960,6 +1960,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	return apiCode, "", accountInfo, rawResponse, nil
 }
 
+// TODO FIXME: Vlad - merge with SessionNew() into a single login pipeline, there's a lot of shared code that was copy-pasted
 func (s *Service) SsoLogin(code string, sessionCode string) (
 	apiCode int,
 	apiErrorMsg string,

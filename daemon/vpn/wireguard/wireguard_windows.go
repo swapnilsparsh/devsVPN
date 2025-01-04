@@ -33,6 +33,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
@@ -126,20 +127,16 @@ func (wg *WireGuard) connect(stateChan chan<- vpn.StateInfo) error {
 	}
 	defer m.Disconnect()
 
-	// install WireGuard service - try twice. In case wireguard.exe was terminated previously - 1st attempt may fail.
+	// Install WireGuard service. If attempt fail - signal to callers, they will try logout-login.
 	defer wg.uninstallService()
-	var err2 error = nil
-	if err = wg.installService(1, stateChan); err != nil { // try 1
-		log.Error(fmt.Errorf("error '%w' installing wg service on 1st try, retrying", err))
-		err2 = wg.installService(2, stateChan) // try 2
-	}
-	if err2 != nil {
-		err2 = log.ErrorE(fmt.Errorf("error installing wg service on 2nd try: %w", err2), 0)
-		// check is there any custom parameters defined. If so - warn user about potential problem because of them
-		if wg.connectParams.mtu > 0 {
-			return fmt.Errorf("failed to install windows service: %w\nThe 'Custom MTU' option may be set incorrectly, either revert to the default or try another value e.g. 1420", err)
-		}
-		return err2
+	if err = wg.installService(stateChan); err != nil {
+		// // check is there any custom parameters defined. If so - warn user about potential problem because of them
+		// if wg.connectParams.mtu > 0 {
+		// 	err = fmt.Errorf("failed to install windows service: %w\nThe 'Custom MTU' option may be set incorrectly, either revert to the default or try another value e.g. 1420", err)
+		// } else {
+		log.ErrorFE("error installing wg service: %w", err)
+		// }
+		return protocol.MakeServiceRecoverableError(protocol.ErrorInstallingWGServiceCode, "error installing Wireguard service", err)
 	}
 
 	// CONNECTED
@@ -202,7 +199,7 @@ func (wg *WireGuard) connect(stateChan chan<- vpn.StateInfo) error {
 				if toDoOperation == resume {
 					log.Info("Resuming...")
 
-					if err := wg.installService(1, stateChan); err != nil {
+					if err := wg.installService(stateChan); err != nil {
 						log.Error("failed to resume connection (new connection error):", err.Error())
 						return err
 					}
@@ -228,7 +225,7 @@ func (wg *WireGuard) connect(stateChan chan<- vpn.StateInfo) error {
 			if err := wg.uninstallService(); err != nil {
 				log.Error("failed to restart connection (disconnection error):", err.Error())
 			} else {
-				if err := wg.installService(1, stateChan); err != nil {
+				if err := wg.installService(stateChan); err != nil {
 					log.Error("failed to restart connection (new connection error):", err.Error())
 				} else {
 					// reconnected successfully
@@ -455,7 +452,7 @@ func (wg *WireGuard) isServiceRunning() (bool, error) {
 }
 
 // install WireGuard service
-func (wg *WireGuard) installService(try int, stateChan chan<- vpn.StateInfo) error {
+func (wg *WireGuard) installService(stateChan chan<- vpn.StateInfo) error {
 	isInstalled := false
 	isStarted := false
 
@@ -485,7 +482,7 @@ func (wg *WireGuard) installService(try int, stateChan chan<- vpn.StateInfo) err
 	}
 
 	// start service
-	log.Info("Installing service (try " + strconv.Itoa(try) + ") ...")
+	log.Info("Installing service ...")
 	err = shell.Exec(nil, wg.binaryPath, "/installtunnelservice", wg.configFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to install WireGuard service: %w", err)

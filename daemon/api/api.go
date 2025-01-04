@@ -47,6 +47,8 @@ const (
 	_apiHost               = "deskapi.privateline.io"
 	// _apiHost = "api.privateline.dev"
 
+	_ssoTokenUrl = "https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/token"
+
 	// temporarily fetching static servers.json from GitHub
 	// _updateHost         = "repo.privateline.io"
 	//	_serversPath       = "v5/servers.json"
@@ -390,7 +392,7 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	httpClient := &http.Client{}
 
 	// Step 1: Exchange code for token by hitting the Keycloak token endpoint
-	tokenUrl := "https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/token"
+	// TODO FIXME: Vlad - clean up, refactor into the same convention as other api.go calls
 	payload := url.Values{}
 	payload.Set("grant_type", "authorization_code")
 	payload.Set("code", code)
@@ -400,7 +402,7 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	// payload.Set("client_secret", "YKJ6aBMCMhJfzH9RtClcBFFNGrh5ystc") //dev client secret
 
 	// Send the POST request to get the token
-	tokenResp, err := httpClient.PostForm(tokenUrl, payload)
+	tokenResp, err := httpClient.PostForm(_ssoTokenUrl, payload)
 	if err != nil {
 		return resp, fmt.Errorf("failed to request token: %w", err)
 	}
