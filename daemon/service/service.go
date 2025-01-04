@@ -1882,7 +1882,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	}
 
 	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
-	if strings.HasSuffix(localIP, ".0.0") || strings.HasSuffix(localIP, ".0.1") {
+	if strings.HasSuffix(localIP, ".0") || strings.HasSuffix(localIP, ".0.1") {
 		s.SessionDelete(true, true) // logout
 		return 0, "", preferences.AccountStatus{}, "", log.ErrorFE("Error - got assigned an invalid IP address '%s' when registering a device. Please try "+
 			"logging in again later. Please email support@privateline.io about this problem.", localIP)
