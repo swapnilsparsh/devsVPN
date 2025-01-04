@@ -633,6 +633,15 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		}
 	}()
 
+	// Firewall must be enabled before starting VPN connection, required for VPN coexistence.
+	// Unconditionally run disable-then-enable, even if firewall was disabled before (this is to clean out old rules).
+	if firewallOn || firewallDuringConnection {
+		if err := s.ReEnableKillSwitch(); err != nil {
+			log.Error("Failed to reenable firewall:", err.Error())
+			return err
+		}
+	}
+
 	log.Info("Connecting...")
 
 	// save vpn object
