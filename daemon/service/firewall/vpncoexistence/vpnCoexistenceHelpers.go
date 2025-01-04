@@ -79,7 +79,7 @@ func (sc *scmanager) FindRunningServicesMatchingRegex(otherVpnSvcNameRE *regexp.
 	}
 
 	for _, svcName := range svcList {
-		if otherVpnSvcNameRE.MatchString(svcName) {
+		if otherVpnSvcNameRE.MatchString(svcName) || serviceNamesToTryAlways.Contains(svcName) {
 			if svc, err := sc.OpenServiceIfRunning(svcName); err != nil {
 				return servicesRunning, err
 			} else {

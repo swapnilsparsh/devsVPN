@@ -43,11 +43,11 @@ var (
 	providerKeySingleDns = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x03}}
 	sublayerKeySingleDns = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x04}}
 
-	v4LayersOut = []syscall.GUID{winlib.FwpmLayerAleAuthConnectV4}
+	v4LayersOut = []syscall.GUID{winlib.FwpmLayerAleAuthConnectV4, winlib.FwpmLayerAleFlowEstablishedV4}
 	v4LayersIn  = []syscall.GUID{winlib.FwpmLayerAleAuthRecvAcceptV4}
 	v4LayersAll = slices.Concat(v4LayersOut, v4LayersIn)
 
-	v6LayersOut = []syscall.GUID{winlib.FwpmLayerAleAuthConnectV6}
+	v6LayersOut = []syscall.GUID{winlib.FwpmLayerAleAuthConnectV6, winlib.FwpmLayerAleFlowEstablishedV6}
 	v6LayersIn  = []syscall.GUID{winlib.FwpmLayerAleAuthRecvAcceptV6}
 	v6LayersAll = slices.Concat(v6LayersOut, v6LayersIn)
 
@@ -260,8 +260,9 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 				} else {
 					log.Debug(fmt.Sprintf("otherVpn = %+v", otherVpn))
 					if err = otherVpn.PreSteps(); err != nil {
-						err = log.ErrorE(fmt.Errorf("error taking pre-steps for other VPN '%s' '%s', continuing with generic interoperation approach. Error: %w",
-							windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name, err), 0)
+						err = fmt.Errorf("error taking pre-steps for other VPN '%s' '%s', continuing with generic interoperation approach. Error: %w",
+							windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name, err)
+						log.Warning(err)
 					}
 					defer otherVpn.PostSteps()
 				}
@@ -783,6 +784,26 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			}
 		}
 
+		// TODO: Vlad - disabled, no need to allow REST API hosts explicitly anymore, after I added "ALE Flow Established v4 Layer" to allowed outbound layers for service binaries.
+		// // Allow outbound TCP to our REST API hosts
+		// for _, restApiHostname := range api.REST_API_hosts {
+		// 	restApiHostIPs, err := net.LookupIP(restApiHostname)
+		// 	if err != nil {
+		// 		log.ErrorFE("error - could not lookup IPs for '%s': %w", restApiHostname, err)
+		// 		continue
+		// 	}
+
+		// 	for _, restApiHostIP := range restApiHostIPs {
+		// 		filterDesc := fmt.Sprintf("IPv4 TCP out: allow remote hostname %s", restApiHostname)
+		// 		log.Debug(fmt.Sprintf("added filter '%s' with IP=%s", filterDesc, restApiHostIP))
+
+		// 		if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPProto(providerKey, ipv4LayerOut, ourSublayerKey, filterDName, filterDesc,
+		// 			restApiHostIP, net.IPv4bcast, windows.IPPROTO_TCP, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
+		// 			return log.ErrorFE("failed to add filter '%s': %w", filterDesc, err)
+		// 		}
+		// 	}
+		// }
+
 		// // allow DNS requests to 127.0.0.1:53
 		// _, err = manager.AddFilter(winlib.AllowRemoteLocalhostDNS(providerKey, layer, sublayerKey, filterDName, "", isPersistent, winlib.FILTER_MAX_WEIGHT))
 		// if err != nil {
@@ -1016,7 +1037,7 @@ func implDeployPostConnectionRules() (retErr error) {
 		)
 
 		if IPs, retErr = net.LookupIP(plHostname); retErr != nil {
-			retErr = log.ErrorE(fmt.Errorf("could not lookup IPs for '%s': %w", plHostname, retErr), 0)
+			retErr = log.ErrorFE("could not lookup IPs for '%s': %w", plHostname, retErr)
 			continue
 		}
 
@@ -1028,11 +1049,11 @@ func implDeployPostConnectionRules() (retErr error) {
 				filterDesc = fmt.Sprintf("IPv4 UDP: allow remote hostname %s", plHostname)
 				layersIn = v4LayersIn
 			}
-			log.Debug(fmt.Sprintf("post-connection: added rule '%s' with IP=%s", filterDesc, IP))
+			log.Debug(fmt.Sprintf("post-connection: added filter '%s' with IP=%s", filterDesc, IP))
 			for _, layer := range layersIn {
 				if _, retErr = manager.AddFilter(winlib.NewFilterAllowRemoteIPProto(providerKey, layer, ourSublayerKey, filterDName, filterDesc,
 					IP, net.IPv4bcast, windows.IPPROTO_UDP, isPersistent, winlib.FILTER_MAX_WEIGHT)); retErr != nil {
-					retErr = log.ErrorE(fmt.Errorf("failed to add filter '%s': %w", filterDesc, retErr), 0)
+					retErr = log.ErrorFE("failed to add filter '%s': %w", filterDesc, retErr)
 				}
 			}
 		}

@@ -47,7 +47,8 @@ const (
 	_apiHost               = "deskapi.privateline.io"
 	// _apiHost = "api.privateline.dev"
 
-	_ssoTokenUrl = "https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/token"
+	_ssoHost     = "sso.privateline.io"
+	_ssoTokenUrl = "https://" + _ssoHost + "/realms/privateLINE/protocol/openid-connect/token"
 
 	// temporarily fetching static servers.json from GitHub
 	// _updateHost         = "repo.privateline.io"
@@ -67,6 +68,10 @@ const (
 	_subscriptionDataPath       = "/user/check-subscription"
 	_wgKeySetPath               = _apiPathPrefix + "/session/wg/set"
 	_geoLookupPath              = _apiPathPrefix + "/geo-lookup"
+)
+
+var (
+	REST_API_hosts = []string{_apiHost, _ssoHost}
 )
 
 // Alias - alias description of API request (can be requested by UI client)

@@ -898,6 +898,13 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		}
 	}()
 
+	// Check that firewall is enabled
+	if killSwitchState, err := s.KillSwitchState(); err != nil {
+		return log.ErrorFE("error checking firewall status: %w", err)
+	} else if !killSwitchState.IsEnabled {
+		return log.ErrorE(errors.New("error - firewall must be enabled by now"), 0)
+	}
+
 	// Check whether this device registration is active
 	if deviceFound, err := s._api.CheckDeviceID(s._preferences.Session.Session, s._preferences.Session.WGPublicKey); err != nil {
 		return log.ErrorFE("error checking device ID: %w", err)

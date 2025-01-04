@@ -30,10 +30,10 @@ type otherVpnCliCmds struct {
 
 // Contains all the information about another VPN that we need to configure interoperability
 type OtherVpnInfo struct {
-	name        string // brief name of another VPN
-	serviceName string // name of Windows service, used to restart it
-	cliPath     string // full path to CLI of that VPN, used to start connection and add our binaries to their split-tunnel whitelist
-	cliCmds     otherVpnCliCmds
+	name         string   // brief name of another VPN
+	serviceNames []string // name of Windows service, used to restart it
+	cliPath      string   // full path to CLI of that VPN, used to start connection and add our binaries to their split-tunnel whitelist
+	cliCmds      otherVpnCliCmds
 }
 
 var (
@@ -41,14 +41,14 @@ var (
 	invalidServiceNamePrefixes mapset.Set[string] = mapset.NewSet[string]("Microsoft", "windefend", "Edge", "Intel")
 
 	// sublayer GUIDS of other VPNs known to us
-	mullvadSublayerKey = syscall.GUID{Data1: 0xC78056FF, Data2: 0x2BC1, Data3: 0x4211, Data4: [8]byte{0xAA, 0xDD, 0x7F, 0x35, 0x8D, 0xEF, 0x20, 0x2D}} // good
+	mullvadSublayerKey = syscall.GUID{Data1: 0xC78056FF, Data2: 0x2BC1, Data3: 0x4211, Data4: [8]byte{0xAA, 0xDD, 0x7F, 0x35, 0x8D, 0xEF, 0x20, 0x2D}}
 
 	// map from WFP sublayer GUID to the information about the other VPN that created and owns that sublayer
 	OtherVpnsBySublayerGUID = map[syscall.GUID]OtherVpnInfo{
 		mullvadSublayerKey: {
-			name:        "Mullvad VPN",
-			serviceName: "MullvadVPN",
-			cliPath:     "ProgramFiles/Mullvad VPN/resources/mullvad.exe",
+			name:         "Mullvad VPN",
+			serviceNames: []string{"MullvadVPN"},
+			cliPath:      "ProgramFiles/Mullvad VPN/resources/mullvad.exe",
 			cliCmds: otherVpnCliCmds{
 				cmdStatus:                          "status",
 				statusConnectedRE:                  "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
@@ -60,4 +60,11 @@ var (
 			},
 		},
 	}
+
+	// Windows service names to try always:
+
+	// SurfShark uses random GUIDs for its sublayer 0xFFFF (named "WireGuard filters") and provider "WireGuard provider", so try its named services always
+	// "Surfshark Service", "Surfshark WireGuard"
+
+	serviceNamesToTryAlways mapset.Set[string] = mapset.NewSet[string]("Surfshark Service", "Surfshark WireGuard")
 )

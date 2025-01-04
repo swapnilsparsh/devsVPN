@@ -115,10 +115,12 @@ func ParseOtherVpn(otherSublayerName string, otherSublayerGUID syscall.GUID) (ot
 		return otherVpnInfoParsed, err
 	}
 	if otherVpnInfoParsed.otherVpnKnown {
-		if service, err := otherVpnInfoParsed.scmgr.OpenServiceIfRunning(otherVpnInfoParsed.serviceName); err != nil {
-			return otherVpnInfoParsed, err
-		} else if service != nil { // service would be nil if it's not running
-			otherVpnInfoParsed.servicesThatWereRunning = append(otherVpnInfoParsed.servicesThatWereRunning, service)
+		for _, otherVpnSvcName := range otherVpnInfoParsed.serviceNames {
+			if service, err := otherVpnInfoParsed.scmgr.OpenServiceIfRunning(otherVpnSvcName); err != nil {
+				return otherVpnInfoParsed, err
+			} else if service != nil { // service would be nil if it's not running
+				otherVpnInfoParsed.servicesThatWereRunning = append(otherVpnInfoParsed.servicesThatWereRunning, service)
+			}
 		}
 	} else { // other VPN not in our db, so try guessing the Windows service names from the 1st word of the other VPN sublayer name
 		if serviceNameRE, err = regexp.Compile("(?i)^" + firstWord); err != nil { // (?i) for case-insensitive matching
@@ -170,10 +172,11 @@ func (otherVpn *OtherVpnInfoParsed) PreSteps() (retErr error) {
 
 	// try to stop the other VPN service(s) that were running
 	for _, otherVpnSvc := range otherVpn.servicesThatWereRunning {
-		if retErr = StopService(otherVpnSvc); retErr != nil {
-			retErr2 = log.ErrorE(fmt.Errorf("error stopping service '%s': %w", otherVpnSvc.Name, retErr), 0)
+		if retErr2 = StopService(otherVpnSvc); retErr2 != nil {
+			retErr2 = fmt.Errorf("error stopping service '%s': %w", otherVpnSvc.Name, retErr2)
+			log.Warning(retErr2)
 		} else {
-			log.Debug("stopped service '" + otherVpnSvc.Name + "'")
+			log.Debug("stopped other VPN service '" + otherVpnSvc.Name + "'")
 		}
 	}
 
@@ -200,7 +203,7 @@ func (otherVpn *OtherVpnInfoParsed) PostSteps() {
 		if retErr := StartService(otherVpnSvc); retErr != nil {
 			log.Error(fmt.Errorf("error starting service '%s': %w", otherVpnSvc.Name, retErr))
 		} else {
-			log.Debug("started service '" + otherVpnSvc.Name + "'")
+			log.Debug("restarted other VPN service '" + otherVpnSvc.Name + "'")
 		}
 	}
 
