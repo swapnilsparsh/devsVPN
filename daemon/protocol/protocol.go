@@ -56,29 +56,45 @@ func init() {
 	log = logger.NewLogger("prtcl")
 }
 
-type ServiceError struct {
+type ServiceRecoverableError struct {
 	errorCode        uint
 	errorDescription string
+
+	containedErr error
 }
 
-func (se *ServiceError) Error() string {
-	return string(se.errorDescription) + ": " + se.errorDescription
+func (se *ServiceRecoverableError) Error() string {
+	ret := string(se.errorCode) + ": " + se.errorDescription
+	if se.containedErr != nil {
+		ret += ": " + se.containedErr.Error()
+	}
+	return ret
 }
 
-func (se *ServiceError) ErrorCode() uint {
+func (se *ServiceRecoverableError) ErrorCode() uint {
 	return se.errorCode
 }
 
-func (se *ServiceError) ErrorDescr() string {
+func (se *ServiceRecoverableError) ErrorDescr() string {
 	return se.errorDescription
+}
+
+func (se *ServiceRecoverableError) ContainedError() error {
+	return se.containedErr
+}
+
+func MakeServiceRecoverableError(errorCode uint, errorDescription string, containedErr error) *ServiceRecoverableError {
+	return &ServiceRecoverableError{errorCode, errorDescription, containedErr}
 }
 
 const (
 	ErrorDeviceNotFoundCode uint = iota + 1
+	ErrorInstallingWGServiceCode
 )
 
 var (
-	ErrorDeviceNotFound = ServiceError{ErrorDeviceNotFoundCode, "device not found"}
+	ErrorDeviceNotFound      = ServiceRecoverableError{ErrorDeviceNotFoundCode, "device not found", nil}
+	ErrorInstallingWGService = ServiceRecoverableError{ErrorInstallingWGServiceCode, "error installing Wireguard service", nil}
 )
 
 // Service - service interface
@@ -1505,9 +1521,9 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 
 	// 1st attempt to connect. If the device registration is stale - try to logout and re-login.
 	if err = p._service.Connect(r); err != nil {
-		var svcError *ServiceError
-		if errors.As(err, &svcError) && svcError.ErrorCode() == ErrorDeviceNotFoundCode { // this device is not registered, try to logout and re-login
-			log.Info("1st attempt to Connect() failed because the device registation is stale")
+		var recoverableError *ServiceRecoverableError
+		if errors.As(err, &recoverableError) { // if it's a recoverable error,  we try to logout and re-login
+			log.Info(fmt.Errorf("1st attempt to connect to VPN failed with recoverable error '%w', will logout-login and try to connect again", recoverableError))
 			prefs := p._service.Preferences()
 			if helpers.IsAValidAccountID(prefs.Session.AccountID) { // if we have stored an account ID - try to logout and re-login
 				if apiCode, apiErrMsg, _, _, err := p._service.SessionNew(prefs.Session.AccountID, "", prefs.Session.DeviceName, false, false); err != nil {

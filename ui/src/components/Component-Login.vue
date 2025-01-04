@@ -250,7 +250,7 @@ export default {
           sender.showMessageBox({
             type: "info",
             buttons: ["OK"],
-            message: `You have been logged out. (Maybe because you deleted this device accidentally?)\n\nYou need to login again.`,
+            message: `You have been logged out - either because you deleted this device, or because of an error.\n\nPlease login again.`,
           });
         }, 0);
       }
