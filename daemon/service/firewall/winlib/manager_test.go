@@ -86,12 +86,9 @@ func TestBlockAll(t *testing.T) {
 			}
 		}
 
-		installed, err := mgr.IsSubLayerInstalled(sublayerKey)
-		if err != nil {
+		if found, _, err := mgr.GetSubLayerByKey(sublayerKey); err != nil {
 			t.Error(err)
-		}
-
-		if !installed {
+		} else if !found {
 			if err = mgr.AddSubLayer(sublayer); err != nil {
 				t.Error(err)
 			}
@@ -135,12 +132,11 @@ func TestBlockAll(t *testing.T) {
 			}
 		}
 
-		installed, err := mgr.IsSubLayerInstalled(sublayerKey)
+		found, _, err := mgr.GetSubLayerByKey(sublayerKey)
 		if err != nil {
 			t.Error(err)
-		}
-		if installed {
-			if err := mgr.DeleteSubLayer(sublayerKey); err != nil {
+		} else if found {
+			if _, err := mgr.DeleteSubLayer(sublayerKey); err != nil {
 				t.Error(err)
 			}
 		}

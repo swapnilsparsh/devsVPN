@@ -25,35 +25,50 @@
 
 package winlib
 
+// #include <stdlib.h>
+import "C"
+
 import (
 	"errors"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 // Sublayer flags
 const (
 	FwpmSublayerFlagPersistent uint32 = 0x00000001
+
+	FwpmStringBufLenWchar = 2048 // array len is in wchar_t, UTF8
+
+	SUBLAYER_MAX_WEIGHT = uint16(0xFFFF) // our sublayer must be max priority
+	FILTER_MAX_WEIGHT   = byte(15)       // needed to ensure our filter have higher weight than the kill switches of other VPNs
 )
 
-// WfpSubLayerIsInstalled returns true if sublayer is installed
-func WfpSubLayerIsInstalled(engine syscall.Handle, sublayerGUID syscall.GUID) (isInstalled bool, err error) {
-	defer catchPanic(&err)
+// // WfpSubLayerIsInstalled returns true if sublayer is installed
+// func WfpSubLayerIsInstalled(engine syscall.Handle, sublayerGUID syscall.GUID) (isInstalled bool, sublayerWeight uint16, err error) {
+// 	defer catchPanic(&err)
 
-	retval, _, err := fWfpSubLayerIsInstalled.Call(uintptr(engine), uintptr(unsafe.Pointer(&sublayerGUID)))
-	if err != syscall.Errno(0) {
-		return false, err
-	}
+// 	_sublayerWeight := C.malloc(C.size_t(unsafe.Sizeof(uintptr(0))))
+// 	defer C.free(_sublayerWeight)
 
-	return byte(retval) != 0, nil
-}
+// 	// TODO: Vlad - debugging
+// 	retval, _, err := fWfpSubLayerIsInstalled.Call(uintptr(engine), uintptr(unsafe.Pointer(&sublayerGUID)), uintptr(_sublayerWeight))
+// 	if err != syscall.Errno(0) {
+// 		return false, 0, err
+// 	}
+
+// 	return byte(retval) != 0, *(*uint16)(_sublayerWeight), nil
+// }
 
 // WfpSubLayerDelete removes sublayer
-func WfpSubLayerDelete(engine syscall.Handle, sublayerGUID syscall.GUID) (err error) {
+func WfpSubLayerDelete(engine syscall.Handle, sublayerGUID syscall.GUID) (sublayerNotFound bool, err error) {
 	defer catchPanic(&err)
 
 	retval, _, err := fWfpSubLayerDelete.Call(uintptr(engine), uintptr(unsafe.Pointer(&sublayerGUID)))
-	return checkDefaultAPIResp(retval, err)
+	sublayerNotFound = (retval == uintptr(windows.FWP_E_SUBLAYER_NOT_FOUND))
+	return sublayerNotFound, checkDefaultAPIResp(retval, err)
 }
 
 // WfpSubLayerAdd adds sublayer

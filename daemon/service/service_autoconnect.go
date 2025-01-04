@@ -238,18 +238,19 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 	// Firewall
 	switch action.Firewall {
 	case FW_Off:
-		log.Info("Automatic connection manager: disabling Firewall")
-		if retErr = s.SetKillSwitchState(false); retErr != nil {
-			log.Error("Auto connection: disabling Firewall: ", retErr)
+		log.Error("Automatic connection manager: received request to disable Firewall, but we cannot. Keeping it enabled.")
+		if retErr = s.SetKillSwitchState(true); retErr != nil {
+			log.Error("Auto connection: force-enabling Firewall (despite request to disable): ", retErr)
 		}
 		connParams.FirewallOn = false // Ensure Firewall connection params is the same as in action
-		connParams.FirewallOnDuringConnection = false
+		connParams.FirewallOnDuringConnection = true
 	case FW_On:
 		log.Info("Automatic connection manager: enabling Firewall")
 		if retErr = s.SetKillSwitchState(true); retErr != nil {
 			log.Error("Auto connection: enabling Firewall: ", retErr)
 		}
-		connParams.FirewallOn = true // Ensure Firewall connection params is the same as in action
+		connParams.FirewallOn = false // Ensure Firewall connection params is the same as in action
+		connParams.FirewallOnDuringConnection = true
 	case FW_On_and_blockLan:
 		log.Info("Automatic connection manager: enabling Firewall and block LAN")
 		if retErr = s.SetKillSwitchState(true); retErr != nil {
@@ -258,7 +259,8 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 		if retErr = s.applyKillSwitchAllowLAN(&wifiInfo); retErr != nil {
 			log.Error("Auto connection: Firewall (block LAN): ", retErr)
 		}
-		connParams.FirewallOn = true // Ensure Firewall connection params is the same as in action
+		connParams.FirewallOn = false // Ensure Firewall connection params is the same as in action
+		connParams.FirewallOnDuringConnection = true
 		isLanActionsProcessed = true // for defferred function: to not re-appy LAN settings
 
 	default:

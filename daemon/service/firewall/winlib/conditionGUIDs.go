@@ -34,6 +34,31 @@ var (
 	FwpmConditionIPLocalPort     = syscall.GUID{Data1: 0x0c1ba1af, Data2: 0x5765, Data3: 0x453f, Data4: [8]byte{0xaf, 0x22, 0xa8, 0xf7, 0x91, 0xac, 0x77, 0x5b}}
 	FwpmConditionIPRemoteAddress = syscall.GUID{Data1: 0xb235ae9a, Data2: 0x1d64, Data3: 0x49b8, Data4: [8]byte{0xa4, 0x4c, 0x5f, 0xf3, 0xd9, 0x09, 0x50, 0x45}}
 	FwpmConditionIPRemotePort    = syscall.GUID{Data1: 0xc35a604d, Data2: 0xd22b, Data3: 0x4e1a, Data4: [8]byte{0x91, 0xb4, 0x68, 0xf6, 0x74, 0xee, 0x67, 0x4b}}
+	FwpmConditionIPProtocol      = syscall.GUID{Data1: 0x3971ef2b, Data2: 0x623e, Data3: 0x4f9a, Data4: [8]byte{0x8c, 0xb1, 0x6e, 0x79, 0xb8, 0x06, 0xb9, 0xa7}}
+
+	FwpmConditionIcmpType = FwpmConditionIPLocalPort
+	FwpmConditionIcmpCode = FwpmConditionIPRemotePort
+
+	ICMP_IPv4_ECHO_REQUEST_Type            = uint16(8)
+	ICMP_IPv4_ECHO_REQUEST_Code            = uint16(0)
+	ICMP_IPv4_ECHO_REPLY_Type              = uint16(0)
+	ICMP_IPv4_ECHO_REPLY_Code              = uint16(0)
+	ICMP_IPv4_DESTINATION_UNREACHABLE_Type = uint16(3)
+	ICMP_IPv4_FRAGMENTATION_REQUIRED_Code  = uint16(4)
+
+	ICMP_IPv6_ECHO_REQUEST_Type            = uint16(128)
+	ICMP_IPv6_ECHO_REQUEST_Code            = uint16(0)
+	ICMP_IPv6_ECHO_REPLY_Type              = uint16(129)
+	ICMP_IPv6_ECHO_REPLY_Code              = uint16(0)
+	ICMP_IPv6_PACKET_TOO_BIG_Type          = uint16(2)
+	ICMP_IPv6_PACKET_TOO_BIG_Code          = uint16(0)
+	ICMP_IPv6_DESTINATION_UNREACHABLE_Type = uint16(1)
+
+	IcmpDestinationUnreachableTypes = []uint16{ICMP_IPv4_DESTINATION_UNREACHABLE_Type, ICMP_IPv6_DESTINATION_UNREACHABLE_Type}
+
+	// matching by DNS name - neither works
+	// FwpmConditionAleEffectiveName = syscall.GUID{Data1: 0xb1277b9a, Data2: 0xb781, Data3: 0x40fc, Data4: [8]byte{0x96, 0x71, 0xe5, 0xf1, 0xb9, 0x89, 0xf3, 0x4e}}
+	// FwpmConditionPeerName = syscall.GUID{Data1: 0x9b539082, Data2: 0xeb90, Data3: 0x4186, Data4: [8]byte{0xa6, 0xcc, 0xde, 0x5b, 0x63, 0x23, 0x50, 0x16}}
 
 	/*
 		FwpmConditionInterfaceMacAddress             = syscall.GUID{Data1: 0xf6e63dce, Data2: 0x1f4b, Data3: 0x4c6b, Data4: [8]byte{0xb6, 0xef, 0x11, 0x65, 0xe7, 0x1f, 0x8e, 0xe7}}

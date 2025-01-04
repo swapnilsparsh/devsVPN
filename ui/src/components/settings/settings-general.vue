@@ -187,7 +187,6 @@
         type="checkbox"
         id="disconnect"
         v-model="disconnectOnQuit"
-        :disabled="quitWithoutConfirmation === false"
       />
       <label class="defColor" for="disconnect"
         >Disconnect when closing application</label

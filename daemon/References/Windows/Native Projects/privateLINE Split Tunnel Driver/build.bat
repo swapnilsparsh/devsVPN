@@ -1,10 +1,10 @@
 @echo off
 setlocal
 
-echo [ ] The scipt is building IVPN Split-Tunnelling Driver
+echo [ ] The scipt is building privateLINE Split-Tunnelling Driver
 echo [ ] and preparing a CAB file to be send to Microsoft Partner portal for Attestation signing.
 echo.
-rem The scipt is building IVPN Split-Tunnelling Driver
+rem The scipt is building privateLINE Split-Tunnelling Driver
 rem and preparing a CAB file to be send to Microsoft Partner portal for Attestation signing.
 rem
 rem The Driver signed by Attestation signing on Microsoft Partner portal
@@ -89,7 +89,7 @@ rem Timestamping is not required here (since the driver will be signed by Micros
 signtool sign /fd sha256 /sha1 %CERT_SHA1% /v "%DIST_PATH_OUT%\privateline-split-tunnel.cab" || goto :error
 
 echo.
-echo [ ] IVPN Split-Tunnelling Driver: Build SUCCESS
+echo [ ] privateLINE Split-Tunnelling Driver: Build SUCCESS
 echo [ ] CAB file: %DIST_PATH_OUT%\privateline-split-tunnel.cab
 echo.
 echo [ ] Now you can send the CAB file to Microsoft Partner portal for Attestation signing
@@ -108,6 +108,6 @@ exit /b 1
 
 :error
 echo.
-echo [!] FAILED building IVPN Split-Tunnelling Driver. Error #%errorlevel%.
+echo [!] FAILED building privateLINE Split-Tunnelling Driver. Error #%errorlevel%.
 echo.
 exit /b %errorlevel%

@@ -184,6 +184,19 @@ extern "C" {
 		return ERROR_SUCCESS;
 	}
 
+	EXPORT DWORD _cdecl FWPM_FILTER_SetConditionUINT8(FWPM_FILTER0 *filter, 
+				UINT32 conditionIndex, UINT8 val)
+	{
+		DWORD checkFilterResult = CheckFilter(filter, conditionIndex);
+		if (checkFilterResult != 0)
+			return checkFilterResult;
+
+		filter->filterCondition[conditionIndex].conditionValue.type = FWP_UINT8;
+		filter->filterCondition[conditionIndex].conditionValue.uint8 = val;
+
+		return ERROR_SUCCESS;
+	}
+
 	EXPORT DWORD _cdecl FWPM_FILTER_SetConditionUINT16(FWPM_FILTER0 *filter, 
 				UINT32 conditionIndex, UINT16 port)
 	{

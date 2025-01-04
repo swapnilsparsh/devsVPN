@@ -191,12 +191,19 @@ export default {
     );
   },
 
+  KillSwitchReregister: async (CanStopOtherVpn) => {
+    return await invoke("renderer-request-KillSwitchReregister", CanStopOtherVpn);
+  },
+  KillSwitchGetStatus: async () => {
+    return await invoke("renderer-request-KillSwitchGetStatus");
+  },
+
   SplitTunnelGetStatus: async () => {
     return await invoke("renderer-request-SplitTunnelGetStatus");
   },
   SplitTunnelSetConfig: async (
     enabled,
-    inversed,    
+    inversed,
     appWhitelistEnabled,
     isAnyDns,
     allowWhenNoVpn,

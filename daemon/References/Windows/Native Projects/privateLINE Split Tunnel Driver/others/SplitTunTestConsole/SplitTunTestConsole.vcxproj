@@ -144,11 +144,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\common\SplitTunDrvControl\ivpnSplitTunDrvControl.cpp" />
+    <ClCompile Include="..\common\SplitTunDrvControl\privatelineSplitTunDrvControl.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\common\SplitTunDrvControl\ivpnSplitTunDrvControl.h" />
+    <ClInclude Include="..\common\SplitTunDrvControl\privatelineSplitTunDrvControl.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

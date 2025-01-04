@@ -7,7 +7,7 @@
     <ClCompile Include="WfpSubLayer.cpp" />
     <ClCompile Include="WfpProvider.cpp" />
     <ClCompile Include="stdafx.cpp" />
-    <ClCompile Include="..\IVPN Split Tunnel Driver\others\common\SplitTunDrvControl\ivpnSplitTunDrvControl.cpp">
+    <ClCompile Include="..\privateLINE Split Tunnel Driver\others\common\SplitTunDrvControl\privatelineSplitTunDrvControl.cpp">
       <Filter>SplitTunCommon</Filter>
     </ClCompile>
   </ItemGroup>
@@ -15,7 +15,7 @@
     <ClInclude Include="Firewall.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="..\IVPN Split Tunnel Driver\others\common\SplitTunDrvControl\ivpnSplitTunDrvControl.h">
+    <ClInclude Include="..\privateLINE Split Tunnel Driver\others\common\SplitTunDrvControl\privatelineSplitTunDrvControl.h">
       <Filter>SplitTunCommon</Filter>
     </ClInclude>
   </ItemGroup>

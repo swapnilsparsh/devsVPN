@@ -57,6 +57,38 @@ func (c *ConditionAleAppID) Apply(filter syscall.Handle, conditionIndex uint32) 
 
 // ------------------------------------------------------------------------------------------------------
 
+// ConditionAleEffectiveName - new condition type implementation
+// type ConditionAleEffectiveName struct {
+// 	Match   FwpMatchType
+// 	DnsName string
+// }
+
+// Apply applies the filter
+// func (c *ConditionAleEffectiveName) Apply(filter syscall.Handle, conditionIndex uint32) error {
+// 	if err := preApply(c.Match, filter, conditionIndex, FwpmConditionAleEffectiveName); err != nil {
+// 		return fmt.Errorf("condition pre-apply error: %w", err)
+// 	}
+// 	return FWPMFILTERSetConditionBlobString(filter, conditionIndex, c.DnsName)
+// }
+
+// ------------------------------------------------------------------------------------------------------
+
+// ConditionPeerName - new condition type implementation
+// type ConditionPeerName struct {
+// 	Match   FwpMatchType
+// 	DnsName string
+// }
+
+// Apply applies the filter
+// func (c *ConditionPeerName) Apply(filter syscall.Handle, conditionIndex uint32) error {
+// 	if err := preApply(c.Match, filter, conditionIndex, FwpmConditionPeerName); err != nil {
+// 		return fmt.Errorf("condition pre-apply error: %w", err)
+// 	}
+// 	return FWPMFILTERSetConditionBlobString(filter, conditionIndex, c.DnsName)
+// }
+
+// ------------------------------------------------------------------------------------------------------
+
 // ConditionIPLocalAddressV4 - new condition type implementation
 type ConditionIPLocalAddressV4 struct {
 	Match FwpMatchType
@@ -102,6 +134,54 @@ func (c *ConditionIPRemotePort) Apply(filter syscall.Handle, conditionIndex uint
 		return fmt.Errorf("condition pre-apply error: %w", err)
 	}
 	return FWPMFILTERSetConditionUINT16(filter, conditionIndex, c.Port)
+}
+
+// ------------------------------------------------------------------------------------------------------
+
+// ConditionIcmpType - new condition type implementation
+type ConditionIcmpType struct {
+	Match    FwpMatchType
+	IcmpType uint16
+}
+
+// Apply applies the filter
+func (c *ConditionIcmpType) Apply(filter syscall.Handle, conditionIndex uint32) error {
+	if err := preApply(c.Match, filter, conditionIndex, FwpmConditionIcmpType); err != nil {
+		return fmt.Errorf("condition pre-apply error: %w", err)
+	}
+	return FWPMFILTERSetConditionUINT16(filter, conditionIndex, c.IcmpType)
+}
+
+// ------------------------------------------------------------------------------------------------------
+
+// ConditionIcmpType - new condition type implementation
+type ConditionIcmpCode struct {
+	Match    FwpMatchType
+	IcmpCode uint16
+}
+
+// Apply applies the filter
+func (c *ConditionIcmpCode) Apply(filter syscall.Handle, conditionIndex uint32) error {
+	if err := preApply(c.Match, filter, conditionIndex, FwpmConditionIcmpCode); err != nil {
+		return fmt.Errorf("condition pre-apply error: %w", err)
+	}
+	return FWPMFILTERSetConditionUINT16(filter, conditionIndex, c.IcmpCode)
+}
+
+// ------------------------------------------------------------------------------------------------------
+
+// ConditionIPProtocol - new condition type implementation
+type ConditionIPProtocol struct {
+	Match      FwpMatchType
+	IPProtocol uint8
+}
+
+// Apply applies the filter
+func (c *ConditionIPProtocol) Apply(filter syscall.Handle, conditionIndex uint32) error {
+	if err := preApply(c.Match, filter, conditionIndex, FwpmConditionIPProtocol); err != nil {
+		return fmt.Errorf("condition pre-apply error: %w", err)
+	}
+	return FWPMFILTERSetConditionUINT8(filter, conditionIndex, c.IPProtocol)
 }
 
 // ------------------------------------------------------------------------------------------------------

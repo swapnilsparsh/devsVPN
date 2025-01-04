@@ -3,6 +3,8 @@
 
 #include "stdafx.h"
 
+#include <fwpmu.h>
+
 extern "C" {
 
 	EXPORT DWORD _cdecl WfpEngineOpen(const FWPM_SESSION0 *session, HANDLE *engineHandle)

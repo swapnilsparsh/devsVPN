@@ -1,4 +1,4 @@
-# IVPN Split-Tunnel Driver for Windows
+# privateLINE Split-Tunnel Driver for Windows
 
 <a name="about"></a>
 ## About

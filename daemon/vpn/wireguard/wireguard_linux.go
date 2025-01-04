@@ -134,7 +134,7 @@ func (wg *WireGuard) connect(stateChan chan<- vpn.StateInfo) error {
 		default:
 		}
 
-		// do not forget to remove config file after finishing configuration
+		// don't remove config file after finishing configuration
 		// if err := os.Remove(wg.configFilePath); err != nil {
 		// 	log.Warning(fmt.Sprintf("failed to remove WG configuration: %s", err))
 		// }
@@ -369,6 +369,32 @@ func (wg *WireGuard) resetManualDNS() error {
 	return dns.DeleteManual(nil, wg.connectParams.clientLocalIP)
 }
 
+func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg []string, err error) {
+	if wg.connectParams.mtu > 0 {
+		interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", wg.connectParams.mtu))
+	}
+
+	var MTU int
+	if wg.connectParams.mtu > 0 {
+		MTU = wg.connectParams.mtu
+	} else { // If MTU not specified explicitly, set 1380 - reasonable default on Linux, same as Mullvad
+		MTU = 1380
+	}
+	interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", MTU))
+
+	// TODO FIXME: Vlad - do we need to append "/32" here?
+	interfaceCfg = append(interfaceCfg, "Address = "+wg.connectParams.clientLocalIP.String()+"/32")
+	interfaceCfg = append(interfaceCfg, "SaveConfig = true")
+
+	// Vlad: disabling per https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491
+	// interfaceCfg = append(interfaceCfg, "DNS = " + wg.connectParams.dnsServers)
+
+	peerCfg = append(peerCfg, "AllowedIPs = "+wg.connectParams.allowedIPs)
+	return interfaceCfg, peerCfg, nil
+}
+
+// TODO: Vlad - this was original IVPN version
+/*
 func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg []string) {
 	ipv6LocalIP := wg.connectParams.GetIPv6ClientLocalIP()
 	ipv6LocalIPStr := ""
@@ -387,6 +413,7 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 	peerCfg = append(peerCfg, "AllowedIPs = 0.0.0.0/0"+allowedIPsV6)
 	return interfaceCfg, peerCfg
 }
+*/
 
 func (wg *WireGuard) onRoutingChanged() error {
 	// do nothing for Linux

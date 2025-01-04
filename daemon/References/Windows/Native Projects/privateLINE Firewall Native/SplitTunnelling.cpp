@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "../IVPN Split Tunnel Driver/others/common/SplitTunDrvControl/ivpnSplitTunDrvControl.h"
+#include "../privateLINE Split Tunnel Driver/others/common/SplitTunDrvControl/privatelineSplitTunDrvControl.h"
 
 extern "C" {
 	EXPORT DWORD _cdecl  SplitTun_Connect(wchar_t* driverPath)

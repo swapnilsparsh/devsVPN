@@ -1,12 +1,15 @@
 module github.com/swapnilsparsh/devsVPN/daemon
 
-go 1.21
+go 1.22
 
 require (
+	github.com/deckarep/golang-set/v2 v2.7.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/google/uuid v1.5.0
+	github.com/panta/machineid v1.0.2
 	github.com/parsiya/golnk v0.0.0-20221103095132-740a4c27c4ff
 	github.com/stretchr/testify v1.8.4
+	github.com/vishvananda/netlink v1.1.0
 	golang.org/x/net v0.33.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.28.0
@@ -23,10 +26,8 @@ require (
 	github.com/mdlayher/netlink v1.7.2 // indirect
 	github.com/mdlayher/socket v0.5.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
-	github.com/panta/machineid v1.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
-	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect

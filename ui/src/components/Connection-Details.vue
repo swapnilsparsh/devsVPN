@@ -12,12 +12,12 @@
             {{ this.$store.state.daemonVersion }}
           </div>
         </div>
-        <div class="flexRow paramBlockDetailedConfig">
+        <!-- <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Protocol:</div>
           <div class="detailedParamValue">
             {{ "Wireguard" }}
           </div>
-        </div>
+        </div> -->
         <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Local IP Address:</div>
           <div class="detailedParamValue">
@@ -52,6 +52,20 @@
           <div class="defColor paramName">Expiration date:</div>
           <div class="detailedParamValue">
             {{ wgKeysExpirationDateStr }}
+          </div>
+        </div>
+
+        <div v-if="isWindows" class="flexRow paramBlockDetailedConfig">
+          <div class="defColor paramName">VPN Coexistence:</div>
+          <div class="detailedParamValue">
+            <div class="failedText" v-if="!vpnCoexistenceInGoodState">
+              <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
+              FAILED
+              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()">Retry</button>
+            </div>
+            <div class="goodText" v-if="vpnCoexistenceInGoodState">
+              GOOD
+            </div>
           </div>
         </div>
 
@@ -109,6 +123,7 @@
 import { dateDefaultFormat } from "@/helpers/helpers";
 
 import ComponentDialog from "@/components/component-dialog.vue";
+import { Platform, PlatformEnum } from "@/platform/platform";
 
 const sender = window.ipcSender;
 
@@ -126,9 +141,12 @@ export default {
       blinkTimeout: null, // Store the timeout ID to stop blinking
       blinkTimeoutReceivedSend: null, // Store the timeout ID to stop blinking
       isReceivedSendChanging: false,
+      vpnCoexistenceInGoodState: false,
     };
   },
   mounted() {
+    this.vpnCoexistenceInGoodState = this.weHaveTopFirewallPriority;
+
     // Parse the timestamp
     const ConnectedSince =
       this.$store.state.vpnState.connectionInfo?.ConnectedSince;
@@ -174,6 +192,9 @@ export default {
     sentData(newValue, oldValue) {
       this.checkReceivedSendChange(newValue, oldValue, "sent");
     },
+    weHaveTopFirewallPriority() {
+      this.vpnCoexistenceInGoodState = this.weHaveTopFirewallPriority;
+    }
   },
 
   methods: {
@@ -243,6 +264,70 @@ export default {
         }, 500);
       }
     },
+
+    async vpnCoexistRetryConfirmPopup() {
+      let ret = await sender.showMessageBox(
+        {
+          type: "warning",
+          buttons: ["OK", "Cancel"],
+          message: "Please Confirm",
+          detail: `Do you allow privateLINE to stop temporarily the other VPN '${this.$store.state.vpnState.firewallState.OtherVpnName}' and get permissions automatically? Press Ok to continue`,
+        },
+        true
+      );
+      if (ret.response == 1) return; // cancel
+      if (ret.response == 0) {
+        let errMsg = "Error: failed to get top firewall permissions - please try again later or contact support@privateline.io";
+        try {
+          let resp = await sender.KillSwitchReregister(true);
+          //console.log("resp", resp);
+          if (resp && resp !== null) {
+            if (resp.OtherVpnUnknownToUs != null && resp.OtherVpnUnknownToUs) {
+              errMsg = "Error: failed to get top firewall permissions - please take a screenshot or photo of this error message and email it to support@privateline.io";
+              let detailMsg = `Error: ${resp.ErrorMessage}\n\n` +
+                `Other VPN \'${resp.OtherVpnName}\' - \'${resp.OtherVpnGUID}\' is not registered in our database, we don't know how to stop it.\n\n` +
+                "You can also try the following manual steps to try to allow PL Connect get the necessary top firewall permissions:\n\n" +
+                "(1) Disconnect the other VPN and click Retry in PL Connect again. If successful - then reconnect to the other VPN.\n\n" +
+                "(2) If previous step failed - stop the Windows service of the other VPN (via Services tab in Task Manager) and click Retry " +
+                "in PL Connect again. If successful - then restart the service of the other VPN and reconnect to the other VPN.\n\n" +
+                "(3) If previous step failed - uninstall the other VPN and click Retry in PL Connect again. Then reinstall the other VPN and reconnect to it.";
+              sender.showMessageBoxSync({
+                type: "error",
+                buttons: ["OK"],
+                message: errMsg,
+                detail: detailMsg,
+              });
+            } else if (resp.ErrorMessage != null && resp.ErrorMessage) {
+              console.error(resp.ErrorMessage);
+              sender.showMessageBoxSync({
+                type: "error",
+                buttons: ["OK"],
+                message: errMsg,
+                detail: resp.ErrorMessage,
+              });
+            }
+          }
+        } catch (e) {
+          console.error(e);
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: errMsg,
+            detail: e,
+          });
+          return;
+        }
+
+        // TODO to check the result - recheck this.weHaveTopFirewallPriority
+        //if (!this.weHaveTopFirewallPriority) {
+        //  sender.showMessageBoxSync({
+        //     type: "error",
+        //     buttons: ["OK"],
+        //     message: errMsg,
+        //  });
+        //}
+      }
+    }
   },
   computed: {
     adjustedHandshakeTime() {
@@ -253,6 +338,9 @@ export default {
       }
       // Otherwise, return the actual HandshakeTime
       return this.$store.state.vpnState.handshake.HandshakeTime;
+    },
+    weHaveTopFirewallPriority() {
+       return this.$store.state.vpnState.firewallState.WeHaveTopFirewallPriority;
     },
     formattedElapsedTime() {
       const minutes = Math.floor(this.elapsedTime / 60);
@@ -335,6 +423,9 @@ export default {
     sentData() {
       return this.$store.state.vpnState.transferredData.SentData;
     },
+    isWindows: function () {
+      return Platform() === PlatformEnum.Windows;
+    },
   },
 };
 </script>
@@ -411,5 +502,39 @@ div.greenBlinkingDot {
   100% {
     opacity: 1;
   }
+}
+
+.retryBtn {
+  font-size: 11px;
+  font-weight: 500;
+  // color: #6c757d;
+  // background-color: transparent;
+  // border: 1px solid #6c757d;
+  color: #495057;
+  border-color: #495057;
+  background-color: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.retryBtn:hover {
+  color: #495057;
+  border-color: #495057;
+  background-color: #f8f9fa;
+}
+
+.failedText {
+  color: rgb(251, 24, 24);
+  font-weight: bold;
+
+
+}
+
+.goodText {
+  color: rgb(34, 237, 34);
+  font-weight: bold;
+
 }
 </style>

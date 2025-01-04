@@ -31,7 +31,6 @@ import (
 	"net/netip"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -100,11 +99,12 @@ func implInitialize() error {
 		powershellBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "WindowsPowerShell", "v1.0", "powershell.exe"), "/", "\\")
 	}
 
+	var err error
 	wfpDllPath := platform.WindowsWFPDllPath()
 	if len(wfpDllPath) == 0 {
 		return fmt.Errorf("unable to initialize split-tunnelling wrapper: firewall dll path not initialized")
 	}
-	if _, err := os.Stat(wfpDllPath); err != nil {
+	if _, err = os.Stat(wfpDllPath); err != nil {
 		return fmt.Errorf("unable to initialize split-tunnelling wrapper (firewall dll not found) : '%s'", wfpDllPath)
 	}
 
@@ -152,7 +152,6 @@ func implInitialize() error {
 	var (
 		defaultRoutePrefixIPv4netipPrefix, defaultRoutePrefixIPv6netipPrefix         netip.Prefix
 		defaultRoutePrefixIPv4IPAddressPrefix, defaultRoutePrefixIPv6IPAddressPrefix winipcfg.IPAddressPrefix
-		err                                                                          error
 	)
 
 	if defaultRoutePrefixIPv4netipPrefix, err = netip.ParsePrefix(defaultRouteIPv4); err != nil {
@@ -208,7 +207,6 @@ func implReset() error {
 	return nil
 }
 
-/*
 func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
 	// Check if functionality available
 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
@@ -221,6 +219,7 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 		return err
 	}
 
+	// TODO FIXME: Vlad - adjust logic
 	// If: (VPN not connected + inverse split-tunneling enabled + isStInverseAllowWhenNoVpn==false) --> we need to set blackhole IP addresses for tunnel interface
 	// This will forward all traffic of split-tunnel apps to 'nowhere' (in fact, it will block all traffic of split-tunnel apps)
 	if isStInversed && !isStInverseAllowWhenNoVpn && !isVpnEnabled {
@@ -228,6 +227,7 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 		addrConfig.IPv6Tunnel = net.ParseIP(BlackHoleIPv6)
 	}
 
+	// TODO FIXME: Vlad - adjust logic
 	// If ST not enabled or no configuration - just disconnect driver (if connected)
 	// We do not need to start ST driver when:
 	// - ST disabled
@@ -262,6 +262,7 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 		}
 
 		addresses := addrConfig
+		// TODO FIXME: Vlad - check logic
 		// For inversed split-tunnel we just inverse IP addresses in driver configuration (defaultPublicInterfaceIP <=> tunnelInterfaceIP)
 		if isStInversed {
 			// In situation when there is no IPv6 connectivity on local machine (IPv6Public not defined) - we need to set IPv6Tunnel to IPv6Public
@@ -311,55 +312,54 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 
 	return nil
 }
-*/
 
-func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
-	// mutexSplittunWin.Lock()
-	// defer func() {
-	// 	log.Debug("implApplyConfig() completed")
-	// 	mutexSplittunWin.Unlock()
-	// }()
-	// log.Debug("implApplyConfig() started")
+// func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+// 	// mutexSplittunWin.Lock()
+// 	// defer func() {
+// 	// 	log.Debug("implApplyConfig() completed")
+// 	// 	mutexSplittunWin.Unlock()
+// 	// }()
+// 	// log.Debug("implApplyConfig() started")
 
-	// Check if functionality available
-	var err error
-	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
-	isFunctionalityNotAvailable := splitTunErr != nil || (isStInversed && splitTunInversedErr != nil)
-	if isFunctionalityNotAvailable {
-		_, file, line, _ := runtime.Caller(0)
-		log.Warning(fmt.Sprintf("%s:%d: functionality not available", file, line))
-		return nil
-	}
+// 	// Check if functionality available
+// 	var err error
+// 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
+// 	isFunctionalityNotAvailable := splitTunErr != nil || (isStInversed && splitTunInversedErr != nil)
+// 	if isFunctionalityNotAvailable {
+// 		_, file, line, _ := runtime.Caller(0)
+// 		log.Warning(fmt.Sprintf("%s:%d: functionality not available", file, line))
+// 		return nil
+// 	}
 
-	if err = isInitialised(); err != nil {
-		return fmt.Errorf("error in isInitialised(): %w", err)
-	}
+// 	if err = isInitialised(); err != nil {
+// 		return fmt.Errorf("error in isInitialised(): %w", err)
+// 	}
 
-	// Disabling default IPv6 routes doesn't work on win10 - Windows enables them back. Instead we disable/enable IPv6 on all adapters.
-	// if addrConfig.IPv6Endpoint != nil {
-	// 	if err = doApplySplitFullTunnelRoutes(windows.AF_INET6, isStEnabled, isVpnEnabled, addrConfig.IPv6Endpoint); err != nil {
-	// 		err = log.ErrorE(fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv6): %w", err), 0)
-	// 	}
-	// }
+// 	// Disabling default IPv6 routes doesn't work on win10 - Windows enables them back. Instead we disable/enable IPv6 on all adapters.
+// 	// if addrConfig.IPv6Endpoint != nil {
+// 	// 	if err = doApplySplitFullTunnelRoutes(windows.AF_INET6, isStEnabled, isVpnEnabled, addrConfig.IPv6Endpoint); err != nil {
+// 	// 		err = log.ErrorE(fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv6): %w", err), 0)
+// 	// 	}
+// 	// }
 
-	// ipv6ResponseChan := make(chan error)
-	// fork the powershell invocation in the background and forget about it, it takes 6.8-6.9 seconds on my laptop
-	go enableDisableIPv6(isStEnabled || !isVpnEnabled /*, ipv6ResponseChan*/)
+// 	// ipv6ResponseChan := make(chan error)
+// 	// fork the powershell invocation in the background and forget about it, it takes 6.8-6.9 seconds on my laptop
+// 	go enableDisableIPv6(isStEnabled || !isVpnEnabled /*, ipv6ResponseChan*/)
 
-	if addrConfig.IPv4Endpoint != nil {
-		if err = doApplySplitFullTunnelRoutes(windows.AF_INET, isStEnabled, isVpnEnabled, addrConfig.IPv4Endpoint); err != nil {
-			err = fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv4): %w", err)
-		}
-	}
+// 	if addrConfig.IPv4Endpoint != nil {
+// 		if err = doApplySplitFullTunnelRoutes(windows.AF_INET, isStEnabled, isVpnEnabled, addrConfig.IPv4Endpoint); err != nil {
+// 			err = fmt.Errorf("error in doApplySplitFullTunnelRoutes(ipv4): %w", err)
+// 		}
+// 	}
 
-	// ipv6Err := <-ipv6ResponseChan
+// 	// ipv6Err := <-ipv6ResponseChan
 
-	// if err != nil {
-	return err
-	// } else {
-	// 	return ipv6Err
-	// }
-}
+// 	// if err != nil {
+// 	return err
+// 	// } else {
+// 	// 	return ipv6Err
+// 	// }
+// }
 
 func implAddPid(pid int, commandToExecute string) error {
 	return fmt.Errorf("operation not applicable for current platform")
@@ -396,7 +396,11 @@ func implGetRunningApps() ([]RunningApp, error) {
 //	route add 192.0.0.0 MASK 192.0.0.0 192.168.1.1
 //
 // As a result, all traffic will pass through the default non-VPN interface, except for excluded apps designated by the split-tunnel driver, which will use the VPN interface.
+// TODO: Vlad - I don't think we need to manipulate the routing table for App Whitelist, firewall policies should suffice
 func applyInverseSplitTunRoutingRules(isVpnEnabled, isStInversed, isStEnabled bool) (retErr error) {
+	log.Debug("applyInverseSplitTunRoutingRules - disabled")
+	return nil
+
 	isNeedApplyRoutes := isVpnEnabled && isStInversed && isStEnabled
 
 	const IPv4 = false
@@ -412,6 +416,7 @@ func applyInverseSplitTunRoutingRules(isVpnEnabled, isStInversed, isStEnabled bo
 	return retErr
 }
 
+// TODO FIXME: Vlad - adjust logic
 func doApplyInverseRoutes(isIPv6, enable bool) error {
 	if routeBinaryPath == "" {
 		return fmt.Errorf("route.exe location not specified")
@@ -584,6 +589,9 @@ func checkCallErrResp(retval uintptr, err error, mName string) error {
 func connect(logging bool) (err error) {
 	defer catchPanic(&err)
 
+	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	return nil
+
 	if isDriverConnected {
 		return nil
 	}
@@ -661,10 +669,11 @@ func stopAndClean() (err error) {
 	///		Stop splitting
 	///		Stop processes monitoring
 	///		Clean all configuration/statuses
-	retval, _, err := fSplitTun_StopAndClean.Call()
-	if err := checkCallErrResp(retval, err, "SplitTun_StopAndClean"); err != nil {
-		return err
-	}
+	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	// retval, _, err := fSplitTun_StopAndClean.Call()
+	// if err := checkCallErrResp(retval, err, "SplitTun_StopAndClean"); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -687,24 +696,24 @@ func start() (err error) {
 	///
 	/// If only IPv4 configuration defined - splitting will work only for IPv4
 	/// If only IPv6 configuration defined - splitting will work only for IPv6
-	retval, _, err := fSplitTun_SplitStart.Call()
-	if err := checkCallErrResp(retval, err, "SplitTun_SplitStart"); err != nil {
-		return err
-	}
+	// retval, _, err := fSplitTun_SplitStart.Call()
+	// if err := checkCallErrResp(retval, err, "SplitTun_SplitStart"); err != nil {
+	// 	return err
+	// }
 
 	// Initialize already running apps info
 	/// Set application PID\PPIDs which have to be splitted.
 	/// It adds new info to internal process tree but not erasing current known PID\PPIDs.
 	/// Operation fails when 'process monitor' not running
-	retval, _, err = fSplitTun_ProcMonInitRunningApps.Call()
+	// retval, _, err = fSplitTun_ProcMonInitRunningApps.Call()
 
-	if err == syscall.ERROR_NO_MORE_FILES {
-		// ignore ERROR_NO_MORE_FILES error. It is Ok after calling of 'SplitTun_ProcMonInitRunningApps'
-		err = syscall.Errno(0)
-	}
-	if err := checkCallErrResp(retval, err, "SplitTun_ProcMonInitRunningApps"); err != nil {
-		return err
-	}
+	// if err == syscall.ERROR_NO_MORE_FILES {
+	// 	// ignore ERROR_NO_MORE_FILES error. It is Ok after calling of 'SplitTun_ProcMonInitRunningApps'
+	// 	err = syscall.Errno(0)
+	// }
+	// if err := checkCallErrResp(retval, err, "SplitTun_ProcMonInitRunningApps"); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -717,6 +726,8 @@ func setConfig(config Config) (err error) {
 	if err := isInitialised(); err != nil {
 		return err
 	}
+	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	return nil
 
 	// SET IP ADDRESSES
 	IPv4Public := config.Addr.IPv4Public.To4()
@@ -746,19 +757,57 @@ func setConfig(config Config) (err error) {
 		return err
 	}
 
-	// SET APPS TO SPLIT
-	buff, err := makeRawBuffAppsConfig(config.Apps)
-	if err != nil {
-		return log.ErrorE(fmt.Errorf("failed to set split-tunnelling configuration (apps): %w", err), 0)
-	}
+	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	/*
+		// SET APPS TO SPLIT
+		for idx, appPath := range config.Apps.ImagesPathToSplit {
+			appID, _ := wf.AppID(appPath)
+			// TODO FIXME: Vlad:
+			// Link all objects to our provider. When multiple providers are installed
+			// on a computer, this makes it easy to determine who added what.
+			r := &wf.Rule{
+				// TODO FIXME: Vlad - make deterministic GUID from canonicalized path
+				ID:   wf.RuleID(mustGUID()),
+				Name: "privateLINE rule IPv4 #" + strconv.Itoa(idx),
+				//Layer: wf.LayerALEAuthConnectV4,
+				Layer:      wf.LayerALEAuthRecvAcceptV4,
+				Sublayer:   guidSublayerUniversal,
+				Weight:     900,
+				Persistent: true,
+				Conditions: []*wf.Match{
+					// &wf.Match{
+					// 	Field: wf.FieldIPLocalAddress,
+					// 	Op:    wf.MatchTypeEqual,
+					// 	Value: uint8(42),
+					// },
+					{
+						Field: wf.FieldALEAppID,
+						Op:    wf.MatchTypeEqual,
+						Value: appID,
+					},
+				},
+				Action: wf.ActionPermit,
+			}
+			if err := platform.WindowsWFPSession().AddRule(r); err != nil {
+				return log.ErrorE(fmt.Errorf("failed to AddRule '%+v': %w", r, err), 0)
+			} else {
+				log.Debug(fmt.Sprintf("AddRule '%+v'", r))
+			}
+		}
+	*/
 
-	var bufSize uint32 = uint32(len(buff))
-	retval, _, err = fSplitTun_ConfigSetSplitAppRaw.Call(
-		uintptr(unsafe.Pointer(&buff[0])),
-		uintptr(bufSize))
-	if err := checkCallErrResp(retval, err, "SplitTun_ConfigSetSplitAppRaw"); err != nil {
-		return err
-	}
+	// buff, err := makeRawBuffAppsConfig(config.Apps)
+	// if err != nil {
+	// 	return log.ErrorE(fmt.Errorf("failed to set split-tunnelling configuration (apps): %w", err), 0)
+	// }
+
+	// var bufSize uint32 = uint32(len(buff))
+	// retval, _, err = fSplitTun_ConfigSetSplitAppRaw.Call(
+	// 	uintptr(unsafe.Pointer(&buff[0])),
+	// 	uintptr(bufSize))
+	// if err := checkCallErrResp(retval, err, "SplitTun_ConfigSetSplitAppRaw"); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
