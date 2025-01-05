@@ -907,7 +907,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 	// Check whether this device registration is active
 	if deviceFound, err := s._api.CheckDeviceID(s._preferences.Session.Session, s._preferences.Session.WGPublicKey); err != nil {
-		return log.ErrorFE("error checking device ID: %w", err)
+		log.ErrorFE("error checking device ID: %w", err) // continue, try to connect anyway
 	} else if !deviceFound { // this device not registered, report up - upper callers will logout and attempt to re-login
 		return &protocol.ErrorDeviceNotFound
 	}
