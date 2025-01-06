@@ -527,3 +527,23 @@ func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
 	}
 	return ret
 }
+
+func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
+	return true, "", "", "", nil
+}
+
+func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
+	return nil
+}
+
+func implDeployPostConnectionRules() (retErr error) {
+	return nil
+}
+
+func implCleanupRegistration() (err error) {
+	return nil
+}
+
+func implReEnable() (retErr error) {
+	return nil
+}
