@@ -543,3 +543,7 @@ func implDeployPostConnectionRules() (retErr error) {
 func implCleanupRegistration() (err error) {
 	return nil
 }
+
+func implReEnable() (retErr error) {
+	return nil
+}
