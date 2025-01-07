@@ -14,13 +14,15 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
 type OtherVpnInfoParsed struct {
-	otherVpnKnown bool // true - other VPN known from our DB, false - we guessed service name from other VPN sublayer name
+	OtherVpnKnown bool // true - other VPN known from our DB, false - we guessed Windows service name from the other VPN sublayer name
 
 	otherVpnCliFound     bool
 	otherVpnWasConnected bool
@@ -68,97 +70,152 @@ func (otherVpn *OtherVpnInfoParsed) validateCliPath() (bool, error) {
 	return true, nil
 }
 
-func OtherVpnIsKnownToUs(otherSublayerGUID syscall.GUID) bool {
-	_, found := OtherVpnsBySublayerGUID[otherSublayerGUID]
-	return found
+// parseFirstWordOfAName - will try to extract 1st word of a name, will return it lowercased. Will return "" on error.
+func parseFirstWordOfAName(name, label string) (firstWord string) {
+	if firstWord = strings.ToLower(FirstWordRE.FindString(name)); firstWord == "" { // extract 1st word of sublayer name
+		log.ErrorFE("error parsing 1st word from other VPN %s name '%s'", label, name)
+		return ""
+	}
+	if len(firstWord) < MIN_BRAND_FIRST_WORD_LEN {
+		log.ErrorFE("error - trying to guess service name for other VPN %s name '%s', but first word '%s' is too short", label, name, firstWord)
+		return ""
+	}
+	if invalidServiceNamePrefixes.Contains(firstWord) {
+		log.ErrorFE("error - first word in the other VPN %s name, '%s', is in forbidden list; not using it to guess service names", label, firstWord)
+		return ""
+	}
+	return firstWord
 }
 
-// ParseOtherVpn returns parsed info for the other VPN, if that other VPN is known to us - otherwise returns nil, nil.
-// If otherSublayerGUID is not in our database of other VPNs known to us, but otherSublayerName is provided - we try guessing Windows services that belong to other VPN.
-// If otherSublayerName is "", we don't try guessing service names.
-func ParseOtherVpn(otherSublayerName string, otherSublayerGUID syscall.GUID) (otherVpn *OtherVpnInfoParsed, err error) {
+func lookupOtherVpnProvider(otherVpnProviderKey syscall.GUID, manager *winlib.Manager) (otherVpnProviderFound bool, otherVpnProvider winlib.ProviderInfo, otherVpnProviderName1stWord string) {
+	var err error
+	if otherVpnProviderFound, otherVpnProvider, err = manager.GetProviderInfo(otherVpnProviderKey); err != nil { // lookup provider under which other VPN's sublayer is installed
+		log.ErrorFE("error looking up info for provider of the other VPN by its key '%s': %w", windows.GUID(otherVpnProviderKey).String(), err) // and continue
+	} else if otherVpnProviderFound { // try to extract 1st word of provider name
+		otherVpnProviderName1stWord = parseFirstWordOfAName(otherVpnProvider.Name, "provider")
+	}
+
+	return otherVpnProviderFound, otherVpnProvider, otherVpnProviderName1stWord
+}
+
+// otherSublayer.Key must be populated with other sublayer GUID, regardless of whether otherSublayerFound is true or not
+//
+// Windows service matching logic:
+// (1) Try to find the other VPN in our DB via sublayer GUID, or sublayer name, or provider name. Also try to make use of provider.serviceName.
+// (2) Else look for Windows services whose names start with name prefix of any VPN known to us. Also try to make use of provider.serviceName.
+// (3) Else try the list of default service name prefixes, contanining common VPN name brand names.
+func ParseOtherVpn(otherSublayerFound bool, otherSublayer *winlib.SubLayer, manager *winlib.Manager) (otherVpn *OtherVpnInfoParsed /*, err error*/) {
 	var (
-		otherVpnInfoParsed *OtherVpnInfoParsed
-		firstWord          string
-		serviceNameRE      *regexp.Regexp
+		err                                      error
+		otherVpnReadonly                         *OtherVpnInfo
+		found                                    bool
+		otherVpnProvider                         winlib.ProviderInfo
+		otherVpnProviderFound                    bool
+		otherVpnInfoParsed                       *OtherVpnInfoParsed
+		providerName1stWord, sublayerName1stWord string // used to try to match Windows service names
+		serviceNameRegex                         *regexp.Regexp
 	)
 
-	otherVpnReadonly, found := OtherVpnsBySublayerGUID[otherSublayerGUID]
-	if found {
-		otherVpnInfoParsed = &OtherVpnInfoParsed{true, false, false, nil, []*mgr.Service{}, otherVpnReadonly}
-	} else if otherSublayerName != "" {
-		if firstWord = FirstWordRE.FindString(otherSublayerName); firstWord == "" {
-			return nil, nil
-		}
-		if len(firstWord) < MIN_BRAND_FIRST_WORD_LEN {
-			return nil, log.ErrorE(fmt.Errorf("error - trying to guess service name for other VPN sublayer '%s', but first word '%s' is too short",
-				otherSublayerName, firstWord), 0)
-		}
-		if invalidServiceNamePrefixes.Contains(firstWord) {
-			return nil, log.ErrorE(fmt.Errorf("error - first word in the other VPN sublayer name, '%s', is in forbidden list; not using it to guess service names",
-				firstWord), 0)
-		}
-		otherVpnInfoParsed = &OtherVpnInfoParsed{false, false, false, nil, []*mgr.Service{}, OtherVpnInfo{name: otherSublayerName}}
-	} else { // VPN is neither known, nor do we have sublayer name to try guessing
-		return nil, nil
+	if otherVpnReadonly, found = otherVpnsBySublayerGUID[otherSublayer.Key]; found { // other VPN found by sublayer ID
+		otherVpnInfoParsed = &OtherVpnInfoParsed{true, false, false, nil, []*mgr.Service{}, *otherVpnReadonly}
+		_, otherVpnProvider, providerName1stWord = lookupOtherVpnProvider(otherSublayer.ProviderKey, manager) // lookup the other VPN provider for its serviceName
+		goto ParseOtherVpn_CheckingStage1_serviceNameRegexPrep
 	}
 
-	// check CLI binary exists
-	if otherVpnInfoParsed.otherVpnKnown {
-		if otherVpnInfoParsed.otherVpnCliFound, err = otherVpnInfoParsed.validateCliPath(); err != nil {
-			return otherVpnInfoParsed, err
+	if !otherSublayerFound { // if VPN is neither known by GUID, nor do we have sublayer (to try guessing by its name and/or its provider name) - we can only try default service names
+		log.Error(errors.New("other VPN '" + windows.GUID(otherSublayer.Key).String() + "' is not known to us"))
+		otherVpnInfoParsed = &OtherVpnInfoParsed{false, false, false, nil, []*mgr.Service{}, OtherVpnInfo{name: windows.GUID(otherSublayer.Key).String()}}
+		serviceNameRegex = defaultServiceNamesPrefixesRE
+		goto ParseOtherVpn_CheckingStage2_FindRunningMatchingServices
+	}
+
+	otherVpnProviderFound, otherVpnProvider, providerName1stWord = lookupOtherVpnProvider(otherSublayer.ProviderKey, manager) // lookup the other VPN provider
+
+	for _, otherVpnReadonly := range otherVpnsBySublayerGUID { // try matching the name of sublayer or provider to name prefix of other VPNs in our DB
+		if strings.HasPrefix(strings.ToLower(otherSublayer.Name), otherVpnReadonly.namePrefix) ||
+			(otherVpnProviderFound && strings.HasPrefix(strings.ToLower(otherVpnProvider.Name), otherVpnReadonly.namePrefix)) {
+			otherVpnInfoParsed = &OtherVpnInfoParsed{true, false, false, nil, []*mgr.Service{}, *otherVpnReadonly}
+			goto ParseOtherVpn_CheckingStage1_serviceNameRegexPrep
 		}
 	}
 
-	// check whether Windows service(s) exist
+	// ok, by now we haven't found the other VPN in our DB - will try to match Windows services by 1st word of sublayer name and/or provider name of the other VPN
+	sublayerName1stWord = parseFirstWordOfAName(otherSublayer.Name, "sublayer")
+	otherVpnInfoParsed = &OtherVpnInfoParsed{false, false, false, nil, []*mgr.Service{}, OtherVpnInfo{name: otherSublayer.Name}}
+
+ParseOtherVpn_CheckingStage1_serviceNameRegexPrep:
+	if otherVpnInfoParsed.OtherVpnKnown { // other VPN profile known from DB, so match service names only by other VPN name prefix and provider.serviceName
+		if serviceNameRegex, err = regexp.Compile("(?i)^" + otherVpnReadonly.namePrefix); err != nil { // (?i) for case-insensitive matching
+			log.ErrorFE("error compiling regular expression from other VPN name prefix '%s': %w", otherVpnReadonly.namePrefix, err)
+			goto ParseOtherVpn_CheckingStage3_processCLI
+		}
+	} else { // Other VPN not in our DB
+		serviceNameRegexStr := "(?i)^(" // (?i) for case-insensitive matching
+
+		// ... so try matching the Windows service names against the list of default service name prefixes
+		for defaultSvcName := range defaultServiceNamePrefixesToTry.Iterator().C {
+			serviceNameRegexStr += defaultSvcName + "|"
+		}
+
+		// ... also match by 1st word of the other VPN sublayer name, provider name, if we know them
+		if sublayerName1stWord != "" && !defaultServiceNamePrefixesToTry.Contains(sublayerName1stWord) {
+			serviceNameRegexStr += sublayerName1stWord + "|"
+		}
+		if providerName1stWord != "" && !defaultServiceNamePrefixesToTry.Contains(providerName1stWord) {
+			serviceNameRegexStr += providerName1stWord + "|"
+		}
+
+		// clip the trailing '|' and close regular expression
+		serviceNameRegexStr = serviceNameRegexStr[:len(serviceNameRegexStr)-1] + ")"
+
+		if serviceNameRegex, err = regexp.Compile(serviceNameRegexStr); err != nil { // (?i) for case-insensitive matching
+			log.ErrorFE("error compiling regular expression '%s' when other VPN is unknown: %w", serviceNameRegexStr, err)
+			goto ParseOtherVpn_CheckingStage3_processCLI
+		}
+	}
+
+ParseOtherVpn_CheckingStage2_FindRunningMatchingServices:
 	if otherVpnInfoParsed.scmgr, err = OpenSCManager(); err != nil {
-		return otherVpnInfoParsed, err
+		log.ErrorFE("error opening SCManager: %w", err)
+	} else if otherVpnInfoParsed.servicesThatWereRunning, err = otherVpnInfoParsed.scmgr.FindMatchingRunningServices(otherVpnProvider.ServiceName, serviceNameRegex); err != nil {
+		log.ErrorFE("error matching service names via regular expression '%s': %w", serviceNameRegex, err)
 	}
-	if otherVpnInfoParsed.otherVpnKnown {
-		for _, otherVpnSvcName := range otherVpnInfoParsed.serviceNames {
-			if service, err := otherVpnInfoParsed.scmgr.OpenServiceIfRunning(otherVpnSvcName); err != nil {
-				return otherVpnInfoParsed, err
-			} else if service != nil { // service would be nil if it's not running
-				otherVpnInfoParsed.servicesThatWereRunning = append(otherVpnInfoParsed.servicesThatWereRunning, service)
-			}
-		}
-	} else { // other VPN not in our db, so try guessing the Windows service names from the 1st word of the other VPN sublayer name
-		if serviceNameRE, err = regexp.Compile("(?i)^" + firstWord); err != nil { // (?i) for case-insensitive matching
-			return otherVpnInfoParsed, log.ErrorE(fmt.Errorf("error compiling regular expression from first word '%s'", firstWord), 0)
-		}
-		if otherVpnInfoParsed.servicesThatWereRunning, err = otherVpnInfoParsed.scmgr.FindRunningServicesMatchingRegex(serviceNameRE); err != nil {
-			return otherVpnInfoParsed, log.ErrorE(fmt.Errorf("error matching service names via regular expression '%s'", serviceNameRE), 0)
-		}
+
+ParseOtherVpn_CheckingStage3_processCLI:
+	if otherVpnInfoParsed.otherVpnCliFound, err = otherVpnInfoParsed.validateCliPath(); err != nil { // check CLI binary exists
+		log.ErrorFE("error validating CLI path: %w", err)
+		return otherVpnInfoParsed /*, nil*/
+	} else if !otherVpnInfoParsed.otherVpnCliFound {
+		log.Error(errors.New("error - CLI not found at path '" + otherVpnInfoParsed.cliPath + "'"))
+		return otherVpnInfoParsed /*, nil*/
 	}
 
 	// check whether other VPN was connected
-	if otherVpnInfoParsed.otherVpnKnown && otherVpnInfoParsed.otherVpnCliFound {
-		otherVpnWasConnectedRegex := regexp.MustCompile(otherVpnInfoParsed.cliCmds.statusConnectedRE)
+	otherVpnWasConnectedRegex := regexp.MustCompile(otherVpnInfoParsed.cliCmds.statusConnectedRE)
 
-		const maxErrBufSize int = 1024
-		strErr := strings.Builder{}
-		outProcessFunc := func(text string, isError bool) {
-			if len(text) == 0 {
+	const maxErrBufSize int = 1024
+	strErr := strings.Builder{}
+	outProcessFunc := func(text string, isError bool) {
+		if len(text) == 0 {
+			return
+		}
+		if isError {
+			if strErr.Len() > maxErrBufSize {
 				return
 			}
-			if isError {
-				if strErr.Len() > maxErrBufSize {
-					return
-				}
-				strErr.WriteString(text)
-			} else {
-				if otherVpnWasConnectedRegex.MatchString(text) {
-					otherVpnInfoParsed.otherVpnWasConnected = true
-				}
+			strErr.WriteString(text)
+		} else {
+			if otherVpnWasConnectedRegex.MatchString(text) {
+				otherVpnInfoParsed.otherVpnWasConnected = true
 			}
-		}
-
-		if err = shell.ExecAndProcessOutput(log, outProcessFunc, "", otherVpnInfoParsed.cliPath, otherVpnInfoParsed.cliCmds.cmdStatus); err != nil {
-			return otherVpnInfoParsed, log.ErrorE(fmt.Errorf("error matching '%s': %s", otherVpnInfoParsed.cliCmds.statusConnectedRE, strErr.String()), 0)
 		}
 	}
 
-	return otherVpnInfoParsed, nil
+	if err = shell.ExecAndProcessOutput(log, outProcessFunc, "", otherVpnInfoParsed.cliPath, otherVpnInfoParsed.cliCmds.cmdStatus); err != nil {
+		log.ErrorFE("error matching '%s': %s", otherVpnInfoParsed.cliCmds.statusConnectedRE, strErr.String())
+	}
+
+	return otherVpnInfoParsed /*, nil*/
 }
 
 func (otherVpn *OtherVpnInfoParsed) PreSteps() (retErr error) {
@@ -171,6 +228,7 @@ func (otherVpn *OtherVpnInfoParsed) PreSteps() (retErr error) {
 	// }
 
 	// try to stop the other VPN service(s) that were running
+	// TODO FIXME: Vlad - stop services in parallel, async
 	for _, otherVpnSvc := range otherVpn.servicesThatWereRunning {
 		if retErr2 = StopService(otherVpnSvc); retErr2 != nil {
 			retErr2 = fmt.Errorf("error stopping service '%s': %w", otherVpnSvc.Name, retErr2)
@@ -199,6 +257,7 @@ func (otherVpn *OtherVpnInfoParsed) PostSteps() {
 	// log all the errors here, because the caller won't process them
 
 	// try to stop the other VPN service(s) that were running
+	// TODO FIXME: Vlad - start services in parallel, async
 	for _, otherVpnSvc := range otherVpn.servicesThatWereRunning {
 		if retErr := StartService(otherVpnSvc); retErr != nil {
 			log.Error(fmt.Errorf("error starting service '%s': %w", otherVpnSvc.Name, retErr))

@@ -36,8 +36,15 @@ import (
 
 // ProviderInfo WFP provider information
 type ProviderInfo struct {
+	Key         syscall.GUID
+	Name        string // DisplayData Name
+	Description string // DisplayData Description
+
+	Flags        uint32
 	IsInstalled  bool
 	IsPersistent bool
+
+	ServiceName string // Optional name of the Windows service hosting the provider
 }
 
 // Provider - WFP provider
@@ -135,6 +142,7 @@ func (m *Manager) Uninitialize() error {
 }
 
 // GetProviderInfo returns WFP provider info
+/*
 func (m *Manager) GetProviderInfo(providerKey syscall.GUID) (ProviderInfo, error) {
 	if err := m.Initialize(); err != nil {
 		return ProviderInfo{}, err
@@ -149,6 +157,39 @@ func (m *Manager) GetProviderInfo(providerKey syscall.GUID) (ProviderInfo, error
 			IsInstalled:  isInstalled,
 			IsPersistent: bool((flags & FwpmProviderFlagPersistent) == FwpmProviderFlagPersistent)},
 		nil
+}
+*/
+
+// GetProviderInfo returns WFP provider info
+func (m *Manager) GetProviderInfo(providerKey syscall.GUID) (found bool, provider ProviderInfo, err error) {
+	if err := m.Initialize(); err != nil {
+		return false, ProviderInfo{}, fmt.Errorf("failed to initialize manager: %w", err)
+	}
+
+	var fwpmProvider *FwpmProvider0
+
+	found, err = FwpmProviderGetByKey0(windows.Handle(m.engine), ProviderID(providerKey), &fwpmProvider)
+	defer FwpmFreeMemory0((*struct{})(unsafe.Pointer(&fwpmProvider)))
+
+	if err != nil {
+		err = log.ErrorE(fmt.Errorf("error calling FwpmProviderGetByKey0: %w", err), 0)
+	} else if found {
+		name := windows.UTF16PtrToString(fwpmProvider.DisplayData.Name)
+		description := windows.UTF16PtrToString(fwpmProvider.DisplayData.Description)
+		serviceName := windows.UTF16PtrToString(fwpmProvider.ServiceName)
+
+		provider = ProviderInfo{
+			Key:          syscall.GUID(fwpmProvider.ProviderKey),
+			Name:         name,
+			Description:  description,
+			Flags:        uint32(fwpmProvider.Flags),
+			IsInstalled:  true,
+			IsPersistent: bool((uint32(fwpmProvider.Flags) & FwpmProviderFlagPersistent) == FwpmProviderFlagPersistent),
+			ServiceName:  serviceName,
+		}
+	}
+
+	return found, provider, err
 }
 
 // AddProvider adds WFP provider
