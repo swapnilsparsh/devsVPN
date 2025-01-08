@@ -30,6 +30,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -901,7 +902,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 	// Check that firewall is enabled
 	if killSwitchState, err := s.KillSwitchState(); err != nil {
 		return log.ErrorFE("error checking firewall status: %w", err)
-	} else if !killSwitchState.IsEnabled {
+	} else if runtime.GOOS == "windows" && !killSwitchState.IsEnabled { // this requirement on Windows only for now
 		return log.ErrorE(errors.New("error - firewall must be enabled by now"), 0)
 	}
 
