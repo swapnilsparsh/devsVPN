@@ -337,7 +337,7 @@ function doUpdateTrayMenu() {
     mainMenu.push({ type: "separator" });
   }
 
-  mainMenu.push({ label: "Show PrivateLINE", click: menuHandlerShow });
+  mainMenu.push({ label: "Show privateLINE Connect", click: menuHandlerShow });
   mainMenu.push({ type: "separator" });
 
   const isPMPasswordView = store.state.uiState.isParanoidModePasswordView;
@@ -488,9 +488,11 @@ function doUpdateTrayMenu() {
         click: menuHandlerCheckUpdates,
       });
     }
-    mainMenu.push({ type: "separator" });
+  } else { // If logged out - allow only Settings/General
+    mainMenu.push({ label: "Settings", click: menuHandlerPreferences });
   }
 
+  mainMenu.push({ type: "separator" });
   mainMenu.push({ label: "Quit", click: menuItemQuit });
 
   let menuTemplate = mainMenu;
