@@ -9,6 +9,7 @@ package vpncoexistence
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -70,7 +71,9 @@ func (sc *scmanager) OpenServiceIfRunning(serviceName string) (service *mgr.Serv
 	return service, nil
 }
 
-func (sc *scmanager) FindRunningServicesMatchingRegex(otherVpnSvcNameRE *regexp.Regexp) (servicesRunning []*mgr.Service, err error) {
+// lowercaseSvcNameFromProvider can be ""
+// otherVpnSvcNameRE must be configured for case-insensitive matching
+func (sc *scmanager) FindMatchingRunningServices(serviceNameFromProvider string, otherVpnSvcNameRE *regexp.Regexp) (servicesRunning []*mgr.Service, err error) {
 	servicesRunning = make([]*mgr.Service, 0, 1)
 
 	var svcList []string
@@ -78,15 +81,17 @@ func (sc *scmanager) FindRunningServicesMatchingRegex(otherVpnSvcNameRE *regexp.
 		return servicesRunning, err
 	}
 
+	lowercaseSvcNameFromProvider := strings.ToLower(serviceNameFromProvider)
+	log.Debug("FindMatchingRunningServices(): lowercaseSvcNameFromProvider='" + lowercaseSvcNameFromProvider + "' otherVpnSvcNameRE='" + otherVpnSvcNameRE.String() + "'")
 	for _, svcName := range svcList {
-		if otherVpnSvcNameRE.MatchString(svcName) || serviceNamesToTryAlways.Contains(svcName) {
+		if otherVpnSvcNameRE.MatchString(svcName) || strings.ToLower(svcName) == lowercaseSvcNameFromProvider {
 			if svc, err := sc.OpenServiceIfRunning(svcName); err != nil {
-				return servicesRunning, err
-			} else {
+				log.ErrorFE("error opening service '%s': %w", svcName, err)
+			} else if svc != nil {
 				servicesRunning = append(servicesRunning, svc)
-				if len(servicesRunning) >= MAX_WINDOWS_SERVICE_CANDIDATES {
-					return servicesRunning, nil
-				}
+				// if len(servicesRunning) >= MAX_WINDOWS_SERVICE_CANDIDATES {
+				// 	return servicesRunning, nil
+				// }
 			}
 		}
 	}

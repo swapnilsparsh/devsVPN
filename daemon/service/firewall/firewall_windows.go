@@ -190,11 +190,11 @@ func findOtherSublayerWithMaxWeight() (found bool, otherSublayerKey syscall.GUID
 // If our sublayer is not registered at max weight, and max weight slot is vacant - then we'll try to reregister our sublayer at max weight.
 func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOtherVpn bool) (err error) {
 	var (
-		pInfo                                                 winlib.ProviderInfo
-		installed, maxWeightSublayerFound, otherSublayerFound bool
-		otherSublayer                                         winlib.SubLayer
-		_otherSublayerGUID                                    syscall.GUID
-		otherVpn                                              *vpncoexistence.OtherVpnInfoParsed = nil
+		pInfo                                                        winlib.ProviderInfo
+		found, installed, maxWeightSublayerFound, otherSublayerFound bool
+		otherSublayer                                                winlib.SubLayer
+		_otherSublayerGUID                                           syscall.GUID
+		otherVpn                                                     *vpncoexistence.OtherVpnInfoParsed = nil
 
 		otherVpnUnknownErr FirewallError = FirewallError{containedErr: nil, otherVpnUnknownToUs: false}
 	)
@@ -212,11 +212,11 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 	// log.LogCallStack()
 
 	// add provider
-	pInfo, err = manager.GetProviderInfo(providerKey)
+	found, pInfo, err = manager.GetProviderInfo(providerKey)
 	if err != nil {
 		return fmt.Errorf("failed to get provider info: %w", err)
 	}
-	if !pInfo.IsInstalled {
+	if !found || !pInfo.IsInstalled {
 		provider := winlib.CreateProvider(providerKey, providerDName, "", isPersistent)
 		if err = manager.AddProvider(provider); err != nil {
 			return fmt.Errorf("failed to add provider : %w", err)
@@ -244,21 +244,24 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 			if err == nil && otherSublayerFound {
 				otherVpnUnknownErr.otherVpnName = otherSublayer.Name
 				otherSublayerMsg += ". Other sublayer information:\n" + otherSublayer.String()
+			} else {
+				otherSublayer.Key = _otherSublayerGUID
 			}
 			log.Warning(otherSublayerMsg)
 
+			// TODO FIXME: rewrite logic
 			if canStopOtherVpn { // if requested to stop other VPN and unregister their firewall sublayer, try it
-				otherVpnUnknownErr.otherVpnUnknownToUs = !vpncoexistence.OtherVpnIsKnownToUs(_otherSublayerGUID)
-				otherVpn, err = vpncoexistence.ParseOtherVpn(otherVpnUnknownErr.otherVpnName, _otherSublayerGUID)
-				if err != nil {
+				otherVpn /*, err*/ = vpncoexistence.ParseOtherVpn(otherSublayerFound, &otherSublayer, &manager)
+				/* if err != nil {
 					err = log.ErrorE(fmt.Errorf("error parsing VPN info for other VPN '%s' - '%s', so not taking any VPN-specific steps, taking only generic interoperation approach",
 						windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name), 0)
-				} else if otherVpn == nil {
-					err = fmt.Errorf("other VPN '%s' '%s' is not known to us, and guessing service names didn't succeed, so we can only try generic interoperation approach",
+				} else */if otherVpn == nil { // not expected to get nil back, it'd be a bug
+					err = fmt.Errorf("error (unexpected nil): other VPN '%s' '%s' is not known to us, and guessing service names didn't succeed, so we can only try generic interoperation approach",
 						windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name)
 					log.Warning(err)
 				} else {
 					log.Debug(fmt.Sprintf("otherVpn = %+v", otherVpn))
+					otherVpnUnknownErr.otherVpnUnknownToUs = !otherVpn.OtherVpnKnown
 					if err = otherVpn.PreSteps(); err != nil {
 						err = fmt.Errorf("error taking pre-steps for other VPN '%s' '%s', continuing with generic interoperation approach. Error: %w",
 							windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name, err)
@@ -322,12 +325,12 @@ func implInitialize() (retErr error) {
 }
 
 func implGetEnabled() (bool, error) {
-	pInfo, err := manager.GetProviderInfo(providerKey)
+	found, pInfo, err := manager.GetProviderInfo(providerKey)
 	if err != nil {
 		_isEnabled = false
 		return false, fmt.Errorf("failed to get provider info: %w", err)
 	}
-	return pInfo.IsInstalled && _isEnabled, nil
+	return found && pInfo.IsInstalled && _isEnabled, nil
 }
 
 func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress bool) (retErr error) {
@@ -371,12 +374,12 @@ func implSetPersistent(persistent bool) (retErr error) {
 	// save persistent state
 	isPersistent = persistent
 
-	pinfo, err := manager.GetProviderInfo(providerKey)
+	found, pinfo, err := manager.GetProviderInfo(providerKey)
 	if err != nil {
 		return fmt.Errorf("failed to get provider info: %w", err)
 	}
 
-	if pinfo.IsInstalled {
+	if found && pinfo.IsInstalled {
 		if pinfo.IsPersistent == isPersistent {
 			log.Info(fmt.Sprintf("Already enabled (persistent=%t).", isPersistent))
 			return nil
@@ -978,9 +981,9 @@ func deleteSublayerAndProvider(sublayerKey, _providerKey syscall.GUID) (retErr e
 	}
 
 	// delete provider
-	if pinfo, err := manager.GetProviderInfo(_providerKey); err != nil {
+	if found, pinfo, err := manager.GetProviderInfo(_providerKey); err != nil {
 		retErr = log.ErrorE(fmt.Errorf("failed to get provider '%s' info: %w", windows.GUID(_providerKey).String(), err), 0)
-	} else if pinfo.IsInstalled {
+	} else if found && pinfo.IsInstalled {
 		if err := manager.DeleteProvider(_providerKey); err != nil {
 			retErr = log.ErrorE(fmt.Errorf("failed to delete provider '%s': %w", windows.GUID(_providerKey).String(), err), 0)
 		}

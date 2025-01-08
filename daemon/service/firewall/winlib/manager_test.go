@@ -75,12 +75,12 @@ func TestBlockAll(t *testing.T) {
 		provider := winlib.CreateProvider(providerKey, "IVPN Test", "IVPN Test WFP Provider", false)
 		sublayer := winlib.CreateSubLayer(sublayerKey, providerKey, "IVPN Test", "IVPN Test WFP Sublayer", 0, false)
 
-		pinfo, err := mgr.GetProviderInfo(providerKey)
+		found, pinfo, err := mgr.GetProviderInfo(providerKey)
 		if err != nil {
 			t.Error(err)
 		}
 
-		if !pinfo.IsInstalled {
+		if !found || !pinfo.IsInstalled {
 			if err = mgr.AddProvider(provider); err != nil {
 				t.Error(err)
 			}
@@ -141,11 +141,11 @@ func TestBlockAll(t *testing.T) {
 			}
 		}
 
-		pinfo, err := mgr.GetProviderInfo(providerKey)
+		found, pinfo, err := mgr.GetProviderInfo(providerKey)
 		if err != nil {
 			t.Error(err)
 		}
-		if pinfo.IsInstalled {
+		if found && pinfo.IsInstalled {
 			if err := mgr.DeleteProvider(providerKey); err != nil {
 				t.Error(err)
 			}
