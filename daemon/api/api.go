@@ -56,7 +56,7 @@ type RestApiHostsDef struct {
 
 var (
 	productionApiHosts = RestApiHostsDef{
-		ApiHost:    "deskapi.privateline.io", // "api.privateline.dev"
+		ApiHost:    "deskapi.privateline.io", // "api.privateline.io"
 		SsoHost:    "sso.privateline.io",
 		UpdateHost: "raw.githubusercontent.com",
 	}

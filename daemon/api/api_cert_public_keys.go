@@ -5,15 +5,14 @@ package api
 // You can generate API cert hashes with daemon/References/common/scripts/generateAPIPrivateLineHashes.sh
 
 // APIPrivateLineHashes - base64-encoded SHA256 hashes for 'api.privateline.io' server public keys (in use for certificate key pinning)
-// Oct 2024 privateline.io cert
+// Certs good as of Jan 2025
 
-/*
-prod APIPrivateLineHashes = "KJyZJqESixPI7jPLs0/8P2q6kI4h5kXWIkoxybZ/gzM="
-dev APIPrivateLineHashes = "3/INJ5mVSZ/bndP0j6irtFHJ3M+1PVr0+/s91l8JKzM="
-*/
 var APIPrivateLineHashes = []string{
-	"u4GSL0S1V8jcHJ3sJ07ehNMu3uALbeiwUxL+P/OZCXc=", // deskapi.privateline.io
+	"u4GSL0S1V8jcHJ3sJ07ehNMu3uALbeiwUxL+P/OZCXc=", // deskapi.privateline.io, api.privateline.io, sso.privateline.io
 	"KJyZJqESixPI7jPLs0/8P2q6kI4h5kXWIkoxybZ/gzM=", // api.privateline.io old cert
+
+	"H84WASAGlih/MAB89DhXu+D5HdKG6hfHudZrEN9RQ3c=",	// api.privateline.dev, sso.privateline.dev
+	"3/INJ5mVSZ/bndP0j6irtFHJ3M+1PVr0+/s91l8JKzM=", // older dev cert hash
 }
 
 // UpdatePrivateLineHashes - base64-encoded SHA256 hashes for 'repo.privateline.io' server public keys (in use for certificate key pinning)
