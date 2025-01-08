@@ -30,6 +30,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -1943,13 +1944,8 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
 	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
-	// TODO FIXME: Vlad - disabling manual DNS, retest on win1[01], Debian 12, Ubuntu 24
-	// if err = dns.DeleteManual(nil, nil); err != nil {
-	// 	log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
-	// }
-	prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{}
-	/*
-		// For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
+	if runtime.GOOS == "linux" { // Manual DNS setting still needed on Linux. Cannot pass "DNS = ..." in wg.conf, because of https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491
+		// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
 		firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
 		if firstDnsSrv != "" {
 			prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
@@ -1957,7 +1953,12 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 			log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
 			return apiCode, "", accountInfo, "", err
 		}
-	*/
+	} else { // Windows works fine with "DNS = ..." in wgprivateline.conf
+		// if err = dns.DeleteManual(nil, nil); err != nil {
+		// 	log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
+		// }
+		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{}
+	}
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
@@ -2143,13 +2144,8 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
 	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
-	// TODO FIXME: Vlad - disabling manual DNS, retest on win1[01], Debian 12, Ubuntu 24
-	// if err = dns.DeleteManual(nil, nil); err != nil {
-	// 	log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
-	// }
-	prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{}
-	/*
-		// For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
+	if runtime.GOOS == "linux" { // Manual DNS setting still needed on Linux. Cannot pass "DNS = ..." in wg.conf, because of https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491
+		// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
 		firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
 		if firstDnsSrv != "" {
 			prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
@@ -2157,7 +2153,12 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 			log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
 			return apiCode, "", rawResponse, err
 		}
-	*/
+	} else { // Windows works fine with "DNS = ..." in wgprivateline.conf
+		// if err = dns.DeleteManual(nil, nil); err != nil {
+		// 	log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
+		// }
+		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{}
+	}
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
