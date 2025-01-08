@@ -150,6 +150,7 @@ type HelloResp struct {
 	Version           string
 	ProcessorArch     string
 	Session           SessionResp
+	DevRestApiBackend bool
 	Account           preferences.AccountStatus
 	DisabledFunctions DisabledFunctionality
 	Dns               DnsAbilities

@@ -33,6 +33,7 @@ func init() {
 
 const (
 	MAX_WAIT = 10 * time.Second
+	// MAX_WAIT =  * time.Second
 )
 
 type scmanager struct {
@@ -170,6 +171,7 @@ func controlService(s *mgr.Service, c svc.Cmd, to svc.State) error {
 
 func StopService(s *mgr.Service) error {
 	serviceStatus, err := QueryServiceStatusEx(s)
+	// log.Debug("service '" + s.Name + "' state queried")
 	if err != nil {
 		return log.ErrorE(fmt.Errorf("error QueryServiceStatusEx(): %w", err), 0)
 	}

@@ -140,6 +140,16 @@ type Service struct {
 	_statsCallbacks protocol.StatsCallbacks
 }
 
+// SetRestApiBackend - send true for development REST API backend, false for production one
+func (s *Service) SetRestApiBackend(devEnv bool) error {
+	s._api.SetRestApiBackend(devEnv)
+	return nil
+}
+
+func (s *Service) GetRestApiBackend() (devEnv bool) {
+	return s._api.GetRestApiBackend()
+}
+
 // VpnSessionInfo - Additional information about current VPN connection
 type VpnSessionInfo struct {
 	// The outbound IP addresses on the moment BEFORE the VPN connection
@@ -1163,17 +1173,22 @@ func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) er
 
 // KillSwitchReregister try to reregister our firewall logic at top
 func (s *Service) KillSwitchReregister(canStopOtherVpn bool) (err error) {
+	// If we're connected/connecting/etc. - fork disconnect request.
+	// Otherwise, if we're trying to connect VPN and reregister our firewall in parallel - we tend to get errors in firewall.HaveTopFirewallPriority() (looking up meet.privateline.network)
+	go s.Disconnect()
+
 	if err = firewall.TryReregisterFirewallAtTopPriority(canStopOtherVpn); err != nil {
 		return err
 	}
 
-	if s.Connected() {
-		if haveTopFirewallPriority, _, _, _, err := firewall.HaveTopFirewallPriority(); err != nil {
-			return err
-		} else if haveTopFirewallPriority {
-			return firewall.DeployPostConnectionRules(false) // here meet.privateline.network hostname lookup succeds, no need to wait in the background
-		}
-	}
+	// Vlad - so don't try firewall.DeployPostConnectionRules() here, another VPN connection will take care of that
+	// if s.Connected() {
+	// 	if haveTopFirewallPriority, _, _, _, err := firewall.HaveTopFirewallPriority(); err != nil {
+	// 		return err
+	// 	} else if haveTopFirewallPriority {
+	// 		return firewall.DeployPostConnectionRules(false) // here meet.privateline.network hostname lookup should succeed, no need to wait in the background
+	// 	}
+	// }
 
 	return err
 }

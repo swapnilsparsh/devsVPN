@@ -160,7 +160,7 @@ func (c *CmdFirewall) Run() error {
 		return err
 	}
 
-	w := printFirewallState(nil, state.IsEnabled, state.IsPersistent, state.IsAllowLAN, state.IsAllowMulticast, state.IsAllowApiServers, state.UserExceptions, nil)
+	w := printFirewallState(nil, state.IsEnabled, state.IsPersistent, state.IsAllowLAN, state.IsAllowMulticast, state.IsAllowApiServers, state.WeHaveTopFirewallPriority, state.UserExceptions, nil)
 	w.Flush()
 
 	// TIPS

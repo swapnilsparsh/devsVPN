@@ -70,8 +70,13 @@ type internalVariables struct {
 
 const (
 	// such significant delays required to support ultimate slow PC
-	_waitServiceInstallTimeout = time.Minute * 3
-	_waitServiceStartTimeout   = time.Minute * 5
+	// _waitServiceInstallTimeout = time.Minute * 3
+	// _waitServiceStartTimeout   = time.Minute * 5
+
+	// Vlad - 40sec should be enough
+	//		quote-unquote: When we set the upper limit of PC-DOS at 640K, we thought nobody would ever need that much memory. — William Gates, chairman of Microsoft (1985)
+	_waitServiceInstallTimeout = time.Second * 40
+	_waitServiceStartTimeout   = time.Second * 40
 )
 
 func (wg *WireGuard) init() error {
@@ -593,8 +598,10 @@ func (wg *WireGuard) isServiceInstalled() (bool, error) {
 // uninstall WireGuard service
 func (wg *WireGuard) uninstallService() error {
 	// NO parallel operations of serviceInstall OR serviceUninstall should be performed!
+	log.Debug("uninstallService(): NO parallel operations of serviceInstall OR serviceUninstall should be performed!. Before grabbing _globalInitMutex.Lock()")
 	_globalInitMutex.Lock()
 	defer _globalInitMutex.Unlock()
+	log.Debug("uninstallService(): After grabbing _globalInitMutex.Lock()")
 
 	// connect to service maneger
 	m, err := mgr.Connect()

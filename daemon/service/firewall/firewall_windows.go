@@ -249,7 +249,6 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 			}
 			log.Warning(otherSublayerMsg)
 
-			// TODO FIXME: rewrite logic
 			if canStopOtherVpn { // if requested to stop other VPN and unregister their firewall sublayer, try it
 				otherVpn /*, err*/ = vpncoexistence.ParseOtherVpn(otherSublayerFound, &otherSublayer, &manager)
 				/* if err != nil {

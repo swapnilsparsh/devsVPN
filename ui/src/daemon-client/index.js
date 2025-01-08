@@ -60,6 +60,8 @@ const daemonRequests = Object.freeze({
   Hello: "Hello",
   APIRequest: "APIRequest",
 
+  SetRestApiBackend: "SetRestApiBackend",
+
   GenerateDiagnostics: "GenerateDiagnostics",
 
   PingServers: "PingServers",
@@ -403,6 +405,8 @@ async function processResponse(response) {
     case daemonResponses.HelloResp:
       store.commit("daemonVersion", obj.Version);
       store.commit("daemonProcessorArch", obj.ProcessorArch);
+
+      store.commit("usingDevelopmentRestApiBackend", obj.DevRestApiBackend);
 
       if (obj.SettingsSessionUUID) {
         const ssID = obj.SettingsSessionUUID;
@@ -1460,6 +1464,13 @@ async function Connect() {
   });
 }
 
+async function SetRestApiBackend(enableDevRestApiBackend) {
+  await sendRecv({
+    Command: daemonRequests.SetRestApiBackend,
+    IsDevEnv: enableDevRestApiBackend,
+  });
+}
+
 async function RequestVPNState() {
   await sendRecv({
     Command: daemonRequests.GetVPNState,
@@ -1927,6 +1938,7 @@ export default {
   ConnectToDaemon,
 
   GetDiagnosticLogs,
+  SetRestApiBackend,
 
   Login,
   SsoLogin,

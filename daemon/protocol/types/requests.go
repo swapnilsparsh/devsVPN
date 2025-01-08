@@ -68,6 +68,12 @@ type Hello struct {
 	GetWiFiCurrentState bool
 }
 
+// SetRestApiBackend request to enable either development REST API backend, or production one
+type SetRestApiBackend struct {
+	RequestBase
+	IsDevEnv bool
+}
+
 // GetServers request servers list
 type GetServers struct {
 	RequestBase

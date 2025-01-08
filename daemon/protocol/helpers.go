@@ -65,6 +65,7 @@ func (p *Protocol) createHelloResponse() *types.HelloResp {
 		Version:             version.Version(),
 		ProcessorArch:       runtime.GOARCH,
 		Session:             types.CreateSessionResp(prefs.Session),
+		DevRestApiBackend:   p._service.GetRestApiBackend(),
 		Account:             prefs.Account,
 		SettingsSessionUUID: prefs.SettingsSessionUUID,
 		DisabledFunctions:   disabledFuncs,

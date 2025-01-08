@@ -130,6 +130,10 @@ ipcMain.handle("renderer-request-resume-connection", async () => {
   return await client.ResumeConnection();
 });
 
+ipcMain.handle("renderer-request-set-rest-api-backend", async (event, enableDevRestApiBackend) => {
+  return await client.SetRestApiBackend(enableDevRestApiBackend);
+});
+
 ipcMain.handle("renderer-request-firewall", async (event, enable) => {
   return await client.EnableFirewall(enable);
 });

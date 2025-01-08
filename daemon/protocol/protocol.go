@@ -102,6 +102,9 @@ var (
 type Service interface {
 	UnInitialise() error
 
+	SetRestApiBackend(devEnv bool) error // true to use development REST API backend servers, false for production ones
+	GetRestApiBackend() (devEnv bool)    // true if using development REST API backend servers, false for production ones
+
 	OnAuthenticatedClient(t types.ClientTypeEnum)
 
 	// GetDisabledFunctions returns info about functions which are disabled
@@ -1377,6 +1380,23 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 		p.sendResponse(conn, &types.EmptyResp{}, reqCmd.Idx)
 		// notify all clients about changed wifi settings
+		p.notifyClients(p.createHelloResponse())
+
+	case "SetRestApiBackend":
+		var req types.SetRestApiBackend
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		if err := p._service.SetRestApiBackend(req.IsDevEnv); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		// send the response to the requestor
+		p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+		// notify all clients abt new setting for REST API backend - whether it's dev or production
 		p.notifyClients(p.createHelloResponse())
 
 	case "Disconnect":

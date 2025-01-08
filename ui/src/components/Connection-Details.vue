@@ -88,6 +88,15 @@
           </div>
         </div>
 
+        <div v-if="isDevRestApiBackend" class="flexRow paramBlockDetailedConfig">
+          <div class="defColor paramName">REST API backend:</div>
+          <div class="detailedParamValue">
+            <div class="failedText">
+              Development REST API servers
+            </div>
+          </div>
+        </div>
+
         <!-- <div class="flexRow paramBlockDetailedConfig">
                     <div class="defColor paramName">Quantum Resistance:</div>
                     <div class="detailedParamValue">
@@ -142,10 +151,12 @@ export default {
       blinkTimeoutReceivedSend: null, // Store the timeout ID to stop blinking
       isReceivedSendChanging: false,
       vpnCoexistenceInGoodState: false,
+      isDevRestApiBackend: false,
     };
   },
   mounted() {
     this.vpnCoexistenceInGoodState = this.weHaveTopFirewallPriority;
+    this.isDevRestApiBackend = this.isDevRestApiBackendStore;
 
     // Parse the timestamp
     const ConnectedSince =
@@ -194,6 +205,9 @@ export default {
     },
     weHaveTopFirewallPriority() {
       this.vpnCoexistenceInGoodState = this.weHaveTopFirewallPriority;
+    },
+    isDevRestApiBackendStore() {
+      this.isDevRestApiBackend = this.isDevRestApiBackendStore;
     }
   },
 
@@ -277,7 +291,7 @@ export default {
       );
       if (ret.response == 1) return; // cancel
       if (ret.response == 0) {
-        let errMsg = "Error: failed to get top firewall permissions - please try again later or contact support@privateline.io";
+        let errMsg = "Error: failed to get top firewall permissions - please disconnect PL Connect or stop the connection attempt, and retry VPN Coexistence wizard again.";
         try {
           let resp = await sender.KillSwitchReregister(true);
           //console.log("resp", resp);
@@ -307,6 +321,10 @@ export default {
               });
             }
           }
+
+          // Check the result. If good - start connection attempt, as daemon disconnected VPN during KillSwitchReregister() call.
+          if (this.weHaveTopFirewallPriority)
+            await sender.Connect(); // Re-connect
         } catch (e) {
           console.error(e);
           sender.showMessageBoxSync({
@@ -317,15 +335,6 @@ export default {
           });
           return;
         }
-
-        // TODO to check the result - recheck this.weHaveTopFirewallPriority
-        //if (!this.weHaveTopFirewallPriority) {
-        //  sender.showMessageBoxSync({
-        //     type: "error",
-        //     buttons: ["OK"],
-        //     message: errMsg,
-        //  });
-        //}
       }
     }
   },
@@ -341,6 +350,9 @@ export default {
     },
     weHaveTopFirewallPriority() {
        return this.$store.state.vpnState.firewallState.WeHaveTopFirewallPriority;
+    },
+    isDevRestApiBackendStore() {
+      return this.$store.state.usingDevelopmentRestApiBackend;
     },
     formattedElapsedTime() {
       const minutes = Math.floor(this.elapsedTime / 60);

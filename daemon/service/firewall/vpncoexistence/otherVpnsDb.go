@@ -20,6 +20,10 @@ const (
 	// MAX_WINDOWS_SERVICE_CANDIDATES = 10
 )
 
+var (
+	zeroGUID = syscall.GUID{}
+)
+
 type otherVpnCliCmds struct {
 	cmdStatus            string
 	statusConnectedRE    string
@@ -41,7 +45,8 @@ type OtherVpnInfo struct {
 
 var (
 	// blacklist of words that can't be brand name candidates
-	invalidServiceNamePrefixes mapset.Set[string] = mapset.NewSet[string]("microsoft", "windefend", "edge", "intel")
+	// Vlad - don't stop services whose name starts with "Wireguard", because we don't want to kill our own connection, lol
+	invalidServiceNamePrefixes mapset.Set[string] = mapset.NewSet[string]("microsoft", "windefend", "edge", "intel", "wireguard")
 
 	// Windows service names to try always:
 
@@ -77,15 +82,16 @@ var (
 	nordVpnProfile     = OtherVpnInfo{
 		name:       "NordVPN",
 		namePrefix: "nord",
-		cliPath:    "ProgramFiles/Mullvad VPN/resources/mullvad.exe",
+		cliPath:    "",
+		//cliPath:    "ProgramFiles/NordVPN/NordVPN.exe", // disabled for now, since we didn't find yet a programmatic way to check whether VPN is connected
 		cliCmds: otherVpnCliCmds{
-			cmdStatus:                          "status",
-			statusConnectedRE:                  "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
-			statusDisconnectedRE:               "^Disconnected([^a-zA-Z0-9]|$)",
-			cmdEnableSplitTun:                  []string{"split-tunnel", "set", "on"},
-			cmdAddOurBinaryToSplitTunWhitelist: []string{"split-tunnel", "app", "add"},
-			cmdConnect:                         "connect",
-			cmdDisconnect:                      "disconnect",
+			cmdStatus:                          "",
+			statusConnectedRE:                  "",
+			statusDisconnectedRE:               "",
+			cmdEnableSplitTun:                  []string{},
+			cmdAddOurBinaryToSplitTunWhitelist: []string{},
+			cmdConnect:                         "--connect",
+			cmdDisconnect:                      "--disconnect",
 		},
 	}
 

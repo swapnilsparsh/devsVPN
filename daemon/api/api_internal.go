@@ -141,7 +141,7 @@ type dialer func(network, addr string) (net.Conn, error)
 
 func makeDialer(certHashes []string, serverName string, dialTimeout time.Duration) dialer {
 	if len(certHashes) == 0 {
-		log.Warning("No pinned certificates for ", _apiHost)
+		log.Warning("No pinned certificates for " + serverName)
 		return nil
 	}
 
@@ -204,7 +204,7 @@ func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, ur
 		}
 	}
 
-	if len(host) == 0 || host == _apiHost {
+	if len(host) == 0 || host == a.getApiHost() {
 		if ipTypeRequired != types.IPvAny {
 			// The specific IP version required to use
 			// return a.doRequestAPIHost(ipTypeRequired, false, urlPath, method, contentType, request, timeoutMs, timeoutDialMs)
@@ -229,7 +229,7 @@ func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, ur
 			// }
 			return resp4, err4
 		}
-	} else if host == _updateHost {
+	} else if host == a.getUpdateHost() {
 		return a.doRequestUpdateHost(urlPath, method, contentType, request, timeoutMs)
 	}
 
@@ -239,12 +239,12 @@ func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, ur
 func (a *API) doRequestUpdateHost(urlPath string, method string, contentType string, request interface{}, timeoutMs int) (resp *http.Response, err error) {
 	transCfg := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12, // seems, it is redundant (since we use custom DialTLS)
-			ServerName: _updateHost,      // despite, we using custom DialTLS, we have to define ServerName (this avoids certificate verification problems, for example, when the request is going through a proxy server)
+			MinVersion: tls.VersionTLS12,  // seems, it is redundant (since we use custom DialTLS)
+			ServerName: a.getUpdateHost(), // despite, we using custom DialTLS, we have to define ServerName (this avoids certificate verification problems, for example, when the request is going through a proxy server)
 		},
 
 		// using certificate key pinning
-		DialTLS: makeDialer(UpdatePrivateLineHashes, _updateHost, 0),
+		DialTLS: makeDialer(UpdatePrivateLineHashes, a.getUpdateHost(), 0),
 	}
 
 	// configure http-client with preconfigured TLS transport
@@ -265,7 +265,7 @@ func (a *API) doRequestUpdateHost(urlPath string, method string, contentType str
 	bodyBuffer := bytes.NewBuffer(data)
 
 	// try to access API server by host DNS
-	req, err := newRequest(getURL(_updateHost, urlPath), method, contentType, bodyBuffer)
+	req, err := newRequest(getURL(a.getUpdateHost(), urlPath), method, contentType, bodyBuffer)
 	if err != nil {
 		return nil, err
 	}
@@ -309,11 +309,11 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 	transCfg := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12, // seems, it is redundant (since we use custom DialTLS)
-			ServerName: _apiHost,         // despite, we using custom DialTLS, we have to define ServerName (this avoids certificate verification problems, for example, when the request is going through a proxy server)
+			ServerName: a.getApiHost(),   // despite, we using custom DialTLS, we have to define ServerName (this avoids certificate verification problems, for example, when the request is going through a proxy server)
 		},
 
 		// using certificate key pinning
-		DialTLS: makeDialer(APIPrivateLineHashes, _apiHost, timeoutDial),
+		DialTLS: makeDialer(APIPrivateLineHashes, a.getApiHost(), timeoutDial),
 	}
 
 	// configure http-client with preconfigured TLS transport
@@ -355,7 +355,7 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 	var firstResp *http.Response
 	var firstErr error
 	if isCanUseDNS {
-		req, err := newRequest(getURL(_apiHost, urlPath), method, contentType, bodyBuffer)
+		req, err := newRequest(getURL(a.getApiHost(), urlPath), method, contentType, bodyBuffer)
 		//		var data map[string]string
 		//		err := json.NewDecoder(bodyBuffer).Decode(&data)
 		//		if err != nil {

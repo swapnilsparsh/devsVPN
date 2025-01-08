@@ -10,7 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -63,7 +65,7 @@ func (otherVpn *OtherVpnInfoParsed) validateCliPath() (bool, error) {
 
 	// Check whether CLI .exe exists
 	if _, err := os.Stat(otherVpn.cliPath); os.IsNotExist(err) {
-		log.Warning(fmt.Sprintf("other VPN '%s' CLI '%s' not found", otherVpn.name, otherVpn.cliPath), 0)
+		log.Warning(fmt.Errorf("other VPN '%s' CLI '%s' not found: %w", otherVpn.name, otherVpn.cliPath, err))
 		return false, nil
 	}
 
@@ -89,6 +91,12 @@ func parseFirstWordOfAName(name, label string) (firstWord string) {
 
 func lookupOtherVpnProvider(otherVpnProviderKey syscall.GUID, manager *winlib.Manager) (otherVpnProviderFound bool, otherVpnProvider winlib.ProviderInfo, otherVpnProviderName1stWord string) {
 	var err error
+
+	if reflect.DeepEqual(otherVpnProviderKey, zeroGUID) {
+		log.Warning(errors.New("warning - provider key/UUID is zeroes, ignoring it"))
+		return false, winlib.ProviderInfo{}, ""
+	}
+
 	if otherVpnProviderFound, otherVpnProvider, err = manager.GetProviderInfo(otherVpnProviderKey); err != nil { // lookup provider under which other VPN's sublayer is installed
 		log.ErrorFE("error looking up info for provider of the other VPN by its key '%s': %w", windows.GUID(otherVpnProviderKey).String(), err) // and continue
 	} else if otherVpnProviderFound { // try to extract 1st word of provider name
@@ -129,7 +137,7 @@ func ParseOtherVpn(otherSublayerFound bool, otherSublayer *winlib.SubLayer, mana
 		goto ParseOtherVpn_CheckingStage2_FindRunningMatchingServices
 	}
 
-	otherVpnProviderFound, otherVpnProvider, providerName1stWord = lookupOtherVpnProvider(otherSublayer.ProviderKey, manager) // lookup the other VPN provider
+	otherVpnProviderFound, otherVpnProvider, providerName1stWord = lookupOtherVpnProvider(otherSublayer.ProviderKey, manager) // try to lookup the other VPN provider
 
 	for _, otherVpnReadonly := range otherVpnsBySublayerGUID { // try matching the name of sublayer or provider to name prefix of other VPNs in our DB
 		if strings.HasPrefix(strings.ToLower(otherSublayer.Name), otherVpnReadonly.namePrefix) ||
@@ -218,6 +226,23 @@ ParseOtherVpn_CheckingStage3_processCLI:
 	return otherVpnInfoParsed /*, nil*/
 }
 
+func startStopServiceHelper(stopSvc bool, svc *mgr.Service, reportChan chan error) {
+	//log.Debug("VPN service '" + svc.Name + "' action stop=" + strconv.FormatBool(stopSvc) + " ...")
+	var err error
+	if stopSvc {
+		err = StopService(svc)
+	} else {
+		err = StartService(svc)
+	}
+
+	if err == nil {
+		log.Debug("VPN service '" + svc.Name + "' action stop=" + strconv.FormatBool(stopSvc) + " success")
+		reportChan <- nil
+	} else {
+		reportChan <- log.ErrorFE("VPN service '%s' action stop=%t error: %w", svc.Name, stopSvc, err)
+	}
+}
+
 func (otherVpn *OtherVpnInfoParsed) PreSteps() (retErr error) {
 	log.Debug("PreSteps() started for " + otherVpn.name)
 	var retErr2 error = nil
@@ -228,13 +253,14 @@ func (otherVpn *OtherVpnInfoParsed) PreSteps() (retErr error) {
 	// }
 
 	// try to stop the other VPN service(s) that were running
-	// TODO FIXME: Vlad - stop services in parallel, async
+	reportChan := make(chan error)
+	defer close(reportChan)
 	for _, otherVpnSvc := range otherVpn.servicesThatWereRunning {
-		if retErr2 = StopService(otherVpnSvc); retErr2 != nil {
-			retErr2 = fmt.Errorf("error stopping service '%s': %w", otherVpnSvc.Name, retErr2)
-			log.Warning(retErr2)
-		} else {
-			log.Debug("stopped other VPN service '" + otherVpnSvc.Name + "'")
+		go startStopServiceHelper(true, otherVpnSvc, reportChan)
+	}
+	for i := 0; i < len(otherVpn.servicesThatWereRunning); i++ {
+		if retErr3 := <-reportChan; retErr2 == nil && retErr3 != nil { // error or success is already logged in the helper
+			retErr2 = retErr3
 		}
 	}
 
@@ -256,14 +282,14 @@ func (otherVpn *OtherVpnInfoParsed) PostSteps() {
 
 	// log all the errors here, because the caller won't process them
 
-	// try to stop the other VPN service(s) that were running
-	// TODO FIXME: Vlad - start services in parallel, async
+	// try to start the other VPN service(s) that were running
+	reportChan := make(chan error)
+	defer close(reportChan)
 	for _, otherVpnSvc := range otherVpn.servicesThatWereRunning {
-		if retErr := StartService(otherVpnSvc); retErr != nil {
-			log.Error(fmt.Errorf("error starting service '%s': %w", otherVpnSvc.Name, retErr))
-		} else {
-			log.Debug("restarted other VPN service '" + otherVpnSvc.Name + "'")
-		}
+		go startStopServiceHelper(false, otherVpnSvc, reportChan)
+	}
+	for i := 0; i < len(otherVpn.servicesThatWereRunning); i++ {
+		<-reportChan // error or success is already logged in the helper
 	}
 
 	if otherVpn.otherVpnCliFound {

@@ -81,7 +81,7 @@ func showState() error {
 	if !stStatus.IsFunctionalityNotAvailable {
 		printSplitTunState(w, true, false, stStatus.IsEnabled, stStatus.IsAppWhitelistEnabled, stStatus.IsInversed, stStatus.IsAnyDns, stStatus.IsAllowWhenNoVpn, stStatus.SplitTunnelApps, stStatus.RunningApps)
 	}
-	printFirewallState(w, fwstate.IsEnabled, fwstate.IsPersistent, fwstate.StateLanAllowed, fwstate.IsAllowMulticast, fwstate.IsAllowApiServers, fwstate.UserExceptions, &state)
+	printFirewallState(w, fwstate.IsEnabled, fwstate.IsPersistent, fwstate.StateLanAllowed, fwstate.IsAllowMulticast, fwstate.IsAllowApiServers, fwstate.WeHaveTopFirewallPriority, fwstate.UserExceptions, &state)
 	w.Flush()
 
 	// TIPS
