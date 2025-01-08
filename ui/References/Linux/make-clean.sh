@@ -2,7 +2,7 @@
 
 # Copyright (c) 2024 privateLINE, LLC.
 
-OURDIR=$(dirname $0)
+OURDIR=$(dirname $(realpath $0))
 cd "$OURDIR/../../../"			|| { RET=$?; >&2 echo "ERROR $RET cd"; exit $RET; }
 
 rm -rf cli/References/Linux/{_out_bin,_tmp}
