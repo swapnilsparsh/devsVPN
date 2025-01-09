@@ -187,7 +187,6 @@
         type="checkbox"
         id="disconnect"
         v-model="disconnectOnQuit"
-        :disabled="quitWithoutConfirmation === false"
       />
       <label class="defColor" for="disconnect"
         >Disconnect when closing application</label
@@ -210,6 +209,13 @@
         v-bind:class="{ selectableButtonOn: diagnosticViewIsBeta }"
       >
         Beta
+      </button>
+      <button
+        v-on:click="onDiagnosticViewDevTesting"
+        class="selectableButtonOff"
+        v-bind:class="{ selectableButtonOn: diagnosticViewIsDevTesting }"
+      >
+        Dev Testing
       </button>
 
       <button
@@ -252,6 +258,23 @@
 
         <div class="flexRowRestSpace"></div>
       </div>
+
+      <!-- TAB-view (diagnostic): dev testing settings -->
+      <div v-if="diagnosticViewIsDevTesting" class="flexRow">
+        <div>
+          <div class="param">
+            <input type="checkbox" id="devRestApi" v-model="devRestApi" />
+            <label class="defColor" for="devRestApi"
+              >Use development REST API servers</label
+            >
+          </div>
+          <div class="description">
+            These settings are for internal testing, should not be used by customers
+          </div>
+          <div class="flexRowRestSpace"></div>
+        </div>
+      </div>
+      
     </div>
 
     <!-- TOPMOST: Diagnostic logs 'dialog' -->
@@ -310,6 +333,9 @@ export default {
     },
     onDiagnosticViewBeta() {
       this.diagnosticView = "beta";
+    },
+    onDiagnosticViewDevTesting() {
+      this.diagnosticView = "devTesting";
     },
 
     async isAutoconnectOnLaunchOnClick(evt) {
@@ -498,6 +524,15 @@ export default {
       },
     },
 
+    devRestApi: {
+      get() {
+        return this.$store.state.usingDevelopmentRestApiBackend;
+      },
+      async set(value) {
+        await sender.SetRestApiBackend(value);
+      },
+    },
+
     isCanSendDiagLogs() {
       return sender.IsAbleToSendDiagnosticReport();
     },
@@ -539,10 +574,13 @@ export default {
       },
     },
     diagnosticViewIsGeneral() {
-      return !this.diagnosticViewIsBeta;
+      return this.diagnosticView === "general";
     },
     diagnosticViewIsBeta() {
       return this.diagnosticView === "beta";
+    },
+    diagnosticViewIsDevTesting() {
+      return this.diagnosticView === "devTesting";
     },
   },
 };

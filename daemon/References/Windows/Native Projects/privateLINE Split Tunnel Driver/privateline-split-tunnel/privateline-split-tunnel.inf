@@ -81,7 +81,7 @@ KmdfLibraryVersion = $KMDFVERSION$
 [Strings]
 SPSVCINST_ASSOCSERVICE= 0x00000002
 ManufacturerName="Privatus Limited" 
-ClassName="IVPN Split Tunnel" 
-DiskName = "IVPN Split Tunnel Installation Disk"
-privateline-split-tunnel.DeviceDesc = "IVPN Split Tunnel Device"
-privateline-split-tunnel.SVCDESC = "IVPN Split Tunnel Service"
+ClassName="privateLINE Split Tunnel" 
+DiskName = "privateLINE Split Tunnel Installation Disk"
+privateline-split-tunnel.DeviceDesc = "privateLINE Split Tunnel Device"
+privateline-split-tunnel.SVCDESC = "privateLINE Split Tunnel Service"

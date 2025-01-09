@@ -90,12 +90,12 @@ func PrintTip(w *tabwriter.Writer, tip TipType) {
 		str = newTip("connect -h", "Show usage of 'connect' command")
 	case TipDisconnect:
 		str = newTip("disconnect", "Stop current VPN connection")
-	// case TipFirewallDisable:
-	// 	str = newTip("firewall -off", "Disable firewall (to allow connectivity outside VPN)")
-	// case TipFirewallEnable:
-	// 	str = newTip("firewall -on", "Enable firewall (to block all connectivity outside VPN)")
-	// case TipFirewallDisablePersistent:
-	// 	str = newTip("firewall -persistent_off", "Disable firewall persistency (Always-on firewall)")
+	case TipFirewallDisable:
+		str = newTip("firewall -off", "Disable firewall (to allow connectivity outside VPN)")
+	case TipFirewallEnable:
+		str = newTip("firewall -on", "Enable firewall (to block all connectivity outside VPN)")
+	case TipFirewallDisablePersistent:
+		str = newTip("firewall -persistent_off", "Disable firewall persistency (Always-on firewall)")
 	case TipSplittunEnable:
 		str = newTip("totshld -on", "Enable Total Shield functionality")
 	// case TipEaaDisable:

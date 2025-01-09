@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"sort"
 	"text/tabwriter"
 	"time"
@@ -140,7 +141,7 @@ func printDNSState(w *tabwriter.Writer, dnsStatus types.DnsStatus, servers *apit
 	return w
 }
 
-func printFirewallState(w *tabwriter.Writer, isEnabled, isPersistent, isAllowLAN, isAllowMulticast, isAllowApiServers bool, userExceptions string, vpnState *vpn.State) *tabwriter.Writer {
+func printFirewallState(w *tabwriter.Writer, isEnabled, isPersistent, isAllowLAN, isAllowMulticast, isAllowApiServers, weHaveTopFirewallPriority bool, userExceptions string, vpnState *vpn.State) *tabwriter.Writer {
 	if w == nil {
 		w = tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	}
@@ -155,15 +156,20 @@ func printFirewallState(w *tabwriter.Writer, isEnabled, isPersistent, isAllowLAN
 		extraFwInfo = " (!)"
 	}
 	fmt.Fprintf(w, "Firewall\t:\t%v%s\n", fwState, extraFwInfo)
-	fmt.Fprintf(w, "    Allow internet\t:\t%v\n", isAllowLAN)
-
-	fmt.Fprintf(w, "    Allow LAN\t:\t%v\n", isAllowLAN)
+	if runtime.GOOS == "windows" {
+		fmt.Fprintf(w, "    Have Top Firewall Priority\t:\t%v\n", weHaveTopFirewallPriority)
+	}
 	if isPersistent {
 		fmt.Fprintf(w, "    Persistent\t:\t%v\n", isPersistent)
 	}
-	fmt.Fprintf(w, "    Allow PL servers\t:\t%v\n", isAllowApiServers)
-	if len(userExceptions) > 0 {
-		fmt.Fprintf(w, "    Allow IP masks\t:\t%v\n", userExceptions)
+
+	if isEnabled {
+		// fmt.Fprintf(w, "    Allow internet\t:\t%v\n", isAllowLAN)
+		// fmt.Fprintf(w, "    Allow LAN\t:\t%v\n", isAllowLAN)
+		fmt.Fprintf(w, "    Allow PL servers\t:\t%v\n", isAllowApiServers)
+		if len(userExceptions) > 0 {
+			fmt.Fprintf(w, "    Allow IP masks\t:\t%v\n", userExceptions)
+		}
 	}
 
 	return w
@@ -235,11 +241,11 @@ func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isSplitT
 
 	var isAppWhitelistEnabledStatus string
 	if isAppWhitelistEnabled {
-		isAppWhitelistEnabledStatus = "enabled"
+		isAppWhitelistEnabledStatus = "Enabled"
 	} else {
-		isAppWhitelistEnabledStatus = "disabled"
+		isAppWhitelistEnabledStatus = "Disabled"
 	}
-	fmt.Fprintf(w, "App whitelist\t:\t%s\n", isAppWhitelistEnabledStatus)
+	fmt.Fprintf(w, "App Whitelist\t:\t%s\n", isAppWhitelistEnabledStatus)
 	if !isAppWhitelistEnabled {
 		return w
 	}

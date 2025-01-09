@@ -560,7 +560,7 @@ func getFreeTunInterfaceName() (string, error) {
 	return fmt.Sprintf("utun%d", maxUtunNo+1), nil
 }
 
-func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg []string) {
+func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg []string, err error) {
 
 	// TODO: check if we need it for this platform
 	// Same as "0.0.0.0/0" but such type of configuration is disabling internal WireGuard-s Firewall
@@ -574,5 +574,5 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 		peerCfg = append(peerCfg, "AllowedIPs = 128.0.0.0/1, 0.0.0.0/1")
 	}
 
-	return interfaceCfg, peerCfg
+	return interfaceCfg, peerCfg, nil
 }

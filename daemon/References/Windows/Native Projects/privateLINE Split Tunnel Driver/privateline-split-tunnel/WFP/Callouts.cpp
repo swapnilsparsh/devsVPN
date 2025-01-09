@@ -409,7 +409,7 @@ namespace wfp
 	}
 
 	// Allow 'splitted' applications 
-	// (e.g. to bypass IVPN firewall default blocking rule)
+	// (e.g. to bypass privateLINE firewall default blocking rule)
 	void CalloutClassifyAuthConnectOrRecv
 	(
 		_In_ const FWPS_INCOMING_VALUES0* inFixedValues,
@@ -554,7 +554,7 @@ namespace wfp
 		mCallout.calloutKey = *calloutKey;
 		mCallout.displayData.name = const_cast<wchar_t*>(calloutName);
 		mCallout.displayData.description = const_cast<wchar_t*>((calloutDescription!=NULL)? calloutDescription : calloutName);
-		mCallout.providerKey = const_cast<GUID*>(&KEY_IVPN_ST_PROVIDER);
+		mCallout.providerKey = const_cast<GUID*>(&KEY_PRIVATELINE_ST_PROVIDER);
 		mCallout.applicableLayer = *applicableLayerKey;
 
 		auto status = FwpmCalloutAdd0(wfpEngineHandle, &mCallout, NULL, NULL);
@@ -598,7 +598,7 @@ namespace wfp
 			CalloutClassifyBindRedirectIPv4,
 			&KEY_CALLOUT_ALE_BIND_REDIRECT_V4,	
 			&FWPM_LAYER_ALE_BIND_REDIRECT_V4,
-			L"IVPN Callout for split tunnelling (BIND_REDIRECT_V4)", NULL);
+			L"privateLINE Callout for split tunnelling (BIND_REDIRECT_V4)", NULL);
 		if (!NT_SUCCESS(status))
 			return status;
 
@@ -606,7 +606,7 @@ namespace wfp
 			CalloutClassifyConnectRedirectIPv4,
 			&KEY_CALLOUT_ALE_CONNECT_REDIRECT_V4,
 			&FWPM_LAYER_ALE_CONNECT_REDIRECT_V4,
-			L"IVPN Callout for split tunnelling (CONNECT_REDIRECT_V4)", NULL);
+			L"privateLINE Callout for split tunnelling (CONNECT_REDIRECT_V4)", NULL);
 		if (!NT_SUCCESS(status))
 			return status;
 
@@ -615,7 +615,7 @@ namespace wfp
 			CalloutClassifyConnectOrBindRedirectIPv6,
 			&KEY_CALLOUT_ALE_BIND_REDIRECT_V6,
 			&FWPM_LAYER_ALE_BIND_REDIRECT_V6,
-			L"IVPN Callout for split tunnelling (BIND_REDIRECT_V6)", NULL);
+			L"privateLINE Callout for split tunnelling (BIND_REDIRECT_V6)", NULL);
 		if (!NT_SUCCESS(status))
 			return status;
 
@@ -623,7 +623,7 @@ namespace wfp
 			CalloutClassifyConnectOrBindRedirectIPv6,
 			&KEY_CALLOUT_ALE_CONNECT_REDIRECT_V6,
 			&FWPM_LAYER_ALE_CONNECT_REDIRECT_V6,
-			L"IVPN Callout for split tunnelling (CONNECT_REDIRECT_V6)", NULL);
+			L"privateLINE Callout for split tunnelling (CONNECT_REDIRECT_V6)", NULL);
 		if (!NT_SUCCESS(status))
 			return status;
 
@@ -638,7 +638,7 @@ namespace wfp
 			CalloutClassifyAuthConnectOrRecv,
 			&KEY_CALLOUT_ALE_AUTH_CONNECT_V4, 
 			&FWPM_LAYER_ALE_AUTH_CONNECT_V4,
-			L"IVPN Callout for split tunnelling (ALE_AUTH_CONNECT_V4)", NULL);
+			L"privateLINE Callout for split tunnelling (ALE_AUTH_CONNECT_V4)", NULL);
 		if (!NT_SUCCESS(status))
 			return status;
 
@@ -646,7 +646,7 @@ namespace wfp
 			CalloutClassifyAuthConnectOrRecv,
 			&KEY_CALLOUT_ALE_AUTH_CONNECT_V6, 
 			&FWPM_LAYER_ALE_AUTH_CONNECT_V6,
-			L"IVPN Callout for split tunnelling (ALE_AUTH_CONNECT_V6)", NULL);
+			L"privateLINE Callout for split tunnelling (ALE_AUTH_CONNECT_V6)", NULL);
 		if (!NT_SUCCESS(status))
 			return status;
 
@@ -654,7 +654,7 @@ namespace wfp
 			CalloutClassifyAuthConnectOrRecv,
 			&KEY_CALLOUT_ALE_AUTH_RECV_ACCEPT, 
 			&FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4,
-			L"IVPN Callout for split tunnelling (ALE_AUTH_RECV_ACCEPT_V4)", NULL);
+			L"privateLINE Callout for split tunnelling (ALE_AUTH_RECV_ACCEPT_V4)", NULL);
 		if (!NT_SUCCESS(status))
 			return status;
 
@@ -662,7 +662,7 @@ namespace wfp
 			CalloutClassifyAuthConnectOrRecv,
 			&KEY_CALLOUT_ALE_AUTH_RECV_ACCEPT_V6, 
 			&FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6,
-			L"IVPN Callout for split tunnelling (ALE_AUTH_RECV_ACCEPT_V6)", NULL);
+			L"privateLINE Callout for split tunnelling (ALE_AUTH_RECV_ACCEPT_V6)", NULL);
 		if (!NT_SUCCESS(status))
 			return status;
 				

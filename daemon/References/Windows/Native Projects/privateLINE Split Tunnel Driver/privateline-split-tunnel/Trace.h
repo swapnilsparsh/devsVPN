@@ -17,12 +17,12 @@ Environment:
 //
 // Define the tracing flags.
 //
-// Tracing GUID - ab92ec51-247d-4d81-a6c5-7c0bd520ea47
+// Tracing GUID - {539be607-dc5c-4935-851b-5ab7ae1adf45}
 //
 
 #define WPP_CONTROL_GUIDS                                              \
     WPP_DEFINE_CONTROL_GUID(                                           \
-        ivpnsplittunnelTraceGuid, (ab92ec51,247d,4d81,a6c5,7c0bd520ea47), \
+        privatelinesplittunnelTraceGuid, (539be607,dc5c,4935,851b,5ab7ae1adf45), \
                                                                             \
         WPP_DEFINE_BIT(MYDRIVER_ALL_INFO)                              \
         WPP_DEFINE_BIT(TRACE_DRIVER)                                   \

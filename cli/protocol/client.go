@@ -265,6 +265,22 @@ func (c *Client) FirewallSet(isOn bool) error {
 	return nil
 }
 
+// FirewallCleanup cleanup all firewall objects
+func (c *Client) FirewallCleanup() error {
+	if err := c.ensureConnected(); err != nil {
+		return err
+	}
+
+	// changing killswitch state
+	req := types.KillSwitchCleanup{}
+	var resp types.EmptyResp
+	if err := c.sendRecv(&req, &resp); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // FirewallSet change firewall Persistent state
 func (c *Client) FirewallPersistentSet(isOn bool) error {
 	if err := c.ensureConnected(); err != nil {

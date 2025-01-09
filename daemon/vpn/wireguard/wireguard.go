@@ -26,10 +26,10 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
@@ -94,12 +94,6 @@ func CreateConnectionParams(
 	mtu int,
 	dnsServers string,
 	allowedIPs string) ConnectionParams {
-
-	// TODO FIXME: Vlad - if MTU not specified explicitly, set 1280 as a reasonable default
-	// According to Windows specification: "... For IPv4 the minimum value is 576 bytes. For IPv6 the minimum value is 1280 bytes... "
-	if mtu == 0 {
-		mtu = 1280
-	}
 
 	return ConnectionParams{
 		multihopExitHostname: multihopExitHostName,
@@ -276,8 +270,6 @@ func (wg *WireGuard) generateAndSaveConfigFile(cfgFilePath string) error {
 }
 
 func (wg *WireGuard) generateConfig() ([]string, error) {
-	// TODO FIXME: Vlad - refactor to make use of getOSSpecificConfigParams() again, around the time we enable IPv6
-
 	log.Debug("================= generateConfig logs =======================")
 	localPort, err := netinfo.GetFreeUDPPort()
 	if err != nil {
@@ -287,47 +279,41 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 	wg.localPort = localPort
 
 	// prevent user-defined data injection: ensure that nothing except the base64 public key will be stored in the configuration
-	// if !helpers.ValidateBase64(wg.connectParams.hostPublicKey) {
-	// 	return nil, fmt.Errorf("WG public key is not base64 string")
-	// }
-	// if !helpers.ValidateBase64(wg.connectParams.clientPrivateKey) {
-	// 	return nil, fmt.Errorf("WG private key is not base64 string")
-	// }
-	// if len(wg.connectParams.presharedKey) > 0 && !helpers.ValidateBase64(wg.connectParams.presharedKey) {
-	// 	return nil, fmt.Errorf("WG PresharedKey is not base64 string")
-	// }
+	if !helpers.ValidateBase64(wg.connectParams.hostPublicKey) {
+		return nil, fmt.Errorf("WG public key is not base64 string")
+	}
+	if !helpers.ValidateBase64(wg.connectParams.clientPrivateKey) {
+		return nil, fmt.Errorf("WG private key is not base64 string")
+	}
+	if len(wg.connectParams.presharedKey) > 0 && !helpers.ValidateBase64(wg.connectParams.presharedKey) {
+		return nil, fmt.Errorf("WG PresharedKey is not base64 string")
+	}
 
-	// Vlad: don't include <ourIP>/32 in AllowedIPs, as otherwise we have no connectivity to PL internal IPs on win11.
-	ourIP := wg.connectParams.clientLocalIP.String()
-	ourIPregex, err := regexp.CompilePOSIX(",?" + ourIP + "/32,?")
-	if err != nil {
-		return nil, fmt.Errorf("error generating regular expression: %w", err)
-	}
-	allowedIPs := wg.connectParams.allowedIPs
-	// log.Debug("allowedIPs before munging = " + allowedIPs)
-	if loc := ourIPregex.FindStringIndex(allowedIPs); loc != nil {
-		allowedIPs = allowedIPs[:loc[0]] + allowedIPs[loc[1]:]
-		// log.Debug("allowedIPs after munging = " + allowedIPs)
-	}
 	interfaceCfg := []string{
 		"[Interface]",
 		"PrivateKey = " + wg.connectParams.clientPrivateKey,
-		"ListenPort = " + strconv.Itoa(wg.localPort),
-		"Address = " + ourIP,
-		// "DNS = " + wg.connectParams.dnsServers, // Vlad: disabling per https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491 , on Windows apparently isn't needed either.
-	}
-	if wg.connectParams.mtu > 0 {
-		interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", wg.connectParams.mtu))
-	}
+		"ListenPort = " + strconv.Itoa(wg.localPort)}
 
 	peerCfg := []string{
 		"", // newline between sections
 		"[Peer]",
 		"PublicKey = " + wg.connectParams.hostPublicKey,
 		"Endpoint = " + wg.connectParams.hostIP.String() + ":" + strconv.Itoa(wg.connectParams.hostPort),
-		"AllowedIPs = " + allowedIPs,
-		"PersistentKeepalive = 25",
+		"PersistentKeepalive = 25"}
+
+	if len(wg.connectParams.presharedKey) > 0 {
+		peerCfg = append(peerCfg, "PresharedKey = "+wg.connectParams.presharedKey)
 	}
+
+	// add some OS-specific configurations (if necessary)
+	iCfg, pCgf, err := wg.getOSSpecificConfigParams()
+	if err != nil {
+		log.Error(err)
+		return append(interfaceCfg, peerCfg...), err
+	}
+
+	interfaceCfg = append(interfaceCfg, iCfg...)
+	peerCfg = append(peerCfg, pCgf...)
 
 	log.Debug("============== generateConfig logs end =======================")
 

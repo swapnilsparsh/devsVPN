@@ -23,9 +23,11 @@
 package platform
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -109,6 +111,8 @@ func doOsInit() (warnings []string, errors []error, logInfo []string) {
 	wgBinaryPath = path.Join(_installDir, "WireGuard", _wgArchDir, "wireguard.exe")
 	wgToolBinaryPath = path.Join(_installDir, "WireGuard", _wgArchDir, "wg.exe")
 
+	plCommsBinaryPath = "privateLINE-Comms.exe"
+
 	dnscryptproxyBinPath = path.Join(_installDir, "dnscrypt-proxy/dnscrypt-proxy.exe")
 	dnscryptproxyConfigTemplate = path.Join(settingsDirCommon, "dnscrypt-proxy-template.toml")
 	dnscryptproxyConfig = path.Join(_installDir, "dnscrypt-proxy/dnscrypt-proxy.toml")
@@ -133,7 +137,9 @@ func getEtcDir() string {
 	return path.Join(getInstallDir(), "etc")
 }
 
-func doInitOperations() (w string, e error) { return "", nil }
+func doInitOperations() (w string, e error) {
+	return "", nil
+}
 
 // WindowsWFPDllPath - Path to Windows DLL with helper methods for WFP (Windows Filtering Platform)
 func WindowsWFPDllPath() string {
@@ -148,4 +154,20 @@ func WindowsNativeHelpersDllPath() string {
 // WindowsSplitTunnelDriverPath - path to *.sys binary of Split-Tunnel driver
 func WindowsSplitTunnelDriverPath() string {
 	return splitTunDriverPath
+}
+
+func getPLCommsPaths() (plCommsPaths []string, err error) {
+	// PL Comms exe has path like:	c:\Users\User\AppData\Local\privateline-comms-desktop\app-1.11.71\privateLINE-Comms.exe
+
+	// %PUBLIC% resolves to c:\Users\Public
+	Public := os.Getenv("PUBLIC")
+	if len(Public) <= 0 {
+		return []string{}, errors.New("error looking up environment variable %PUBLIC%")
+	}
+
+	return filepath.Glob(Public + "/../*/AppData/Local/p*-comms-desktop/app-*/*Comms.exe")
+}
+
+func implPLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) {
+	return getPLCommsPaths()
 }

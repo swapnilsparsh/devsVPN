@@ -1,19 +1,67 @@
 #include "stdafx.h"
 
+#include <stdio.h>
+
+static const UINT16 MAX_SUBLAYER_WEIGHT				= 0xFFFF;
+static const UINT32 NUM_SUBLAYER_ENTRIES_REQUESTED 	= 100;
+
 extern "C" {
+	// EXPORT FWPM_SUBLAYER0** _cdecl WfpFwpmSubLayerGetByKey(HANDLE engineHandle, GUID subLayerKey)
+	// {
+	// 	FWPM_SUBLAYER0 *subLayer;
+	// 	DWORD result = FwpmSubLayerGetByKey0(engineHandle, &subLayerKey, &subLayer);
+	// 	if (result != 0)
+	// 		return NULL;
+	// 	return &subLayer;
+	// }
+	// EXPORT FWPM_SUBLAYER0** _cdecl WfpFwpmSubLayerGetByKeyPtr(HANDLE engineHandle, GUID* subLayerKey) { return WfpFwpmSubLayerGetByKey(engineHandle, *subLayerKey); }
 
-	EXPORT bool _cdecl WfpSubLayerIsInstalled(HANDLE engineHandle, GUID subLayerKey)
+	// Looks for a sublayer with weight 0xFFFF (maximum possible weight).
+	// If found - copies its GUID to sublayerKey
+	// If not found - sets sublayerKey to zeroes
+	EXPORT DWORD _cdecl  WfpFindSubLayerWithMaxWeight(HANDLE engineHandle, GUID* sublayerKey)
 	{
-		FWPM_SUBLAYER0 *subLayer;
-		DWORD result = FwpmSubLayerGetByKey0(engineHandle, &subLayerKey, &subLayer);
-		FwpmFreeMemory0((void **)&subLayer);
+		memset(sublayerKey, 0, sizeof(GUID));
 
-		if (result == 0)
-			return true;
+		FWPM_SUBLAYER0** fwpmSubLayerList = NULL;
+		HANDLE enumHandle = NULL;
+		DWORD result = FwpmSubLayerCreateEnumHandle0(engineHandle, 0, &enumHandle), result2 = ERROR_SUCCESS;
+		if (result != ERROR_SUCCESS)
+			goto WfpFindSubLayerWithMaxWeight_end;
 
-		return false;
+		UINT32 numEntriesReturned;
+		do {
+			numEntriesReturned = 0;
+			result = FwpmSubLayerEnum0(engineHandle, enumHandle, NUM_SUBLAYER_ENTRIES_REQUESTED, &fwpmSubLayerList, &numEntriesReturned);
+			if (result != ERROR_SUCCESS || numEntriesReturned == 0)
+				goto WfpFindSubLayerWithMaxWeight_end;
+			
+			for (UINT32 i=0; i<numEntriesReturned; i++) {
+				if (fwpmSubLayerList[i]->weight == MAX_SUBLAYER_WEIGHT) {
+					memcpy_s(sublayerKey, sizeof(GUID), &(fwpmSubLayerList[i]->subLayerKey), sizeof(GUID));
+					result = ERROR_SUCCESS;
+					break;
+				}
+			}
+
+			FwpmFreeMemory0((void**) &fwpmSubLayerList);
+			fwpmSubLayerList = NULL;
+		} while (numEntriesReturned > 0);
+
+		WfpFindSubLayerWithMaxWeight_end:
+		if (fwpmSubLayerList)
+			FwpmFreeMemory0((void**) &fwpmSubLayerList);
+		if (enumHandle)
+			result2 = FwpmSubLayerDestroyEnumHandle0(engineHandle, enumHandle);
+		if (result != ERROR_SUCCESS)
+			return result;
+		else
+			return result2;
 	}
-	EXPORT bool _cdecl WfpSubLayerIsInstalledPtr(HANDLE engineHandle, GUID* subLayerKey) { return WfpSubLayerIsInstalled(engineHandle, *subLayerKey);	}
+	EXPORT DWORD _cdecl WfpFindSubLayerWithMaxWeightPtr(HANDLE engineHandle, GUID* sublayerKey)
+	{ 
+		return WfpFindSubLayerWithMaxWeight(engineHandle, sublayerKey);
+	}
 
 	EXPORT DWORD _cdecl WfpSubLayerDelete(HANDLE engineHandle, GUID subLayerKey)
 	{

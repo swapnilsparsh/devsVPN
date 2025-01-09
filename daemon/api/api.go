@@ -40,19 +40,50 @@ import (
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 )
 
+// TODO FIXME: Vlad - create types for Productio and Dev environments
+type RestApiBackendType int
+
+const (
+	ProductionEnv  RestApiBackendType = iota
+	DevelopmentEnv RestApiBackendType = iota
+)
+
+type RestApiHostsDef struct {
+	ApiHost    string
+	SsoHost    string
+	UpdateHost string
+}
+
+var (
+	productionApiHosts = RestApiHostsDef{
+		ApiHost:    "deskapi.privateline.io", // "api.privateline.io"
+		SsoHost:    "sso.privateline.io",
+		UpdateHost: "raw.githubusercontent.com",
+	}
+
+	developmentApiHosts = RestApiHostsDef{
+		ApiHost:    "api.privateline.dev",
+		SsoHost:    "sso.privateline.dev",
+		UpdateHost: "raw.githubusercontent.com",
+	}
+
+	RestApiHostsSet = []*RestApiHostsDef{&productionApiHosts, &developmentApiHosts}
+)
+
 // API URLs
 const (
 	_defaultRequestTimeout = time.Second * 10 // full request time (for each request)
 	_defaultDialTimeout    = time.Second * 5  // time for the dial to the API server (for each request)
-	_apiHost               = "deskapi.privateline.io"
+	// _apiHost               = "deskapi.privateline.io"
 	// _apiHost = "api.privateline.dev"
 
-	_ssoTokenUrl = "https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/token"
+	// _ssoHost     = "sso.privateline.io"
+	_ssoTokenPath = "/realms/privateLINE/protocol/openid-connect/token"
 
 	// temporarily fetching static servers.json from GitHub
 	// _updateHost         = "repo.privateline.io"
 	//	_serversPath       = "v5/servers.json"
-	_updateHost  = "raw.githubusercontent.com"
+	// _updateHost  = "raw.githubusercontent.com"
 	_serversPath = "swapnilsparsh/devsVPN/master/daemon/References/common/etc/servers.json"
 
 	_apiPathPrefix              = "v4"
@@ -68,53 +99,6 @@ const (
 	_wgKeySetPath               = _apiPathPrefix + "/session/wg/set"
 	_geoLookupPath              = _apiPathPrefix + "/geo-lookup"
 )
-
-// Alias - alias description of API request (can be requested by UI client)
-type Alias struct {
-	host string
-	path string
-	// If isArcIndependent!=true, the path will be updated: the "_<architecture>" will be added to filename
-	// (see 'DoRequestByAlias()' for details)
-	// Example:
-	//		The "updateInfo_macOS" on arm64 platform will use file "/macos/update_arm64.json" (NOT A "/macos/update.json")
-	isArcIndependent bool
-}
-
-// APIAliases - aliases of API requests (can be requested by UI client)
-// NOTE: the aliases bellow are only for amd64 architecture!!!
-// If isArcIndependent!=true: Filename construction for non-amd64 architectures: filename_<architecture>.<extensions>
-// (see 'DoRequestByAlias()' for details)
-// Example:
-//
-//	The "updateInfo_macOS" on arm64 platform will use file "/macos/update_arm64.json" (NOT A "/macos/update.json")
-const (
-	GeoLookupApiAlias string = "geo-lookup"
-)
-
-var APIAliases = map[string]Alias{
-	GeoLookupApiAlias: {host: _apiHost, path: _geoLookupPath},
-
-	"updateInfo_Linux":   {host: _updateHost, path: "/stable/_update_info/update.json"},
-	"updateSign_Linux":   {host: _updateHost, path: "/stable/_update_info/update.json.sign.sha256.base64"},
-	"updateInfo_macOS":   {host: _updateHost, path: "/macos/update.json"},
-	"updateSign_macOS":   {host: _updateHost, path: "/macos/update.json.sign.sha256.base64"},
-	"updateInfo_Windows": {host: _updateHost, path: "/windows/update.json"},
-	"updateSign_Windows": {host: _updateHost, path: "/windows/update.json.sign.sha256.base64"},
-
-	"updateInfo_manual_Linux":   {host: _updateHost, path: "/stable/_update_info/update_manual.json"},
-	"updateSign_manual_Linux":   {host: _updateHost, path: "/stable/_update_info/update_manual.json.sign.sha256.base64"},
-	"updateInfo_manual_macOS":   {host: _updateHost, path: "/macos/update_manual.json"},
-	"updateSign_manual_macOS":   {host: _updateHost, path: "/macos/update_manual.json.sign.sha256.base64"},
-	"updateInfo_manual_Windows": {host: _updateHost, path: "/windows/update_manual.json"},
-	"updateSign_manual_Windows": {host: _updateHost, path: "/windows/update_manual.json.sign.sha256.base64"},
-
-	"updateInfo_beta_Linux":   {host: _updateHost, path: "/stable/_update_info/update_beta.json"},
-	"updateSign_beta_Linux":   {host: _updateHost, path: "/stable/_update_info/update_beta.json.sign.sha256.base64"},
-	"updateInfo_beta_macOS":   {host: _updateHost, path: "/macos/update_beta.json"},
-	"updateSign_beta_macOS":   {host: _updateHost, path: "/macos/update_beta.json.sign.sha256.base64"},
-	"updateInfo_beta_Windows": {host: _updateHost, path: "/windows/update_beta.json"},
-	"updateSign_beta_Windows": {host: _updateHost, path: "/windows/update_beta.json.sign.sha256.base64"},
-}
 
 var log *logger.Logger
 
@@ -150,11 +134,104 @@ type API struct {
 	// last geolookups result
 	geolookupV4 geolookup
 	geolookupV6 geolookup
+
+	currentRestApiBackend RestApiBackendType
+}
+
+func (a *API) getApiHost() string    { return RestApiHostsSet[a.currentRestApiBackend].ApiHost }
+func (a *API) getSsoHost() string    { return RestApiHostsSet[a.currentRestApiBackend].SsoHost }
+func (a *API) getUpdateHost() string { return RestApiHostsSet[a.currentRestApiBackend].UpdateHost }
+
+// SetRestApiBackend: true for development env, false for production env
+func (a *API) SetRestApiBackend(devEnv bool) {
+	if devEnv {
+		a.currentRestApiBackend = DevelopmentEnv
+		log.Debug("Enabling ***Development*** REST API backend servers")
+	} else {
+		a.currentRestApiBackend = ProductionEnv
+		log.Debug("Enabling Production (default) REST API backend servers")
+	}
+}
+
+// GetRestApiBackend - returns true if development REST API servers are enabled, false if production servers are enabled
+func (a *API) GetRestApiBackend() (devEnv bool) {
+	return a.currentRestApiBackend == DevelopmentEnv
+}
+
+// Alias - alias description of API request (can be requested by UI client)
+type Alias struct {
+	host string
+	path string
+	// If isArcIndependent!=true, the path will be updated: the "_<architecture>" will be added to filename
+	// (see 'DoRequestByAlias()' for details)
+	// Example:
+	//		The "updateInfo_macOS" on arm64 platform will use file "/macos/update_arm64.json" (NOT A "/macos/update.json")
+	isArcIndependent bool
+}
+
+// APIAliases - aliases of API requests (can be requested by UI client)
+// NOTE: the aliases below are only for amd64 architecture!!!
+// If isArcIndependent!=true: Filename construction for non-amd64 architectures: filename_<architecture>.<extensions>
+// (see 'DoRequestByAlias()' for details)
+// Example:
+//
+//	The "updateInfo_macOS" on arm64 platform will use file "/macos/update_arm64.json" (NOT A "/macos/update.json")
+const (
+	GeoLookupApiAlias string = "geo-lookup"
+)
+
+// returns Alias and true on success, {} and false on failure
+func (a *API) APIAliases(key string) (Alias, bool) {
+	switch key {
+	case GeoLookupApiAlias:
+		return Alias{host: a.getApiHost(), path: _geoLookupPath}, true
+
+	case "updateInfo_Linux":
+		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update.json"}, true
+	case "updateSign_Linux":
+		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update.json.sign.sha256.base64"}, true
+	case "updateInfo_macOS":
+		return Alias{host: a.getUpdateHost(), path: "/macos/update.json"}, true
+	case "updateSign_macOS":
+		return Alias{host: a.getUpdateHost(), path: "/macos/update.json.sign.sha256.base64"}, true
+	case "updateInfo_Windows":
+		return Alias{host: a.getUpdateHost(), path: "/windows/update.json"}, true
+	case "updateSign_Windows":
+		return Alias{host: a.getUpdateHost(), path: "/windows/update.json.sign.sha256.base64"}, true
+
+	case "updateInfo_manual_Linux":
+		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update_manual.json"}, true
+	case "updateSign_manual_Linux":
+		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update_manual.json.sign.sha256.base64"}, true
+	case "updateInfo_manual_macOS":
+		return Alias{host: a.getUpdateHost(), path: "/macos/update_manual.json"}, true
+	case "updateSign_manual_macOS":
+		return Alias{host: a.getUpdateHost(), path: "/macos/update_manual.json.sign.sha256.base64"}, true
+	case "updateInfo_manual_Windows":
+		return Alias{host: a.getUpdateHost(), path: "/windows/update_manual.json"}, true
+	case "updateSign_manual_Windows":
+		return Alias{host: a.getUpdateHost(), path: "/windows/update_manual.json.sign.sha256.base64"}, true
+
+	case "updateInfo_beta_Linux":
+		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update_beta.json"}, true
+	case "updateSign_beta_Linux":
+		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update_beta.json.sign.sha256.base64"}, true
+	case "updateInfo_beta_macOS":
+		return Alias{host: a.getUpdateHost(), path: "/macos/update_beta.json"}, true
+	case "updateSign_beta_macOS":
+		return Alias{host: a.getUpdateHost(), path: "/macos/update_beta.json.sign.sha256.base64"}, true
+	case "updateInfo_beta_Windows":
+		return Alias{host: a.getUpdateHost(), path: "/windows/update_beta.json"}, true
+	case "updateSign_beta_Windows":
+		return Alias{host: a.getUpdateHost(), path: "/windows/update_beta.json.sign.sha256.base64"}, true
+	default:
+		return Alias{}, false
+	}
 }
 
 // CreateAPI creates new API object
 func CreateAPI() (*API, error) {
-	return &API{}, nil
+	return &API{currentRestApiBackend: ProductionEnv}, nil
 }
 
 func (a *API) SetConnectivityChecker(connectivityChecker IConnectivityInfo) {
@@ -263,8 +340,8 @@ func (a *API) doSetAlternateIPs(IPv6 bool, IPs []string) error {
 // DownloadServersList - download servers list form API IVPN server
 func (a *API) DownloadServersList() (*types.ServersInfoResponse, error) {
 	servers := new(types.ServersInfoResponse)
-	// if err := a.request(_apiHost, _serversPath, "GET", "", nil, servers); err != nil {
-	if err := a.request(_updateHost, _serversPath, "GET", "", nil, servers); err != nil {
+	// if err := a.request(getApiHost(), _serversPath, "GET", "", nil, servers); err != nil {
+	if err := a.request(a.getUpdateHost(), _serversPath, "GET", "", nil, servers); err != nil {
 		return nil, err
 	}
 
@@ -285,7 +362,7 @@ func (a *API) DoRequestByAlias(apiAlias string, ipTypeRequired protocolTypes.Req
 	}
 
 	// get connection info by API alias
-	alias, ok := APIAliases[apiAlias]
+	alias, ok := a.APIAliases(apiAlias)
 	if !ok {
 		return nil, fmt.Errorf("unexpected request alias")
 	}
@@ -342,7 +419,7 @@ func (a *API) SessionNew(emailOrAcctID string, password string) (
 		apiPath = _sessionNewPasswordlessPath
 	}
 
-	data, httpResp, err = a.requestRaw(protocolTypes.IPvAny, _apiHost, apiPath, "POST", "application/json", request, 0, 0)
+	data, httpResp, err = a.requestRaw(protocolTypes.IPvAny, a.getApiHost(), apiPath, "POST", "application/json", request, 0, 0)
 	if err != nil {
 		return nil, nil, nil, rawResponse, err
 	}
@@ -402,7 +479,8 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	// payload.Set("client_secret", "YKJ6aBMCMhJfzH9RtClcBFFNGrh5ystc") //dev client secret
 
 	// Send the POST request to get the token
-	tokenResp, err := httpClient.PostForm(_ssoTokenUrl, payload)
+	ssoTokenUrl := "https://" + a.getSsoHost() + _ssoTokenPath
+	tokenResp, err := httpClient.PostForm(ssoTokenUrl, payload)
 	if err != nil {
 		return resp, fmt.Errorf("failed to request token: %w", err)
 	}
@@ -449,7 +527,7 @@ func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string
 		SessionTokenStruct: types.SessionTokenStruct{SessionToken: sessionToken},
 	}
 
-	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _connectDevicePath, "POST", "application/json", request, 0, 0)
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, a.getApiHost(), _connectDevicePath, "POST", "application/json", request, 0, 0)
 
 	if err != nil {
 		return nil, nil, rawResponse, err
@@ -517,7 +595,7 @@ func (a *API) CheckDeviceID(InternalID int, sessionToken string) (
 	}
 
 	// Send the GET request
-	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, endpoint, "GET", "application/json", request, 0, 0)
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, getApiHost(), endpoint, "GET", "application/json", request, 0, 0)
 
 	if err != nil {
 		return nil, nil, rawResponse, err
@@ -558,7 +636,7 @@ func (a *API) SessionStatus(session string) (
 
 	request := &types.SessionStatusRequest{Session: session}
 
-	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, _apiHost, _sessionStatusPath, "POST", "application/json", request, 0, 0)
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, a.getApiHost(), _sessionStatusPath, "POST", "application/json", request, 0, 0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -589,12 +667,13 @@ func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, 
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 	device := runtime.GOOS
 	resp := &types.DeviceListResponse{}
-	if err := a.request(_apiHost, _deviceListPath+"?search="+device+"&page=1&limit=100", "GET", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost(), _deviceListPath+"?search="+device+"&page=1&limit=100", "GET", "application/json", request, resp); err != nil {
 		return nil, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
 		return nil, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
+	// log.Debug(fmt.Sprintf("Device list fetched successfully: %#v", resp))
 	return resp, nil
 }
 
@@ -606,7 +685,7 @@ func (a *API) ProfileData(session string) (
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 
 	resp = &types.ProfileDataResponse{}
-	if err := a.request(_apiHost, _profileDataPath, "GET", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost(), _profileDataPath, "GET", "application/json", request, resp); err != nil {
 		return nil, 0, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
@@ -623,7 +702,7 @@ func (a *API) SubscriptionData(session string) (
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 
 	resp = &types.SubscriptionDataResponse{}
-	if err := a.request(_apiHost, _subscriptionDataPath, "GET", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost(), _subscriptionDataPath, "GET", "application/json", request, resp); err != nil {
 		return nil, 0, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
@@ -656,7 +735,7 @@ func (a *API) SessionDelete(session string, deviceWGPublicKey string) error {
 	request := &types.SessionDeleteRequest{Session: session}
 	resp := &types.APIErrorResponse{}
 	urlPath := fmt.Sprintf("%s/%d", _sessionDeletePath, internalDeviceID)
-	if err := a.request(_apiHost, urlPath, "DELETE", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost(), urlPath, "DELETE", "application/json", request, resp); err != nil {
 		return err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
@@ -676,7 +755,7 @@ func (a *API) WireGuardKeySet(session string, newPublicWgKey string, activePubli
 
 	resp := types.SessionsWireGuardResponse{}
 
-	if err := a.request(_apiHost, _wgKeySetPath, "POST", "application/json", request, &resp); err != nil {
+	if err := a.request(a.getApiHost(), _wgKeySetPath, "POST", "application/json", request, &resp); err != nil {
 		return resp, err
 	}
 
@@ -695,6 +774,7 @@ func (a *API) GeoLookup(timeoutMs int, ipTypeRequired protocolTypes.RequiredIPPr
 	// There could be multiple Geolookup requests at the same time.
 	// It doesn't make sense to make multiple requests to the API.
 	// The internal function below reduces the number of similar API calls.
+
 	singletonFunc := func(ipType protocolTypes.RequiredIPProtocol) (*types.GeoLookupResponse, []byte, error) {
 		// Each IP protocol has separate request
 		var gl *geolookup
@@ -724,7 +804,7 @@ func (a *API) GeoLookup(timeoutMs int, ipTypeRequired protocolTypes.RequiredIPPr
 					gl.isRunning = false
 					close(gl.done)
 				}()
-				gl.response, httpResp, gl.err = a.requestRaw(ipType, _apiHost, _geoLookupPath, "GET", "", nil, timeoutMs, 0)
+				gl.response, httpResp, gl.err = a.requestRaw(ipType, a.getApiHost(), _geoLookupPath, "GET", "", nil, timeoutMs, 0)
 				err := json.Unmarshal(gl.response, &gl.location)
 				if httpResp != nil {
 					gl.location.SetHttpStatusCode(httpResp.StatusCode)
@@ -740,9 +820,11 @@ func (a *API) GeoLookup(timeoutMs int, ipTypeRequired protocolTypes.RequiredIPPr
 	}
 
 	// request Geolocation info
+
 	if ipTypeRequired != protocolTypes.IPvAny {
 		location, rawData, retErr = singletonFunc(ipTypeRequired)
 	} else {
+
 		location, rawData, retErr = singletonFunc(protocolTypes.IPv4)
 		if retErr != nil {
 			location, rawData, retErr = singletonFunc(protocolTypes.IPv6)
@@ -752,5 +834,6 @@ func (a *API) GeoLookup(timeoutMs int, ipTypeRequired protocolTypes.RequiredIPPr
 	if retErr != nil {
 		return nil, nil, retErr
 	}
+
 	return location, rawData, nil
 }

@@ -36,7 +36,7 @@ import (
 
 var (
 	// key: is a string representation of allowed IP
-	// value: true - if exception rule is persistant (persistant, means will stay available even client is disconnected)
+	// value: true - if exception rule is persistent (persistent, means will stay available even client is disconnected)
 	allowedHosts   map[string]bool
 	allowedForICMP map[string]struct{} // IP addresses allowed for ICMP
 
@@ -44,7 +44,7 @@ var (
 	curStateAllowLAN          bool     // Allow LAN is enabled
 	curStateAllowLanMulticast bool     // Allow Multicast is enabled
 	curStateEnabled           bool     // Firewall is enabled
-	isPersistant              bool     // Firewall is persistant
+	isPersistent              bool     // Firewall is persistent
 	mutexInternal             sync.Mutex
 )
 
@@ -61,7 +61,7 @@ func implGetEnabled() (bool, error) {
 	return !(err != nil && exitCode != 0), nil
 }
 
-func implSetEnabled(isEnabled bool) error {
+func implSetEnabled(isEnabled, _ bool) error {
 	curStateEnabled = isEnabled
 
 	if isEnabled {
@@ -77,26 +77,26 @@ func implSetEnabled(isEnabled bool) error {
 
 	// disable FW ...
 	curAllowedLanIPs = nil // forget allowed LAN IP addresses
-	isPersistant = false
+	isPersistent = false
 	allowedForICMP = nil
 	return shell.Exec(nil, platform.FirewallScript(), "-disable")
 }
 
-func implSetPersistant(persistant bool) error {
-	isPersistant = persistant
-	if persistant {
+func implSetPersistent(persistent bool) error {
+	isPersistent = persistent
+	if persistent {
 		// The persistence is based on such facts:
 		// 	- daemon is starting as on system boot
-		// 	- SetPersistant() called by service object on daemon start
+		// 	- SetPersistent() called by service object on daemon start
 		// This means we just have to ensure that firewall enabled.
 
 		// Just ensure that firewall is enabled
-		ret := implSetEnabled(true)
+		ret := implSetEnabled(true, false)
 
 		// Some Linux distributions erasing IVPN rules during system boot
 		// During some period of time (60 seconds should be enough)
 		// check if FW rules still exist (if not - re-apply them)
-		go ensurePersistant(60)
+		go ensurePersistent(60)
 
 		return ret
 	}
@@ -106,25 +106,25 @@ func implSetPersistant(persistant bool) error {
 // Some Linux distributions erasing IVPN rules during system boot
 // During some period of time (60 seconds should be enough)
 // check if FW rules still exist (if not - re-apply them)
-func ensurePersistant(secondsToWait int) {
+func ensurePersistent(secondsToWait int) {
 	const delaySec = 5
-	log.Info("[ensurePersistant] started")
+	log.Info("[ensurePersistent] started")
 	for i := 0; i <= secondsToWait/delaySec; i++ {
 		time.Sleep(time.Second * delaySec)
-		if !isPersistant {
+		if !isPersistent {
 			break
 		}
 		enabled, err := implGetEnabled()
 		if err != nil {
-			log.Error("[ensurePersistant] ", err)
+			log.Error("[ensurePersistent] ", err)
 			continue
 		}
-		if isPersistant && !enabled {
-			log.Warning("[ensurePersistant] Persistant FW rules not available. Retry to apply...")
-			implSetEnabled(true)
+		if isPersistent && !enabled {
+			log.Warning("[ensurePersistent] Persistent FW rules not available. Retry to apply...")
+			implSetEnabled(true, false)
 		}
 	}
-	log.Info("[ensurePersistant] stopped.")
+	log.Info("[ensurePersistent] stopped.")
 }
 
 // ClientConnected - allow communication for local vpn/client IP address
@@ -157,7 +157,7 @@ func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net
 
 // ClientDisconnected - Disable communication for local vpn/client IP address
 func implClientDisconnected() error {
-	// remove all exceptions related to current connection (all non-persistant exceptions)
+	// remove all exceptions related to current connection (all non-persistent exceptions)
 	err := removeAllHostsFromExceptions()
 	if err != nil {
 		log.Error(err)
@@ -183,12 +183,12 @@ func doAllowLAN(isAllowLAN, isAllowLanMulticast bool) error {
 	}
 
 	// constants
-	const persistant = true
+	const persistent = true
 	const notOnlyForICMP = false
 
 	// disallow everything (LAN + multicast)
 	if len(curAllowedLanIPs) > 0 {
-		if err := removeHostsFromExceptions(curAllowedLanIPs, persistant, notOnlyForICMP); err != nil {
+		if err := removeHostsFromExceptions(curAllowedLanIPs, persistent, notOnlyForICMP); err != nil {
 			log.Warning("failed to erase 'Allow LAN' rules")
 		}
 	}
@@ -212,7 +212,7 @@ func doAllowLAN(isAllowLAN, isAllowLanMulticast bool) error {
 	}
 
 	// allow LAN
-	return addHostsToExceptions(curAllowedLanIPs, persistant, notOnlyForICMP)
+	return addHostsToExceptions(curAllowedLanIPs, persistent, notOnlyForICMP)
 }
 
 // implAddHostsToExceptions - allow communication with this hosts
@@ -308,7 +308,7 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 
 //---------------------------------------------------------------------
 
-func applyAddHostsToExceptions(hostsIPs []string, isPersistant bool, onlyForICMP bool) error {
+func applyAddHostsToExceptions(hostsIPs []string, isPersistent bool, onlyForICMP bool) error {
 	ipList := strings.Join(hostsIPs, ",")
 
 	if len(ipList) > 0 {
@@ -316,7 +316,7 @@ func applyAddHostsToExceptions(hostsIPs []string, isPersistant bool, onlyForICMP
 
 		if onlyForICMP {
 			scriptCommand = "-add_exceptions_icmp"
-		} else if isPersistant {
+		} else if isPersistent {
 			scriptCommand = "-add_exceptions_static"
 		}
 
@@ -331,7 +331,7 @@ func applyAddHostsToExceptions(hostsIPs []string, isPersistant bool, onlyForICMP
 	return nil
 }
 
-func applyRemoveHostsFromExceptions(hostsIPs []string, isPersistant bool, onlyForICMP bool) error {
+func applyRemoveHostsFromExceptions(hostsIPs []string, isPersistent bool, onlyForICMP bool) error {
 	ipList := strings.Join(hostsIPs, ",")
 
 	if len(ipList) > 0 {
@@ -339,7 +339,7 @@ func applyRemoveHostsFromExceptions(hostsIPs []string, isPersistant bool, onlyFo
 
 		if onlyForICMP {
 			scriptCommand = "-remove_exceptions_icmp"
-		} else if isPersistant {
+		} else if isPersistent {
 			scriptCommand = "-remove_exceptions_static"
 		}
 
@@ -358,7 +358,7 @@ func reApplyExceptions() error {
 	// Allow LAN communication (if necessary)
 	// Restore all exceptions (all hosts which are allowed)
 
-	allowedIPs, allowedIPsPersistant := getAllowedIpExceptions()
+	allowedIPs, allowedIPsPersistent := getAllowedIpExceptions()
 	allowedIPsICMP := make([]string, 0, len(allowedForICMP))
 	if len(allowedForICMP) > 0 {
 		for ipStr := range allowedForICMP {
@@ -366,8 +366,8 @@ func reApplyExceptions() error {
 		}
 	}
 
-	const persistantTRUE = true
-	const persistantFALSE = false
+	const persistentTRUE = true
+	const persistentFALSE = false
 	const onlyIcmpTRUE = true
 	const onlyIcmpFALSE = false
 
@@ -378,16 +378,16 @@ func reApplyExceptions() error {
 	}
 
 	// Apply all allowed hosts
-	err = applyAddHostsToExceptions(allowedIPsICMP, persistantFALSE, onlyIcmpTRUE)
+	err = applyAddHostsToExceptions(allowedIPsICMP, persistentFALSE, onlyIcmpTRUE)
 	if err != nil {
 		log.Error(err)
 	}
-	err = applyAddHostsToExceptions(allowedIPs, persistantFALSE, onlyIcmpFALSE)
+	err = applyAddHostsToExceptions(allowedIPs, persistentFALSE, onlyIcmpFALSE)
 	if err != nil {
 		log.Error(err)
 		return err
 	}
-	err = applyAddHostsToExceptions(allowedIPsPersistant, persistantTRUE, onlyIcmpFALSE)
+	err = applyAddHostsToExceptions(allowedIPsPersistent, persistentTRUE, onlyIcmpFALSE)
 	if err != nil {
 		log.Error(err)
 	}
@@ -408,8 +408,8 @@ func reApplyExceptions() error {
 //---------------------------------------------------------------------
 
 // allow communication with specified hosts
-// if isPersistant == false - exception will be removed when client disconnects
-func addHostsToExceptions(IPs []string, isPersistant bool, onlyForICMP bool) error {
+// if isPersistent == false - exception will be removed when client disconnects
+func addHostsToExceptions(IPs []string, isPersistent bool, onlyForICMP bool) error {
 	if len(IPs) == 0 {
 		return nil
 	}
@@ -419,7 +419,7 @@ func addHostsToExceptions(IPs []string, isPersistant bool, onlyForICMP bool) err
 		for _, ip := range IPs {
 			// do not add new IP if it already in exceptions
 			if _, exists := allowedHosts[ip]; !exists {
-				allowedHosts[ip] = isPersistant // add to map
+				allowedHosts[ip] = isPersistent // add to map
 				newIPs = append(newIPs, ip)
 			}
 		}
@@ -441,7 +441,7 @@ func addHostsToExceptions(IPs []string, isPersistant bool, onlyForICMP bool) err
 		return nil
 	}
 
-	err := applyAddHostsToExceptions(newIPs, isPersistant, onlyForICMP)
+	err := applyAddHostsToExceptions(newIPs, isPersistent, onlyForICMP)
 	if err != nil {
 		log.Error(err)
 	}
@@ -449,7 +449,7 @@ func addHostsToExceptions(IPs []string, isPersistant bool, onlyForICMP bool) err
 }
 
 // Deprecate communication with this hosts
-func removeHostsFromExceptions(IPs []string, isPersistant bool, onlyForICMP bool) error {
+func removeHostsFromExceptions(IPs []string, isPersistent bool, onlyForICMP bool) error {
 	if len(IPs) == 0 {
 		return nil
 	}
@@ -458,7 +458,7 @@ func removeHostsFromExceptions(IPs []string, isPersistant bool, onlyForICMP bool
 	if !onlyForICMP {
 		for _, ip := range IPs {
 			if persVal, exists := allowedHosts[ip]; exists {
-				if persVal != isPersistant {
+				if persVal != isPersistent {
 					continue
 				}
 				delete(allowedHosts, ip) // remove from map
@@ -478,7 +478,7 @@ func removeHostsFromExceptions(IPs []string, isPersistant bool, onlyForICMP bool
 		return nil
 	}
 
-	err := applyRemoveHostsFromExceptions(toRemoveIPs, isPersistant, onlyForICMP)
+	err := applyRemoveHostsFromExceptions(toRemoveIPs, isPersistent, onlyForICMP)
 	if err != nil {
 		log.Error(err)
 	}
@@ -486,7 +486,7 @@ func removeHostsFromExceptions(IPs []string, isPersistant bool, onlyForICMP bool
 }
 
 // removeAllHostsFromExceptions - Remove hosts (which are related to a current connection) from exceptions
-// Note: some exceptions should stay without changes, they are marked as 'persistant'
+// Note: some exceptions should stay without changes, they are marked as 'persistent'
 //
 //	(has 'true' value in allowedHosts; eg.: LAN and Multicast connectivity)
 func removeAllHostsFromExceptions() error {
@@ -494,23 +494,23 @@ func removeAllHostsFromExceptions() error {
 	for ipStr := range allowedHosts {
 		toRemoveIPs = append(toRemoveIPs, ipStr)
 	}
-	isPersistant := false
-	return removeHostsFromExceptions(toRemoveIPs, isPersistant, false)
+	isPersistent := false
+	return removeHostsFromExceptions(toRemoveIPs, isPersistent, false)
 }
 
 //---------------------------------------------------------------------
 
-func getAllowedIpExceptions() (prioritized, persistant []string) {
+func getAllowedIpExceptions() (prioritized, persistent []string) {
 	prioritized = make([]string, 0, len(allowedHosts))
-	persistant = make([]string, 0, len(allowedHosts))
-	for ipStr, isPersistant := range allowedHosts {
-		if isPersistant {
-			persistant = append(persistant, ipStr)
+	persistent = make([]string, 0, len(allowedHosts))
+	for ipStr, isPersistent := range allowedHosts {
+		if isPersistent {
+			persistent = append(persistent, ipStr)
 		} else {
 			prioritized = append(prioritized, ipStr)
 		}
 	}
-	return prioritized, persistant
+	return prioritized, persistent
 }
 
 func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {

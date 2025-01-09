@@ -135,13 +135,13 @@ type SettingsResp struct {
 	AntiTracker                 service_types.AntiTrackerMetadata
 
 	// TODO: implement the rest of daemon settings
-	// IsFwPersistant        bool
-	// IsFwAllowLAN          bool
-	// IsFwAllowLANMulticast bool
-	// IsFwAllowApiServers   bool
-	// FwUserExceptions      string
-	// IsSplitTunnel         bool
-	// SplitTunnelApps       []string
+	IsFwPersistent        bool
+	IsFwAllowLAN          bool
+	IsFwAllowLANMulticast bool
+	IsFwAllowApiServers   bool
+	FwUserExceptions      string
+	IsSplitTunnel         bool
+	SplitTunnelApps       []string
 }
 
 // HelloResp response on initial request
@@ -150,6 +150,7 @@ type HelloResp struct {
 	Version           string
 	ProcessorArch     string
 	Session           SessionResp
+	DevRestApiBackend bool
 	Account           preferences.AccountStatus
 	DisabledFunctions DisabledFunctionality
 	Dns               DnsAbilities
@@ -261,6 +262,14 @@ type AccountInfoResponse struct {
 type KillSwitchStatusResp struct {
 	CommandBase
 	service_types.KillSwitchStatus
+}
+
+type KillSwitchReregisterErrorResp struct {
+	CommandBase
+	ErrorMessage        string
+	OtherVpnUnknownToUs bool
+	OtherVpnName        string
+	OtherVpnGUID        string
 }
 
 // KillSwitchGetIsPestistentResp returns kill-switch persistance status

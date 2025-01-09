@@ -1,7 +1,7 @@
-#include "ivpnSplitTunDrvControl.h"
+#include "privatelineSplitTunDrvControl.h"
 
-#define IVPN_ST_SERVICE_NAME L"privateline-split-tunnel"
-#define IVPN_ST_SERVICE_DISPLAY_NAME L"IVPN Split-Tunnel Service"
+#define PRIVATELINE_ST_SERVICE_NAME L"privateline-split-tunnel"
+#define PRIVATELINE_ST_SERVICE_DISPLAY_NAME L"privateLINE Split-Tunnel Service"
 
 namespace splittun
 {
@@ -331,19 +331,19 @@ namespace splittun
 
 		// Create a new a service object
 		SC_HANDLE schService = CreateService(
-			schSCManager,           // handle of service control manager database
-			IVPN_ST_SERVICE_NAME,    // address of name of service to start
-			IVPN_ST_SERVICE_DISPLAY_NAME,    // address of display name
-			SERVICE_ALL_ACCESS,     // type of access to service
-			SERVICE_KERNEL_DRIVER,  // type of service
-			SERVICE_DEMAND_START,   // when to start service
-			SERVICE_ERROR_NORMAL,   // severity if service fails to start
-			serviceExe,             // address of name of binary file
-			NULL,                   // service does not belong to a group
-			NULL,                   // no tag requested
-			NULL,                   // no dependency names
-			NULL,                   // use LocalSystem account
-			NULL                    // no password for service account
+			schSCManager,           				// handle of service control manager database
+			PRIVATELINE_ST_SERVICE_NAME,    		// address of name of service to start
+			PRIVATELINE_ST_SERVICE_DISPLAY_NAME,    // address of display name
+			SERVICE_ALL_ACCESS,     				// type of access to service
+			SERVICE_KERNEL_DRIVER,  				// type of service
+			SERVICE_DEMAND_START,   				// when to start service
+			SERVICE_ERROR_NORMAL,   				// severity if service fails to start
+			serviceExe,             				// address of name of binary file
+			NULL,                   				// service does not belong to a group
+			NULL,                   				// no tag requested
+			NULL,                   				// no dependency names
+			NULL,                   				// use LocalSystem account
+			NULL                    				// no password for service account
 		);
 
 		if (schService == NULL)
@@ -387,7 +387,7 @@ namespace splittun
 		// Open the handle to the existing service.
 		SC_HANDLE schService = OpenService(
 			schSCManager,
-			IVPN_ST_SERVICE_NAME,	// Service name
+			PRIVATELINE_ST_SERVICE_NAME,	// Service name
 			SERVICE_ALL_ACCESS
 		);
 

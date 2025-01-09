@@ -30,6 +30,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -140,6 +141,16 @@ type Service struct {
 	_statsCallbacks protocol.StatsCallbacks
 }
 
+// SetRestApiBackend - send true for development REST API backend, false for production one
+func (s *Service) SetRestApiBackend(devEnv bool) error {
+	s._api.SetRestApiBackend(devEnv)
+	return nil
+}
+
+func (s *Service) GetRestApiBackend() (devEnv bool) {
+	return s._api.GetRestApiBackend()
+}
+
 // VpnSessionInfo - Additional information about current VPN connection
 type VpnSessionInfo struct {
 	// The outbound IP addresses on the moment BEFORE the VPN connection
@@ -235,8 +246,8 @@ func (s *Service) init() error {
 	}
 
 	// initialize firewall functionality
-	if err := firewall.Initialize(); err != nil {
-		return fmt.Errorf("service initialization error : %w", err)
+	if err := firewall.Initialize(s.Preferences); err != nil {
+		return fmt.Errorf("firewall initialization error : %w", err)
 	}
 
 	// initialize dns functionality
@@ -272,9 +283,9 @@ func (s *Service) init() error {
 		log.Error("Failed to apply firewall exceptions: ", err)
 	}
 
-	if s._preferences.IsFwPersistant {
-		log.Info("Enabling firewal (persistant configuration)")
-		if err := firewall.SetPersistant(true); err != nil {
+	if s._preferences.IsFwPersistent {
+		log.Info("Enabling firewall (persistent configuration)")
+		if err := firewall.SetPersistent(true); err != nil {
 			log.Error("Failed to enable firewall: ", err)
 		}
 	}
@@ -347,14 +358,14 @@ func (s *Service) init() error {
 // - disable Split Tunnel mode
 // - etc. ...
 func (s *Service) UnInitialise() error {
-	return s.unInitialise()
+	return s.unInitialise(false)
 }
 
 // unInitialise - stop service on logout or daemon is going to stop
 // - disconnect VPN (if connected)
 // - enable Split Tunnel mode
 // - etc. ...
-func (s *Service) unInitialise() error {
+func (s *Service) unInitialise(isLogout bool) error {
 	log.Info("Uninitialising service...")
 	var retErr error
 	updateRetErr := func(e error) {
@@ -370,11 +381,13 @@ func (s *Service) unInitialise() error {
 		updateRetErr(err)
 	}
 
-	// Disable ST
-	if err := firewall.SingleDnsRuleOff(); err != nil {
+	// Disable firewall
+	if err := firewall.SetEnabled(false); err != nil {
 		log.Error(err)
 		updateRetErr(err)
 	}
+
+	// Disable Split Tunnel
 	if err := splittun.Reset(); err != nil {
 		log.Error(err)
 		updateRetErr(err)
@@ -441,6 +454,7 @@ func (s *Service) updateAPIAddrInFWExceptions() {
 	if len(apiAddrs) > 0 {
 		const onlyForICMP = false
 		const isPersistent = true
+		// const isPersistent = false // TODO FIXME: Vlad - changed to false, can't have WFP persistent anything in MVP
 		prefs := s.Preferences()
 		if prefs.IsFwAllowApiServers {
 			firewall.AddHostsToExceptions(apiAddrs, onlyForICMP, isPersistent)
@@ -654,6 +668,7 @@ func (s *Service) Pause(durationSeconds uint32) error {
 	}
 	s._pause._killSwitchState = fwStatus.IsEnabled
 	if fwStatus.IsEnabled && !fwStatus.IsPersistent {
+		log.Error("error - disabling the firewall because IsPersistent=false")
 		if err := s.SetKillSwitchState(false); err != nil {
 			return err
 		}
@@ -808,7 +823,7 @@ func (s *Service) saveDefaultDnsParams(dnsCfg dns.DnsSettings, antiTrackerCfg ty
 	return s.setConnectionParams(defaultParams)
 }
 
-// GetActiveDNS() eeturns DNS active settings for current VPN connection:
+// GetActiveDNS() returns DNS active settings for current VPN connection:
 // - if 'antiTracker' is enabled - returns DNS of AntiTracker server
 // - else if manual DNS is defined - returns manual DNS
 // - else returns default DNS configuration for current VPN connection
@@ -863,7 +878,7 @@ func (s *Service) SetManualDNS(dnsCfg dns.DnsSettings, antiTracker types.AntiTra
 	isChanged := false
 	defer func() {
 		if isChanged {
-			// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servrers or to manually defined server
+			// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servers or to manually defined server
 			if err := s.splitTunnelling_ApplyConfig(); err != nil {
 				log.Error(err)
 			}
@@ -1043,18 +1058,22 @@ func (s *Service) onKillSwitchStateChanged() {
 	}
 }
 
+// ReEnableKillSwitch disable-then-enable kill-switch
+func (s *Service) ReEnableKillSwitch() error {
+	return firewall.ReEnable()
+}
+
 // SetKillSwitchState enable\disable kill-switch
 func (s *Service) SetKillSwitchState(isEnabled bool) error {
-
-	if !isEnabled && s._preferences.IsFwPersistant {
+	if !isEnabled && s._preferences.IsFwPersistent {
 		return fmt.Errorf("unable to disable Firewall in 'Persistent' state. Please, disable 'Always-on firewall' first")
 	}
 	if s.IsPaused() {
 		return fmt.Errorf("unable to change the firewall state while connection is paused, please resume the connection first")
 	}
-	if isEnabled && s._preferences.IsInverseSplitTunneling() {
-		return fmt.Errorf("firewall cannot be enabled while Inverse Split Tunnel is active; please disable Inverse Split Tunnel first")
-	}
+	// if isEnabled && s._preferences.IsInverseSplitTunneling() {
+	// 	return fmt.Errorf("firewall cannot be enabled while Inverse Split Tunnel is active; please disable Inverse Split Tunnel first")
+	// }
 
 	err := firewall.SetEnabled(isEnabled)
 	if err == nil {
@@ -1075,34 +1094,42 @@ func (s *Service) SetKillSwitchState(isEnabled bool) error {
 // KillSwitchState returns kill-switch state
 func (s *Service) KillSwitchState() (status types.KillSwitchStatus, err error) {
 	prefs := s._preferences
-	enabled, isLanAllowed, _, err := firewall.GetState()
+	enabled, isLanAllowed, _, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err := firewall.GetState()
 
 	return types.KillSwitchStatus{
-		IsEnabled:         enabled,
-		IsPersistent:      prefs.IsFwPersistant,
-		IsAllowLAN:        prefs.IsFwAllowLAN,
-		IsAllowMulticast:  prefs.IsFwAllowLANMulticast,
-		IsAllowApiServers: prefs.IsFwAllowApiServers,
-		UserExceptions:    prefs.FwUserExceptions,
-		StateLanAllowed:   isLanAllowed,
+		IsEnabled:                 enabled,
+		IsPersistent:              prefs.IsFwPersistent,
+		IsAllowLAN:                prefs.IsFwAllowLAN,
+		IsAllowMulticast:          prefs.IsFwAllowLANMulticast,
+		IsAllowApiServers:         prefs.IsFwAllowApiServers,
+		UserExceptions:            prefs.FwUserExceptions,
+		StateLanAllowed:           isLanAllowed,
+		WeHaveTopFirewallPriority: weHaveTopFirewallPriority,
+		OtherVpnID:                otherVpnID,
+		OtherVpnName:              otherVpnName,
+		OtherVpnDescription:       otherVpnDescription,
 	}, err
 }
 
 // SetKillSwitchIsPersistent change kill-switch value
-func (s *Service) SetKillSwitchIsPersistent(isPersistant bool) error {
+func (s *Service) SetKillSwitchIsPersistent(isPersistent bool) error {
+	// if isPersistent {
+	// 	return fmt.Errorf("error - WFP (Windows Filtering Platform) persistence not supported")
+	// }
+
 	if s.IsPaused() {
 		return fmt.Errorf("unable to change the firewall state while connection is paused, please resume the connection first")
 	}
 
-	if isPersistant && s._preferences.IsInverseSplitTunneling() {
-		return fmt.Errorf("firewall cannot be enabled while Inverse Split Tunnel is active; please disable Inverse Split Tunnel first")
-	}
+	// if isPersistent && s._preferences.IsInverseSplitTunneling() {
+	// 	return fmt.Errorf("firewall cannot be enabled while Inverse Split Tunnel is active; please disable Inverse Split Tunnel first")
+	// }
 
 	prefs := s._preferences
-	prefs.IsFwPersistant = isPersistant
+	prefs.IsFwPersistent = isPersistent
 	s.setPreferences(prefs)
 
-	err := firewall.SetPersistant(isPersistant)
+	err := firewall.SetPersistent(isPersistent)
 	if err == nil {
 		s.onKillSwitchStateChanged()
 	}
@@ -1133,6 +1160,7 @@ func (s *Service) setKillSwitchAllowLAN(isAllowLan bool, isAllowLanMulticast boo
 }
 
 func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) error {
+	log.Debug("applyKillSwitchAllowLAN")
 	prefs := s._preferences
 
 	isAllowLAN := prefs.IsFwAllowLAN
@@ -1142,6 +1170,28 @@ func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) er
 	}
 
 	return firewall.AllowLAN(isAllowLAN, prefs.IsFwAllowLANMulticast)
+}
+
+// KillSwitchReregister try to reregister our firewall logic at top
+func (s *Service) KillSwitchReregister(canStopOtherVpn bool) (err error) {
+	// If we're connected/connecting/etc. - fork disconnect request.
+	// Otherwise, if we're trying to connect VPN and reregister our firewall in parallel - we tend to get errors in firewall.HaveTopFirewallPriority() (looking up meet.privateline.network)
+	go s.Disconnect()
+
+	if err = firewall.TryReregisterFirewallAtTopPriority(canStopOtherVpn); err != nil {
+		return err
+	}
+
+	// Vlad - so don't try firewall.DeployPostConnectionRules() here, another VPN connection will take care of that
+	// if s.Connected() {
+	// 	if haveTopFirewallPriority, _, _, _, err := firewall.HaveTopFirewallPriority(); err != nil {
+	// 		return err
+	// 	} else if haveTopFirewallPriority {
+	// 		return firewall.DeployPostConnectionRules(false) // here meet.privateline.network hostname lookup should succeed, no need to wait in the background
+	// 	}
+	// }
+
+	return err
 }
 
 func (s *Service) SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error {
@@ -1174,6 +1224,15 @@ func (s *Service) SetKillSwitchUserExceptions(exceptions string, ignoreParsingEr
 	if err == nil {
 		s.onKillSwitchStateChanged()
 	}
+	return err
+}
+
+func (s *Service) KillSwitchCleanup() error {
+	err := firewall.CleanupRegistration()
+	// don't run onKillSwitchStateChanged() - otherwise it recreates our provider and sublayer
+	// if err == nil {
+	// 	s.onKillSwitchStateChanged()
+	// }
 	return err
 }
 
@@ -1572,6 +1631,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 			return fmt.Errorf("failed to apply the firewall rule to allow DNS requests only to the IVPN server: %w", err)
 		}
 		if !dnsCfg.IsEmpty() {
+			log.Debug("isVpnConnected && prefs.IsInverseSplitTunneling() && !prefs.SplitTunnelAnyDns - so applying SingleDnsRuleOn()")
 			if err := firewall.SingleDnsRuleOn(dnsCfg.Ip()); err != nil {
 				return fmt.Errorf("failed to apply the firewall rule to allow DNS requests only to the IVPN server: %w", err)
 			}
@@ -1838,6 +1898,11 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	}
 
 	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
+	if strings.HasSuffix(localIP, ".0") || strings.HasSuffix(localIP, ".0.1") {
+		s.SessionDelete(true, true) // logout
+		return 0, "", preferences.AccountStatus{}, "", log.ErrorFE("Error - got assigned an invalid IP address '%s' when registering a device. Please try "+
+			"logging in again later. Please email support@privateline.io about this problem.", localIP)
+	}
 
 	// get account status info
 	// accountInfo = s.createAccountStatus(sessionNewSuccessResp.ServiceStatus)
@@ -1873,19 +1938,26 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 		AllowedIPs: connectDevSuccessResp.Data[1].Peer.AllowedIPs,
 	}
 
-	// propagate the Wireguard device configuration we received to Preferences
+	// propagate the Wireguard device configuration we received to Preferencese
 	prefs := s._preferences
 
 	prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
 	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
-	// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
-	firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
-	if firstDnsSrv != "" {
-		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
-	} else {
-		log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
-		return apiCode, "", accountInfo, "", err
+	if runtime.GOOS == "linux" { // Manual DNS setting still needed on Linux. Cannot pass "DNS = ..." in wg.conf, because of https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491
+		// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
+		firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
+		if firstDnsSrv != "" {
+			prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
+		} else {
+			log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
+			return apiCode, "", accountInfo, "", err
+		}
+	} else { // Windows works fine with "DNS = ..." in wgprivateline.conf
+		// if err = dns.DeleteManual(nil, nil); err != nil {
+		// 	log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
+		// }
+		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{}
 	}
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
@@ -2024,6 +2096,11 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	}
 
 	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
+	if strings.HasSuffix(localIP, ".0.0") || strings.HasSuffix(localIP, ".0.1") {
+		s.SessionDelete(true, true) // logout
+		return 0, "", nil, log.ErrorFE("Error - got assigned an invalid IP address '%s' when registering a device. Please try "+
+			"logging in again later. Please email support@privateline.io about this problem.", localIP)
+	}
 
 	// get account status info
 	// accountInfo = s.createAccountStatus(sessionNewSuccessResp.ServiceStatus)
@@ -2067,13 +2144,20 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts = []api_types.WireGuardServerHostInfo{hostValue}
 	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
-	// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
-	firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
-	if firstDnsSrv != "" {
-		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
-	} else {
-		log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
-		return apiCode, "", rawResponse, err
+	if runtime.GOOS == "linux" { // Manual DNS setting still needed on Linux. Cannot pass "DNS = ..." in wg.conf, because of https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491
+		// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
+		firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
+		if firstDnsSrv != "" {
+			prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
+		} else {
+			log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
+			return apiCode, "", rawResponse, err
+		}
+	} else { // Windows works fine with "DNS = ..." in wgprivateline.conf
+		// if err = dns.DeleteManual(nil, nil); err != nil {
+		// 	log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
+		// }
+		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{}
 	}
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
@@ -2166,7 +2250,7 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally
 	// - disconnect VPN (if connected)
 	// - disable Split Tunnel mode
 	// - etc. ...
-	if err := s.unInitialise(); err != nil {
+	if err := s.unInitialise(true); err != nil {
 		log.Error(err)
 	}
 

@@ -43,6 +43,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
@@ -101,6 +102,9 @@ var (
 type Service interface {
 	UnInitialise() error
 
+	SetRestApiBackend(devEnv bool) error // true to use development REST API backend servers, false for production ones
+	GetRestApiBackend() (devEnv bool)    // true if using development REST API backend servers, false for production ones
+
 	OnAuthenticatedClient(t types.ClientTypeEnum)
 
 	// GetDisabledFunctions returns info about functions which are disabled
@@ -123,12 +127,14 @@ type Service interface {
 	DetectAccessiblePorts(portsToTest []api_types.PortInfo) (retPorts []api_types.PortInfo, err error)
 
 	KillSwitchState() (status service_types.KillSwitchStatus, err error)
+	KillSwitchReregister(canStopOtherVpn bool) (err error)
 	SetKillSwitchState(bool) error
-	SetKillSwitchIsPersistent(isPersistant bool) error
+	SetKillSwitchIsPersistent(isPersistent bool) error
 	SetKillSwitchAllowLANMulticast(isAllowLanMulticast bool) error
 	SetKillSwitchAllowLAN(isAllowLan bool) error
 	SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error
 	SetKillSwitchUserExceptions(exceptions string, ignoreParsingErrors bool) error
+	KillSwitchCleanup() error
 
 	GetConnectionParams() service_types.ConnectionParams
 	SetConnectionParams(params service_types.ConnectionParams) error
@@ -703,8 +709,9 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		if status, err := p._service.KillSwitchState(); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 		} else {
-			p.sendResponse(conn,
-				&types.KillSwitchStatusResp{KillSwitchStatus: status}, reqCmd.Idx)
+			resp := types.KillSwitchStatusResp{KillSwitchStatus: status}
+			p.notifyClients(&resp)
+			p.sendResponse(conn, &resp, reqCmd.Idx)
 		}
 
 	case "KillSwitchSetEnabled":
@@ -722,6 +729,20 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		// send the response to the requestor
 		p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
 		// all clients will be notified in case of successful change by OnKillSwitchStateChanged() handler
+
+	case "KillSwitchCleanup":
+		var req types.KillSwitchCleanup
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		if err := p._service.KillSwitchCleanup(); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
 
 	case "KillSwitchSetAllowLANMulticast":
 		var req types.KillSwitchSetAllowLANMulticast
@@ -744,6 +765,45 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p._service.SetKillSwitchAllowLAN(req.AllowLAN)
 		p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
 		// all clients will be notified in case of successful change by OnKillSwitchStateChanged() handler
+
+	case "KillSwitchReregister":
+		var req types.KillSwitchReregister
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		if status, err := p._service.KillSwitchState(); err != nil { // check whether we may have top firewall priority already
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		} else if status.WeHaveTopFirewallPriority { // on success notify clients
+			p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
+			p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+			break
+		}
+
+		if err := p._service.KillSwitchReregister(req.CanStopOtherVpn); err != nil { // try to reregister at top firewall pri
+			var fe *firewall.FirewallError
+			if errors.As(err, &fe) && fe.OtherVpnUnknownToUs() { // if grabbing 0xFFFF failed, and other VPN is not registered in our database - report to client
+				log.Error(fmt.Errorf("%sError processing request '%s': %w", p.connLogID(conn), req.Command, fe.GetContainedErr()))
+				resp := types.KillSwitchReregisterErrorResp{
+					ErrorMessage:        helpers.CapitalizeFirstLetter(fe.GetContainedErr().Error()),
+					OtherVpnUnknownToUs: fe.OtherVpnUnknownToUs(),
+					OtherVpnName:        fe.OtherVpnName(),
+					OtherVpnGUID:        fe.OtherVpnGUID()}
+				p.sendResponse(conn, &resp, req.Idx)
+			} else {
+				p.sendErrorResponse(conn, reqCmd, err)
+			}
+			break
+		}
+
+		if status, err := p._service.KillSwitchState(); err != nil { // now re-check whether we have top firewall pri
+			p.sendErrorResponse(conn, reqCmd, err)
+		} else { // and notify clients
+			p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
+			p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+		}
 
 	case "KillSwitchSetUserExceptions":
 		var req types.KillSwitchSetUserExceptions
@@ -1211,9 +1271,9 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			p._service.ResetPreferences()
 			prefs := p._service.Preferences()
 
-			// restore active persistant Firewall state
-			if oldPrefs.IsFwPersistant != prefs.IsFwPersistant {
-				p._service.SetKillSwitchIsPersistent(oldPrefs.IsFwPersistant)
+			// restore active persistent Firewall state
+			if oldPrefs.IsFwPersistent != prefs.IsFwPersistent {
+				p._service.SetKillSwitchIsPersistent(oldPrefs.IsFwPersistent)
 			}
 
 			// set AllowLan and exceptions according to default values
@@ -1320,6 +1380,23 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 		p.sendResponse(conn, &types.EmptyResp{}, reqCmd.Idx)
 		// notify all clients about changed wifi settings
+		p.notifyClients(p.createHelloResponse())
+
+	case "SetRestApiBackend":
+		var req types.SetRestApiBackend
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		if err := p._service.SetRestApiBackend(req.IsDevEnv); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		// send the response to the requestor
+		p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+		// notify all clients abt new setting for REST API backend - whether it's dev or production
 		p.notifyClients(p.createHelloResponse())
 
 	case "Disconnect":
@@ -1440,7 +1517,9 @@ func (p *Protocol) processConnectionRequests() {
 		}
 
 		connectRequest := <-p._connRequestChan
-		p._connRequestReady.Wait() // wait processing connection request until everything is ready
+		connectRequest.FirewallOn = false                // Vlad - firewall must be enabled before VPN connection on Windows, for VPN coexistence to work,
+		connectRequest.FirewallOnDuringConnection = true // ... and we disable firewall after VPN is disconnected.
+		p._connRequestReady.Wait()                       // wait processing connection request until everything is ready
 
 		// processing each connection request is wrapped into function in order to call 'defer' sections properly
 		func() {

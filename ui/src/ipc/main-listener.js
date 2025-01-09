@@ -130,6 +130,10 @@ ipcMain.handle("renderer-request-resume-connection", async () => {
   return await client.ResumeConnection();
 });
 
+ipcMain.handle("renderer-request-set-rest-api-backend", async (event, enableDevRestApiBackend) => {
+  return await client.SetRestApiBackend(enableDevRestApiBackend);
+});
+
 ipcMain.handle("renderer-request-firewall", async (event, enable) => {
   return await client.EnableFirewall(enable);
 });
@@ -162,6 +166,19 @@ ipcMain.handle(
   "renderer-request-KillSwitchSetUserExceptions",
   async (event, userExceptions) => {
     return await client.KillSwitchSetUserExceptions(userExceptions);
+  }
+);
+
+ipcMain.handle(
+  "renderer-request-KillSwitchReregister",
+  async (event, enable) => {
+    return await client.KillSwitchReregister(enable);
+  }
+);
+ipcMain.handle(
+  "renderer-request-KillSwitchGetStatus",
+  async (event) => {
+    return await client.KillSwitchGetStatus();
   }
 );
 
@@ -283,9 +300,8 @@ ipcMain.handle("renderer-request-get-diagnostic-logs", async () => {
   let accInfo = "";
   try {
     const acc = s.account;
-    accInfo = `${acc.accountStatus.CurrentPlan} (${
-      acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
-    })`;
+    accInfo = `${acc.accountStatus.CurrentPlan} (${acc.accountStatus.Active ? "Active" : "NOT ACTIVE"
+      })`;
     if (acc.session.WgPublicKey)
       accInfo += `; wgKeys=OK ${acc.session.WgKeyGenerated}`;
     else accInfo += "; wgKeys=EMPTY";

@@ -68,6 +68,12 @@ type Hello struct {
 	GetWiFiCurrentState bool
 }
 
+// SetRestApiBackend request to enable either development REST API backend, or production one
+type SetRestApiBackend struct {
+	RequestBase
+	IsDevEnv bool
+}
+
 // GetServers request servers list
 type GetServers struct {
 	RequestBase
@@ -106,6 +112,13 @@ type KillSwitchSetAllowLAN struct {
 	AllowLAN bool
 }
 
+type KillSwitchReregister struct {
+	RequestBase
+	// If CanStopOtherVpn==true: then daemon will stop the other VPN service, unregister their firewall module, and try to reregister our firewall module at top priority.
+	// Otherwise we just try to reregister ours at top priority.
+	CanStopOtherVpn bool
+}
+
 // KillSwitchSetUserExceptions set ip masks to exclude from firewall blocking rules
 type KillSwitchSetUserExceptions struct {
 	CommandBase
@@ -130,10 +143,14 @@ type KillSwitchGetStatus struct {
 	RequestBase
 }
 
-// KillSwitchSetIsPersistent request to mark kill-switch persistant
+// KillSwitchSetIsPersistent request to mark kill-switch persistent
 type KillSwitchSetIsPersistent struct {
 	RequestBase
 	IsPersistent bool
+}
+
+type KillSwitchCleanup struct {
+	RequestBase
 }
 
 // SetPreference sets daemon configuration parameter

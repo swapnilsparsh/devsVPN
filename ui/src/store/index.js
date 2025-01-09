@@ -30,6 +30,8 @@ export default createStore({
     daemonProcessorArch: "",
     daemonIsOldVersionError: false,
     daemonIsInstalling: false,
+    
+    usingDevelopmentRestApiBackend: false,
 
     disabledFunctions: {
       WireGuardError: "",
@@ -202,6 +204,9 @@ export default createStore({
     },
     daemonVersion(state, value) {
       state.daemonVersion = value;
+    },
+    usingDevelopmentRestApiBackend(state, value) {
+      state.usingDevelopmentRestApiBackend = value;
     },
     daemonProcessorArch(state, value) {
       state.daemonProcessorArch = value;

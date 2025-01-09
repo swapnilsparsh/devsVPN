@@ -60,6 +60,8 @@ const daemonRequests = Object.freeze({
   Hello: "Hello",
   APIRequest: "APIRequest",
 
+  SetRestApiBackend: "SetRestApiBackend",
+
   GenerateDiagnostics: "GenerateDiagnostics",
 
   PingServers: "PingServers",
@@ -87,6 +89,7 @@ const daemonRequests = Object.freeze({
   KillSwitchSetAllowLAN: "KillSwitchSetAllowLAN",
   KillSwitchSetIsPersistent: "KillSwitchSetIsPersistent",
   KillSwitchSetUserExceptions: "KillSwitchSetUserExceptions",
+  KillSwitchReregister: "KillSwitchReregister",
 
   SplitTunnelGetStatus: "SplitTunnelGetStatus",
   SplitTunnelSetConfig: "SplitTunnelSetConfig",
@@ -133,6 +136,7 @@ const daemonResponses = Object.freeze({
   SetAlternateDNSResp: "SetAlternateDNSResp",
   DnsPredefinedConfigsResp: "DnsPredefinedConfigsResp",
   KillSwitchStatusResp: "KillSwitchStatusResp",
+  KillSwitchReregisterErrorResp: "KillSwitchReregisterErrorResp",
   SessionStatusResp: "SessionStatusResp",
 
   SplitTunnelStatus: "SplitTunnelStatus",
@@ -401,6 +405,8 @@ async function processResponse(response) {
     case daemonResponses.HelloResp:
       store.commit("daemonVersion", obj.Version);
       store.commit("daemonProcessorArch", obj.ProcessorArch);
+
+      store.commit("usingDevelopmentRestApiBackend", obj.DevRestApiBackend);
 
       if (obj.SettingsSessionUUID) {
         const ssID = obj.SettingsSessionUUID;
@@ -1458,6 +1464,13 @@ async function Connect() {
   });
 }
 
+async function SetRestApiBackend(enableDevRestApiBackend) {
+  await sendRecv({
+    Command: daemonRequests.SetRestApiBackend,
+    IsDevEnv: enableDevRestApiBackend,
+  });
+}
+
 async function RequestVPNState() {
   await sendRecv({
     Command: daemonRequests.GetVPNState,
@@ -1559,6 +1572,16 @@ async function KillSwitchSetUserExceptions(userExceptions) {
     Command: daemonRequests.KillSwitchSetUserExceptions,
     UserExceptions: userExceptions,
   });
+}
+
+async function KillSwitchReregister(CanStopOtherVpn) {
+  let ret = await sendRecv({
+    Command: daemonRequests.KillSwitchReregister,
+    CanStopOtherVpn,
+  },
+  [daemonResponses.KillSwitchReregisterErrorResp]
+  );
+  return ret;
 }
 
 async function SplitTunnelGetStatus() {
@@ -1915,6 +1938,7 @@ export default {
   ConnectToDaemon,
 
   GetDiagnosticLogs,
+  SetRestApiBackend,
 
   Login,
   SsoLogin,
@@ -1940,6 +1964,7 @@ export default {
   KillSwitchSetAllowLAN,
   KillSwitchSetIsPersistent,
   KillSwitchSetUserExceptions,
+  KillSwitchReregister,
 
   SplitTunnelGetStatus,
   SplitTunnelSetConfig,

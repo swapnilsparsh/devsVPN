@@ -81,11 +81,10 @@ type ConnectionParams struct {
 	VpnType   vpn.Type
 	ManualDNS dns.DnsSettings
 
-	// Enable firewall before connection
+	// Unconditionally reenable (disable-then-enable) firewall before connection - whether firewall was enabled or not.
 	// (if true - the parameter 'firewallDuringConnection' will be ignored)
 	FirewallOn bool
-	// Enable firewall before connection and disable after disconnection
-	// (has effect only if Firewall not enabled before)
+	// Unconditionally reenable (disable-then-enable) firewall before connection (whether firewall was enabled or not) and disable after disconnection.
 	FirewallOnDuringConnection bool
 
 	WireGuardParameters struct {

@@ -162,6 +162,10 @@ export default {
     return await invoke("renderer-request-resume-connection");
   },
 
+  SetRestApiBackend: async (enableDevRestApiBackend) => {
+    return await invoke("renderer-request-set-rest-api-backend", enableDevRestApiBackend);
+  },
+
   EnableFirewall: async (isEnable) => {
     return await invoke("renderer-request-firewall", isEnable);
   },
@@ -191,12 +195,19 @@ export default {
     );
   },
 
+  KillSwitchReregister: async (CanStopOtherVpn) => {
+    return await invoke("renderer-request-KillSwitchReregister", CanStopOtherVpn);
+  },
+  KillSwitchGetStatus: async () => {
+    return await invoke("renderer-request-KillSwitchGetStatus");
+  },
+
   SplitTunnelGetStatus: async () => {
     return await invoke("renderer-request-SplitTunnelGetStatus");
   },
   SplitTunnelSetConfig: async (
     enabled,
-    inversed,    
+    inversed,
     appWhitelistEnabled,
     isAnyDns,
     allowWhenNoVpn,

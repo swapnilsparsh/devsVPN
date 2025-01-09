@@ -29,8 +29,10 @@ import (
 	"fmt"
 	"syscall"
 	"testing"
+	"unsafe"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
+	"golang.org/x/sys/windows"
 )
 
 func TestFuncsCall(t *testing.T) {
@@ -63,8 +65,10 @@ func DoTest() {
 	sublayer, serr := winlib.FWPMSUBLAYER0Create(guid, 0)
 	fmt.Println(sublayer, serr)
 
-	isInstalled, err = winlib.WfpSubLayerIsInstalled(engine, guid)
-	fmt.Println(isInstalled, err)
+	var fwpmSublayer *winlib.FwpmSublayer0
+	found, err := winlib.FwpmSubLayerGetByKey0(windows.Handle(engine), winlib.SublayerID(guid), &fwpmSublayer)
+	defer winlib.FwpmFreeMemory0((*struct{})(unsafe.Pointer(&fwpmSublayer)))
+	fmt.Println(found, *fwpmSublayer, err)
 
 	winlib.FWPMSUBLAYER0SetDisplayData(sublayer, "sbName", "sbDescription")
 	fmt.Println(err)
@@ -72,8 +76,11 @@ func DoTest() {
 	err = winlib.WfpSubLayerAdd(engine, sublayer)
 	fmt.Println(err)
 
-	isInstalled, err = winlib.WfpSubLayerIsInstalled(engine, guid)
-	fmt.Println(isInstalled, err)
+	found, err = winlib.FwpmSubLayerGetByKey0(windows.Handle(engine), winlib.SublayerID(guid), &fwpmSublayer)
+	fmt.Println(found, *fwpmSublayer, err)
+
+	found, maxWeightSublayerKey, err := winlib.WfpFindSubLayerWithMaxWeight(engine)
+	fmt.Println(found, maxWeightSublayerKey, err)
 
 	winlib.WfpSubLayerDelete(engine, guid)
 	fmt.Println(err)

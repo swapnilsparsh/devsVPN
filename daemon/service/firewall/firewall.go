@@ -27,13 +27,17 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 )
 
 var log *logger.Logger
+
+type GetPrefsCallback func() preferences.Preferences
 
 func init() {
 	log = logger.NewLogger("frwl")
@@ -55,22 +59,50 @@ var (
 
 	stateAllowLan          bool
 	stateAllowLanMulticast bool
+
+	getPrefsCallback GetPrefsCallback
 )
+
+type FirewallError struct {
+	containedErr error
+
+	otherVpnUnknownToUs bool
+	otherVpnName        string
+	otherVpnGUID        string
+}
+
+func (fe *FirewallError) Error() string {
+	return fe.containedErr.Error()
+}
+
+func (fe *FirewallError) GetContainedErr() error {
+	return fe.containedErr
+}
+
+func (fe *FirewallError) OtherVpnName() string {
+	return fe.otherVpnName
+}
+
+func (fe *FirewallError) OtherVpnGUID() string {
+	return fe.otherVpnGUID
+}
+
+func (fe *FirewallError) OtherVpnUnknownToUs() bool {
+	return fe.otherVpnUnknownToUs
+}
 
 // Initialize is doing initialization stuff
 // Must be called on application start
-func Initialize() error {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
+func Initialize(prefsCallback GetPrefsCallback) error {
+	mutex.Lock()
+	defer mutex.Unlock()
 
+	getPrefsCallback = prefsCallback
 	return implInitialize()
 }
 
 // SetEnabled - change firewall state
-func SetEnabled(enable bool) error {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
-
+func SetEnabled(enable bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -80,8 +112,7 @@ func SetEnabled(enable bool) error {
 		log.Info("Disabling...")
 	}
 
-	err := implSetEnabled(enable)
-	if err != nil {
+	if err = implSetEnabled(enable, false); err != nil {
 		log.Error(err)
 		return fmt.Errorf("failed to change firewall state : %w", err)
 	}
@@ -99,21 +130,48 @@ func SetEnabled(enable bool) error {
 			}
 		}
 	}
+
 	return err
 }
 
-// SetPersistant - set persistant firewall state and enable it if necessary
-func SetPersistant(persistant bool) error {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
+func ReEnable() error {
+	// if enabled, err := GetEnabled(); err != nil {
+	// 	return log.ErrorE(fmt.Errorf("failed to check firewall state: %w", err), 0)
+	// } else if !enabled {
+	// 	log.Info("firewall was not enabled, but disabling-then-enabling anyway")
+	// }
 
+	// GetEnabled() also grabs mutex, so have to wait for it to finish
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info(fmt.Sprintf("Persistent:%t", persistant))
+	return implReEnable()
+}
 
-	err := implSetPersistant(persistant)
-	if err != nil {
+// CleanupRegistration will completely clean up firewall registation, all of its objects. To be used only during uninstallation.
+func CleanupRegistration() (err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if err = implSetEnabled(false, false); err != nil {
+		return log.ErrorE(fmt.Errorf("failed to disable firewall: %w", err), 0)
+	}
+
+	if err = implCleanupRegistration(); err != nil {
+		return log.ErrorE(fmt.Errorf("implCleanupRegistration() failed: %w", err), 0)
+	}
+
+	return nil
+}
+
+// SetPersistent - set persistent firewall state and enable it if necessary
+func SetPersistent(persistent bool) (err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	log.Info(fmt.Sprintf("Persistent:%t", persistent))
+
+	if err = implSetPersistent(persistent); err != nil {
 		log.Error(err)
 	}
 	return err
@@ -121,27 +179,6 @@ func SetPersistant(persistant bool) error {
 
 // GetEnabled - get firewall status enabled/disabled
 func GetEnabled() (bool, error) {
-	// TODO FIXME: Vlad - maybe re-enable the firewall after MVP 1.0?
-	// No, we cannot use firewall together with inverse split mode.
-	// We use inverse split mode to allow either all apps to the enclave (VPN), or only the specific apps -
-	// so we may need to enable inverse split mode at any time, so can't enable IVPN firewall.
-	return false, nil
-
-	// mutex.Lock()
-	// defer mutex.Unlock()
-
-	// ret, err := implGetEnabled()
-	// if err != nil {
-	// 	log.Error("Status check error: ", err)
-	// }
-
-	// return ret, err
-}
-
-func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, err error) {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return false, false, false, nil
-
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -149,8 +186,26 @@ func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, err error) {
 	if err != nil {
 		log.Error("Status check error: ", err)
 	}
+	log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t", ret, stateAllowLan, stateAllowLanMulticast))
 
-	return ret, stateAllowLan, stateAllowLanMulticast, err
+	return ret, err
+}
+
+func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	ret, err := implGetEnabled()
+	if err != nil {
+		log.Error(fmt.Errorf("status check error: %w", err))
+	}
+
+	if weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err = implHaveTopFirewallPriority(0); err != nil {
+		log.Error(fmt.Errorf("error checking whether we have top firewall priority: %w", err))
+	}
+	log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t", ret, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast))
+
+	return ret, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err
 }
 
 // SingleDnsRuleOn - add rule to allow DNS communication with specified IP only
@@ -158,9 +213,6 @@ func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, err error) {
 // Returns error if IVPN firewall is enabled.
 // As soon as IVPN firewall enables - this rule will be removed
 func SingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
-
 	mutex.Lock()
 	defer mutex.Unlock()
 	return implSingleDnsRuleOn(dnsAddr)
@@ -169,9 +221,6 @@ func SingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 // SingleDnsRuleOff - remove rule (if exist) to allow DNS communication with specified IP only defined by SingleDnsRuleOn()
 // (usefull for Inverse Split Tunneling feature)
 func SingleDnsRuleOff() (retErr error) {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
-
 	mutex.Lock()
 	defer mutex.Unlock()
 	return implSingleDnsRuleOff()
@@ -187,11 +236,36 @@ func ClientResumed() {
 	isClientPaused = false
 }
 
+func deployPostConnectionRulesAsync() {
+	time.Sleep(time.Second * 5)
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// check whether firewall is still enabled after timeout
+	if enabled, err := implGetEnabled(); err != nil {
+		log.Error(fmt.Errorf("status check error: %w", err))
+	} else if enabled {
+		implDeployPostConnectionRules()
+	}
+}
+
+// If Mullvad stays connected, PL Connect has max firewall priority (0xFFFF sublayer weight), and goes from disconnected to connected - then looking up
+// hosts immediately after WG connection is established fails. In that case need to fork post-connection rules to run asynchronously 5-10sec later.
+func DeployPostConnectionRules(async bool) (retErr error) {
+	if async {
+		go deployPostConnectionRulesAsync()
+		return nil
+	} else {
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		return implDeployPostConnectionRules()
+	}
+}
+
 // ClientConnected - allow communication for local vpn/client IP address
 func ClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net.IP, clientPort int, serverIP net.IP, serverPort int, isTCP bool) error {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
-
 	mutex.Lock()
 	defer mutex.Unlock()
 	ClientResumed()
@@ -214,9 +288,6 @@ func ClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net.IP,
 
 // ClientDisconnected - Remove all hosts exceptions
 func ClientDisconnected() error {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
-
 	mutex.Lock()
 	defer mutex.Unlock()
 	ClientResumed()
@@ -242,8 +313,9 @@ func ClientDisconnected() error {
 //   - onlyForICMP	-	(applicable only for Linux) try add rule to allow only ICMP protocol for this IP
 //   - isPersistent	-	keep rule enabled even if VPN disconnected
 func AddHostsToExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) error {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
+	// if isPersistent {
+	// 	return fmt.Errorf("error - WFP (Windows Filtering Platform) persistence not supported")
+	// }
 
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -257,8 +329,9 @@ func AddHostsToExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) err
 }
 
 func RemoveHostsFromExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) error {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
+	// if isPersistent {
+	// 	return fmt.Errorf("error - WFP (Windows Filtering Platform) persistence not supported")
+	// }
 
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -273,9 +346,6 @@ func RemoveHostsFromExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool
 
 // AllowLAN - allow/forbid LAN communication
 func AllowLAN(allowLan bool, allowLanMulticast bool) error {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
-
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -292,9 +362,6 @@ func AllowLAN(allowLan bool, allowLanMulticast bool) error {
 }
 
 func GetDnsInfo() (dns.DnsSettings, bool) {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return dns.DnsSettings{}, false
-
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -305,9 +372,6 @@ func GetDnsInfo() (dns.DnsSettings, bool) {
 }
 
 func getDnsIP() net.IP {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return dnsConfig.Ip()
-
 	cfg := dnsConfig
 
 	var dnsIP net.IP
@@ -319,9 +383,6 @@ func getDnsIP() net.IP {
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
 func OnChangeDNS(newDnsCfg *dns.DnsSettings) error {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
-
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -355,8 +416,8 @@ func OnChangeDNS(newDnsCfg *dns.DnsSettings) error {
 // Parameters:
 //   - exceptions - comma separated list of IP addresses in format: x.x.x.x[/xx]
 func SetUserExceptions(exceptions string, ignoreParseErrors bool) error {
-	// TODO FIXME: re-enable the firewall after MVP 1.0
-	return nil
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	userExceptions = []net.IPNet{}
 
@@ -396,4 +457,19 @@ func SetUserExceptions(exceptions string, ignoreParseErrors bool) error {
 	}
 
 	return implOnUserExceptionsUpdated()
+}
+
+// Is our firewall logic registered at top priority? This is necessary on Windows
+func HaveTopFirewallPriority() (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return implHaveTopFirewallPriority(0)
+}
+
+func TryReregisterFirewallAtTopPriority(canStopOtherVpn bool) (err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return implReregisterFirewallAtTopPriority(canStopOtherVpn)
 }

@@ -40,7 +40,7 @@ import (
 
 var (
 	// key: is a string representation of allowed IP
-	// value: true - if exception rule is persistant (persistant, means will stay available even client is disconnected)
+	// value: true - if exception rule is persistent (persistent, means will stay available even client is disconnected)
 	allowedHosts map[string]bool
 )
 
@@ -79,11 +79,11 @@ func implSetEnabled(isEnabled bool) error {
 	return shell.Exec(nil, platform.FirewallScript(), "-disable")
 }
 
-func implSetPersistant(persistant bool) error {
-	if persistant {
+func implSetPersistent(persistent bool) error {
+	if persistent {
 		// The persistence is based on such facts:
 		// 	- daemon is starting as 'LaunchDaemons'
-		// 	- SetPersistant() called by service object on daemon start
+		// 	- SetPersistent() called by service object on daemon start
 		// This means we just have to ensure that firewall enabled.
 
 		// Just ensure that firewall is enabled
@@ -123,7 +123,7 @@ func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net
 
 // ClientDisconnected - Disable communication for local vpn/client IP address
 func implClientDisconnected() error {
-	// remove all exceptions related to current connection (all non-persistant exceptions)
+	// remove all exceptions related to current connection (all non-persistent exceptions)
 	err := removeAllHostsFromExceptions()
 	if err != nil {
 		log.Error(err)
@@ -277,8 +277,8 @@ func reApplyExceptions() error {
 //---------------------------------------------------------------------
 
 // allow communication with specified hosts
-// if isPersistant == false - exception will be removed when client disctonnects
-func addHostsToExceptions(IPs []string, isPersistant bool) error {
+// if isPersistent == false - exception will be removed when client disctonnects
+func addHostsToExceptions(IPs []string, isPersistent bool) error {
 	if len(IPs) == 0 {
 		return nil
 	}
@@ -287,7 +287,7 @@ func addHostsToExceptions(IPs []string, isPersistant bool) error {
 	for _, ip := range IPs {
 		// do not add new IP if it already in exceptions
 		if _, exists := allowedHosts[ip]; !exists {
-			allowedHosts[ip] = isPersistant // add to map
+			allowedHosts[ip] = isPersistent // add to map
 			newIPs = append(newIPs, ip)
 		}
 	}
@@ -304,7 +304,7 @@ func addHostsToExceptions(IPs []string, isPersistant bool) error {
 }
 
 // Deprecate comminication with this hosts
-func removeHostsFromExceptions(IPs []string, isPersistant bool) error {
+func removeHostsFromExceptions(IPs []string, isPersistent bool) error {
 	if len(IPs) == 0 {
 		return nil
 	}
@@ -312,7 +312,7 @@ func removeHostsFromExceptions(IPs []string, isPersistant bool) error {
 	toRemoveIPs := make([]string, 0, len(IPs))
 	for _, ip := range IPs {
 		if persVal, exists := allowedHosts[ip]; exists {
-			if persVal != isPersistant {
+			if persVal != isPersistent {
 				continue
 			}
 			delete(allowedHosts, ip) // remove from map
@@ -332,7 +332,7 @@ func removeHostsFromExceptions(IPs []string, isPersistant bool) error {
 }
 
 // removeAllHostsFromExceptions - Remove hosts (which are related to a current connection) from exceptions
-// Note: some exceptions should stay without changes, they are marked as 'persistant'
+// Note: some exceptions should stay without changes, they are marked as 'persistent'
 //
 //	(has 'true' value in allowedHosts; eg.: LAN and Multicast connectivity)
 func removeAllHostsFromExceptions() error {
@@ -340,8 +340,8 @@ func removeAllHostsFromExceptions() error {
 	for ipStr := range allowedHosts {
 		toRemoveIPs = append(toRemoveIPs, ipStr)
 	}
-	isPersistant := false
-	return removeHostsFromExceptions(toRemoveIPs, isPersistant)
+	isPersistent := false
+	return removeHostsFromExceptions(toRemoveIPs, isPersistent)
 }
 
 func implSingleDnsRuleOff() (retErr error) {
@@ -351,3 +351,5 @@ func implSingleDnsRuleOff() (retErr error) {
 func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 	return nil // nothing to do for this platform
 }
+
+func implTopFirewallPriority() bool { return true } // nothing to do on OSX

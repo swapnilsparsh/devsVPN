@@ -12,7 +12,7 @@
 HOST=$1
 PORT=$2
 
-EXPECTED_CN=privateline.io
+EXPECTED_CN="privateline\.(io|dev)"
 
 WORKDIR=`mktemp -td privateline_cert_hashesXXXX`
 pushd "$WORKDIR"																			|| { RET=$?; >&2 echo "ERROR $RET pushd $WORKDIR"; exit $RET; }
@@ -33,7 +33,7 @@ for CERT in cert.*.pem ; do
 	# Only process if Subject includes privateline.io
 	SUBJ=`openssl x509 -noout -subject -in $CERT`
 	echo -e "Subject:\t$SUBJ"
-	echo $SUBJ | grep -Fq ${EXPECTED_CN} || { echo "Subject doesn't contain '${EXPECTED_CN}', skipping"; continue; }
+	echo $SUBJ | grep -Eq "${EXPECTED_CN}" || { echo "Subject doesn't contain '${EXPECTED_CN}', skipping"; continue; }
 
 	# Extract public key from certificate in DER format
 	openssl x509 -in $CERT -inform pem -pubkey -noout |\
