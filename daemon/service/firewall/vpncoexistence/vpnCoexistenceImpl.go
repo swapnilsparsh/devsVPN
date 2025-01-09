@@ -10,12 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
@@ -79,11 +79,11 @@ func parseFirstWordOfAName(name, label string) (firstWord string) {
 		return ""
 	}
 	if len(firstWord) < MIN_BRAND_FIRST_WORD_LEN {
-		log.ErrorFE("error - trying to guess service name for other VPN %s name '%s', but first word '%s' is too short", label, name, firstWord)
+		log.Warning("warning - trying to guess service name for other VPN " + label + " name '" + name + "', but first word '" + firstWord + "' is too short, ignoring")
 		return ""
 	}
 	if invalidServiceNamePrefixes.Contains(firstWord) {
-		log.ErrorFE("error - first word in the other VPN %s name, '%s', is in forbidden list; not using it to guess service names", label, firstWord)
+		log.Warning("warning - first word in the other VPN " + label + " name, '" + firstWord + "', is in forbidden list, ignoring")
 		return ""
 	}
 	return firstWord
@@ -92,7 +92,7 @@ func parseFirstWordOfAName(name, label string) (firstWord string) {
 func lookupOtherVpnProvider(otherVpnProviderKey syscall.GUID, manager *winlib.Manager) (otherVpnProviderFound bool, otherVpnProvider winlib.ProviderInfo, otherVpnProviderName1stWord string) {
 	var err error
 
-	if reflect.DeepEqual(otherVpnProviderKey, zeroGUID) {
+	if helpers.IsZeroGUID(otherVpnProviderKey) {
 		log.Warning(errors.New("warning - provider key/UUID is zeroes, ignoring it"))
 		return false, winlib.ProviderInfo{}, ""
 	}

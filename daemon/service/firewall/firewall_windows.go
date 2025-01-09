@@ -30,6 +30,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
@@ -1277,6 +1278,28 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 	*/
 }
 
+// Try to figure out the name of the other VPN:
+//   - if sublayer name is not a GUID, then use it
+//   - if sublayer name is a GUID, then try to lookup provider; if its name is not empty - then use it
+//   - else use sublayer name
+func getOtherVpnInfo(_otherSublayerGUID syscall.GUID) (otherVpnName, otherVpnDescription string, err error) {
+	otherSublayerFound, otherSublayer, err := manager.GetSubLayerByKey(_otherSublayerGUID)
+	if err != nil || !otherSublayerFound {
+		return "", "", err
+	}
+
+	if !helpers.IsAGuidString(otherSublayer.Name) || helpers.IsZeroGUID(otherSublayer.ProviderKey) {
+		return otherSublayer.Name, otherSublayer.Description, nil
+	}
+
+	// if sublayer name is a GUID, try to lookup provider name instead
+	if providerFound, providerInfo, err := manager.GetProviderInfo(otherSublayer.ProviderKey); err != nil || !providerFound || providerInfo.Name == "" {
+		return otherSublayer.Name, otherSublayer.Description, err
+	} else {
+		return providerInfo.Name, otherSublayer.Description, nil
+	}
+}
+
 func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
 	if recursionDepth == 0 { // start WFP transaction on the 1st recursion call
 		if retErr = manager.TransactionStart(); retErr != nil {
@@ -1333,12 +1356,8 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 	}
 	if otherSublayerFound {
 		otherVpnID = windows.GUID(_otherSublayerGUID).String()
-		var otherSublayer winlib.SubLayer
-		if otherSublayerFound, otherSublayer, retErr = manager.GetSubLayerByKey(_otherSublayerGUID); retErr == nil && otherSublayerFound {
-			otherVpnName = otherSublayer.Name
-			otherVpnDescription = otherSublayer.Description
-		}
-		return false, otherVpnID, otherVpnName, otherVpnDescription, nil
+		otherVpnName, otherVpnDescription, retErr = getOtherVpnInfo(_otherSublayerGUID)
+		return false, otherVpnID, otherVpnName, otherVpnDescription, retErr
 	}
 
 	if recursionDepth >= 2 { // terminate the recursion finally

@@ -20,10 +20,6 @@ const (
 	// MAX_WINDOWS_SERVICE_CANDIDATES = 10
 )
 
-var (
-	zeroGUID = syscall.GUID{}
-)
-
 type otherVpnCliCmds struct {
 	cmdStatus            string
 	statusConnectedRE    string
