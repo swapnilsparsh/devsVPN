@@ -15,6 +15,8 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
+var ZeroGUID = syscall.GUID{}
+
 const (
 	MIN_BRAND_FIRST_WORD_LEN = 4 // first word must be at least 4 characters long to be a candidate for brand name
 	// MAX_WINDOWS_SERVICE_CANDIDATES = 10

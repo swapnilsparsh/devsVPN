@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"reflect"
 	"slices"
 	"sync"
 	"syscall"
@@ -1288,7 +1289,7 @@ func getOtherVpnInfo(_otherSublayerGUID syscall.GUID) (otherVpnName, otherVpnDes
 		return "", "", err
 	}
 
-	if !helpers.IsAGuidString(otherSublayer.Name) || helpers.IsZeroGUID(otherSublayer.ProviderKey) {
+	if !helpers.IsAGuidString(otherSublayer.Name) || reflect.DeepEqual(otherSublayer.ProviderKey, vpncoexistence.ZeroGUID) {
 		return otherSublayer.Name, otherSublayer.Description, nil
 	}
 

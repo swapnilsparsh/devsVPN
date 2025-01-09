@@ -10,12 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 
-	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
@@ -92,7 +92,7 @@ func parseFirstWordOfAName(name, label string) (firstWord string) {
 func lookupOtherVpnProvider(otherVpnProviderKey syscall.GUID, manager *winlib.Manager) (otherVpnProviderFound bool, otherVpnProvider winlib.ProviderInfo, otherVpnProviderName1stWord string) {
 	var err error
 
-	if helpers.IsZeroGUID(otherVpnProviderKey) {
+	if reflect.DeepEqual(otherVpnProviderKey, ZeroGUID) {
 		log.Warning(errors.New("warning - provider key/UUID is zeroes, ignoring it"))
 		return false, winlib.ProviderInfo{}, ""
 	}
