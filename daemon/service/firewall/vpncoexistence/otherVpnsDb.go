@@ -54,8 +54,9 @@ var (
 	// "Surfshark Service", "Surfshark WireGuard"
 
 	// must keep both lists in sync
-	defaultServiceNamePrefixesToTry mapset.Set[string] = mapset.NewSet[string]("mullvad", "expressvpn", "surfshark", "nord", "proton", "ivpn", "hideme")
-	defaultServiceNamesPrefixesRE                      = regexp.MustCompile("(?i)^(mullvad|expressvpn|surfshark|nord|proton|ivpn|hideme)") // (?i) for case-insensitive matching
+	defaultServiceNamePrefixesToTry mapset.Set[string] = mapset.NewSet[string]("mullvad", "expressvpn", "surfshark", "nord", "proton", "ivpn", "hideme", "mozillavpn", "windscribe", "ipvcallout", "ipvan", "cyberghost", "proton", "tunnelbear")
+	// (?i) for case-insensitive matching
+	defaultServiceNamesPrefixesRE = regexp.MustCompile("(?i)^(mullvad|expressvpn|surfshark|nord|proton|ivpn|hideme|mozillavpn|windscribe|ipv(callout|an)|cyberghost|proton|tunnelbear)")
 
 	// other VPNs known to us
 
