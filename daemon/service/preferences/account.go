@@ -48,7 +48,7 @@ type AccountStatus struct {
 	UpgradeToURL        string
 	DeviceManagement    bool
 	DeviceManagementURL string
-	Limit               int
+	DeviceLimit         int
 }
 
 func (a AccountStatus) IsInitialized() bool {

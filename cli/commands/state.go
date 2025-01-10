@@ -75,6 +75,7 @@ func showState() error {
 
 	w := printAccountInfo(nil, _proto.GetHelloResponse().Session.AccountID)
 	printState(w, state, connected, serverInfo, exitServerInfo, _proto.GetHelloResponse())
+	printRestApiState(w, _proto.GetHelloResponse().DevRestApiBackend)
 	if state == vpn.CONNECTED {
 		printDNSState(w, connected.Dns, &servers)
 	}

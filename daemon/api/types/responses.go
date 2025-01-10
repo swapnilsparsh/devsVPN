@@ -60,7 +60,7 @@ type ServiceStatusAPIResp struct {
 	UpgradeToURL        string   `json:"upgrade_to_url"`
 	DeviceManagement    bool     `json:"device_management"`
 	DeviceManagementURL string   `json:"device_management_url"` // applicable for 'session limit' error
-	Limit               int      `json:"limit"`                 // applicable for 'session limit' error
+	DeviceLimit         int      `json:"device_limit"`          // applicable for 'session limit' error
 
 	HttpStatusCode int // manually set by parsers
 }

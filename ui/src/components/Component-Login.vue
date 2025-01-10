@@ -19,7 +19,7 @@
           <div style="height: 21px" />
           <!-- <div v-if="isAccountIdLogin" style="position: relative; display: flex; align-items: center">
             <input ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
-              placeholder="Account ID a-XXXX-XXXX-XXXX" :type="passwordType" @keyup="keyup($event)" />
+              placeholder="Account ID XXXX-XXXX-XXXX" :type="passwordType" @keyup="keyup($event)" />
             <img v-if="showPassword" src="@/assets/eye-close.svg" alt="Eye Image" style="
                 width: 20px;
                 height: 20px;
@@ -36,12 +36,12 @@
               " @click="toggleEye" />
 
           </div> -->
-          <!-- ============ a- prefill feature start ============= -->
+          <!-- ============ account ID formatting feature start ============= -->
           <div v-if="isAccountIdLogin" style="position: relative; display: flex; align-items: center">
             <input ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
-              placeholder="Account ID a-XXXX-XXXX-XXXX" :type="'text'" @keyup="keyup($event)" />
+              placeholder="Account ID XXXX-XXXX-XXXX" :type="'text'" @keyup="keyup($event)" />
           </div>
-          <!-- ============ a- prefill feature end ============= -->
+          <!-- ============ account ID formatting feature end ============= -->
 
           <!--
           <input v-if="!isAccountIdLogin" ref="email" v-model="email" class="styledBig" style="text-align: left"
@@ -104,6 +104,8 @@
         :isProgress="firewallIsProgress"
       />
     </div> -->
+
+    <FooterBlock/>
   </div>
 </template>
 
@@ -113,6 +115,8 @@ import SwitchProgress from "@/components/controls/control-switch-small2.vue";
 
 import { IsOsDarkColorScheme } from "@/helpers/renderer";
 import { ColorTheme } from "@/store/types";
+
+import FooterBlock from "./blocks/block-footer.vue";
 
 const sender = window.ipcSender;
 const ipcRenderer = sender.GetSafeIpcRenderer();
@@ -138,6 +142,7 @@ export default {
   components: {
     spinner,
     SwitchProgress,
+    FooterBlock,
   },
   props: {
     forceLoginAccount: {
@@ -285,11 +290,11 @@ export default {
 
         this.isProcessing = true;
         if (this.isAccountIdLogin) {
-          const pattern = new RegExp("^a-([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$");
+          const pattern = new RegExp("^([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$");
           if (this.accountID) this.accountID = this.accountID.trim();
           if (!pattern.test(this.accountID)) {
             throw new Error(
-              "Invalid account ID. Your account ID has to be in 'a-XXXX-XXXX-XXXX' format. Please check your account ID and try again."
+              "Invalid account ID. Your account ID has to be in 'XXXX-XXXX-XXXX' format. Please check your account ID and try again."
             );
           }
         } else {
@@ -334,21 +339,14 @@ export default {
         //const accountInfoResponse = await sender.AccountInfo();
         //console.log("accountInfoResponse", accountInfoResponse);
 
-        if (resp.APIStatus === 426) {
+        if (resp.APIStatus === 426 || resp.APIStatus === 412) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to login",
             detail:
-              "We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
-          });
-        } else if (resp.APIStatus === 412) {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to login",
-            detail:
-              "We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
+              resp.APIErrorMessage +
+              "\n\nWe are sorry - we are unable to add this device to your account, because you already registered a maximum number of devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
           });
         } else if (resp.APIErrorMessage == "Device limit of 5 reached") {
           sender.showMessageBoxSync({
@@ -400,7 +398,7 @@ export default {
         //       state: {
         //         params: {
         //           accountID: this.accountID,
-        //           devicesMaxLimit: resp.Account.Limit,
+        //           devicesMaxLimit: resp.Account.DeviceLimit,
         //           CurrentPlan: resp.Account.CurrentPlan,
         //           PaymentMethod: resp.Account.PaymentMethod,
         //           Upgradable: resp.Account.Upgradable,
@@ -465,18 +463,14 @@ export default {
 
     // },
     keyup(event) {
-      // Ensure the input starts with "a-"
+      // Sanitize input
       let input = this.accountID || '';
-      if (!input.startsWith("a-")) {
-        input = `a-`;
-      }
-      const prefix = "a-";
-      const sanitized = input.replace(/^a-/, '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
-      // Limit to 12 characters after "a-" and format as XXXX-XXXX-XXXX
-      const formatted = sanitized.substring(0, 12).match(/.{1,4}/g)?.join('-') || '';
+      // Sanitize - leave only allowed characters. Characters '0', 'O', 'I' are forbidden.
+      const sanitized = input.toUpperCase().replace(/[^1-9A-HJ-NP-Z]/gi, '');
 
-      this.accountID = `${prefix}${formatted}`;
+      // Limit to 12 characters and format as XXXX-XXXX-XXXX
+      this.accountID = sanitized.substring(0, 12).match(/.{1,4}/g)?.join('-') || '';
 
       // Enter key pressed
       if (event.key === 'Enter' && !this.isProcessing && !this.$store.getters["account/isLoggedIn"]) {

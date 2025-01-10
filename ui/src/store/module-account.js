@@ -37,7 +37,7 @@ export default {
       UpgradeToURL: "",
       DeviceManagement: false,
       DeviceManagementURL: "", // applicable for 'session limit' error
-      Limit: 0, // applicable for 'session limit' error
+      DeviceLimit: 0, // applicable for 'session limit' error
     },
   },
 

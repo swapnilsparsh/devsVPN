@@ -1389,6 +1389,12 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
+		// First logout quietly before switching
+		if err := p._service.SessionDelete(true, false); err != nil {
+			p.sendErrorResponse(conn, reqCmd, log.ErrorFE("error logging out before switching REST API backend: %w", err))
+			break
+		}
+
 		if err := p._service.SetRestApiBackend(req.IsDevEnv); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 			break
@@ -1628,7 +1634,7 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 					log.Warning(err)
 				}
 
-				err = log.ErrorE(errors.New("Error - this device is not found under this user account. Maybe you deleted this device accidentally? You need to login again."), 0)
+				err = log.ErrorE(errors.New("Error - this device is not found under this user account. Maybe you deleted this device accidentally? You need to login again"), 0)
 			}
 		}
 	}

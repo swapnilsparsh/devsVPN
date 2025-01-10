@@ -227,8 +227,8 @@ export default {
         this.$store.state.account.session.AccountID !== ""
       ) {
         const accountId = this.$store.state.account.session.AccountID;
-        // Check if accountId matches the pattern a-XXXX-XXXX-XXXX. Characters '0', 'O', 'I' are forbidden.
-        const accountIdPattern = /^a-([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$/;
+        // Check if accountId matches the pattern XXXX-XXXX-XXXX. Characters '0', 'O', 'I' are forbidden.
+        const accountIdPattern = /^([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$/;
         value = accountIdPattern.test(accountId);
       }
 
@@ -376,7 +376,7 @@ export default {
           type: "error",
           buttons: ["OK"],
           message: "API Error",
-          detail: `Subscription data couldn't be fetched at this momemnt, please check your internet connection!`,
+          detail: `Subscription data couldn't be fetched at this moment, please check your internet connection!`,
         });
       } finally {
         this.isSubscriptionProcessing = false;

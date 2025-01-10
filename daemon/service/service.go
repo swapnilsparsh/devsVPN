@@ -1440,6 +1440,10 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 	return ret, nil
 }
 
+func (s *Service) splitTunnelCheckConditions(splitTunIsEnabled, splitTunIsInversed bool) (ok bool, err error) {
+	return s.implSplitTunnelling_CheckConditions(splitTunIsEnabled, splitTunIsInversed)
+}
+
 func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhitelist, isAnyDns, isAllowWhenNoVpn, reset bool) error {
 	// Vlad: for App Whitelist feature we keep inversed mode always on
 	isInversed = true
@@ -1476,10 +1480,12 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhit
 	// 	}
 	// }
 
+	// requirements to enable Split Tunnel differ by platform
 	if isEnabled && isInversed {
-		// if we are going to enable INVERSE SplitTunneling - ensure that Firewall is disabled
-		if enabled, _ := s.FirewallEnabled(); enabled {
-			return fmt.Errorf("unable to activate Inverse Split Tunnel: the Firewall is enabled; please, disable IVPN Firewall first")
+		if splitTunConditionsGood, err := s.splitTunnelCheckConditions(isEnabled, isInversed); err != nil {
+			return fmt.Errorf("error checking conditions for Split tunnel: isEnabled=%t isInversed=%t: %w", isEnabled, isInversed, err)
+		} else if !splitTunConditionsGood {
+			return fmt.Errorf("error - conditions not met for Split tunnel: isEnabled=%t isInversed=%t", isEnabled, isInversed)
 		}
 
 		// if we are going to allow any DNS in INVERSE SplitTunneling mode - ensure that custom DNS and AntiTracker is disabled
@@ -1620,7 +1626,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 		IPv6Endpoint: ipv6Endpoint,
 	}
 
-	// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servrers or to manually defined server
+	// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servers or to manually defined server
 	if err := firewall.SingleDnsRuleOff(); err != nil { // disable custom DNS rule (if exists)
 		log.Error(err)
 	}
@@ -1761,11 +1767,13 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 			var customMessage string
 			switch apiCode {
 			case 426:
-				log.Debug("================================ 426: ================================", err)
-				customMessage = fmt.Sprintf("We are sorry - we are unable to add an additional device to your account, because you already registered a maximum of N devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices. %s", err)
 			case 412:
-				log.Debug("================================ 412: ================================", err)
-				customMessage = fmt.Sprintf("We are sorry - your free account only allows to use one device. You can upgrade your subscription at https://privateline.io/order in order to be able to use more devices. %s", err)
+				log.Debug("================================ "+strconv.Itoa(apiCode)+": ================================", err)
+				customMessage = fmt.Sprintf("We are sorry - we are unable to add an additional device to your account, because you already registered a "+
+					"maximum of %d devices possible under your current subscription. You can go to your device list on our website "+
+					"(https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade"+
+					" your subscription at https://privateline.io/order in order to be able to use more devices. %s",
+					s._preferences.Account.DeviceLimit, err)
 			default:
 				log.Debug("================================ Default error ================================", err)
 				customMessage = fmt.Sprintf("Logging in - FAILED: %s", err)
@@ -2409,7 +2417,7 @@ func (s *Service) createAccountStatus(apiResp api_types.ServiceStatusAPIResp) pr
 		UpgradeToURL:        apiResp.UpgradeToURL,
 		DeviceManagement:    apiResp.DeviceManagement,
 		DeviceManagementURL: apiResp.DeviceManagementURL,
-		Limit:               apiResp.Limit}
+		DeviceLimit:         apiResp.DeviceLimit}
 }
 
 func (s *Service) startSessionChecker() {

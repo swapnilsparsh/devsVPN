@@ -146,10 +146,10 @@ func (a *API) getUpdateHost() string { return RestApiHostsSet[a.currentRestApiBa
 func (a *API) SetRestApiBackend(devEnv bool) {
 	if devEnv {
 		a.currentRestApiBackend = DevelopmentEnv
-		log.Debug("Enabling ***Development*** REST API backend servers")
+		log.Debug(fmt.Sprintf("Switched to Development REST API backend servers: %+v", RestApiHostsSet[a.currentRestApiBackend]))
 	} else {
 		a.currentRestApiBackend = ProductionEnv
-		log.Debug("Enabling Production (default) REST API backend servers")
+		log.Debug(fmt.Sprintf("Switched to Production (default) REST API backend servers: %+v", RestApiHostsSet[a.currentRestApiBackend]))
 	}
 }
 
@@ -413,8 +413,17 @@ func (a *API) SessionNew(emailOrAcctID string, password string) (
 		}
 		apiPath = _sessionNewPath
 	} else { // passwordless login
+		// Account ID must not have "a-" prefix, per PLCON-52
+		// TODO FIXME: Vlad - for now production backend requires "a-" prefix, and dev backend requires that there's no "a-" prefix
+		acctID := emailOrAcctID
+		if a.currentRestApiBackend != ProductionEnv {
+			acctID = strings.TrimPrefix(acctID, "a-")
+		} else if !strings.HasPrefix(acctID, "a-") {
+			acctID = "a-" + acctID
+		}
+
 		request = &types.SessionNewRequest{
-			AccountID: emailOrAcctID,
+			AccountID: acctID,
 		}
 		apiPath = _sessionNewPasswordlessPath
 	}

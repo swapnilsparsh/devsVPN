@@ -79,6 +79,18 @@ func (s *Service) implPingServersStopped(hosts []net.IP) error {
 	return firewall.RemoveHostsFromExceptions(hosts, onlyForICMP, isPersistent)
 }
 
+// on Linux we need firewall off for now
+func (s *Service) implSplitTunnelling_CheckConditions(splitTunIsEnabled, splitTunIsInversed bool) (ok bool, err error) {
+	if splitTunIsEnabled && splitTunIsInversed {
+		// if we are going to enable INVERSE SplitTunneling - ensure that Firewall is disabled
+		if enabled, _ := s.FirewallEnabled(); enabled {
+			return false, fmt.Errorf("unable to activate Inverse Split Tunnel: the Firewall is enabled; please, disable privateLINE Firewall first")
+		}
+	}
+
+	return true, nil
+}
+
 func (s *Service) implSplitTunnelling_AddApp(execCmd string) (requiredCmdToExec string, isAlreadyRunning bool, err error) {
 	// if !s._preferences.IsSplitTunnel {
 	// 	return "", false, fmt.Errorf("unable to run application in Split Tunnel environment: Split Tunnel is disabled")
