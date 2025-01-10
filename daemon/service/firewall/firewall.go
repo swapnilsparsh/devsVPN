@@ -186,7 +186,7 @@ func GetEnabled() (bool, error) {
 	if err != nil {
 		log.Error("Status check error: ", err)
 	}
-	log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t", ret, stateAllowLan, stateAllowLanMulticast))
+	log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t totalShieldEnabled:%t", ret, stateAllowLan, stateAllowLanMulticast, implTotalShieldEnabled()))
 
 	return ret, err
 }
@@ -203,7 +203,7 @@ func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, weHaveTopFire
 	if weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err = implHaveTopFirewallPriority(0); err != nil {
 		log.Error(fmt.Errorf("error checking whether we have top firewall priority: %w", err))
 	}
-	log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t", ret, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast))
+	log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t totalShieldEnabled:%t", ret, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast, implTotalShieldEnabled()))
 
 	return ret, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err
 }
@@ -262,6 +262,17 @@ func DeployPostConnectionRules(async bool) (retErr error) {
 
 		return implDeployPostConnectionRules()
 	}
+}
+
+func TotalShieldEnabled() bool {
+	return implTotalShieldEnabled()
+}
+
+func TotalShieldApply(totalShieldEnabled bool) (err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return implTotalShieldApply(totalShieldEnabled)
 }
 
 // ClientConnected - allow communication for local vpn/client IP address

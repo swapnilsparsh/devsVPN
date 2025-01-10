@@ -1645,7 +1645,11 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	}
 
 	// Apply Split-Tun config
-	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
+	if runtime.GOOS == "windows" {
+		return firewall.TotalShieldApply(!prefs.IsSplitTunnel) // TODO: Vlad - on Windows go to firewall instead
+	} else {
+		return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
+	}
 }
 
 func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAlreadyRunning bool, err error) {
