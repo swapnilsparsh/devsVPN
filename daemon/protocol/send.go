@@ -116,7 +116,7 @@ func (p *Protocol) sendError(conn net.Conn, errorText string, cmdIdx int) {
 }
 
 func (p *Protocol) sendErrorResponse(conn net.Conn, request types.RequestBase, err error) {
-	log.Error(fmt.Sprintf("%sError processing request '%s': %w", p.connLogID(conn), request.Command, err))
+	log.Error(fmt.Errorf("%sError processing request '%s': %w", p.connLogID(conn), request.Command, err))
 	p.sendResponse(conn, &types.ErrorResp{ErrorMessage: helpers.CapitalizeFirstLetter(err.Error())}, request.Idx)
 }
 

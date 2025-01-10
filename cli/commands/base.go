@@ -141,6 +141,20 @@ func printDNSState(w *tabwriter.Writer, dnsStatus types.DnsStatus, servers *apit
 	return w
 }
 
+func printRestApiState(w *tabwriter.Writer, usingDevRestApiBackend bool) *tabwriter.Writer {
+	if w == nil {
+		w = tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	}
+
+	if !usingDevRestApiBackend {
+		fmt.Fprintf(w, "    REST API\t:\t%v\n", "Production (default)")
+	} else {
+		fmt.Fprintf(w, "    REST API\t:\t%v\n", "Development")
+	}
+
+	return w
+}
+
 func printFirewallState(w *tabwriter.Writer, isEnabled, isPersistent, isAllowLAN, isAllowMulticast, isAllowApiServers, weHaveTopFirewallPriority bool, userExceptions string, vpnState *vpn.State) *tabwriter.Writer {
 	if w == nil {
 		w = tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)

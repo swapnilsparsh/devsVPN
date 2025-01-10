@@ -17,6 +17,16 @@
             >
               <img src="@/assets/menu.svg" />
             </button>
+
+            <button
+              v-if="!isLoggedIn"
+              @click="onSettings"
+              title="Menu"
+              class="menu-button"
+            >
+              <img src="@/assets/menu.svg" />
+            </button>
+
             <!-- <button
               v-if="isLoggedIn"
               @click="toggleMenu"

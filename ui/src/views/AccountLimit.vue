@@ -2,7 +2,7 @@
   <div id="main" class="row">
     <div id="leftPanel">
       <div style="margin: 20px">
-        <div class="large_text">Devices limit reached</div>
+        <div class="large_text">Device limit reached</div>
         <div style="height: 22px"></div>
         <div class="small_text">
           According to your subscription plan you can use your privateLINE account only

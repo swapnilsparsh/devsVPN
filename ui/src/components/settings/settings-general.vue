@@ -211,11 +211,11 @@
         Beta
       </button>
       <button
-        v-on:click="onDiagnosticViewDevTesting"
+        v-on:click="onDiagnosticViewDebug"
         class="selectableButtonOff"
-        v-bind:class="{ selectableButtonOn: diagnosticViewIsDevTesting }"
+        v-bind:class="{ selectableButtonOn: diagnosticViewIsDebug }"
       >
-        Dev Testing
+        Debug
       </button>
 
       <button
@@ -247,9 +247,7 @@
         <div>
           <div class="param">
             <input type="checkbox" id="beta" v-model="beta" />
-            <label class="defColor" for="beta"
-              >Notify beta version updates</label
-            >
+            <label class="defColor" for="beta">Notify beta version updates</label>
           </div>
           <div class="description">
             Beta versions can break and change often
@@ -259,19 +257,19 @@
         <div class="flexRowRestSpace"></div>
       </div>
 
-      <!-- TAB-view (diagnostic): dev testing settings -->
-      <div v-if="diagnosticViewIsDevTesting" class="flexRow">
+      <!-- TAB-view (diagnostic): debug (developer) settings -->
+      <div v-if="diagnosticViewIsDebug" class="flexRow">
         <div>
-          <div class="param">
-            <input type="checkbox" id="devRestApi" v-model="devRestApi" />
-            <label class="defColor" for="devRestApi"
-              >Use development REST API servers</label
-            >
+          <div class="warning">
+            Warning: Debug settings are not intended to be changed by customers
           </div>
-          <div class="description">
-            These settings are for internal testing, should not be used by customers
+          <!--<div class="flexRowRestSpace"></div>-->
+          <div>
+            <div class="param">
+              <input type="checkbox" id="devRestApi" v-model="devRestApi" />
+              <label class="defColor" for="devRestApi">Use development REST API servers</label>
+            </div>
           </div>
-          <div class="flexRowRestSpace"></div>
         </div>
       </div>
       
@@ -334,8 +332,8 @@ export default {
     onDiagnosticViewBeta() {
       this.diagnosticView = "beta";
     },
-    onDiagnosticViewDevTesting() {
-      this.diagnosticView = "devTesting";
+    onDiagnosticViewDebug() {
+      this.diagnosticView = "debug";
     },
 
     async isAutoconnectOnLaunchOnClick(evt) {
@@ -579,8 +577,8 @@ export default {
     diagnosticViewIsBeta() {
       return this.diagnosticView === "beta";
     },
-    diagnosticViewIsDevTesting() {
-      return this.diagnosticView === "devTesting";
+    diagnosticViewIsDebug() {
+      return this.diagnosticView === "debug";
     },
   },
 };
@@ -630,4 +628,10 @@ select {
   border-radius: 3.5px;
   width: 186px;
 }
+
+.warning {
+  color: rgb(251, 24, 24);
+  font-weight: bold;
+}
+
 </style>

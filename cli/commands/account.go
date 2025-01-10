@@ -270,8 +270,8 @@ func checkStatus() error {
 		fmt.Fprintln(w, fmt.Sprintf("Plan:\t%v", acc.CurrentPlan))
 	}
 	fmt.Fprintln(w, fmt.Sprintf("Active until:\t%v", time.Unix(acc.ActiveUntil, 0)))
-	if stat.Account.Limit > 0 {
-		fmt.Fprintln(w, fmt.Sprintf("Devices limit:\t%v", acc.Limit))
+	if stat.Account.DeviceLimit > 0 {
+		fmt.Fprintln(w, fmt.Sprintf("Device limit:\t%v", acc.DeviceLimit))
 	}
 	if acc.Upgradable == true && len(acc.UpgradeToPlan) > 0 && len(acc.UpgradeToURL) > 0 {
 		fmt.Fprintln(w, fmt.Sprintf("Upgrade to:\t%v (%v)", acc.UpgradeToPlan, acc.UpgradeToURL))

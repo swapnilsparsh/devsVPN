@@ -133,7 +133,7 @@ func ParseOtherVpn(otherSublayerFound bool, otherSublayer *winlib.SubLayer, mana
 	if !otherSublayerFound { // if VPN is neither known by GUID, nor do we have sublayer (to try guessing by its name and/or its provider name) - we can only try default service names
 		log.Error(errors.New("other VPN '" + windows.GUID(otherSublayer.Key).String() + "' is not known to us"))
 		otherVpnInfoParsed = &OtherVpnInfoParsed{false, false, false, nil, []*mgr.Service{}, OtherVpnInfo{name: windows.GUID(otherSublayer.Key).String()}}
-		serviceNameRegex = defaultServiceNamesPrefixesRE
+		serviceNameRegex = otherVpnDefaultServiceNamePrefixesRE
 		goto ParseOtherVpn_CheckingStage2_FindRunningMatchingServices
 	}
 
@@ -157,19 +157,14 @@ ParseOtherVpn_CheckingStage1_serviceNameRegexPrep:
 			log.ErrorFE("error compiling regular expression from other VPN name prefix '%s': %w", otherVpnReadonly.namePrefix, err)
 			goto ParseOtherVpn_CheckingStage3_processCLI
 		}
-	} else { // Other VPN not in our DB
-		serviceNameRegexStr := "(?i)^(" // (?i) for case-insensitive matching
+	} else { // Other VPN not in our DB, so try matching the Windows service names against the list of default service name prefixes
+		serviceNameRegexStr := otherVpnDefaultServiceNameBrandsRegexStart
 
-		// ... so try matching the Windows service names against the list of default service name prefixes
-		for defaultSvcName := range defaultServiceNamePrefixesToTry.Iterator().C {
-			serviceNameRegexStr += defaultSvcName + "|"
-		}
-
-		// ... also match by 1st word of the other VPN sublayer name, provider name, if we know them
-		if sublayerName1stWord != "" && !defaultServiceNamePrefixesToTry.Contains(sublayerName1stWord) {
+		// ... also try matching by 1st word of the other VPN sublayer name, provider name, if we know them
+		if sublayerName1stWord != "" && !otherVpnDefaultServiceNamePrefixesToTry.Contains(sublayerName1stWord) {
 			serviceNameRegexStr += sublayerName1stWord + "|"
 		}
-		if providerName1stWord != "" && !defaultServiceNamePrefixesToTry.Contains(providerName1stWord) {
+		if providerName1stWord != "" && !otherVpnDefaultServiceNamePrefixesToTry.Contains(providerName1stWord) {
 			serviceNameRegexStr += providerName1stWord + "|"
 		}
 

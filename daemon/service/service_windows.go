@@ -55,6 +55,23 @@ func (s *Service) implPingServersStopped(hosts []net.IP) error {
 	return nil
 }
 
+// on Windows we require inverse=on firewall=on
+func (s *Service) implSplitTunnelling_CheckConditions(splitTunIsEnabled, splitTunIsInversed bool) (ok bool, err error) {
+	if !splitTunIsEnabled {
+		return true, nil
+	}
+
+	if !splitTunIsInversed {
+		return false, fmt.Errorf("unable to activate Split Tunnel: Inverse mode must be always on Windows")
+	}
+
+	if enabled, _ := s.FirewallEnabled(); !enabled {
+		return false, fmt.Errorf("unable to activate Split Tunnel: firewall must be enabled on Windows before enabling split tunnel")
+	}
+
+	return true, nil
+}
+
 func (s *Service) implSplitTunnelling_AddApp(binaryFile string) (requiredCmdToExec string, isAlreadyRunning bool, err error) {
 	binaryFile = strings.TrimSpace(binaryFile)
 	if len(binaryFile) <= 0 {

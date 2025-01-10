@@ -598,10 +598,10 @@ func (wg *WireGuard) isServiceInstalled() (bool, error) {
 // uninstall WireGuard service
 func (wg *WireGuard) uninstallService() error {
 	// NO parallel operations of serviceInstall OR serviceUninstall should be performed!
-	log.Debug("uninstallService(): NO parallel operations of serviceInstall OR serviceUninstall should be performed!. Before grabbing _globalInitMutex.Lock()")
+	log.Debug("uninstallService(): NO parallel operations of serviceInstall OR serviceUninstall should be performed!. Before grabbing _globalInitMutex")
 	_globalInitMutex.Lock()
 	defer _globalInitMutex.Unlock()
-	log.Debug("uninstallService(): After grabbing _globalInitMutex.Lock()")
+	log.Debug("uninstallService(): After grabbing _globalInitMutex")
 
 	// connect to service maneger
 	m, err := mgr.Connect()

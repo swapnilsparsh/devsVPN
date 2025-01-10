@@ -51,10 +51,15 @@ var (
 	// SurfShark uses random GUIDs for its sublayer 0xFFFF (named "WireGuard filters") and provider "WireGuard provider", so try its named services always
 	// "Surfshark Service", "Surfshark WireGuard"
 
-	// must keep both lists in sync
-	defaultServiceNamePrefixesToTry mapset.Set[string] = mapset.NewSet[string]("mullvad", "expressvpn", "surfshark", "nord", "proton", "ivpn", "hideme", "mozillavpn", "windscribe", "ipvcallout", "ipvan", "cyberghost", "proton", "tunnelbear")
-	// (?i) for case-insensitive matching
-	defaultServiceNamesPrefixesRE = regexp.MustCompile("(?i)^(mullvad|expressvpn|surfshark|nord|proton|ivpn|hideme|mozillavpn|windscribe|ipv(callout|an)|cyberghost|proton|tunnelbear)")
+	// Must keep both lists in sync. otherVpnDefaultServiceNamePrefixesToTry must contain literal words, not regular expressions.
+	otherVpnDefaultServiceNamePrefixesToTry mapset.Set[string] = mapset.NewSet[string]("mullvad", "expressvpn", "surfshark", "nord", "proton", "ivpn", "hideme",
+		"mozillavpn", "windscribe", "ipvcallout", "ipvan", "cyberghost", "proton", "tunnelbear", "vypervpn", "vyprvpn", "turbovpn", "cloudflarewarp",
+		"urbanvpn", "eddieelevation", "hshld", "hotspotshield", "privateinternetaccess", "hola")
+	// (?i) for case-insensitive matching, regex matching group not closed in this string - must be closed where used
+	otherVpnDefaultServiceNameBrandsRegexStart = "(?i)^(mullvad|expressvpn|surfshark|nord|proton|ivpn|hideme|mozillavpn|windscribe|ipv(callout|an)|" +
+		"cyberghost|proton|tunnelbear|vype?rvpn|turbovpn|cloudflarewarp|urbanvpn|eddie.?elevation|hshld|hotspotshield|privateinternetaccess|" +
+		"hola(.?vpn|[^a-z0-9]|$)|.*updater_.*_hola"
+	otherVpnDefaultServiceNamePrefixesRE = regexp.MustCompile(otherVpnDefaultServiceNameBrandsRegexStart + ")")
 
 	// other VPNs known to us
 
@@ -75,7 +80,7 @@ var (
 		},
 	}
 
-	// TODO FIXME: NordVPN CLI
+	// TODO: NordVPN CLI
 	// NordVPN
 	nordVpnSublayerKey = syscall.GUID{Data1: 0x92C759E5, Data2: 0x03BA, Data3: 0x41AD, Data4: [8]byte{0xA5, 0x99, 0x68, 0xAF, 0x2C, 0x1A, 0x17, 0xE5}}
 	nordVpnProfile     = OtherVpnInfo{

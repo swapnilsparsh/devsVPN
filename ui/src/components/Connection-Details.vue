@@ -89,7 +89,7 @@
         </div>
 
         <div v-if="isDevRestApiBackend" class="flexRow paramBlockDetailedConfig">
-          <div class="defColor paramName">REST API backend:</div>
+          <div class="defColor paramName">Network:</div>
           <div class="detailedParamValue">
             <div class="failedText">
               Development REST API servers
@@ -540,13 +540,10 @@ div.greenBlinkingDot {
 .failedText {
   color: rgb(251, 24, 24);
   font-weight: bold;
-
-
 }
 
 .goodText {
   color: rgb(34, 237, 34);
   font-weight: bold;
-
 }
 </style>

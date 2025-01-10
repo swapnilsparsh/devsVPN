@@ -27,7 +27,6 @@
               </button>
 
               <button
-                v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
                 v-on:click="onView('general')"
                 v-bind:class="{
