@@ -40,7 +40,7 @@ import (
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 )
 
-// TODO FIXME: Vlad - create types for Productio and Dev environments
+// TODO FIXME: Vlad - create types for Production and Dev environments
 type RestApiBackendType int
 
 const (
