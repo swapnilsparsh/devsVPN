@@ -368,53 +368,6 @@ export default {
           });
         }
 
-        console.log("finished login, checking abt migration of SSO accounts");
-        if (this.isAccountIdLogin)
-          return; // done here
-
-        // Handle migration of SSO accounts to account ID
-        const result = sender.showMessageBoxSync({
-          type: "info",
-          buttons: ["Migrate", "Do it later!"],
-          message: "Account Migration Notice",
-          detail: "We have migrated to a new login system supporting anonymous accounts. You can either migrate your account to the new system or continue using your existing SSO account.\n\n" +
-                  "With the new login system, your account will be converted to an anonymous account. Anonymous accounts do not require us to collect your email, phone number, or any other personal details, not even your name, ensuring a more private experience.\n\n" +
-                  "Concerned about your existing data? Rest assured, all your plan details, tunnels, and other information will remain completely safe and unchanged during the migration process. The only change will be to your account ID, which will be used solely for login — no password required.\n\n" +
-                  "Take this step today and enjoy a seamless, personalized experience tailored just for you!"
-        });
-
-        if (result === 1)
-          return; // user cancelled
-
-        const migrateSsoUserResp = await sender.MigrateSsoUser()
-        if (migrateSsoUserResp.APIErrorMessage != "") {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to migrate SSO account",
-            detail:
-              resp.APIErrorMessage +
-              "\n\nPlease contact tech support at support@privateline.io",
-          });
-        } else if (!migrateSsoUserResp.Status) {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to migrate SSO account",
-            detail:
-              "\n\nPlease contact tech support at support@privateline.io",
-          });
-        } else { // we're good, SSO account migrated to account ID
-          sender.showMessageBoxSync({
-            type: "info",
-            buttons: ["OK"],
-            message: "Account Migrated Successfully",
-            detail: `Your Account ID: ${migrateSsoUserResp.AccountID}. You can also view it under Settings/Account\n\n` + 
-                    "For future logins, simply use your account ID — no password needed.\n\n" + 
-                    "Please record the account ID and keep it secure — it's your sole identifier for using our service. No email or username is required, ensuring your anonymity. Do not share your account ID with anyone.",
-          });
-        }
-
         // this.isForceLogoutRequested = false;
 
         // const oldConfirmation2FA = this.confirmation2FA;

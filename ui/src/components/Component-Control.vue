@@ -184,6 +184,9 @@ export default {
     // Instead, watchers are in use: isMinimizedUI, isMultiHop
     //const resizeObserver = new ResizeObserver(this.recalcScrollButtonVisiblity);
     //resizeObserver.observe(this.$refs.scrollArea);
+
+    if (!this.IsAccIdLogin)
+        this.PromptToMigrateSsoUser();
   },
   data: function () {
     return {
@@ -224,6 +227,24 @@ export default {
     isMultiHop: function () {
       return this.$store.state.settings.isMultiHop;
     },
+    IsAccIdLogin: function () {
+      let value = false;
+
+      if (
+        this.IsSessionInfoReceived &&
+        this.$store.state.account != null &&
+        this.$store.state.account.session != null &&
+        this.$store.state.account.session.AccountID != null &&
+        this.$store.state.account.session.AccountID !== ""
+      ) {
+        const accountId = this.$store.state.account.session.AccountID;
+        // Check if accountId matches the pattern XXXX-XXXX-XXXX. Characters '0', 'O', 'I' are forbidden.
+        const accountIdPattern = /^([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$/;
+        value = accountIdPattern.test(accountId);
+      }
+
+      return value;
+    },
   },
 
   watch: {
@@ -251,6 +272,10 @@ export default {
     isMultiHop() {
       setTimeout(() => this.recalcScrollButtonVisiblity(), 1000);
     },
+    // IsAccIdLogin() {
+    //   if (!this.IsAccIdLogin)
+    //     this.PromptToMigrateSsoUser();
+    // },
   },
 
   methods: {
@@ -394,7 +419,70 @@ export default {
         behavior: "smooth",
       });
     },
+
+    async PromptToMigrateSsoUser() {
+      try {
+        console.log("entered PromptToMigrateSsoUser()");
+        if (this.IsAccIdLogin)
+          return; // nothing to do
+
+        // Handle migration of SSO accounts to account ID
+        const result = sender.showMessageBoxSync({
+          type: "info",
+          buttons: ["Migrate", "Do it later!"],
+          message: "Account Migration Notice",
+          detail: "We have migrated to a new login system supporting anonymous accounts. You can either migrate your account to the new system or continue using your existing SSO account.\n\n" +
+                  "With the new login system, your account will be converted to an anonymous account. Anonymous accounts do not require us to collect your email, phone number, or any other personal details, not even your name, ensuring a more private experience.\n\n" +
+                  "Concerned about your existing data? Rest assured, all your plan details, tunnels, and other information will remain completely safe and unchanged during the migration process. The only change will be to your account ID, which will be used solely for login — no password required.\n\n" +
+                  "Take this step today and enjoy a seamless, personalized experience tailored just for you!"
+        });
+
+        if (result === 1)
+          return; // user cancelled
+
+        const migrateSsoUserResp = await sender.MigrateSsoUser()
+        if (migrateSsoUserResp.APIErrorMessage != "") {
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Failed to migrate SSO account",
+            detail:
+              resp.APIErrorMessage +
+              "\n\nPlease login to your account at https://account.privateline.io and finish the migration process there",
+          });
+        } else if (!migrateSsoUserResp.Status) {
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Failed to migrate SSO account",
+            detail:
+              "\n\nPlease login to your account at https://account.privateline.io and finish the migration process there",
+          });
+        } else { // we're good, SSO account migrated to account ID
+          sender.showMessageBoxSync({
+            type: "info",
+            buttons: ["OK"],
+            message: "Account Migrated Successfully",
+            detail: `Your Account ID: ${migrateSsoUserResp.AccountID}. You can also view it under Settings/Account\n\n` + 
+                    "For future logins, simply use your account ID — no password needed.\n\n" + 
+                    "Please save the account ID and keep it secure — it's your sole identifier for using our service. No email or username is required, ensuring your anonymity. Do not share your account ID with anyone.",
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        sender.showMessageBoxSync({
+          type: "error",
+          buttons: ["OK"],
+          message: "Failed to migrate SSO account",
+          detail: `${e}` +
+            "\n\nPlease login to your account at https://account.privateline.io and finish the migration process there",
+        });
+      } finally {
+      }
+    },
+
   },
+  
 };
 </script>
 

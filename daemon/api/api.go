@@ -763,7 +763,7 @@ func (a *API) MigrateSsoUser(session string) (
 
 	request := &types.MigrateSsoUserRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 	resp = &types.MigrateSsoUserResponse{}
-	if err := a.request(a.getApiHost(), _migrateSsoUserPath, "GET", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost(), _migrateSsoUserPath, "POST", "application/json", request, resp); err != nil {
 		return nil, 0, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
