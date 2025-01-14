@@ -120,6 +120,10 @@ export default {
     );
   },
 
+  MigrateSsoUser: async () => {
+    return await invoke("renderer-request-MigrateSsoUser");
+  },
+
   AccountInfo: async () => {
     return await invoke("renderer-request-AccountInfo");
   },

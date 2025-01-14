@@ -231,6 +231,12 @@ type SsoLoginResp struct {
 	RawResponse     *api_types.SsoLoginResponse
 }
 
+type MigrateSsoUserResp struct {
+	CommandBase
+	Status    bool
+	AccountID string
+}
+
 type AccountInfo struct {
 	CommandBase
 	APIStatus       int

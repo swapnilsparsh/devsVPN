@@ -2189,6 +2189,33 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 
 // @@@@@@@  END ==============================================================================================================
 
+func (s *Service) MigrateSsoUser() (
+	apiCode int,
+	response *api_types.MigrateSsoUserResponse,
+	err error) {
+
+	prefs := s.Preferences()
+
+	// must be logged in
+	session := prefs.Session
+	if !session.IsLoggedIn() {
+		log.Error("we're not logged in yet, so not doing SSO user migration")
+		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
+	}
+
+	if response, apiCode, err = s._api.MigrateSsoUser(prefs.Session.Session); err != nil {
+		return apiCode, response, err
+	} else if !response.Status {
+		return 0, response, log.ErrorFE("error - migrateSsoUser request failed")
+	} else if !helpers.IsAValidAccountID(response.Data.Username) {
+		return 0, response, log.ErrorFE("error - returned account ID '%s' does not match expected account ID format 'XXXX-XXXX-XXXX'", response.Data.Username)
+	}
+
+	prefs.Session.AccountID = response.Data.Username // success
+	s.setPreferences(prefs)
+	return apiCode, response, err
+}
+
 func (s *Service) AccountInfo() (
 	apiCode int,
 	apiErrorMsg string,
