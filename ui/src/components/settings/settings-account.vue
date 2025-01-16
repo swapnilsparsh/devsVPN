@@ -15,7 +15,7 @@
                 style="margin-bottom: 2rem"
                 v-if="this.IsAccIdLogin"
                 class="flexRow paramBlockDetailedConfig"
-                title="Click to show or hide AccountID"
+                title="Click to show or hide the account ID"
               >
                 <label
                   class="settingsBigBoldFont selectable"
@@ -107,7 +107,7 @@
             <!-- <div v-else>Api Error: Data couldn't be fetched at this moment.</div> -->
           </div>
         </div>
-        <div v-if="this.IsSessionInfoReceived && this.IsAccIdLogin" class="overlay-container" style="margin: auto;" @click="toggleAccountIDBlur" title="Click to show or hide QR code">
+        <div v-if="this.IsSessionInfoReceived && this.IsAccIdLogin" class="overlay-container" style="margin: auto;" @click="toggleAccountIDBlur" title="Click to show or hide the account ID QR code">
           <div ref="accIdQrcodePlaceholder" :class="{ blurred: isAccountIDBlurred }"></div>
           <div v-if="isAccountIDBlurred" class="overlay">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" fill="black" viewBox="0 0 512 512">
