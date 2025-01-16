@@ -39,6 +39,12 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+type TotalShieldBlockInfo struct {
+	layerGUID        syscall.GUID
+	isIPv6           bool
+	blockAllFilterID uint64 // ID of block filter when Total Shield is enabled, 0 when disabled
+}
+
 var (
 	providerKey          = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x01}}
 	ourSublayerKey       = syscall.GUID{Data1: 0x07008e7d, Data2: 0x48a2, Data3: 0x684e, Data4: [8]byte{0xa4, 0xf3, 0x8b, 0x7c, 0x02, 0x44, 0x50, 0x02}}
@@ -55,6 +61,15 @@ var (
 
 	layersAllIn  = slices.Concat(v4LayersIn, v6LayersIn)
 	layersAllOut = slices.Concat(v4LayersOut, v6LayersOut)
+
+	// used to block-all when Total Shield is enabled
+	totalShieldEnabled bool
+	totalShieldLayers  = []*TotalShieldBlockInfo{
+		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthConnectV4, false, 0},
+		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthRecvAcceptV4, false, 0},
+		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthConnectV6, true, 0},
+		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthRecvAcceptV6, true, 0},
+	}
 
 	v4LayersICMP  = []syscall.GUID{winlib.FwpmLayerOutboundIcmpErrorV4, winlib.FwpmLayerInboundIcmpErrorV4}
 	v6LayersICMP  = []syscall.GUID{winlib.FwpmLayerOutboundIcmpErrorV6, winlib.FwpmLayerInboundIcmpErrorV6}
@@ -779,6 +794,24 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		// 	return fmt.Errorf("failed to add filter 'block dns': %w", err)
 		// }
 
+		// allow outbound TCP+UDP to port 53 to our DNS servers, weight 15
+		for _, vpnEntryHostParsed := range vpnEntryHostsParsed {
+			for _, dnsSrv := range vpnEntryHostParsed.DnsServersIPv4 {
+				if _, err = manager.AddFilter(winlib.NewFilterAllowDnsIPv4(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
+					"Allow PL DNS "+dnsSrv.String(), dnsSrv, net.IPv4bcast, isPersistent)); err != nil {
+					return fmt.Errorf("failed to add filter 'Allow PL DNS %s': %w", dnsSrv, err)
+				}
+			}
+		}
+
+		// Also custom DNS
+		if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
+			if _, err = manager.AddFilter(winlib.NewFilterAllowDnsIPv4(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
+				"Allow PL customDNS "+customDNS.String(), customDNS, net.IPv4bcast, isPersistent)); err != nil {
+				return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDNS, err)
+			}
+		}
+
 		// Allow our Wireguard gateway(s) outgoing (to allow TCP)
 		for _, vpnEntryHostParsed := range vpnEntryHostsParsed {
 			vpnEntryHostIP := vpnEntryHostParsed.VpnEntryHostIP
@@ -889,7 +922,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		for _, vpnEntryHostParsed := range vpnEntryHostsParsed {
 			for _, dnsSrv := range vpnEntryHostParsed.DnsServersIPv4 {
 				if _, err = manager.AddFilter(winlib.NewFilterAllowDnsUdpIPv4(providerKey, ipv4LayerIn, ourSublayerKey, filterDName,
-					"Allow PL DNS "+dnsSrv.String(), dnsSrv, net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
+					"Allow PL DNS "+dnsSrv.String(), dnsSrv, net.IPv4bcast, isPersistent)); err != nil {
 					return fmt.Errorf("failed to add filter 'Allow PL DNS %s': %w", dnsSrv, err)
 				}
 			}
@@ -898,7 +931,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		// Also custom DNS
 		if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
 			if _, err = manager.AddFilter(winlib.NewFilterAllowDnsUdpIPv4(providerKey, ipv4LayerIn, ourSublayerKey, filterDName,
-				"Allow PL customDNS "+customDNS.String(), customDNS, net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
+				"Allow PL customDNS "+customDNS.String(), customDNS, net.IPv4bcast, isPersistent)); err != nil {
 				return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDNS, err)
 			}
 		}
@@ -1064,6 +1097,63 @@ func implDeployPostConnectionRules() (retErr error) {
 	}
 
 	return retErr
+}
+
+func implTotalShieldEnabled() bool {
+	return totalShieldEnabled
+}
+
+func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
+	if firewallEnabled, err := implGetEnabled(); err != nil {
+		return fmt.Errorf("implTotalShieldApply() failed to get info if firewall is on: %w", err)
+	} else if !firewallEnabled { // nothing to do
+		return nil
+	}
+
+	if err := manager.TransactionStart(); err != nil { // start WFP transaction
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer func() { // do not forget to stop WFP transaction
+		var r any = recover()
+		if err == nil && r == nil {
+			manager.TransactionCommit() // commit WFP transaction
+			totalShieldEnabled = _totalShieldEnabled
+		} else {
+			manager.TransactionAbort() // abort WFP transaction
+
+			if r != nil {
+				log.Error("PANIC (recovered): ", r)
+				if e, ok := r.(error); ok {
+					err = e
+				} else {
+					err = errors.New(fmt.Sprint(r))
+				}
+			}
+		}
+	}()
+
+	var filterDesc = "Total Shield block all"
+	if _totalShieldEnabled {
+		log.Debug("enabling " + filterDesc)
+	} else {
+		log.Debug("disabling " + filterDesc)
+	}
+
+	for _, totalShieldLayer := range totalShieldLayers {
+		if _totalShieldEnabled {
+			if totalShieldLayer.blockAllFilterID, err = manager.AddFilter(winlib.NewFilterBlockAll(providerKey, totalShieldLayer.layerGUID, ourSublayerKey,
+				filterDName, filterDesc, totalShieldLayer.isIPv6, isPersistent, false)); err != nil {
+				return fmt.Errorf("failed to add filter '%s': %w", filterDesc, err)
+			}
+		} else if totalShieldLayer.blockAllFilterID != 0 { // shouldn't be 0, but just in case
+			if err = manager.DeleteFilterByID(totalShieldLayer.blockAllFilterID); err != nil {
+				return fmt.Errorf("failed to delete filter '%s' by id %d: %w", filterDesc, totalShieldLayer.blockAllFilterID, err)
+			}
+			totalShieldLayer.blockAllFilterID = 0
+		}
+	}
+
+	return err
 }
 
 func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr error) {

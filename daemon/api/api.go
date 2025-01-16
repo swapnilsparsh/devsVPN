@@ -40,7 +40,7 @@ import (
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 )
 
-// TODO FIXME: Vlad - create types for Productio and Dev environments
+// TODO FIXME: Vlad - create types for Production and Dev environments
 type RestApiBackendType int
 
 const (
@@ -413,17 +413,8 @@ func (a *API) SessionNew(emailOrAcctID string, password string) (
 		}
 		apiPath = _sessionNewPath
 	} else { // passwordless login
-		// Account ID must not have "a-" prefix, per PLCON-52
-		// TODO FIXME: Vlad - for now production backend requires "a-" prefix, and dev backend requires that there's no "a-" prefix
-		acctID := emailOrAcctID
-		if a.currentRestApiBackend != ProductionEnv {
-			acctID = strings.TrimPrefix(acctID, "a-")
-		} else if !strings.HasPrefix(acctID, "a-") {
-			acctID = "a-" + acctID
-		}
-
 		request = &types.SessionNewRequest{
-			AccountID: acctID,
+			AccountID: strings.TrimPrefix(emailOrAcctID, "a-"), // Account ID must not have "a-" prefix, per PLCON-52
 		}
 		apiPath = _sessionNewPasswordlessPath
 	}
