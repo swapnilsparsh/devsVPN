@@ -413,12 +413,8 @@ func (a *API) SessionNew(emailOrAcctID string, password string) (
 		}
 		apiPath = _sessionNewPath
 	} else { // passwordless login
-		// Account ID must not have "a-" prefix, per PLCON-52
-		// TODO FIXME: Vlad - for now production backend requires "a-" prefix, and dev backend requires that there's no "a-" prefix
-		acctID := emailOrAcctID
-
 		request = &types.SessionNewRequest{
-			AccountID: acctID,
+			AccountID: strings.TrimPrefix(emailOrAcctID, "a-"), // Account ID must not have "a-" prefix, per PLCON-52
 		}
 		apiPath = _sessionNewPasswordlessPath
 	}
