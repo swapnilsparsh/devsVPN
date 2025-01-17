@@ -11,6 +11,7 @@
                 :height="'20px'" />
             </div>
             <div v-else-if="$store.state.account.userDetails.id" class="flexColumn">
+              <div class="defColor paramName">Account ID:</div>
               <div
                 style="margin-bottom: 2rem"
                 v-if="this.IsAccIdLogin"
@@ -26,6 +27,7 @@
                 <div
                   @click="toggleAccountIDBlur"
                   style="cursor: pointer; margin-left: 10px"
+                  title="Click to show or hide the account ID"
                 >
                   <div v-if="isAccountIDBlurred">
                     <img
@@ -41,7 +43,7 @@
                   </div>
                 </div>
                 <div style="display: inline-block">
-                  <div style="display: inline-block">
+                  <div style="display: inline-block" title="Copy the account ID">
                     <img
                       style="vertical-align: middle; cursor: pointer"
                       src="@/assets/copy.svg"
