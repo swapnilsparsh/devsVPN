@@ -227,6 +227,9 @@ export default {
     isMultiHop: function () {
       return this.$store.state.settings.isMultiHop;
     },
+    IsSessionInfoReceived: function () {
+      return this.$store.state.account.session.SessionInfoReceived;
+    },
     IsAccIdLogin: function () {
       let value = false;
 
@@ -239,7 +242,7 @@ export default {
       ) {
         const accountId = this.$store.state.account.session.AccountID;
         // Check if accountId matches the pattern XXXX-XXXX-XXXX. Characters '0', 'O', 'I' are forbidden.
-        const accountIdPattern = /^([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$/;
+        const accountIdPattern = /^(a-)?([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$/;
         value = accountIdPattern.test(accountId);
       }
 
