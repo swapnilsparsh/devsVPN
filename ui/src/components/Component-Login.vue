@@ -294,7 +294,8 @@ export default {
           if (this.accountID) this.accountID = this.accountID.trim();
           if (!pattern.test(this.accountID)) {
             throw new Error(
-              "Invalid account ID. Your account ID has to be in 'XXXX-XXXX-XXXX' format. Please check your account ID and try again."
+              "Invalid account ID. Your account ID has to be in 'XXXX-XXXX-XXXX' format. Please check your account ID and try again.\n\n" +
+                "If you previously entered your account ID as a-XXXX-XXXX-XXXX - now you can simply enter it as XXXX-XXXX-XXXX"
             );
           }
         } else {
@@ -338,8 +339,14 @@ export default {
         //console.log("resp", resp);
         //const accountInfoResponse = await sender.AccountInfo();
         //console.log("accountInfoResponse", accountInfoResponse);
-
-        if (resp.APIStatus === 426 || resp.APIStatus === 412) {
+        if (resp.APIStatus === 429) { // API error: [429] Too many requests from this IP or email, please try again later
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Failed to login",
+            detail: resp.APIErrorMessage,
+          });
+        } else if (resp.APIStatus === 426 || resp.APIStatus === 412) {
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
@@ -364,6 +371,7 @@ export default {
             message: "Failed to login",
             detail:
               resp.APIErrorMessage +
+              "\n\nIf you previously entered your account ID in 'a-XXXX-XXXX-XXXX' format - now you can simply enter it in 'XXXX-XXXX-XXXX' format." +
               "\n\nIf you don't have a privateLINE account yet, you can create one at https://account.privateline.io/sign-in",
           });
         }
