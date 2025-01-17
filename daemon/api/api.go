@@ -72,18 +72,16 @@ var (
 
 // API URLs
 const (
-	_defaultRequestTimeout = time.Second * 10 // full request time (for each request)
-	_defaultDialTimeout    = time.Second * 5  // time for the dial to the API server (for each request)
-	// _apiHost               = "deskapi.privateline.io"
-	// _apiHost = "api.privateline.dev"
+	_defaultRequestTimeout = time.Second * 12 // full request time (for each request)
+	_defaultDialTimeout    = time.Second * 10 // time for the dial to the API server (for each request)
 
-	// _ssoHost     = "sso.privateline.io"
 	_ssoTokenPath = "/realms/privateLINE/protocol/openid-connect/token"
 
 	// temporarily fetching static servers.json from GitHub
 	// _updateHost         = "repo.privateline.io"
 	//	_serversPath       = "v5/servers.json"
 	// _updateHost  = "raw.githubusercontent.com"
+
 	_serversPath = "swapnilsparsh/devsVPN/master/daemon/References/common/etc/servers.json"
 
 	_apiPathPrefix              = "v4"

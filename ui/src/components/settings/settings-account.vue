@@ -11,29 +11,68 @@
                 :height="'20px'" />
             </div>
             <div v-else-if="$store.state.account.userDetails.id" class="flexColumn">
-              <img v-if="!profileImage" src="@/assets/avtar.svg" style="height: 100px; width: 100px" />
-              <img v-else :src="profileImage" style="
-                height: 100px;
-                width: 100px;
-                border-radius: 100%;
-                border: 5px solid #fff;
-                margin-bottom: 10px;
-              " />
+              <div class="defColor paramName">Account ID:</div>
+              <div
+                style="margin-bottom: 2rem"
+                v-if="this.IsAccIdLogin"
+                class="flexRow paramBlockDetailedConfig"
+              >
+                <label
+                  class="settingsBigBoldFont selectable"
+                  :class="{ blurred: isAccountIDBlurred }"
+                >
+                  {{ this.$store.state.account.session.AccountID }}
+                </label>
+                <div
+                  @click="toggleAccountIDBlur"
+                  style="cursor: pointer; margin-left: 10px"
+                  title="Click to show or hide the account ID"
+                >
+                  <div v-if="isAccountIDBlurred">
+                    <img
+                      style="vertical-align: middle"
+                      src="@/assets/eye-close.svg"
+                    />
+                  </div>
+                  <div v-if="!isAccountIDBlurred">
+                    <img
+                      style="vertical-align: middle"
+                      src="@/assets/eye-open.svg"
+                    />
+                  </div>
+                </div>
+                <div style="display: inline-block">
+                  <div style="display: inline-block" title="Copy the account ID">
+                    <img
+                      style="vertical-align: middle; cursor: pointer"
+                      src="@/assets/copy.svg"
+                      @click="copyAccountID"
+                      alt="Copy"
+                    />
+                  </div>
+                </div>
+              </div>
 
               <div>
+                <img v-if="!profileImage" src="@/assets/avtar.svg" style="height: 50px; width: 50px" />
+                <img v-else :src="profileImage" style="
+                    height: 50px;
+                    width: 50px;
+                    border-radius: 100%;
+                    border: 5px solid #fff;
+                    margin-bottom: 10px;
+                  " />
+
                 <div class="flexRow paramBlockDetailedConfig">
                   <div class="defColor paramName">Name:</div>
                   <div class="detailedParamValue">
                     {{ $store.state.account.userDetails.name }}
                   </div>
                 </div>
-                <div v-if="this.IsAccIdLogin" class="flexRow paramBlockDetailedConfig">
-                  <div class="defColor paramName">Account ID:</div>
-                  <div class="detailedParamValue">
-                    {{ this.$store.state.account.session.AccountID }}
-                  </div>
-                </div>
-                <div v-if="!this.IsAccIdLogin" class="flexRow paramBlockDetailedConfig">
+                <div
+                  v-if="!this.IsAccIdLogin"
+                  class="flexRow paramBlockDetailedConfig"
+                >
                   <div class="defColor paramName">Email:</div>
                   <div class="detailedParamValue">
                     {{ $store.state.account.userDetails.email }}
@@ -69,7 +108,7 @@
             <!-- <div v-else>Api Error: Data couldn't be fetched at this moment.</div> -->
           </div>
         </div>
-        <div v-if="this.IsSessionInfoReceived && this.IsAccIdLogin" class="overlay-container" style="margin: auto;" @click="toggleAccountIDBlur" title="Click to show or hide QR code">
+        <div v-if="this.IsSessionInfoReceived && this.IsAccIdLogin" class="overlay-container" style="margin: auto;" @click="toggleAccountIDBlur" title="Click to show or hide the account ID QR code">
           <div ref="accIdQrcodePlaceholder" :class="{ blurred: isAccountIDBlurred }"></div>
           <div v-if="isAccountIDBlurred" class="overlay">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" fill="black" viewBox="0 0 512 512">
@@ -417,6 +456,16 @@ export default {
     },
     UpgradeSubscription() {
       sender.shellOpenExternal(`https://privateline.io/#pricing`);
+    },
+    copyAccountID() {
+      const accountId = this.$store.state.account.session.AccountID;
+      const tempInput = document.createElement("input");
+
+      document.body.appendChild(tempInput);
+      tempInput.value = accountId;
+      tempInput.select();
+      document.execCommand("copy");
+      document.body.removeChild(tempInput);
     },
   },
 };
