@@ -40,7 +40,7 @@ import (
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 )
 
-// TODO FIXME: Vlad - create types for Productio and Dev environments
+// TODO FIXME: Vlad - create types for Production and Dev environments
 type RestApiBackendType int
 
 const (
@@ -385,7 +385,7 @@ func (a *API) DoRequestByAlias(apiAlias string, ipTypeRequired protocolTypes.Req
 }
 
 // SessionNew - try to register new session
-func (a *API) SessionNew(emailOrAcctID string, password string) (
+func (a *API) SessionNew(emailOrAcctID string, password string, tryAccountIdWithADashPrefix bool) (
 	*types.SessionNewResponse,
 	*types.SessionNewErrorLimitResponse,
 	*types.APIErrorResponse,
@@ -413,8 +413,17 @@ func (a *API) SessionNew(emailOrAcctID string, password string) (
 		}
 		apiPath = _sessionNewPath
 	} else { // passwordless login
+		// Account ID must not have "a-" prefix, per PLCON-52
+		// TODO FIXME: Vlad - right now the production REST API deskapi.privateline.io/user/login/quick-auth is broken, for some account IDs it works only with "a-" prefix and for some it only works without. So trying both.
+		acctID := emailOrAcctID
+		if !tryAccountIdWithADashPrefix {
+			acctID = strings.TrimPrefix(acctID, "a-")
+		} else if !strings.HasPrefix(acctID, "a-") {
+			acctID = "a-" + acctID
+		}
+
 		request = &types.SessionNewRequest{
-			AccountID: strings.TrimPrefix(emailOrAcctID, "a-"), // Account ID must not have "a-" prefix, per PLCON-52
+			AccountID: acctID,
 		}
 		apiPath = _sessionNewPasswordlessPath
 	}

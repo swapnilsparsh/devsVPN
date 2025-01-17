@@ -34,29 +34,33 @@ import (
 
 // filter Weights
 const (
-	// Force allow DNS traffic to our servers w/ highest permission
-	weightAllowOurDNS = FILTER_MAX_WEIGHT
+	// Allow filters at max
 
-	weightICMP = 14
+	// Force allow DNS traffic to our servers w/ highest permission
+	weightAllowOurDNS  = FILTER_MAX_WEIGHT
+	weightAllowLocalIP = FILTER_MAX_WEIGHT // used to be 10 in IVPN
+
+	weightICMP = byte(14)
+
+	// block filters below allow filters
+	weightBlockAll = byte(14) // used to be 2 in IVPN
 
 	// IMPORTANT! Use only for Local IP/IPv6 of VPN connection
-	weightAllowLocalIP            = 10
-	weightAllowRemoteLocalhostDNS = 10 // allow DNS requests to 127.0.0.1:53
-	weightAllowApplication        = 10 // must have higher priority than weightBlockDNS (to allow port UDP:53 for VPN connections)
-	weightAllowRemotePort         = 10
+
+	weightAllowRemoteLocalhostDNS = byte(10) // allow DNS requests to 127.0.0.1:53
+	weightAllowApplication        = byte(10) // must have higher priority than weightBlockDNS (to allow port UDP:53 for VPN connections)
+	weightAllowRemotePort         = byte(10)
 
 	// IMPORTANT! Blocking DNS must have highest priority
 	// (only VPN connection have higher priority: weightAllowLocalIP;weightAllowLocalIPV6) //5
-	weightBlockDNS = 9
+	weightBlockDNS = byte(9)
 
-	weightAllowLocalPort = 3
-	weightAllowRemoteIP  = 3
+	weightAllowLocalPort = byte(3)
+	weightAllowRemoteIP  = byte(3)
 
-	weightBlockAll = 2
 	// NOTE: If split-tunnelling not enabled (driver not registered callouts) - this filter will BLOCK everything
 	// But it is ok since ST-filters weight = weightBlockAll + 1
-	// weightAllowSplittedApps = 3
-
+	// weightAllowSplittedApps = byte(3)
 )
 
 // NewFilterAllowLocalPort creates a filter to allow local port
@@ -518,8 +522,8 @@ func NewFilterBlockLocalPort(
 	return f
 }
 
-// NewFilterAllowDnsUdpIPv4 creates a filter to allow DNS port
-func NewFilterAllowDnsUdpIPv4(
+// NewFilterAllowDnsIPv4 creates a filter to allow DNS port via UDP, TCP
+func NewFilterAllowDnsIPv4(
 	keyProvider syscall.GUID,
 	keyLayer syscall.GUID,
 	keySublayer syscall.GUID,
@@ -546,11 +550,36 @@ func NewFilterAllowDnsUdpIPv4(
 
 	f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchEqual, IP: ip, Mask: mask})
 	f.AddCondition(&ConditionIPRemotePort{Match: FwpMatchEqual, Port: 53})
-	f.AddCondition(&ConditionIPProtocol{Match: FwpMatchEqual, IPProtocol: windows.IPPROTO_UDP})
 
 	// if exceptionIP != nil && len(exceptionIP) > 0 && exceptionIP.To4() != nil {
 	// 	f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchNotEqual, IP: exceptionIP, Mask: net.IPv4bcast})
 	// }
+	return f
+}
+
+// NewFilterAllowDnsUdpIPv4 creates a filter to allow DNS port via UDP
+func NewFilterAllowDnsUdpIPv4(
+	keyProvider syscall.GUID,
+	keyLayer syscall.GUID,
+	keySublayer syscall.GUID,
+	dispName string,
+	dispDescription string,
+	ip net.IP,
+	mask net.IP,
+	isPersistent bool,
+	weight ...byte) Filter {
+
+	var _weight byte
+	if len(weight) > 0 {
+		_weight = weight[0]
+	} else {
+		_weight = weightAllowOurDNS
+	}
+
+	f := NewFilterAllowDnsIPv4(keyProvider, keyLayer, keySublayer, dispName, dispDescription, ip, mask, isPersistent, _weight)
+
+	f.AddCondition(&ConditionIPProtocol{Match: FwpMatchEqual, IPProtocol: windows.IPPROTO_UDP})
+
 	return f
 }
 

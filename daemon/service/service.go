@@ -1645,7 +1645,11 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	}
 
 	// Apply Split-Tun config
-	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
+	if runtime.GOOS == "windows" {
+		return firewall.TotalShieldApply(!prefs.IsSplitTunnel) // TODO: Vlad - on Windows go to firewall instead
+	} else {
+		return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
+	}
 }
 
 func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAlreadyRunning bool, err error) {
@@ -1806,9 +1810,13 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 			log.Warning(fmt.Sprintf("Failed to generate wireguard keys for new session: %s", err.Error()))
 		}
 
-		sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(emailOrAcctID, password)
-
 		apiCode = 0
+		// TODO FIXME: Vlad - right now the production REST API deskapi.privateline.io/user/login/quick-auth is broken, for some account IDs it works only with "a-" prefix and for some it only works without. So trying both.
+		sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(emailOrAcctID, password, false)
+		if apiErr != nil && apiErr.HttpStatusCode == 400 {
+			sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(emailOrAcctID, password, true)
+		}
+
 		if apiErr != nil {
 			apiCode = apiErr.HttpStatusCode
 		}
