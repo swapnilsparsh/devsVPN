@@ -233,8 +233,9 @@ type SsoLoginResp struct {
 
 type MigrateSsoUserResp struct {
 	CommandBase
-	Status    bool
-	AccountID string
+	APIStatus       int
+	APIErrorMessage error
+	AccountID       string
 }
 
 type AccountInfo struct {

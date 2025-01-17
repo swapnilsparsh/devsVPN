@@ -183,7 +183,7 @@ type Service interface {
 		err error)
 	MigrateSsoUser() (
 		apiCode int,
-		response *api_types.MigrateSsoUserResponse,
+		migrateSsoUserResp *api_types.MigrateSsoUserResponse,
 		err error)
 
 	ProfileData() (
@@ -1311,20 +1311,31 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p.sendResponse(conn, &resp, reqCmd.Idx)
 
 	case "MigrateSsoUser":
+		// TODO FIXME: Vlad - go over
 		var resp types.MigrateSsoUserResp
 		apiCode, apiResp, err := p._service.MigrateSsoUser()
-		if err != nil && apiCode == 0 {
-			// if apiCode == 0 - it is not API error. Sending error response
-			p.sendErrorResponse(conn, reqCmd, err)
-			break
+
+		if err != nil {
+			if apiCode == 0 {
+				// if apiCode == 0 - it is not API error. Sending error response
+				err := fmt.Errorf("apiErrorMsg=: %w", err)
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			// sending API error info
+			resp = types.MigrateSsoUserResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+			}
+		} else {
+			resp = types.MigrateSsoUserResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+				AccountID:       apiResp.Data.Username,
+			}
+			p.notifyClients(p.createHelloResponse())
 		}
 
-		resp = types.MigrateSsoUserResp{
-			Status:    apiResp.Status,
-			AccountID: apiResp.Data.Username,
-		}
-
-		p.notifyClients(p.createHelloResponse())
 		p.sendResponse(conn, &resp, reqCmd.Idx)
 
 	case "WireGuardGenerateNewKeys":

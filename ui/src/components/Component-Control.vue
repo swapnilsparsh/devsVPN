@@ -440,30 +440,22 @@ export default {
         if (result === 1)
           return; // user cancelled
 
-        const migrateSsoUserResp = await sender.MigrateSsoUser()
-        if (migrateSsoUserResp.APIErrorMessage != "") {
+        const resp = await sender.MigrateSsoUser()
+        if (resp.APIStatus !== 200 || resp.APIErrorMessage != "") { // error migrating
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
             message: "Failed to migrate SSO account",
             detail:
-              resp.APIErrorMessage +
-              "\n\nPlease login to your account at https://account.privateline.io and finish the migration process there",
+              resp.APIStatus + ": " + resp.APIErrorMessage +
+              "\n\nPlease login to your account at https://account.privateline.io and finish the migration process there.",
           });
-        } else if (!migrateSsoUserResp.Status) {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to migrate SSO account",
-            detail:
-              "\n\nPlease login to your account at https://account.privateline.io and finish the migration process there",
-          });
-        } else { // we're good, SSO account migrated to account ID
+        } else { // we're good, SSO account successfully migrated to account ID
           sender.showMessageBoxSync({
             type: "info",
             buttons: ["OK"],
             message: "Account Migrated Successfully",
-            detail: `Your Account ID: ${migrateSsoUserResp.AccountID}. You can also view it under Settings/Account\n\n` + 
+            detail: `Your Account ID: ${resp.AccountID}. You can also view it under Settings/Account\n\n` + 
                     "For future logins, simply use your account ID — no password needed.\n\n" + 
                     "Please save the account ID and keep it secure — it's your sole identifier for using our service. No email or username is required, ensuring your anonymity. Do not share your account ID with anyone.",
           });
@@ -475,14 +467,11 @@ export default {
           buttons: ["OK"],
           message: "Failed to migrate SSO account",
           detail: `${e}` +
-            "\n\nPlease login to your account at https://account.privateline.io and finish the migration process there",
+            "\n\nPlease login to your account at https://account.privateline.io and finish the migration process there.",
         });
-      } finally {
       }
     },
-
   },
-  
 };
 </script>
 

@@ -754,6 +754,7 @@ func (a *API) SessionDelete(session string, deviceWGPublicKey string) error {
 	return nil
 }
 
+// TODO FIXME: Vlad - go over
 // MigrateSsoUser - PLCON-61: SSO user migration to account ID
 func (a *API) MigrateSsoUser(session string) (
 	resp *types.MigrateSsoUserResponse,
@@ -765,8 +766,7 @@ func (a *API) MigrateSsoUser(session string) (
 	resp = &types.MigrateSsoUserResponse{}
 	if err := a.request(a.getApiHost(), _migrateSsoUserPath, "POST", "application/json", request, resp); err != nil {
 		return nil, 0, err
-	}
-	if resp.HttpStatusCode != types.CodeSuccess {
+	} else if resp.HttpStatusCode != types.CodeSuccess {
 		return nil, resp.HttpStatusCode, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
 	return resp, resp.HttpStatusCode, nil
