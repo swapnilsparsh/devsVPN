@@ -2220,7 +2220,7 @@ func (s *Service) MigrateSsoUser() (
 	}
 
 	prefs.Session.AccountID = resp.Data.Username  // success
-	if prefs.Session.Session != resp.Data.Token { // if the API returned a different session token (expected), then update it in prefs
+	if prefs.Session.Session != resp.Data.Token { // if the backend REST API returned a different session token (expected), then update it in prefs
 		// log.Debug(fmt.Sprintf("warning - session arg '%s' != returned resp.Data.Token '%s'", prefs.Session.Session, resp.Data.Token))
 		prefs.Session.Session = resp.Data.Token
 	}
