@@ -547,3 +547,11 @@ func implCleanupRegistration() (err error) {
 func implReEnable() (retErr error) {
 	return nil
 }
+
+func implTotalShieldEnabled() bool {
+	return false // TODO FIXME: Vlad - update
+}
+
+func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
+	return nil
+}

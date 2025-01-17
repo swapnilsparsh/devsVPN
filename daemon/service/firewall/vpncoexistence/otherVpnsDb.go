@@ -54,11 +54,11 @@ var (
 	// Must keep both lists in sync. otherVpnDefaultServiceNamePrefixesToTry must contain literal words, not regular expressions.
 	otherVpnDefaultServiceNamePrefixesToTry mapset.Set[string] = mapset.NewSet[string]("mullvad", "expressvpn", "surfshark", "nord", "proton", "ivpn", "hideme",
 		"mozillavpn", "windscribe", "ipvcallout", "ipvan", "cyberghost", "proton", "tunnelbear", "vypervpn", "vyprvpn", "turbovpn", "cloudflarewarp",
-		"urbanvpn", "eddieelevation", "hshld", "hotspotshield", "privateinternetaccess", "hola")
+		"urbanvpn", "eddieelevation", "hshld", "hotspotshield", "privateinternetaccess", "hola", "avg", "securevpn")
 	// (?i) for case-insensitive matching, regex matching group not closed in this string - must be closed where used
 	otherVpnDefaultServiceNameBrandsRegexStart = "(?i)^(mullvad|expressvpn|surfshark|nord|proton|ivpn|hideme|mozillavpn|windscribe|ipv(callout|an)|" +
 		"cyberghost|proton|tunnelbear|vype?rvpn|turbovpn|cloudflarewarp|urbanvpn|eddie.?elevation|hshld|hotspotshield|privateinternetaccess|" +
-		"hola(.?vpn|[^a-z0-9]|$)|.*updater_.*_hola"
+		"hola(.?vpn|[^a-z0-9]|$)|.*updater_.*_hola|avg|securevpn"
 	otherVpnDefaultServiceNamePrefixesRE = regexp.MustCompile(otherVpnDefaultServiceNameBrandsRegexStart + ")")
 
 	// other VPNs known to us
