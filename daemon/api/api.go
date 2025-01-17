@@ -752,13 +752,11 @@ func (a *API) SessionDelete(session string, deviceWGPublicKey string) error {
 	return nil
 }
 
-// TODO FIXME: Vlad - go over
 // MigrateSsoUser - PLCON-61: SSO user migration to account ID
 func (a *API) MigrateSsoUser(session string) (
 	resp *types.MigrateSsoUserResponse,
 	httpStatusCode int,
 	err error) {
-	// TODO FIXME: Vlad - impl. Also check sent token == returned token.
 
 	request := &types.MigrateSsoUserRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 	resp = &types.MigrateSsoUserResponse{}

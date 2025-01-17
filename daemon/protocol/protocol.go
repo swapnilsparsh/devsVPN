@@ -1311,7 +1311,6 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p.sendResponse(conn, &resp, reqCmd.Idx)
 
 	case "MigrateSsoUser":
-		// TODO FIXME: Vlad - go over
 		var resp types.MigrateSsoUserResp
 		apiCode, apiResp, err := p._service.MigrateSsoUser()
 

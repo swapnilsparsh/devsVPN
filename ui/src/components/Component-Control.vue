@@ -444,7 +444,7 @@ export default {
           return; // user cancelled
 
         const resp = await sender.MigrateSsoUser()
-        if (resp.APIStatus !== 200 || resp.APIErrorMessage != "") { // error migrating
+        if (resp.APIStatus !== 200 || (resp.APIErrorMessage != null && resp.APIErrorMessage != "")) { // error migrating
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
