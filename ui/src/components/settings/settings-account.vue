@@ -16,7 +16,6 @@
                 style="margin-bottom: 2rem"
                 v-if="this.IsAccIdLogin"
                 class="flexRow paramBlockDetailedConfig"
-                title="Click to show or hide the account ID"
               >
                 <label
                   class="settingsBigBoldFont selectable"
