@@ -1141,13 +1141,18 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 
 	for _, totalShieldLayer := range totalShieldLayers {
 		if _totalShieldEnabled {
-			if totalShieldLayer.blockAllFilterID, err = manager.AddFilter(winlib.NewFilterBlockAll(providerKey, totalShieldLayer.layerGUID, ourSublayerKey,
-				filterDName, filterDesc, totalShieldLayer.isIPv6, isPersistent, false)); err != nil {
-				return fmt.Errorf("failed to add filter '%s': %w", filterDesc, err)
+			if totalShieldLayer.blockAllFilterID == 0 {
+				if totalShieldLayer.blockAllFilterID, err = manager.AddFilter(winlib.NewFilterBlockAll(providerKey, totalShieldLayer.layerGUID, ourSublayerKey,
+					filterDName, filterDesc, totalShieldLayer.isIPv6, isPersistent, false)); err != nil {
+					return log.ErrorFE("failed to add filter '%s': %w", filterDesc, err)
+				}
 			}
 		} else if totalShieldLayer.blockAllFilterID != 0 { // shouldn't be 0, but just in case
-			if err = manager.DeleteFilterByID(totalShieldLayer.blockAllFilterID); err != nil {
-				return fmt.Errorf("failed to delete filter '%s' by id %d: %w", filterDesc, totalShieldLayer.blockAllFilterID, err)
+			if err2 := manager.DeleteFilterByID(totalShieldLayer.blockAllFilterID); err2 != nil {
+				err2 = log.ErrorFE("failed to delete filter '%s' by id %d: %w", filterDesc, totalShieldLayer.blockAllFilterID, err2)
+				if err == nil {
+					err = err2 // and continue deleting other filters anyway, gotta cleanup at least partially
+				}
 			}
 			totalShieldLayer.blockAllFilterID = 0
 		}

@@ -692,8 +692,17 @@ func (a *API) ProfileData(session string) (
 ) {
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 
+	os := runtime.GOOS
+
+	if os == "darwin" {
+		os = "mac"
+	}
+
+	queryParams := fmt.Sprintf("?auth_os=%s&auth_platform=connect", os)
+	fullProfilePath := _profileDataPath + queryParams
+
 	resp = &types.ProfileDataResponse{}
-	if err := a.request(a.getApiHost(), _profileDataPath, "GET", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost(), fullProfilePath, "GET", "application/json", request, resp); err != nil {
 		return nil, 0, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
