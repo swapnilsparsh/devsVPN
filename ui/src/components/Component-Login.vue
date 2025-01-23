@@ -4,7 +4,7 @@
       <spinner :loading="isProcessing" />
 
       <div class="column">
-        <div class="centered" style="margin-top: -50px; margin-bottom: 50px">
+        <div class="centered" style="margin-top: -50px; margin-bottom: 30px">
           <img width=" 70%" src="@/assets/logo.svg" />
         </div>
 
@@ -37,9 +37,24 @@
 
           </div> -->
           <!-- ============ account ID formatting feature start ============= -->
-          <div v-if="isAccountIdLogin" style="position: relative; display: flex; align-items: center">
-            <input ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
-              placeholder="Account ID XXXX-XXXX-XXXX" :type="'text'" @keyup="keyup($event)" />
+          <div
+            v-if="isAccountIdLogin"
+            style="position: relative; display: flex; align-items: center"
+          >
+            <input
+              ref="accountid"
+              v-model="accountID"
+              class="styledBig"
+              style="text-align: left"
+              placeholder="Account ID XXXX-XXXX-XXXX"
+              :type="'text'"
+              @keyup="keyup($event)"
+            />
+            <span class="input-button">
+              <button @click="startScanning" title="QR Code Scanner">
+                <img src="@/assets/qr-scan.svg" />
+              </button>
+            </span>
           </div>
           <!-- ============ account ID formatting feature end ============= -->
 
@@ -87,6 +102,8 @@
         <button class="slave" v-on:click="openSSO">SSO Login</button>
         <div style="height: 12px" />
         <button class="slave" @click="CreateAccount">Create an account</button>
+        <div style="height: 12px" />
+        <video v-show="stream" ref="videoRef" autoplay></video>
       </div>
     </div>
 
@@ -128,6 +145,7 @@ import {
   API_2FA_REQUIRED,
   API_2FA_TOKEN_NOT_VALID,
 } from "@/api/statuscode";
+import jsQR from "jsqr";
 
 function processError(e) {
   console.error(e);
@@ -168,6 +186,9 @@ export default {
       captcha: "",
       confirmation2FA: "",
       showPassword: false,
+      stream: null,
+      scanning: false,
+      errorMessage: null,
     };
   },
   computed: {
@@ -262,6 +283,59 @@ export default {
     }
   },
   methods: {
+    async startScanning() {
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        this.$nextTick(() => {
+          this.$refs.videoRef.srcObject = this.stream;
+        });
+        this.scanning = true;
+        this.scanQRCode();
+      } catch (error) {
+        this.errorMessage = "Error accessing camera: " + error.message;
+      }
+    },
+    stopCamera() {
+      if (this.stream) {
+        this.stream.getTracks().forEach((track) => track.stop());
+        this.scanning = false;
+        this.stream = null;
+      }
+      this.errorMessage = null;
+    },
+    scanQRCode() {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      const video = this.$refs.videoRef;
+
+      const scan = () => {
+        if (!this.scanning) return;
+
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.height = video.videoHeight;
+          canvas.width = video.videoWidth;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = context.getImageData(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+          if (code) {
+            this.stopCamera();
+            this.accountID = code.data;
+            this.Login();
+            return;
+          }
+        }
+        requestAnimationFrame(scan);
+      };
+      scan();
+    },
     toggleEye() {
       // Toggle the state
       this.showPassword = !this.showPassword;
@@ -532,12 +606,28 @@ export default {
       }
     },
   },
+  beforeDestroy() {
+    this.stopCamera();
+  },
 };
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
 @import "@/components/scss/constants";
+
+.input-button {
+  position: absolute;
+  top: 2px;
+  right: 5px;
+  margin: 0;
+  padding: 0;
+}
+
+video {
+  width: 60%;
+  height: auto;
+}
 
 .leftright_margins {
   margin-left: 20px;
