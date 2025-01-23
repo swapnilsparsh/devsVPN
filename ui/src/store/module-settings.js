@@ -72,7 +72,7 @@ const getDefaultState = () => {
       IsAutoconnectOnLaunch: false,
       IsAutoconnectOnLaunchDaemon: false,
       UserDefinedOvpnFile: "",
-      IsLogging: false,
+      IsLogging: true,
 
       WiFi: {
         // canApplyInBackground:
