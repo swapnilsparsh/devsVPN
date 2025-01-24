@@ -51,9 +51,7 @@
               @keyup="keyup($event)"
             />
             <span class="input-button">
-              <button @click="startScanning" title="QR Code Scanner">
-                <img src="@/assets/qr-scan.svg" />
-              </button>
+                <img @click="startScanning" style="cursor: pointer;" title="QR Code Scanner" src="@/assets/qr-scan.svg" />
             </span>
           </div>
           <!-- ============ account ID formatting feature end ============= -->
@@ -618,7 +616,7 @@ export default {
 
 .input-button {
   position: absolute;
-  top: 2px;
+  top: 4px;
   right: 5px;
   margin: 0;
   padding: 0;
