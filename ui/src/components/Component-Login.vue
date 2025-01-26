@@ -105,7 +105,7 @@
       />
     </div> -->
 
-    <FooterBlock/>
+    <FooterBlock />
   </div>
 </template>
 
@@ -290,12 +290,13 @@ export default {
 
         this.isProcessing = true;
         if (this.isAccountIdLogin) {
-          const pattern = new RegExp("^([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$");
+          // const pattern = new RegExp("^([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$");
+          const pattern = new RegExp("^(a-)?([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$"); // Allowing both XXXX-XXXX-XXXX Or a-XXXX-XXXX-XXXX
           if (this.accountID) this.accountID = this.accountID.trim();
           if (!pattern.test(this.accountID)) {
             throw new Error(
               "Invalid account ID. Your account ID has to be in 'XXXX-XXXX-XXXX' format. Please check your account ID and try again.\n\n" +
-                "If you previously entered your account ID as a-XXXX-XXXX-XXXX - now you can simply enter it as XXXX-XXXX-XXXX"
+              "If you previously entered your account ID as a-XXXX-XXXX-XXXX - now you can simply enter it as XXXX-XXXX-XXXX"
             );
           }
         } else {
@@ -326,9 +327,10 @@ export default {
             return;
           }
         }
-
+        
+        // Only send accountID in this XXXX-XXXX-XXXX formmat irrespective of entered in XXXX-XXXX-XXXX or a-XXXX-XXXX-XXXX
         const resp = await sender.Login(
-          this.isAccountIdLogin ? this.accountID : this.email,
+          this.isAccountIdLogin ? (this.accountID.startsWith('a-') ? this.accountID.substring(2,16) : this.accountID) : this.email,
           this.isAccountIdLogin ? "" : this.password
           // isForceLogout === true || this.isForceLogoutRequested === true,
           // this.captchaID,
@@ -462,32 +464,28 @@ export default {
       this.confirmation2FA = "";
       this.isForceLogoutRequested = false;
     },
-    // keyup(event) {
-    //   if (event.keyCode === 13) {
-    //     // Cancel the default action, if needed
-    //     event.preventDefault();
-    //     this.Login();
-    //   }
-
-    // },
     keyup(event) {
-      // Sanitize input
       let input = this.accountID || '';
+      const sanitized = input.toUpperCase().replace(/[^A-HJ-NP-Z0-9-]/gi, '');
 
-      // Sanitize - leave only allowed characters. Characters '0', 'O', 'I' are forbidden.
-      const sanitized = input.toUpperCase().replace(/[^1-9A-HJ-NP-Z]/gi, '');
+      if (sanitized.startsWith('A-')) {
+        // Limit to the format a-XXXX-XXXX-XXXX
+        const trimmed = sanitized.replace(/-/g, '').substring(0, 13); // Exclude 'A-'
+        this.accountID = `a-${trimmed.substring(1).match(/.{1,4}/g)?.join('-') || ''}`;
+      } else {
+        // Default to the format XXXX-XXXX-XXXX
+        const trimmed = sanitized.replace(/-/g, '').substring(0, 12);
+        this.accountID = trimmed.match(/.{1,4}/g)?.join('-') || '';
+      }
 
-      // Limit to 12 characters and format as XXXX-XXXX-XXXX
-      this.accountID = sanitized.substring(0, 12).match(/.{1,4}/g)?.join('-') || '';
-
-      // Enter key pressed
+      // Handle the Enter key
       if (event.key === 'Enter' && !this.isProcessing && !this.$store.getters["account/isLoggedIn"]) {
-        // Cancel the default action, if needed
         event.preventDefault();
         this.Login();
       }
     },
-    
+
+
     updateColorScheme() {
       let isDarkTheme = false;
       let scheme = sender.ColorScheme();
