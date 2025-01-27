@@ -56,7 +56,7 @@ Target Windows platforms are: Windows 10, Windows 11. To make sure that your bui
 [Go 1.22+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); gcc; make; [FPM](https://fpm.readthedocs.io/en/latest/installation.html); curl; rpm; libiw-dev.
 
 To compile  [liboqs](https://github.com/open-quantum-safe/liboqs), additional packages are required:
-`sudo apt install astyle cmake gcc ninja-build libssl-dev python3-pytest python3-pytest-xdist unzip v4l-utils xsltproc doxygen graphviz python3-yaml valgrind`
+`sudo apt install astyle cmake gcc ninja-build libssl-dev python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind`
 
 Target Linux platforms are the ones with GLIBC 2.31 or higher. Currently supported platforms:
 - Ubuntu 20.04 LTS or higher

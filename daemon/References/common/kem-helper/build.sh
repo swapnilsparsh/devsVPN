@@ -2,7 +2,7 @@
 
 # #############################################################
 # Dependencies: such packages required to be installed: 
-# sudo apt install -y astyle cmake gcc ninja-build libssl-dev python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind v4l-utils
+# sudo apt install -y astyle cmake gcc ninja-build libssl-dev python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind
 # #############################################################
 
 _LIBOQS_VERSION="0.8.0"
@@ -24,7 +24,7 @@ handle_error() {
         echo "      $ brew install cmake ninja openssl@1.1 wget doxygen graphviz astyle valgrind"
         echo "      $ pip3 install pytest pytest-xdist pyyaml"
     else    
-        echo "      $ sudo apt install -y astyle git cmake gcc ninja-build libssl-dev python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind v4l-utils"
+        echo "      $ sudo apt install -y astyle git cmake gcc ninja-build libssl-dev python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind"
     fi
     echo "[!] Exiting (because of error)"
     exit 1

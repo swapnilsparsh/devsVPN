@@ -18,7 +18,7 @@ RUN yum install -y devtoolset-7-gcc devtoolset-7-gcc-c++ make && \
     echo "source scl_source enable devtoolset-7" >> /etc/bashrc
 
 # Install other dependencies
-RUN yum install -y astyle openssl-devel python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind v4l-utils git wget
+RUN yum install -y astyle openssl-devel python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind git wget
 
 # Install newer version of cmake from source
 RUN source /etc/bashrc && \

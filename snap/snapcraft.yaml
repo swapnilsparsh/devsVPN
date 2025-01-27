@@ -277,7 +277,6 @@ parts:
     - graphviz
     - python3-yaml
     - valgrind
-    - v4l-utils
     source: ./daemon/References
     override-build: |
       rm -fr ./Linux/_deps/kem-helper
