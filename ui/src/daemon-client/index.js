@@ -69,6 +69,7 @@ const daemonRequests = Object.freeze({
   CheckAccessiblePorts: "CheckAccessiblePorts",
   SessionNew: "SessionNew",
   SsoLogin: "SsoLogin",
+  MigrateSsoUser: "MigrateSsoUser",
   SessionDelete: "SessionDelete",
   SessionStatus: "SessionStatus",
   ProfileData: "ProfileData",
@@ -154,6 +155,8 @@ const daemonResponses = Object.freeze({
 
   TransferredDataResp: "TransferredDataResp",
   HandshakeResp: "HandshakeResp",
+
+  MigrateSsoUserResp: "MigrateSsoUserResp",
 });
 
 export const AppUpdateInfoType = Object.freeze({
@@ -991,6 +994,13 @@ async function SsoLogin( Code, SessionState) {
     ProfileData();
     SubscriptionData();
   }
+  return resp;
+}
+
+async function MigrateSsoUser() {
+  let resp = await sendRecv({
+    Command: daemonRequests.MigrateSsoUser,
+  });
   return resp;
 }
 
@@ -1942,6 +1952,7 @@ export default {
 
   Login,
   SsoLogin,
+  MigrateSsoUser,
   Logout,
   SessionStatus,
 

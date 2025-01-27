@@ -94,6 +94,7 @@ const (
 	_deviceListPath             = "/user/device-list"
 	_profileDataPath            = "/user/profile"
 	_subscriptionDataPath       = "/user/check-subscription"
+	_migrateSsoUserPath         = "/user/migrate-sso-user"
 	_wgKeySetPath               = _apiPathPrefix + "/session/wg/set"
 	_geoLookupPath              = _apiPathPrefix + "/geo-lookup"
 )
@@ -758,6 +759,22 @@ func (a *API) SessionDelete(session string, deviceWGPublicKey string) error {
 		return types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
 	return nil
+}
+
+// MigrateSsoUser - PLCON-61: SSO user migration to account ID
+func (a *API) MigrateSsoUser(session string) (
+	resp *types.MigrateSsoUserResponse,
+	httpStatusCode int,
+	err error) {
+
+	request := &types.MigrateSsoUserRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
+	resp = &types.MigrateSsoUserResponse{}
+	if err := a.request(a.getApiHost(), _migrateSsoUserPath, "POST", "application/json", request, resp); err != nil {
+		return nil, 0, err
+	} else if resp.HttpStatusCode != types.CodeSuccess {
+		return nil, resp.HttpStatusCode, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
+	}
+	return resp, resp.HttpStatusCode, nil
 }
 
 // WireGuardKeySet - update WG key

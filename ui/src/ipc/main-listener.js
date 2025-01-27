@@ -85,6 +85,10 @@ ipcMain.handle("renderer-request-AccountInfo", async () => {
   return await client.AccountInfo();
 });
 
+ipcMain.handle("renderer-request-MigrateSsoUser", async () => {
+  return await client.MigrateSsoUser();
+});
+
 ipcMain.handle(
   "renderer-request-logout",
   async (
