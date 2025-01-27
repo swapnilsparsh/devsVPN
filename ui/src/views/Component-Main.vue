@@ -58,7 +58,10 @@
               </button>
             </div>
             <button v-on:click="onPrivateLine()" title="privateLINE">
-              <img src="@/assets/logo.png" style="width: 22px; height: 22px" />
+              <img
+                src="@/assets/logo.png"
+                style="width: 22px; height: 22px; pointer-events: none"
+              />
             </button>
             <div>privateLINE Connect</div>
 
