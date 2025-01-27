@@ -2,6 +2,9 @@ import * as Sentry from "@sentry/electron/main";
 import { app } from "electron";
 import { DSN } from "./dsn";
 
+// TODO FIXME: Vlad - disable Sentry
+
+/*
 function beforeSendFunc(event) {
   if (event._isAllowedToSend === true) {
     // breadcrumbs is not informative for diagnostic report
@@ -45,6 +48,7 @@ export function SentryInit() {
     console.error(e);
   }
 }
+*/
 
 export function SentrySendDiagnosticReport(
   AccountID,
@@ -90,7 +94,7 @@ export function SentrySendDiagnosticReport(
       continue;
     }
 
-    // replace  all occrances of 'AccountID' with accountIdInfo
+    // replace  all occurrences of 'AccountID' with accountIdInfo
     if (accountIdInfo)
       eventAdditionalDataObject[propName] = eventAdditionalDataObject[
         propName

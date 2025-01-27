@@ -16,8 +16,8 @@ import {
 
 import path from "path";
 
-import { SentryInit } from "./sentry/sentry.js";
-SentryInit();
+// import { SentryInit } from "./sentry/sentry.js";
+// SentryInit();
 
 // start waiting for events from Renderer processes
 import "./ipc/main-listener";

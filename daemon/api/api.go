@@ -52,6 +52,7 @@ type RestApiHostsDef struct {
 	ApiHost    string
 	SsoHost    string
 	UpdateHost string
+	LogsHost   string
 }
 
 var (
@@ -59,12 +60,14 @@ var (
 		ApiHost:    "deskapi.privateline.io", // "api.privateline.io"
 		SsoHost:    "sso.privateline.io",
 		UpdateHost: "raw.githubusercontent.com",
+		LogsHost:   "logs.privateline.io",
 	}
 
 	developmentApiHosts = RestApiHostsDef{
 		ApiHost:    "api.privateline.dev",
 		SsoHost:    "sso.privateline.dev",
 		UpdateHost: "raw.githubusercontent.com",
+		LogsHost:   "logs.privateline.io",
 	}
 
 	RestApiHostsSet = []*RestApiHostsDef{&productionApiHosts, &developmentApiHosts}
@@ -94,6 +97,7 @@ const (
 	_deviceListPath             = "/user/device-list"
 	_profileDataPath            = "/user/profile"
 	_subscriptionDataPath       = "/user/check-subscription"
+	_submitLogsPath             = "/api/submit"
 	_wgKeySetPath               = _apiPathPrefix + "/session/wg/set"
 	_geoLookupPath              = _apiPathPrefix + "/geo-lookup"
 )
