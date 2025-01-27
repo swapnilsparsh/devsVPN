@@ -2197,6 +2197,38 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 
 // @@@@@@@  END ==============================================================================================================
 
+func (s *Service) MigrateSsoUser() (
+	apiCode int,
+	resp *api_types.MigrateSsoUserResponse,
+	err error) {
+
+	prefs := s.Preferences()
+
+	// must be logged in
+	session := prefs.Session
+	if !session.IsLoggedIn() {
+		log.Error("we're not logged in yet, so not doing SSO user migration")
+		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
+	}
+
+	if resp, apiCode, err = s._api.MigrateSsoUser(prefs.Session.Session); err != nil {
+		return apiCode, nil, err
+	} else if !resp.Status {
+		return 0, nil, log.ErrorFE("error - migrateSsoUser request failed. Message: '%s'", resp.Message)
+	} else if !helpers.IsAValidAccountID(resp.Data.Username) {
+		return 0, nil, log.ErrorFE("error - returned account ID '%s' does not match the expected account ID format", resp.Data.Username)
+	}
+
+	prefs.Session.AccountID = resp.Data.Username  // success
+	if prefs.Session.Session != resp.Data.Token { // if the backend REST API returned a different session token (expected), then update it in prefs
+		// log.Debug(fmt.Sprintf("warning - session arg '%s' != returned resp.Data.Token '%s'", prefs.Session.Session, resp.Data.Token))
+		prefs.Session.Session = resp.Data.Token
+	}
+	s.setPreferences(prefs)
+
+	return apiCode, resp, err
+}
+
 func (s *Service) AccountInfo() (
 	apiCode int,
 	apiErrorMsg string,
