@@ -307,6 +307,9 @@ CreatePackage()
   	EXTRA_INPUTS="$UI_REPO_ABS_PATH/References/Linux/ui/privateline-connect-ui.desktop=/usr/share/applications/privateline-connect-ui.desktop \
 				  $UI_REPO_ABS_PATH/References/Linux/ui/privateline-connect.svg=/usr/share/icons/hicolor/scalable/apps/privateline-connect.svg \
 				  $UI_REPO_ABS_PATH/dist/bin=/opt/privateline-connect/ui/"
+
+	# adding v4l-utils as dependency for QR scanner in UI
+	EXTRA_ARGS+=" -d v4l-utils"
   fi
 
   declare RESOLVCONF_DEP
@@ -319,7 +322,7 @@ CreatePackage()
   DEBUG_ARGS=
 #  DEBUG_ARGS="--log debug --debug"
 
-  FPMOUT=$(fpm ${DEBUG_ARGS} -d openvpn -d iptables -d v4l-utils -d "${RESOLVCONF_DEP}" $EXTRA_ARGS \
+  FPMOUT=$(fpm ${DEBUG_ARGS} -d openvpn -d iptables -d "${RESOLVCONF_DEP}" $EXTRA_ARGS \
     --conflicts $CONFLICTS ${PKG_COMPRESSION_ARGS} \
     --rpm-rpmbuild-define "_build_id_links none" \
     --deb-no-default-config-files -s dir -t $PKG_TYPE -n $PKG_NAME -v $VERSION --url https://www.privateline.io --license "GNU GPL3" \
