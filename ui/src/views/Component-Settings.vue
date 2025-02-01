@@ -126,10 +126,9 @@
           <!-- VERSION -->
           <div class="flexRow" style="flex-grow: 1">
             <div class="flexRow" style="margin: 20px; flex-grow: 1">
-              <VersionBlock/>
+              <VersionBlock />
             </div>
           </div>
-
         </div>
       </div>
 
@@ -285,7 +284,7 @@ div.row {
 }
 #leftPanel {
   padding-top: 50px;
-  background: var(--background-color-alternate);
+  background: #6f319c;
   min-width: 232px;
   max-width: 232px;
   height: 100vh;
@@ -354,6 +353,6 @@ button.tabTitleBtn {
 }
 button.activeBtn {
   font-weight: 500;
-  color: #3b99fc;
+  color: #fff;
 }
 </style>

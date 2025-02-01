@@ -1,29 +1,29 @@
 <template>
-<!-- VERSION -->
-	<div
-		style="flex-grow: 1; text-align: center; cursor: pointer"
-		v-on:click="onVersionClick()"
-	>
-		<div v-if="versionSingle" class="version">
-			<!-- single version -->
-			{{ versionSingle }}
-		</div>
+  <!-- VERSION -->
+  <div
+    style="flex-grow: 1; text-align: center; cursor: pointer"
+    v-on:click="onVersionClick()"
+  >
+    <div v-if="versionSingle" class="version">
+      <!-- single version -->
+      {{ versionSingle }}
+    </div>
 
-		<div v-else>
-			<!-- daemon and UI versions different-->
-			<div class="version">
-				{{ versionUI }}
-			</div>
-			<div class="version">daemon {{ versionDaemon }}</div>
-		</div>
-	</div>
+    <div v-else>
+      <!-- daemon and UI versions different-->
+      <div class="version">
+        {{ versionUI }}
+      </div>
+      <div class="version">daemon {{ versionDaemon }}</div>
+    </div>
+  </div>
 </template>
 
 <script>
 const sender = window.ipcSender;
 
 export default {
-	computed: {
+  computed: {
     versionSingle: function () {
       if (this.versionDaemon === this.versionUI) return this.versionDaemon;
       return null;
@@ -84,7 +84,6 @@ export default {
 @import "@/components/scss/constants";
 
 div.version {
-  color: gray;
+  color: #fff;
 }
-
 </style>

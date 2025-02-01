@@ -51,7 +51,12 @@
               @keyup="keyup($event)"
             />
             <span class="input-button">
-                <img @click="startScanning" style="cursor: pointer;" title="QR Code Scanner" src="@/assets/qr-scan.svg" />
+              <img
+                @click="startScanning"
+                style="cursor: pointer"
+                title="QR Code Scanner"
+                src="@/assets/qr-scan.svg"
+              />
             </span>
           </div>
           <!-- ============ account ID formatting feature end ============= -->
@@ -173,7 +178,7 @@ export default {
       password: "",
       isProcessing: false,
       isAccountIdLogin: true,
-      accountID: '',
+      accountID: "",
 
       rawResponse: null,
       apiResponseStatus: 0,
@@ -363,12 +368,14 @@ export default {
         this.isProcessing = true;
         if (this.isAccountIdLogin) {
           // const pattern = new RegExp("^([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$");
-          const pattern = new RegExp("^(a-)?([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$"); // Allowing both XXXX-XXXX-XXXX Or a-XXXX-XXXX-XXXX
+          const pattern = new RegExp(
+            "^(a-)?([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$"
+          ); // Allowing both XXXX-XXXX-XXXX Or a-XXXX-XXXX-XXXX
           if (this.accountID) this.accountID = this.accountID.trim();
           if (!pattern.test(this.accountID)) {
             throw new Error(
               "Invalid account ID. Your account ID has to be in 'XXXX-XXXX-XXXX' format. Please check your account ID and try again.\n\n" +
-              "If you previously entered your account ID as a-XXXX-XXXX-XXXX - now you can simply enter it as XXXX-XXXX-XXXX"
+                "If you previously entered your account ID as a-XXXX-XXXX-XXXX - now you can simply enter it as XXXX-XXXX-XXXX"
             );
           }
         } else {
@@ -399,10 +406,14 @@ export default {
             return;
           }
         }
-        
+
         // Only send account ID to the daemon in XXXX-XXXX-XXXX format irrespective of whether the user entered account ID as XXXX-XXXX-XXXX, or as a-XXXX-XXXX-XXXX
         const resp = await sender.Login(
-          this.isAccountIdLogin ? (this.accountID.startsWith('a-') ? this.accountID.substring(2,16) : this.accountID) : this.email,
+          this.isAccountIdLogin
+            ? this.accountID.startsWith("a-")
+              ? this.accountID.substring(2, 16)
+              : this.accountID
+            : this.email,
           this.isAccountIdLogin ? "" : this.password
           // isForceLogout === true || this.isForceLogoutRequested === true,
           // this.captchaID,
@@ -413,7 +424,8 @@ export default {
         //console.log("resp", resp);
         //const accountInfoResponse = await sender.AccountInfo();
         //console.log("accountInfoResponse", accountInfoResponse);
-        if (resp.APIStatus === 429) { // API error: [429] Too many requests from this IP or email, please try again later
+        if (resp.APIStatus === 429) {
+          // API error: [429] Too many requests from this IP or email, please try again later
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
@@ -519,7 +531,8 @@ export default {
     },
     openSSO() {
       sender.shellOpenExternal(
-        `https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`);
+        `https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`
+      );
     },
     onLoginWithAccountId() {
       this.isAccountIdLogin = !this.isAccountIdLogin;
@@ -537,26 +550,34 @@ export default {
       this.isForceLogoutRequested = false;
     },
     keyup(event) {
-      let input = this.accountID || '';
-      const sanitized = input.toUpperCase().replace(/[^A-HJ-NP-Z0-9-]/gi, '');
+      let input = this.accountID || "";
+      const sanitized = input.toUpperCase().replace(/[^A-HJ-NP-Z0-9-]/gi, "");
 
-      if (sanitized.startsWith('A-')) {
+      if (sanitized.startsWith("A-")) {
         // Limit to the format a-XXXX-XXXX-XXXX
-        const trimmed = sanitized.replace(/-/g, '').substring(0, 13); // Exclude 'A-'
-        this.accountID = `a-${trimmed.substring(1).match(/.{1,4}/g)?.join('-') || ''}`;
+        const trimmed = sanitized.replace(/-/g, "").substring(0, 13); // Exclude 'A-'
+        this.accountID = `a-${
+          trimmed
+            .substring(1)
+            .match(/.{1,4}/g)
+            ?.join("-") || ""
+        }`;
       } else {
         // Default to the format XXXX-XXXX-XXXX
-        const trimmed = sanitized.replace(/-/g, '').substring(0, 12);
-        this.accountID = trimmed.match(/.{1,4}/g)?.join('-') || '';
+        const trimmed = sanitized.replace(/-/g, "").substring(0, 12);
+        this.accountID = trimmed.match(/.{1,4}/g)?.join("-") || "";
       }
 
       // Handle the Enter key
-      if (event.key === 'Enter' && !this.isProcessing && !this.$store.getters["account/isLoggedIn"]) {
+      if (
+        event.key === "Enter" &&
+        !this.isProcessing &&
+        !this.$store.getters["account/isLoggedIn"]
+      ) {
         event.preventDefault();
         this.Login();
       }
     },
-
 
     updateColorScheme() {
       let isDarkTheme = false;

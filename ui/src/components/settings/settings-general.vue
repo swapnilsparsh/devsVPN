@@ -183,11 +183,7 @@
       >
     </div>
     <div class="param">
-      <input
-        type="checkbox"
-        id="disconnect"
-        v-model="disconnectOnQuit"
-      />
+      <input type="checkbox" id="disconnect" v-model="disconnectOnQuit" />
       <label class="defColor" for="disconnect"
         >Disconnect when closing application</label
       >
@@ -236,6 +232,7 @@
 
         <button
           class="settingsButton"
+          style="background-color: #6f319c; border: 0px; padding: 3px"
           v-on:click="onLogs"
           v-if="isCanSendDiagLogs"
         >
@@ -247,7 +244,9 @@
         <div>
           <div class="param">
             <input type="checkbox" id="beta" v-model="beta" />
-            <label class="defColor" for="beta">Notify beta version updates</label>
+            <label class="defColor" for="beta"
+              >Notify beta version updates</label
+            >
           </div>
           <div class="description">
             Beta versions can break and change often
@@ -267,12 +266,13 @@
           <div>
             <div class="param">
               <input type="checkbox" id="devRestApi" v-model="devRestApi" />
-              <label class="defColor" for="devRestApi">Use development REST API servers</label>
+              <label class="defColor" for="devRestApi"
+                >Use development REST API servers</label
+              >
             </div>
           </div>
         </div>
       </div>
-      
     </div>
 
     <!-- TOPMOST: Diagnostic logs 'dialog' -->
@@ -633,5 +633,4 @@ select {
   color: rgb(251, 24, 24);
   font-weight: bold;
 }
-
 </style>
