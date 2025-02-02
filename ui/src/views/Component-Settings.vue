@@ -3,13 +3,31 @@
     <div id="main" class="row">
       <div id="leftPanel" class="settingsLeftPanel">
         <div class="flexColumn">
-          <div class="row settingsLeftPanelHeader" id="leftPanelHeader">
+          <div
+            class="row settingsLeftPanelHeader"
+            style="flex-wrap: wrap"
+            id="leftPanelHeader"
+          >
             <button id="backBtn" class="noBordersBtn" v-on:click="goBack">
               <!-- ARROW LEFT -->
               <imgArrowLeft />
             </button>
             <!-- ========== TODOC1: Setting ============ -->
-            <div class="Header settingsHeader">Settings</div>
+            <!-- <div class="Header settingsHeader">Settings</div> -->
+            <img
+              width="70%"
+              style="pointer-events: none"
+              src="@/assets/white-logo.png"
+            />
+            <hr
+              style="
+                width: 100%;
+                margin-top: 15px;
+                border: none;
+                border-top: 1px solid #ccc;
+                flex-basis: 85%;
+              "
+            />
           </div>
 
           <!-- TABS -->
@@ -23,6 +41,10 @@
                   activeBtn: view === 'account',
                 }"
               >
+                <img
+                  style="width: 18px; height: 18px"
+                  src="@/assets/settings-account.svg"
+                />
                 Account
               </button>
 
@@ -33,6 +55,10 @@
                   activeBtn: view === 'general',
                 }"
               >
+                <img
+                  style="width: 18px; height: 18px"
+                  src="@/assets/settings-general.svg"
+                />
                 General
               </button>
 
@@ -44,6 +70,10 @@
                   activeBtn: view === 'connection',
                 }"
               >
+                <img
+                  style="width: 18px; height: 18px"
+                  src="@/assets/settings-connection.svg"
+                />
                 Connection
               </button>
               <!-- <button
@@ -64,6 +94,10 @@
                   activeBtn: view === 'appwhitelist',
                 }"
               >
+                <img
+                  style="width: 18px; height: 18px"
+                  src="@/assets/settings-whitelist.svg"
+                />
                 App Whitelist
               </button>
               <!-- <button
@@ -125,7 +159,7 @@
 
           <!-- VERSION -->
           <div class="flexRow" style="flex-grow: 1">
-            <div class="flexRow" style="margin: 20px; flex-grow: 1">
+            <div class="flexRow" style="margin-left: 30px; flex-grow: 1">
               <VersionBlock />
             </div>
           </div>
@@ -284,7 +318,7 @@ div.row {
 }
 #leftPanel {
   padding-top: 50px;
-  background: #6f319c;
+  background: #6f329d;
   min-width: 232px;
   max-width: 232px;
   height: 100vh;
@@ -299,7 +333,7 @@ div.row {
   flex-flow: column;
   overflow: auto;
 
-  margin-left: $back-btn-width;
+  margin-left: 30px;
 }
 .rightPanel {
   margin-top: 58px;
@@ -338,21 +372,22 @@ button.noBordersBtn {
   background-color: inherit;
   outline-width: 0;
   cursor: pointer;
-  width: 100%;
+  width: fit-content;
 }
 button.tabTitleBtn {
   display: flex;
   padding: 0px;
+  gap: 5px;
 
   margin-bottom: 19px;
 
-  font-size: 14px;
+  font-size: 16px;
   line-height: 17px;
 
-  color: var(--text-color-settings-menu);
+  color: #fff;
 }
 button.activeBtn {
-  font-weight: 500;
+  font-weight: 600;
   color: #fff;
 }
 </style>

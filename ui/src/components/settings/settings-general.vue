@@ -232,7 +232,6 @@
 
         <button
           class="settingsButton"
-          style="background-color: #6f319c; border: 0px; padding: 3px"
           v-on:click="onLogs"
           v-if="isCanSendDiagLogs"
         >

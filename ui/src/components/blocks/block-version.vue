@@ -1,7 +1,7 @@
 <template>
   <!-- VERSION -->
   <div
-    style="flex-grow: 1; text-align: center; cursor: pointer"
+    style="flex-grow: 1; text-align: left; cursor: pointer"
     v-on:click="onVersionClick()"
   >
     <div v-if="versionSingle" class="version">
