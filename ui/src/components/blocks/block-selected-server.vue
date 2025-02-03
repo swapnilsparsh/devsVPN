@@ -29,7 +29,9 @@
             />
           </div> -->
           <div class="flexRow">
-            <div class="serverName" style="max-width: 245px">privateLINE Network</div>
+            <div class="serverName" style="max-width: 245px">
+              privateLINE Network
+            </div>
             <!-- <serverNameControl
               class="serverName"
               style="max-width: 245px"
@@ -146,6 +148,7 @@ export default {
 }
 
 .serverName {
+  font-weight: 600;
   max-width: 270px;
 }
 </style>

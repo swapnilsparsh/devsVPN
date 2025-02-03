@@ -122,7 +122,7 @@
                 </div>
 
                 <div class="flexRow paramBlockDetailedConfig">
-                  <div class="defColor paramName">Account verification:</div>
+                  <div class="defColor paramName">Account Verification:</div>
                   <div class="detailedParamValue">
                     {{
                       $store.state.account.userDetails.isVerified

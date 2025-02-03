@@ -14,7 +14,7 @@
         <div class="flexRow" style="flex-grow: 1">
           <div style="flex-grow: 1">
             <button
-              style="width: 100%"
+              style="width: 100%; font-weight: 600"
               v-on:click="showAll"
               class="stateButtonOff stateButtonLeft"
               v-bind:class="{ stateButtonOn: !isFavoritesView }"
@@ -25,7 +25,7 @@
 
           <div style="flex-grow: 1">
             <button
-              style="width: 100%"
+              style="width: 100%; font-weight: 600"
               v-on:click="showFavorites"
               class="stateButtonOff stateButtonRight"
               v-bind:class="{ stateButtonOn: isFavoritesView }"
@@ -394,7 +394,7 @@ export default {
     sortTypeStr: function () {
       return enumValueName(
         ServersSortTypeEnum,
-        this.$store.state.settings.serversSortType,
+        this.$store.state.settings.serversSortType
       );
     },
 
@@ -441,13 +441,13 @@ export default {
               l.latitude,
               l.longitude,
               a.latitude,
-              a.longitude,
+              a.longitude
             );
             var distB = getDistanceFromLatLonInKm(
               l.latitude,
               l.longitude,
               b.latitude,
-              b.longitude,
+              b.longitude
             );
 
             if (distA === distB) return 0;
@@ -579,7 +579,7 @@ export default {
       if (server.favHost) {
         return this.onServerHostSelected(
           server.favHostParentServerObj,
-          server.favHost,
+          server.favHost
         );
       }
       if ((await this.checkAndNotifyInaccessibleServer(server)) == false)
@@ -603,7 +603,7 @@ export default {
     onSortType: function (sortTypeStr) {
       this.$store.dispatch(
         "settings/serversSortType",
-        ServersSortTypeEnum[sortTypeStr],
+        ServersSortTypeEnum[sortTypeStr]
       );
       this.isSortMenu = false;
     },
@@ -618,7 +618,7 @@ export default {
     isSvrExcludedFomFastest: function (server) {
       const sGwId = getGatewayId(server.gateway);
       const found = this.$store.state.settings.serversFastestExcludeList.find(
-        (excGw) => sGwId == getGatewayId(excGw),
+        (excGw) => sGwId == getGatewayId(excGw)
       );
       return found != undefined;
     },
@@ -657,7 +657,7 @@ export default {
         return this.favoriteClicked(
           evt,
           server.favHostParentServerObj,
-          server.favHost,
+          server.favHost
         );
       }
       const settings = this.$store.state.settings;
@@ -724,7 +724,7 @@ export default {
 
       const activeServers = this.servers.slice();
       const notExcludedActiveServers = activeServers.filter(
-        (s) => !excludeSvrs.includes(getGatewayId(s.gateway)),
+        (s) => !excludeSvrs.includes(getGatewayId(s.gateway))
       );
 
       if (notExcludedActiveServers.length < 1) {
@@ -849,6 +849,7 @@ input#filter {
 .serverName {
   max-width: 195px;
   width: 195px;
+  font-weight: 600;
 }
 
 .pingInfo {

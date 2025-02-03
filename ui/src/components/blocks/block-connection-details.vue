@@ -1,13 +1,9 @@
 <template>
   <div>
     <div>
-      <div class="horizontalLine" />
       <div id="connection_header">
-        <div style="height: 24px"></div>
-
         <span class="block datails_text"> CONNECTION DETAILS </span>
       </div>
-      <div class="horizontalLine" />
     </div>
 
     <!-- FIREWALL -->
@@ -88,7 +84,9 @@
           class="leftPanelBlock"
           :click="onShowWifiConfig"
           v-bind:text="wifiSSID"
-          :description="wifiSSID == '' ? 'No Wi-Fi connection' : 'Wi-Fi network'"
+          :description="
+            wifiSSID == '' ? 'No Wi-Fi connection' : 'Wi-Fi network'
+          "
           :markerText="WiFiMarkerText"
           :markerColor="WiFiMarkerColor"
           :markerTextColor="'var(--text-color-details)'"
@@ -100,8 +98,6 @@
     <!-- GEOLOCATOIN INFO -->
     <transition name="fade">
       <div v-if="$store.state.settings.minimizedUI">
-        <div class="horizontalLine" />
-
         <!-- <GeolocationInfoControl class="blockWithMrgings" /> -->
       </div>
     </transition>
@@ -135,8 +131,8 @@ export default {
     OnOffButtonControl,
     SelectButtonControl,
     GeolocationInfoControl,
-// TODO: Vlad - SplitTunnelControl disabled for MVP 1.0
-//    SplitTunnelControl,
+    // TODO: Vlad - SplitTunnelControl disabled for MVP 1.0
+    //    SplitTunnelControl,
   },
   props: [
     "onShowPorts",
@@ -163,12 +159,12 @@ export default {
         // do not show port number for multi-hop connections
         return `${enumValueName(VpnTypeEnum, protocol)}/${enumValueName(
           PortTypeEnum,
-          port.type,
+          port.type
         )}`;
       }
       return `${enumValueName(VpnTypeEnum, protocol)}/${enumValueName(
         PortTypeEnum,
-        port.type,
+        port.type
       )} ${port.port}`;
     },
     isTrustedNetworksControlActive() {
@@ -308,17 +304,12 @@ export default {
 }
 
 .datails_text {
-  color: var(--text-color-details);
+  color: var(--text-color);
   font-size: 13px;
   line-height: 18px;
-
+  font-weight: 600;
   letter-spacing: -0.08px;
   text-transform: uppercase;
-}
-
-#connection_header {
-  min-height: 51px;
-  background: var(--background-color-alternate);
 }
 
 .leftPanelBlock {
