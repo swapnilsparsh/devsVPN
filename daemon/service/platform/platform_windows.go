@@ -83,7 +83,8 @@ func doOsInit() (warnings []string, errors []error, logInfo []string) {
 		isBufferTooSmall bool
 		err              error
 	)
-	if osVersion, outErrText, _, isBufferTooSmall, err = shell.ExecAndGetOutput(nil, 1024*30, "", "ver"); err != nil {
+	cmdPath := strings.ReplaceAll(path.Join(SYSTEMROOT, "System32", "CMD.EXE"), "/", "\\")
+	if osVersion, outErrText, _, isBufferTooSmall, err = shell.ExecAndGetOutput(nil, 1024*30, "", cmdPath, "ver"); err != nil {
 		warnings = append(warnings, fmt.Errorf("error getting Windows version: '%s' isBufferTooSmall=%t : %w", outErrText, isBufferTooSmall, err).Error())
 	}
 	if osVersion == "" {
