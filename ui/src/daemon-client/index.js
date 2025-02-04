@@ -408,6 +408,7 @@ async function processResponse(response) {
     case daemonResponses.HelloResp:
       store.commit("daemonVersion", obj.Version);
       store.commit("daemonProcessorArch", obj.ProcessorArch);
+      store.commit("osVersion", obj.OsVersion);
 
       store.commit("usingDevelopmentRestApiBackend", obj.DevRestApiBackend);
 

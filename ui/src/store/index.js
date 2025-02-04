@@ -212,7 +212,7 @@ export default createStore({
     daemonProcessorArch(state, value) {
       state.daemonProcessorArch = value;
     },
-    daemonOsVersion(state, value) {
+    osVersion(state, value) {
       state.osVersion = value;
     },
     daemonIsInstalling(state, value) {
