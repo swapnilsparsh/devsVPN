@@ -491,6 +491,9 @@ ipcMain.handle("renderer-request-shell-open-external", async (event, uri) => {
 });
 
 // OS
+ipcMain.on("renderer-request-os-version-release", (event) => {
+  event.returnValue = os.version() + " " + os.release();
+});
 ipcMain.on("renderer-request-os-release", (event) => {
   event.returnValue = os.release();
 });

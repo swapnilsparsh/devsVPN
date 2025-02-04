@@ -12,6 +12,14 @@
             {{ this.$store.state.daemonVersion }}
           </div>
         </div>
+
+        <div class="flexRow paramBlockDetailedConfig">
+          <div class="defColor paramName">OS:</div>
+          <div class="detailedParamValue">
+            {{ osVersionRelease }}
+          </div>
+        </div>
+
         <!-- <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Protocol:</div>
           <div class="detailedParamValue">
@@ -339,6 +347,9 @@ export default {
     }
   },
   computed: {
+    osVersionRelease() {
+      return sender.osVersionRelease();
+    },
     adjustedHandshakeTime() {
       // Check if connectionInfo is null
       if (this.$store.state.vpnState.connectionInfo === null) {
