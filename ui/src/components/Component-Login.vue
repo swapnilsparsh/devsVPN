@@ -89,7 +89,7 @@
         -->
 
         <div style="height: 24px" />
-        <button class="master" @click="Login">Log In With Account ID</button>
+        <button class="master" @click="Login">Login</button>
         <div style="height: 12px" />
         <!--
         <button v-if="!isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Account ID</button>
@@ -97,8 +97,10 @@
           Password</button>
         <div style="height: 12px" />
         -->
+        <!-- Disable "SSO Login" button per PLCON-89
         <button class="slave" v-on:click="openSSO">SSO Login</button>
         <div style="height: 12px" />
+        -->
         <button class="slave" @click="CreateAccount">Create an account</button>
         <div style="height: 12px" />
         <video v-show="stream" ref="videoRef" autoplay></video>
