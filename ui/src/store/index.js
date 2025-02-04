@@ -30,6 +30,7 @@ export default createStore({
     daemonProcessorArch: "",
     daemonIsOldVersionError: false,
     daemonIsInstalling: false,
+    osVersion: "",
     
     usingDevelopmentRestApiBackend: false,
 
@@ -210,6 +211,9 @@ export default createStore({
     },
     daemonProcessorArch(state, value) {
       state.daemonProcessorArch = value;
+    },
+    daemonOsVersion(state, value) {
+      state.osVersion = value;
     },
     daemonIsInstalling(state, value) {
       state.daemonIsInstalling = value;

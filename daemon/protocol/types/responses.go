@@ -149,6 +149,7 @@ type HelloResp struct {
 	CommandBase
 	Version           string
 	ProcessorArch     string
+	OsVersion         string
 	Session           SessionResp
 	DevRestApiBackend bool
 	Account           preferences.AccountStatus

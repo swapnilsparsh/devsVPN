@@ -28,7 +28,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
+
+	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
 
 var (
@@ -75,6 +78,18 @@ func doOsInit() (warnings []string, errors []error, logInfo []string) {
 		errors = make([]error, 0)
 	}
 
+	var (
+		outErrText       string
+		isBufferTooSmall bool
+		err              error
+	)
+	if osVersion, outErrText, _, isBufferTooSmall, err = shell.ExecAndGetOutput(nil, 1024*30, "", "ver"); err != nil {
+		warnings = append(warnings, fmt.Errorf("error getting Windows version: '%s' isBufferTooSmall=%t : %w", outErrText, isBufferTooSmall, err).Error())
+	}
+	if osVersion == "" {
+		osVersion = runtime.GOOS
+	}
+
 	// common variables initialization
 	settingsDir := getEtcDir()
 	settingsDirCommon := getEtcDirCommon()
@@ -105,7 +120,7 @@ func doOsInit() (warnings []string, errors []error, logInfo []string) {
 	if _, err := os.Stat(path.Join(_installDir, "WireGuard", _wgArchDir, "wireguard.exe")); err != nil {
 		_wgArchDir = "x86"
 		if _, err := os.Stat(path.Join(_installDir, "WireGuard", _wgArchDir, "wireguard.exe")); err != nil {
-			errors = append(errors, fmt.Errorf("unabale to find WireGuard binary: %s ..<x86_64\\x86>", path.Join(_installDir, "WireGuard")))
+			errors = append(errors, fmt.Errorf("unable to find WireGuard binary: %s ..<x86_64\\x86>", path.Join(_installDir, "WireGuard")))
 		}
 	}
 	wgBinaryPath = path.Join(_installDir, "WireGuard", _wgArchDir, "wireguard.exe")
