@@ -10,7 +10,7 @@
           >
             <button id="backBtn" class="noBordersBtn" v-on:click="goBack">
               <!-- ARROW LEFT -->
-              <imgArrowLeft />
+              <settingsImgArrowLeft />
             </button>
             <!-- ========== TODOC1: Setting ============ -->
             <!-- <div class="Header settingsHeader">Settings</div> -->
@@ -222,7 +222,7 @@ import dnsView from "@/components/settings/settings-dns.vue";
 import advancedView from "@/components/settings/settings-advanced.vue";
 import VersionBlock from "@/components/blocks/block-version.vue";
 
-import imgArrowLeft from "@/components/images/arrow-left.vue";
+import settingsImgArrowLeft from "@/components/images/settings-arrow-left.vue";
 
 export default {
   components: {
@@ -235,7 +235,7 @@ export default {
     antitrackerView,
     dnsView,
     advancedView,
-    imgArrowLeft,
+    settingsImgArrowLeft,
     VersionBlock,
   },
   mounted() {

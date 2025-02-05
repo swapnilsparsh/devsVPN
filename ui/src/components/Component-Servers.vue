@@ -67,7 +67,6 @@
         class="styled"
         placeholder="Search for a server"
         v-model="filter"
-        v-bind:style="{ backgroundImage: 'url(' + searchImage + ')' }"
       />
 
       <div class="buttonWithPopup">

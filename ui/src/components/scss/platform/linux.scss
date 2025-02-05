@@ -50,9 +50,9 @@ div.shieldButtonsSeparator {
 // === INPUT ===
 input.styled {
     @extend .styledBase;
-    height: 27px;
+    height: 40px;
 
-    border: 1px solid var(--input-border-color);
+    border: none;
     box-sizing: border-box;
   
     border-radius: 4px;

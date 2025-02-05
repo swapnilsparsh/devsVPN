@@ -3,16 +3,16 @@
     <div class="flexRow flexRowRestSpace">
       <spinner :loading="isProcessing" />
 
-      <div class="column">
-        <div class="centered" style="margin-top: -50px; margin-bottom: 30px">
-          <img width=" 70%" src="@/assets/logo.svg" />
-        </div>
+      <!-- <div class="column"> -->
+      <div class="centered">
+        <img width=" 70%" src="@/assets/logo.svg" />
+      </div>
 
+      <div class="column">
         <div>
           <!-- ACCOUNT ID -->
           <div class="centered">
-            <div class="large_text">Login</div>
-            <div class="medium_text">to privateLINE Connect</div>
+            <div class="large_text">Log In</div>
             <div style="height: 12px" />
           </div>
 
@@ -37,6 +37,8 @@
 
           </div> -->
           <!-- ============ account ID formatting feature start ============= -->
+          <div class="medium_text" style="font-weight: 600">Account ID:</div>
+          <div style="height: 12px" />
           <div
             v-if="isAccountIdLogin"
             style="position: relative; display: flex; align-items: center"
@@ -93,21 +95,66 @@
         </div>
         -->
 
-        <div style="height: 24px" />
-        <button class="master" @click="Login">Log In With Account ID</button>
-        <div style="height: 12px" />
+        <div style="height: 18px" />
+        <button
+          class="master"
+          style="height: 45px; border-radius: 10px; font-weight: 600"
+          @click="Login"
+        >
+          Log In
+        </button>
+        <div style="height: 18px" />
         <!--
         <button v-if="!isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Account ID</button>
         <button v-if="isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Email And
           Password</button>
         <div style="height: 12px" />
         -->
-        <button class="slave" v-on:click="openSSO">SSO Login</button>
-        <div style="height: 12px" />
-        <button class="slave" @click="CreateAccount">Create an account</button>
-        <div style="height: 12px" />
+        <button
+          class="slave"
+          style="
+            height: 45px;
+            border-radius: 10px;
+            background: transparent;
+            border: 2px solid #6f329d;
+            color: var(--login-text-color);
+            font-weight: 600;
+          "
+          v-on:click="openSSO"
+        >
+          SSO Log In
+        </button>
+        <div style="height: 18px" />
+        <button
+          class="slave"
+          style="
+            height: 45px;
+            border-radius: 10px;
+            background: transparent;
+            border: 2px solid #6f329d;
+            color: var(--login-text-color);
+            font-weight: 600;
+          "
+          @click="CreateAccount"
+        >
+          Create an Account
+        </button>
+        <div style="height: 18px" />
         <video v-show="stream" ref="videoRef" autoplay></video>
       </div>
+      <!-- </div> -->
+    </div>
+    <div v-if="versionSingle" class="version">
+      <!-- single version -->
+      {{ versionSingle }}
+    </div>
+
+    <div v-else>
+      <!-- daemon and UI versions different-->
+      <div class="version">
+        {{ versionUI }}
+      </div>
+      <div class="version">daemon {{ versionDaemon }}</div>
     </div>
 
     <!-- <div class="flexRow leftright_margins" style="margin-bottom: 20px">
@@ -228,6 +275,28 @@ export default {
       if (this.$store.state.vpnState.firewallState.IsEnabled)
         return "Firewall enabled and blocking all traffic";
       return "Firewall disabled";
+    },
+    versionSingle: function () {
+      if (this.versionDaemon === this.versionUI) return this.versionDaemon;
+      return null;
+    },
+    versionDaemon: function () {
+      try {
+        let v = this.$store.state.daemonVersion;
+        if (!v) return "version unknown";
+        return `v${v}`;
+      } catch (e) {
+        return "version unknown";
+      }
+    },
+    versionUI: function () {
+      try {
+        let v = sender.appGetVersion().Version;
+        if (!v) return "version unknown";
+        return `v${v}`;
+      } catch (e) {
+        return "version unknown";
+      }
     },
   },
   watch: {
@@ -637,7 +706,7 @@ export default {
   position: absolute;
   top: 4px;
   right: 5px;
-  margin: 0;
+  margin: 7px;
   padding: 0;
 }
 
@@ -654,6 +723,7 @@ video {
 .column {
   @extend .leftright_margins;
   width: 100%;
+  margin-bottom: 70px;
 }
 
 .centered {
@@ -664,8 +734,9 @@ video {
 
 .large_text {
   font-weight: 600;
-  font-size: 18px;
+  font-size: 22px;
   line-height: 120%;
+  text-align: left;
 }
 
 .small_text {
@@ -679,5 +750,10 @@ video {
   font-size: 11px;
   line-height: 13px;
   color: var(--text-color-details);
+}
+
+div.version {
+  text-align: center;
+  font-weight: 600;
 }
 </style>

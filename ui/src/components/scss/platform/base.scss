@@ -39,7 +39,7 @@ button.hopButtonBase {
 
 button.hopButtonActiveBase {
     @extend .hopButtonBase;
-    font-weight: 500;
+    font-weight: 600;
     opacity: 1;
 }
 
@@ -66,9 +66,9 @@ div.horizontalLine {
 // === Shield BUTTONS ===
 div.shieldButtonsGroup {
     display: flex;
-    border: 1px solid var(--shield-button-border-color);
-    width: 100%;
-    border-radius: 12px
+    border: 2px solid var(--shield-button-border-color);
+    width: 40%;
+    border-radius: 8px
 }
 
 div.shieldButtonsBase {
@@ -76,7 +76,7 @@ div.shieldButtonsBase {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 5px 20px 5px 20px;
+    padding: 5px 20px 5px 10px;
 }
 
 div.shieldButtonsSeparatorBase {
@@ -98,26 +98,26 @@ button.shieldButtonBase {
     outline-width: 0;
 
     opacity: 0.5;
-    padding: 10px;
+    padding: 3px;
     width: 100%;
 }
 
 button.shieldButtonActiveBaseGreen {
     @extend .hopButtonBase;
-    font-weight: 500;
+    font-weight: 600;
     opacity: 1;
     background-color: var(--connection-switch-color-green);
     color: #ffffff !important;
-    border-radius: 12px;
+    border-radius: 8px;
 }
 
 button.shieldButtonActiveBaseBlue {
     @extend .hopButtonBase;
-    font-weight: 500;
+    font-weight: 600;
     opacity: 1;
     background-color: var(--connection-switch-color-blue);
     color: #ffffff !important;
-    border-radius: 12px;
+    border-radius: 8px;
 }
 
 // === Menu Color ===

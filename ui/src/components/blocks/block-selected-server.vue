@@ -128,10 +128,10 @@ export default {
 }
 
 .small_text {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 17px;
   letter-spacing: -0.3px;
-  color: var(--text-color-details);
+  color: var(--text-color);
 }
 
 .serverSelectBtn {
