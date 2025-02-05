@@ -420,6 +420,9 @@ export default {
   },
 
   // OS
+  osVersionRelease: () => {
+    return ipcRenderer.sendSync("renderer-request-os-version-release");
+  },
   osRelease: () => {
     return ipcRenderer.sendSync("renderer-request-os-release");
   },
