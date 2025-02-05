@@ -353,6 +353,7 @@ function commitSession(sessionRespObj) {
   const session = {
     AccountID: sessionRespObj.AccountID,
     Session: sessionRespObj.Session,
+    DeviceName: sessionRespObj.DeviceName,
     WgPublicKey: sessionRespObj.WgPublicKey,
     WgLocalIP: sessionRespObj.WgLocalIP,
     WgUsePresharedKey: sessionRespObj.WgUsePresharedKey,
@@ -396,7 +397,7 @@ async function processResponse(response) {
     if (obj.Command == "APIResponse")
       log.debug(
         `<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` +
-          (obj.Error ? " Error!" : "")
+        (obj.Error ? " Error!" : "")
       );
     else if (obj.Command != "TransferredDataResp")
       log.debug(`<== ${obj.Command} [${obj.Idx}]`);
@@ -983,7 +984,7 @@ async function Login(
   return resp;
 }
 
-async function SsoLogin( Code, SessionState) {
+async function SsoLogin(Code, SessionState) {
   let resp = await sendRecv({
     Command: daemonRequests.SsoLogin,
     Code: Code,
@@ -1589,7 +1590,7 @@ async function KillSwitchReregister(CanStopOtherVpn) {
     Command: daemonRequests.KillSwitchReregister,
     CanStopOtherVpn,
   },
-  [daemonResponses.KillSwitchReregisterErrorResp]
+    [daemonResponses.KillSwitchReregisterErrorResp]
   );
   return ret;
 }

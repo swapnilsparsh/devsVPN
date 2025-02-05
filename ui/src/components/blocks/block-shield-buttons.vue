@@ -1,28 +1,41 @@
 <template>
-  <div>
-    <div class="small_text">Connection type</div>
-    <div class="shieldButtons">
-      <div class="shieldButtonsGroup">
-        <button
-          class="shieldButton"
-          v-bind:class="{
-            shieldButtonActiveGreen: IsEnabled,
-          }"
-          v-on:click="ChangeShield(true)"
-        >
-          Shield
-        </button>
+  <div style="display: flex">
+    <div class="leftBorder" style="width: 100%">
+      <div class="small_text">Connection type</div>
+      <div class="shieldButtons">
+        <div class="shieldButtonsGroup">
+          <button
+            class="shieldButton"
+            v-bind:class="{
+              shieldButtonActiveGreen: IsEnabled,
+            }"
+            v-on:click="ChangeShield(true)"
+          >
+            Shield
+          </button>
 
-        <button
-          class="shieldButton"
-          v-bind:class="{
-            shieldButtonActiveBlue: !IsEnabled,
-          }"
-          v-on:click="checkPlanBeforeChangeShield(false)"
-        >
-          Total Shield
-        </button>
+          <button
+            class="shieldButton"
+            v-bind:class="{
+              shieldButtonActiveBlue: !IsEnabled,
+            }"
+            v-on:click="checkPlanBeforeChangeShield(false)"
+          >
+            Total Shield
+          </button>
+        </div>
       </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; width: 30%">
+      <span style="color: #178fe6; font-weight: 500">Connection Status:</span>
+      <div
+        :style="{
+          width: '15px',
+          height: '15px',
+          borderRadius: '50%',
+          backgroundColor: statusColor,
+        }"
+      ></div>
     </div>
   </div>
 </template>
@@ -93,7 +106,8 @@ export default {
 
   computed: {
     textApplicationsHeader: function () {
-      if (Platform() === PlatformEnum.Linux) return "Running Whitelisted Applications";
+      if (Platform() === PlatformEnum.Linux)
+        return "Running Whitelisted Applications";
       return "Applications";
     },
 
@@ -211,6 +225,18 @@ export default {
         default:
           return Image_search_linux;
       }
+    },
+    protectedText() {
+      if (this.$store.getters["vpnState/isPaused"]) return "Paused";
+      if (this.$store.getters["vpnState/isConnected"]) return "Connected";
+      return "Disconnected";
+    },
+    statusColor() {
+      return this.protectedText === "Connected"
+        ? "#4eaf51"
+        : this.protectedText === "Paused"
+          ? "yellow"
+          : "#ff6258";
     },
   },
 
@@ -346,7 +372,7 @@ export default {
     async ChangeShield(value) {
       //============== Write here Shield logic and remember there is much more than this
       //this is simple split tunnel as Shield and not split tunnel as Total Shield, as discussed with Satyarth
-      // value = true means split tunnel 
+      // value = true means split tunnel
       this.isSTEnabledLocal = value;
       // APPLY ST CONFIGURATION
       try {
@@ -725,6 +751,12 @@ Do you want to enable Inverse mode for Split Tunnel?",
   @extend .settingsDefaultTextColor;
 }
 
+div.leftBorder {
+  border-left: 1px solid var(--text-color);
+  margin-left: 15px;
+  margin-bottom: 10px;
+}
+
 div.fwDescription {
   @extend .settingsGrayLongDescriptionFont;
   margin-top: 4px;
@@ -808,7 +840,8 @@ $shadow: 0px 3px 12px rgba(var(--shadow-color-rgb), var(--shadow-opacity));
   font-size: 14px;
   line-height: 17px;
   letter-spacing: -0.3px;
-  color: var(--text-color-details);
-  margin-left: 20px;
+  color: var(--text-color);
+  margin-left: 10px;
+  font-weight: 500;
 }
 </style>

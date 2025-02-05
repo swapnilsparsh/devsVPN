@@ -60,10 +60,16 @@
             <button v-on:click="onPrivateLine()" title="privateLINE">
               <img
                 src="@/assets/logo.png"
-                style="width: 22px; height: 22px; pointer-events: none"
+                style="
+                  width: 22px;
+                  height: 22px;
+                  pointer-events: none;
+                  border: 2px solid #fff;
+                  border-radius: 8px;
+                "
               />
             </button>
-            <div>privateLINE Connect</div>
+            <div style="color: #fff; font-weight: 500">privateLINE Connect</div>
 
             <!-- <button v-on:click="onMaximize(true)" title="Show map">
               <img src="@/assets/maximize.svg" />
@@ -71,7 +77,7 @@
           </div>
         </transition>
       </div>
-      <div class="flexColumn" style="min-height: 0px">
+      <div class="flexColumn" style="min-height: 0px; height: 92vh">
         <transition name="fade" mode="out-in">
           <component
             v-bind:is="currentViewComponent"
@@ -210,17 +216,17 @@ export default {
 <style scoped lang="scss">
 @import "@/components/scss/constants";
 
-#flexview {
-  display: flex;
-  flex-direction: row;
-  height: 100%;
-}
+// #flexview {
+//   display: flex;
+//   flex-direction: row;
+//   height: 100%;
+// }
 
-#left {
-  width: 320px;
-  min-width: 320px;
-  max-width: 320px;
-}
+// #left {
+//   width: 320px;
+//   min-width: 320px;
+//   max-width: 320px;
+// }
 #right {
   width: 0%; // ???
   flex-grow: 1;
@@ -233,10 +239,8 @@ div.minimizedButtonsPanelRightElements {
 
 div.minimizedButtonsPanel {
   display: flex;
-
-  margin-left: 10px;
-  margin-right: 10px;
-  margin-top: 10px;
+  background-color: #6f329d;
+  padding: 10px;
 }
 
 div.minimizedButtonsPanel button {

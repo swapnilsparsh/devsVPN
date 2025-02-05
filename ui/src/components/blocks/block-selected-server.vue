@@ -29,7 +29,9 @@
             />
           </div> -->
           <div class="flexRow">
-            <div class="serverName" style="max-width: 245px">privateLINE Network</div>
+            <div class="serverName" style="max-width: 245px">
+              privateLINE Network
+            </div>
             <!-- <serverNameControl
               class="serverName"
               style="max-width: 245px"
@@ -126,10 +128,10 @@ export default {
 }
 
 .small_text {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 17px;
   letter-spacing: -0.3px;
-  color: var(--text-color-details);
+  color: var(--text-color);
 }
 
 .serverSelectBtn {
@@ -146,6 +148,7 @@ export default {
 }
 
 .serverName {
+  font-weight: 600;
   max-width: 270px;
 }
 </style>
