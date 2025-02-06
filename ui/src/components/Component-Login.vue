@@ -101,7 +101,7 @@
           style="height: 45px; border-radius: 10px; font-weight: 600"
           @click="Login"
         >
-          Log In
+          Login
         </button>
         <div style="height: 18px" />
         <!--
@@ -110,6 +110,8 @@
           Password</button>
         <div style="height: 12px" />
         -->
+        
+        <!-- SSO login disabled per PLCON-89 Remove SSO login option from main screen from Desktop apps
         <button
           class="slave"
           style="
@@ -124,6 +126,8 @@
         >
           SSO Log In
         </button>
+        -->
+
         <div style="height: 18px" />
         <button
           class="slave"
@@ -144,12 +148,12 @@
       </div>
       <!-- </div> -->
     </div>
-    <div v-if="versionSingle" class="version">
+    <div v-if="versionSingle" class="version" style="margin-bottom: 10px">
       <!-- single version -->
       {{ versionSingle }}
     </div>
 
-    <div v-else>
+    <div v-else style="margin-bottom: 12px">
       <!-- daemon and UI versions different-->
       <div class="version">
         {{ versionUI }}
