@@ -482,10 +482,8 @@ export default {
 
         // Only send account ID to the daemon in XXXX-XXXX-XXXX format irrespective of whether the user entered account ID as XXXX-XXXX-XXXX, or as a-XXXX-XXXX-XXXX
         const resp = await sender.Login(
-          this.isAccountIdLogin
-            ? this.accountID.startsWith("a-")
-              ? this.accountID.substring(2, 16)
-              : this.accountID
+          this.isAccountIdLogin ? 
+            (this.accountID.startsWith("a-") ? this.accountID.substring(2, 16) : this.accountID)
             : this.email,
           this.isAccountIdLogin ? "" : this.password
           // isForceLogout === true || this.isForceLogoutRequested === true,
