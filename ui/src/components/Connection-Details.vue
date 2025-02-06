@@ -364,7 +364,15 @@ export default {
   },
   computed: {
     osVersionRelease() {
-      return sender.osVersionRelease();
+      switch (Platform()) {
+        case PlatformEnum.Windows:
+        case PlatformEnum.macOS:
+          return sender.osVersionRelease();
+        case PlatformEnum.Linux:
+          return this.$store.state.osVersion;
+        default:
+          return sender.osVersionRelease();
+      }
     },
     adjustedHandshakeTime() {
       // Check if connectionInfo is null
