@@ -27,7 +27,7 @@ import {
 
 import { GetLinuxSnapEnvVars } from "@/helpers/main_platform";
 import { Platform } from "@/platform/platform";
-import { app, dialog, ipcMain, nativeTheme, shell } from "electron";
+import { app, dialog, ipcMain, nativeTheme, shell, Notification } from "electron";
 import path from "path";
 
 import {
@@ -529,3 +529,27 @@ ipcMain.handle(
     return await client.SetLocalParanoidModePassword(password);
   }
 );
+
+
+// Push Notifications
+ipcMain.on("renderer-request-showPushNotification", (event, data) => {
+  // sample data 
+  // let data = {
+  //   "id": "aStgLqm6cefo",
+  //   "event": "message",
+  //   "topic": "GENERAL-PROD",
+  //   "time": 1739352230,
+  //   "expires": 1739395430,
+  //   "title": "plConnect Desktop",
+  //   "message": "Hello privateLINE",
+  //   "priority": 5
+  // }
+  app.setAppUserModelId('io.privateline.app');
+
+  new Notification({
+    title: data?.title, // If title come in future
+    body: data?.message,
+    icon: path.join(app.getAppPath(), "assets", "logo.png"),
+  }).show();
+});
+

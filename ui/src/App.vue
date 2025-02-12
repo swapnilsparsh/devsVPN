@@ -31,6 +31,9 @@ export default {
     // This is required to send to renderer processes current storage state
     sender.RefreshStorage();
   },
+  created() {
+    this.subscribeToNotifications();
+  },
   computed: {
     isWindowHasFrame: function () {
       return IsWindowHasFrame();
@@ -39,6 +42,34 @@ export default {
       return this.$store.getters["account/isLoggedIn"];
     },
   },
+  methods: {
+    subscribeToNotifications() {
+      const topics = [
+        `GENERAL-${'PROD'}`,
+        `PLCON-GENERAL-${'PROD'}`,
+        `PLCON-${this.$store.state.account.session.AccountID}-${'PROD'}`,
+        `PLCON-DESKTOP-${'PROD'}`
+      ];
+
+      topics.forEach(topic => {
+        // const url = `https://push.privateline.io//${topic}/sse`;
+        const url = `https://ntfy.sh/${topic}/sse`;
+        const eventSource = new EventSource(url);
+
+        eventSource.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log(`Received from ${topic}:`, data);
+          sender.showPushNotification(data);
+        };
+
+        eventSource.onerror = (error) => {
+          console.error(`Error in event source for ${topic}:`, error);
+        };
+      });
+    }
+
+  },
+
   watch: {
     isLoggedIn() {
       if (this.isLoggedIn === false) this.$router.push("/");
@@ -65,6 +96,7 @@ html * {
 input {
   background: var(--input-background);
 }
+
 textarea {
   background: var(--input-background);
 }
@@ -72,6 +104,7 @@ textarea {
 body {
   background: var(--background-color);
 }
+
 /*
 button:hover {
   opacity: 80%;
@@ -98,6 +131,7 @@ button:hover {
 
   position: absolute;
 }
+
 .border {
   // For no-bordered windows: print border manually -
   // show transparent but bordered div top of the window

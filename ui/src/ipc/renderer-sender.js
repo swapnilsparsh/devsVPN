@@ -454,4 +454,9 @@ export default {
       password
     );
   },
+
+  // Push Notifications
+  showPushNotification: (data) => {
+    ipcRenderer.send("renderer-request-showPushNotification", data);
+  },
 };
