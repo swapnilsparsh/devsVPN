@@ -1,6 +1,6 @@
 <template>
   <div class="flexColumn" style="justify-content: space-between; width: 100%">
-    <div class="flexColumn" style="gap: 2rem">
+    <div class="flexColumn">
       <div class="flexRow">
         <div>
           <div class="settingsTitle">ACCOUNT DETAILS</div>
@@ -26,53 +26,8 @@
               v-else-if="$store.state.account.userDetails.id"
               class="flexColumn"
             >
-              <div class="defColor paramName">Account ID:</div>
-              <div
-                style="margin-bottom: 2rem"
-                v-if="this.IsAccIdLogin"
-                class="flexRow paramBlockDetailedConfig"
-              >
-                <label
-                  class="settingsBigBoldFont selectable"
-                  :class="{ blurred: isAccountIDBlurred }"
-                >
-                  {{ this.$store.state.account.session.AccountID }}
-                </label>
-                <div
-                  @click="toggleAccountIDBlur"
-                  style="cursor: pointer; margin-left: 10px"
-                  title="Click to show or hide the account ID"
-                >
-                  <div v-if="isAccountIDBlurred">
-                    <img
-                      style="vertical-align: middle"
-                      src="@/assets/eye-close.svg"
-                    />
-                  </div>
-                  <div v-if="!isAccountIDBlurred">
-                    <img
-                      style="vertical-align: middle"
-                      src="@/assets/eye-open.svg"
-                    />
-                  </div>
-                </div>
-                <div style="display: inline-block">
-                  <div
-                    style="display: inline-block"
-                    title="Copy the account ID"
-                  >
-                    <img
-                      style="vertical-align: middle; cursor: pointer"
-                      src="@/assets/copy.svg"
-                      @click="copyAccountID"
-                      alt="Copy"
-                    />
-                  </div>
-                </div>
-              </div>
-
               <div style="display: flex; flex-direction: column; gap: 5px">
-                <img
+                <!-- <img
                   v-if="!profileImage"
                   src="@/assets/avtar.svg"
                   style="height: 50px; width: 50px"
@@ -87,7 +42,51 @@
                     border: 5px solid #fff;
                     margin-bottom: 10px;
                   "
-                />
+                /> -->
+
+                <div
+                  class="flexRow paramBlockDetailedConfig"
+                  v-if="this.IsAccIdLogin"
+                >
+                  <div class="defColor paramName">AccountId:</div>
+                  <div
+                    class="detailedParamValue selectable"
+                    :class="{ blurred: isAccountIDBlurred }"
+                  >
+                    {{ this.$store.state.account.session.AccountID }}
+                  </div>
+                  <div
+                    @click="toggleAccountIDBlur"
+                    style="cursor: pointer; margin-left: 10px"
+                    title="Click to show or hide the account ID"
+                  >
+                    <div v-if="isAccountIDBlurred">
+                      <img
+                        style="vertical-align: middle"
+                        src="@/assets/eye-close.svg"
+                      />
+                    </div>
+                    <div v-if="!isAccountIDBlurred">
+                      <img
+                        style="vertical-align: middle"
+                        src="@/assets/eye-open.svg"
+                      />
+                    </div>
+                  </div>
+                  <div style="display: inline-block">
+                    <div
+                      style="display: inline-block"
+                      title="Copy the account ID"
+                    >
+                      <img
+                        style="vertical-align: middle; cursor: pointer"
+                        src="@/assets/copy.svg"
+                        @click="copyAccountID"
+                        alt="Copy"
+                      />
+                    </div>
+                  </div>
+                </div>
 
                 <div class="flexRow paramBlockDetailedConfig">
                   <div class="defColor paramName">Name:</div>
@@ -95,6 +94,7 @@
                     {{ $store.state.account.userDetails.name }}
                   </div>
                 </div>
+
                 <div
                   v-if="!this.IsAccIdLogin"
                   class="flexRow paramBlockDetailedConfig"
@@ -104,6 +104,7 @@
                     {{ $store.state.account.userDetails.email }}
                   </div>
                 </div>
+
                 <div
                   v-if="!this.IsAccIdLogin"
                   class="flexRow paramBlockDetailedConfig"
@@ -166,14 +167,14 @@
       </div>
 
       <div class="device-limit-container">
-        <h2>Device Limit</h2>
+        <div class="settingsTitle">Device List</div>
         <div class="device-list">
           <table>
             <thead>
               <tr>
                 <th>Device Name</th>
                 <th>Allocated IP</th>
-                <th>Created At</th>
+                <th>Configured On</th>
               </tr>
             </thead>
             <tbody>
@@ -611,11 +612,11 @@ export default {
 .device-limit-container {
   width: 100%;
   max-width: 600px;
-  margin: auto;
+  margin: 2rem 0;
 }
 
 .device-list {
-  max-height: 300px;
+  max-height: 115px;
   overflow-y: auto;
   border: 1px solid #ddd;
 }
