@@ -8,6 +8,9 @@ export default {
     //userData
     userDetails: {},
 
+    //deviceList
+    deviceList: {},
+
     //subscriptionData
     subscriptionData: {},
 
@@ -45,6 +48,9 @@ export default {
     userDetails(state, userData) {
       state.userDetails = userData;
     },
+    deviceList(state, deviceList) {
+      state.deviceList = deviceList;
+    },
     subscriptionData(state, subscriptionData) {
       state.subscriptionData = subscriptionData;
     },
@@ -57,7 +63,7 @@ export default {
         !state.accountStatus ||
         !state.session ||
         state.accountStatus.SessionTokenLastPart !==
-          getLastPartOfSessionToken(state.session.Session)
+        getLastPartOfSessionToken(state.session.Session)
       )
         state.accountStatus = null;
 

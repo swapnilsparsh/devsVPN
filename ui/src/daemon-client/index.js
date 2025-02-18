@@ -73,6 +73,7 @@ const daemonRequests = Object.freeze({
   SessionDelete: "SessionDelete",
   SessionStatus: "SessionStatus",
   ProfileData: "ProfileData",
+  DeviceList: "DeviceList",
   SubscriptionData: "SubscriptionData",
 
   WiFiSettings: "WiFiSettings",
@@ -152,6 +153,7 @@ const daemonResponses = Object.freeze({
 
   AccountInfoResp: "AccountInfoResp",
   ProfileDataResp: "ProfileDataResp",
+  DeviceListResp: "DeviceListResp",
 
   TransferredDataResp: "TransferredDataResp",
   HandshakeResp: "HandshakeResp",
@@ -977,6 +979,7 @@ async function Login(
   if (resp.APIStatus === API_SUCCESS) {
     commitSession(resp.Session);
     ProfileData();
+    DeviceList();
     SubscriptionData();
   }
 
@@ -994,6 +997,7 @@ async function SsoLogin(Code, SessionState) {
 
   if (resp.APIStatus === API_SUCCESS) {
     ProfileData();
+    DeviceList();
     SubscriptionData();
   }
   return resp;
@@ -1020,6 +1024,15 @@ async function ProfileData() {
   const profileData = resp.RawResponse.data;
   store.commit(`account/userDetails`, profileData);
   return profileData;
+}
+
+async function DeviceList() {
+  let resp = await sendRecv({
+    Command: daemonRequests.DeviceList,
+  });
+  const deviceList = resp.RawResponse.data;
+  store.commit(`account/deviceList`, deviceList);
+  return deviceList;
 }
 
 async function SubscriptionData() {
@@ -2004,5 +2017,6 @@ export default {
   SetLocalParanoidModePassword,
   AccountInfo,
   ProfileData,
+  DeviceList,
   SubscriptionData,
 };

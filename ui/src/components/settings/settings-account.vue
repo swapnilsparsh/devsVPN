@@ -165,6 +165,28 @@
         </div>
       </div>
 
+      <div class="device-limit-container">
+        <h2>Device Limit</h2>
+        <div class="device-list">
+          <table>
+            <thead>
+              <tr>
+                <th>Device Name</th>
+                <th>Allocated IP</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="device in deviceListData" :key="device.device_name">
+                <td>{{ device.device_name }}</td>
+                <td>{{ device.allocated_ip }}</td>
+                <td>{{ new Date(device.createdAt).toLocaleString() }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div>
         <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
         <div
@@ -286,6 +308,7 @@ export default {
   data: function () {
     return {
       apiProfileTimeout: null,
+      apiDeviceListTimeout: null,
       apiSubscriptionTimeout: null,
       isProcessing: true,
       isSubscriptionProcessing: true,
@@ -298,6 +321,9 @@ export default {
     profileImage() {
       const profile = this.$store.state.account.userDetails.profile;
       return profile ? `https://api.privateline.io/uploads/${profile}` : "";
+    },
+    deviceListData() {
+      return this.$store.state.account.deviceList.rows || [];
     },
     createdAt() {
       return this.$store.state.account.userDetails.createdAt;
@@ -368,6 +394,7 @@ export default {
   mounted() {
     //this.accountStatusRequest();
     this.profileData();
+    this.deviceList();
     this.getSubscriptionData();
     this.waitForSessionInfo();
   },
@@ -481,6 +508,29 @@ export default {
       }
     },
 
+    async deviceList() {
+      try {
+        this.isProcessing = true;
+
+        this.apiDeviceListTimeout = setTimeout(() => {
+          throw Error("Device List API Time Out");
+        }, 10 * 1000);
+        await sender.DeviceList();
+      } catch (err) {
+        console.log({ err });
+        sender.showMessageBoxSync({
+          type: "error",
+          buttons: ["OK"],
+          message: "API Error",
+          detail: `Device list couldn't be fetched at this moment, please check your internet connection!`,
+        });
+      } finally {
+        this.isProcessing = false;
+        clearTimeout(this.apiDeviceListTimeout);
+        this.apiDeviceListTimeout = null;
+      }
+    },
+
     async getSubscriptionData() {
       try {
         this.isSubscriptionProcessing = true;
@@ -556,6 +606,30 @@ export default {
 
 .defColor {
   @extend .settingsDefaultTextColor;
+}
+
+.device-limit-container {
+  width: 100%;
+  max-width: 600px;
+  margin: auto;
+}
+
+.device-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
 }
 
 .statusButton {
