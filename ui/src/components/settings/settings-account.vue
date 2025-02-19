@@ -173,14 +173,14 @@
             <thead>
               <tr>
                 <th>Device Name</th>
-                <th>Allocated IP</th>
+                <th>Platform</th>
                 <th>Configured On</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="device in deviceListData" :key="device.device_name">
                 <td>{{ device.device_name }}</td>
-                <td>{{ device.allocated_ip }}</td>
+                <td>{{ device.type }}</td>
                 <td>{{ new Date(device.createdAt).toLocaleString() }}</td>
               </tr>
             </tbody>
