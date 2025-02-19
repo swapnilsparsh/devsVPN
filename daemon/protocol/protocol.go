@@ -191,6 +191,11 @@ type Service interface {
 		rawResponse *api_types.ProfileDataResponse,
 		err error)
 
+	DeviceList() (
+		apiCode int,
+		rawResponse *api_types.DeviceListResponse,
+		err error)
+
 	SubscriptionData() (
 		apiCode int,
 		rawResponse *api_types.SubscriptionDataResponse,
@@ -1158,6 +1163,43 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				Session:         types.CreateSessionResp(p._service.Preferences().Session),
 				RawResponse:     rawResponse}
 		}
+		// send response
+		p.sendResponse(conn, &resp, reqCmd.Idx)
+
+		// notify all clients about changed session status
+		p.notifyClients(p.createHelloResponse())
+
+	case "DeviceList":
+		var req types.DeviceListRequest
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		var resp types.DeviceListResp
+		apiCode, rawResponse, err := p._service.DeviceList()
+
+		if err != nil {
+			if apiCode == 0 {
+				// if apiCode == 0 - it is not API error. Sending error response
+				err := fmt.Errorf("apiErrorMsg= %w", err)
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			// sending API error info
+			resp = types.DeviceListResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+			}
+		} else {
+			// Success. Sending session info
+			resp = types.DeviceListResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+				Session:         types.CreateSessionResp(p._service.Preferences().Session),
+				RawResponse:     rawResponse}
+		}
+
 		// send response
 		p.sendResponse(conn, &resp, reqCmd.Idx)
 

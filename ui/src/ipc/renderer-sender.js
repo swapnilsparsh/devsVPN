@@ -246,6 +246,10 @@ export default {
     return await invoke("renderer-request-ProfileData");
   },
 
+  DeviceList: async () => {
+    return await invoke("renderer-request-DeviceList");
+  },
+
   SubscriptionData: async () => {
     return await invoke("renderer-request-SubscriptionData");
   },
