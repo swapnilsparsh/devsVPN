@@ -48,7 +48,7 @@
                   class="flexRow paramBlockDetailedConfig"
                   v-if="this.IsAccIdLogin"
                 >
-                  <div class="defColor paramName">AccountId:</div>
+                  <div class="defColor paramName">Account ID:</div>
                   <div
                     class="detailedParamValue selectable"
                     :class="{ blurred: isAccountIDBlurred }"
@@ -116,7 +116,7 @@
                 </div>
 
                 <div class="flexRow paramBlockDetailedConfig">
-                  <div class="defColor paramName">Account Created on:</div>
+                  <div class="defColor paramName">Account Created On:</div>
                   <div class="detailedParamValue">
                     {{ formattedCreatedAt }}
                   </div>
