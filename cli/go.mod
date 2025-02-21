@@ -13,8 +13,13 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set/v2 v2.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/nftables v0.2.0 // indirect
 	github.com/google/uuid v1.5.0 // indirect
+	github.com/josharian/native v1.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
+	github.com/mdlayher/netlink v1.7.2 // indirect
+	github.com/mdlayher/socket v0.5.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/panta/machineid v1.0.2 // indirect
 	github.com/parsiya/golnk v0.0.0-20221103095132-740a4c27c4ff // indirect
@@ -23,6 +28,7 @@ require (
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
+	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
