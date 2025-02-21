@@ -81,7 +81,6 @@ var (
 
 	manager                winlib.Manager
 	clientLocalIPFilterIDs []uint64
-	customDNS              net.IP
 
 	_isEnabled          bool
 	isPersistent        bool = true

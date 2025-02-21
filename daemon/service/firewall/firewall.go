@@ -54,6 +54,8 @@ var (
 	isClientPaused               bool
 	dnsConfig                    *dns.DnsSettings
 
+	customDNS net.IP
+
 	// List of IP masks that are allowed for any communication
 	userExceptions []net.IPNet
 
