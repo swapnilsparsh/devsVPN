@@ -207,6 +207,14 @@ type ProfileDataResp struct {
 	RawResponse     *api_types.ProfileDataResponse
 }
 
+type DeviceListResp struct {
+	CommandBase
+	APIStatus       int
+	APIErrorMessage error
+	Session         SessionResp
+	RawResponse     *api_types.DeviceListResponse
+}
+
 type SubscriptionDataResp struct {
 	CommandBase
 	APIStatus       int
