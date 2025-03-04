@@ -39,8 +39,9 @@ import (
 )
 
 const (
-	VPN_COEXISTENCE_CHAIN_IN  = "PRIVATELINE_VPN_COEXISTENCE_IN"
-	VPN_COEXISTENCE_CHAIN_OUT = "PRIVATELINE_VPN_COEXISTENCE_OUT"
+	PL_TABLE                  = "privateline"
+	VPN_COEXISTENCE_CHAIN_IN  = "privateline-vpn-coexistence-in"
+	VPN_COEXISTENCE_CHAIN_OUT = "privateline-vpn-coexistence-out"
 )
 
 var (
@@ -67,107 +68,99 @@ func implInitialize() error {
 	return nil
 }
 
-func implGetEnabled() (bool, error) {
-	// TODO FIXME: Vlad - rewrite, check for our chain existence
-	exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "-status")
-	return !(err != nil && exitCode != 0), nil
+func implGetEnabled() (exists bool, retErr error) {
+	// Check that our table exists
+	if table, err := nftConn.ListTableOfFamily(PL_TABLE, nftables.TableFamilyINet); err != nil {
+		if strings.Contains(err.Error(), "no such file or directory") {
+			return false, nil
+		} else {
+			return false, log.ErrorFE("error - ListTableOfFamily: %w", err)
+		}
+	} else if table == nil {
+		return false, log.ErrorFE("error - ListTableOfFamily returned nil")
+	} else if table.Name != PL_TABLE {
+		return false, log.ErrorFE("error - ListTableOfFamily returned table with wrong name '%s'", table.Name)
+	}
+
+	// Also check that helper script returns true - that cgroup exists, etc.
+	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "-status"); err != nil {
+		return false, log.ErrorFE("error running '%s -status': %w", platform.FirewallScript(), err)
+	} else if exitCode != 0 {
+		return false, log.ErrorFE("error - '%s -status' exit code = %d", platform.FirewallScript(), exitCode)
+	}
+
+	return true, nil
 }
 
 func doEnable() (err error) {
+	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "-start"); err != nil {
+		return log.ErrorFE("error initializing firewall script: %w", err)
+	} else if exitCode != 0 {
+		return log.ErrorE(fmt.Errorf("error initializing firewall script - exit code %d", exitCode), 0)
+	}
+
 	prefs := getPrefsCallback()
 
-	// Create filter table, if not present
-	filter := nftConn.AddTable(&nftables.Table{
+	// Create privateline table, if not present
+	plTable := nftConn.AddTable(&nftables.Table{
 		Family: nftables.TableFamilyINet,
-		Name:   "filter",
+		Name:   PL_TABLE,
 	})
 
 	// Create VPN coexistence chains
 	vpnCoexistenceChainIn := nftConn.AddChain(&nftables.Chain{
 		Name:     VPN_COEXISTENCE_CHAIN_IN,
-		Table:    filter,
+		Table:    plTable,
 		Type:     nftables.ChainTypeFilter,
 		Hooknum:  nftables.ChainHookInput,
 		Priority: nftables.ChainPriorityFirst, // our rules take top priority, are processed 1st
 	})
 	vpnCoexistenceChainOut := nftConn.AddChain(&nftables.Chain{
 		Name:     VPN_COEXISTENCE_CHAIN_OUT,
-		Table:    filter,
+		Table:    plTable,
 		Type:     nftables.ChainTypeFilter,
 		Hooknum:  nftables.ChainHookOutput,
 		Priority: nftables.ChainPriorityFirst, // our rules take top priority, are processed 1st
 	})
 
-	// create INPUT, OUTPUT chains
-	inputChain := nftConn.AddChain(&nftables.Chain{
-		Name:     "INPUT",
-		Table:    filter,
-		Type:     nftables.ChainTypeFilter,
-		Hooknum:  nftables.ChainHookInput,
-		Priority: nftables.ChainPriorityFilter,
-	})
-	outputChain := nftConn.AddChain(&nftables.Chain{
-		Name:     "OUTPUT",
-		Table:    filter,
-		Type:     nftables.ChainTypeFilter,
-		Hooknum:  nftables.ChainHookOutput,
-		Priority: nftables.ChainPriorityFilter,
-	})
-	// jump to our chains from the top of INPUT, OUTPUT
-	nftConn.AddRule(&nftables.Rule{
-		Position: 0,
-		Table:    filter,
-		Chain:    inputChain,
-		Exprs: []expr.Any{
-			&expr.Verdict{
-				Kind:  expr.VerdictKind(unix.NFT_JUMP),
-				Chain: VPN_COEXISTENCE_CHAIN_IN,
-			},
-		},
-	})
-	nftConn.AddRule(&nftables.Rule{
-		Position: 0,
-		Table:    filter,
-		Chain:    outputChain,
-		Exprs: []expr.Any{
-			&expr.Verdict{
-				Kind:  expr.VerdictKind(unix.NFT_JUMP),
-				Chain: VPN_COEXISTENCE_CHAIN_OUT,
-			},
-		},
-	})
-
 	// create a set of Wireguard endpoint IPs, and a set of our DNS servers, incl. custom DNS
 	wgEndpointAddrsIPv4 := &nftables.Set{
-		Name:    "Wireguard endpoint IPv4 addresses",
-		Table:   filter,
+		Name:    "Wireguard_endpoint_IPv4_addrs",
+		Table:   plTable,
 		KeyType: nftables.TypeIPAddr, // our keys are IPv4 addresses
-	}
-	privatelineDnsAddrsIPv4 := &nftables.Set{
-		Name:    "privateLINE DNS",
-		Table:   filter,
-		KeyType: nftables.TypeIPAddr, // our keys are IPv4 addresses so far
 	}
 	if err := nftConn.AddSet(wgEndpointAddrsIPv4, []nftables.SetElement{}); err != nil {
 		return log.ErrorFE("enable - error creating nft set: %w", err)
 	}
+
+	privatelineDnsAddrsIPv4 := &nftables.Set{
+		Name:    "privateLINE_DNS",
+		Table:   plTable,
+		KeyType: nftables.TypeIPAddr, // our keys are IPv4 addresses so far
+	}
 	if err := nftConn.AddSet(privatelineDnsAddrsIPv4, []nftables.SetElement{}); err != nil {
 		return log.ErrorFE("enable - error creating nft set: %w", err)
 	}
-	for _, vpnEntryHost := range prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {
-		nftConn.SetAddElements(wgEndpointAddrsIPv4, []nftables.SetElement{{Key: net.ParseIP(vpnEntryHost.EndpointIP)}})
-		for _, dnsSrv := range strings.Split(vpnEntryHost.DnsServers, ",") {
-			nftConn.SetAddElements(privatelineDnsAddrsIPv4, []nftables.SetElement{{Key: net.ParseIP(strings.TrimSpace(dnsSrv))}})
+
+	for _, vpnEntryHostParsed := range prefs.VpnEntryHostsParsed {
+		if err = nftConn.SetAddElements(wgEndpointAddrsIPv4, []nftables.SetElement{{Key: vpnEntryHostParsed.VpnEntryHostIP}}); err != nil {
+			return log.ErrorFE("enable - error adding vpnEntryHostParsed.VpnEntryHostIP to set: %w", err)
+		}
+		for _, dnsSrv := range vpnEntryHostParsed.DnsServersIPv4 {
+			if err = nftConn.SetAddElements(privatelineDnsAddrsIPv4, []nftables.SetElement{{Key: dnsSrv}}); err != nil {
+				return log.ErrorFE("enable - error adding dnsSrv to set: %w", err)
+			}
 		}
 	}
+
 	if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
-		nftConn.SetAddElements(privatelineDnsAddrsIPv4, []nftables.SetElement{{Key: customDNS}})
+		nftConn.SetAddElements(privatelineDnsAddrsIPv4, []nftables.SetElement{{Key: customDNS.To4()}})
 	}
 
 	// create a set of TCP & UDP protocols
 	tcpAndUdp := &nftables.Set{
-		Name:    "TCP & UDP inet protocol types",
-		Table:   filter,
+		Name:    "TCP_UDP",
+		Table:   plTable,
 		KeyType: nftables.TypeInetProto, // protocol type is 1 byte
 	}
 	if err := nftConn.AddSet(tcpAndUdp, []nftables.SetElement{}); err != nil {
@@ -184,7 +177,7 @@ func doEnable() (err error) {
 	// allow lo traffic
 	lo := []byte("lo\x00")
 	nftConn.AddRule(&nftables.Rule{
-		Table: filter,
+		Table: plTable,
 		Chain: vpnCoexistenceChainIn,
 		Exprs: []expr.Any{
 			// [ meta load iifname => reg 1 ]
@@ -194,7 +187,7 @@ func doEnable() (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 	nftConn.AddRule(&nftables.Rule{
-		Table: filter,
+		Table: plTable,
 		Chain: vpnCoexistenceChainOut,
 		Exprs: []expr.Any{
 			// [ meta load iifname => reg 1 ]
@@ -204,16 +197,10 @@ func doEnable() (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 
-	// TODO FIXME: Vlad - apply on our interface wgprivateline, when it's up:
-	//	ct state invalid drop
-	//	ct state established,related accept
-	//	allow meet.privateline.network, same as in firewall_windows.go
-	//
-	// wgprivateline := []byte("wgprivateline\x00")
-
 	// Allow our Wireguard gateways: in UDP, out TCP+UDP (any proto)
+	counter := nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter10"}).(*nftables.CounterObj)
 	nftConn.AddRule(&nftables.Rule{ // in UDP
-		Table: filter,
+		Table: plTable,
 		Chain: vpnCoexistenceChainIn,
 		Exprs: []expr.Any{
 			// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
@@ -224,47 +211,32 @@ func doEnable() (err error) {
 			&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
 			// [ cmp eq reg 2 UDP ]
 			&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
+			// add counter
+			&expr.Objref{Type: 1, Name: counter.Name},
 			//[ immediate reg 0 accept ]
 			&expr.Verdict{Kind: expr.VerdictAccept},
 		},
 	})
+	counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter20"}).(*nftables.CounterObj)
 	nftConn.AddRule(&nftables.Rule{ // out any proto
-		Table: filter,
+		Table: plTable,
 		Chain: vpnCoexistenceChainOut,
 		Exprs: []expr.Any{
 			// [ dest IP: payload load 4b @ network header + 16 => reg 1 ]
 			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 16, Len: 4},
 			// [ lookup reg 1, set Wireguard endpoints whitelist ]
 			&expr.Lookup{SourceRegister: 1, SetName: wgEndpointAddrsIPv4.Name, SetID: wgEndpointAddrsIPv4.ID},
-			//[ immediate reg 0 accept ]
-			&expr.Verdict{Kind: expr.VerdictAccept},
-		},
-	})
-
-	// Allow TCP+UDP dst port 53 to our DNS servers, incl. custom DNS
-	nftConn.AddRule(&nftables.Rule{ // out TCP+UDP, dst port 53
-		Table: filter,
-		Chain: vpnCoexistenceChainIn,
-		Exprs: []expr.Any{
-			// [ dest IP: payload load 4b @ network header + 16 => reg 1 ]
-			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 16, Len: 4},
-			// [ lookup reg 1, set DNS servers whitelist ]
-			&expr.Lookup{SourceRegister: 1, SetName: privatelineDnsAddrsIPv4.Name, SetID: privatelineDnsAddrsIPv4.ID},
-			// [ meta load l4proto => reg 2 ]
-			&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
-			// [ lookup reg 2, set tcpAndUdp whitelist ]
-			&expr.Lookup{SourceRegister: 2, SetName: tcpAndUdp.Name, SetID: tcpAndUdp.ID},
-			// [ dst port: payload load 2b @ transport header + 2 => reg 3 ]
-			&expr.Payload{DestRegister: 3, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2},
-			&expr.Cmp{Op: expr.CmpOpEq, Register: 3, Data: binaryutil.BigEndian.PutUint16(53)},
+			// add counter
+			&expr.Objref{Type: 1, Name: counter.Name},
 			//[ immediate reg 0 accept ]
 			&expr.Verdict{Kind: expr.VerdictAccept},
 		},
 	})
 
 	// Allow UDP src port 53 from our DNS servers, incl. custom DNS
+	counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter30"}).(*nftables.CounterObj)
 	nftConn.AddRule(&nftables.Rule{ // in UDP, src port 53
-		Table: filter,
+		Table: plTable,
 		Chain: vpnCoexistenceChainIn,
 		Exprs: []expr.Any{
 			// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
@@ -278,24 +250,116 @@ func doEnable() (err error) {
 			// [ src port: payload load 2b @ transport header + 0 => reg 3 ]
 			&expr.Payload{DestRegister: 3, Base: expr.PayloadBaseTransportHeader, Offset: 0, Len: 2},
 			&expr.Cmp{Op: expr.CmpOpEq, Register: 3, Data: binaryutil.BigEndian.PutUint16(53)},
+			// add counter
+			&expr.Objref{Type: 1, Name: counter.Name},
 			//[ immediate reg 0 accept ]
 			&expr.Verdict{Kind: expr.VerdictAccept},
 		},
 	})
 
-	// TODO FIXME: Vlad - permit all apps outbound TCP+UDP traffic to PL IP ranges by default, until we re-implement App Whitelist
+	// Allow TCP+UDP dst port 53 to our DNS servers, incl. custom DNS
+	counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter30"}).(*nftables.CounterObj)
+	nftConn.AddRule(&nftables.Rule{ // out TCP+UDP, dst port 53
+		Table: plTable,
+		Chain: vpnCoexistenceChainOut,
+		Exprs: []expr.Any{
+			// [ dest IP: payload load 4b @ network header + 16 => reg 1 ]
+			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 16, Len: 4},
+			// [ lookup reg 1, set DNS servers whitelist ]
+			&expr.Lookup{SourceRegister: 1, SetName: privatelineDnsAddrsIPv4.Name, SetID: privatelineDnsAddrsIPv4.ID},
+			// [ meta load l4proto => reg 2 ]
+			&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
+			// [ lookup reg 2, set tcpAndUdp whitelist ]
+			&expr.Lookup{SourceRegister: 2, SetName: tcpAndUdp.Name, SetID: tcpAndUdp.ID},
+			// [ dst port: payload load 2b @ transport header + 2 => reg 3 ]
+			&expr.Payload{DestRegister: 3, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 3, Data: binaryutil.BigEndian.PutUint16(53)},
+			// add counter
+			&expr.Objref{Type: 1, Name: counter.Name},
+			//[ immediate reg 0 accept ]
+			&expr.Verdict{Kind: expr.VerdictAccept},
+		},
+	})
 
-	// TODO FIXME: Vlad - allow PL service binaries in-out. Then we don't need to explicitly create allow rules for REST API servers, etc.
-	// TODO FIXME: Vlad - also allow in-out for our other default allowed apps (PL Comms, etc.)
+	// TODO: Vlad - permit all apps in UDP, out TCP+UDP (any proto) with PL IP ranges by default, until we re-implement App Whitelist
+	//	"related, established" will take care of TCP inbound packets
+	for _, vpnEntryHostParsed := range prefs.VpnEntryHostsParsed {
+		for _, allowedNet := range vpnEntryHostParsed.AllowedIPs {
+			counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter40_in_" + allowedNet.IP.String()}).(*nftables.CounterObj)
+			nftConn.AddRule(&nftables.Rule{ // in UDP
+				Table: plTable,
+				Chain: vpnCoexistenceChainIn,
+				Exprs: []expr.Any{
+					// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
+					&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4},
+					// By specifying Xor to 0x0,0x0,0x0,0x0 and Mask to the CIDR mask, the rule will match the CIDR of the IP (e.g in this case 10.0.0.0/24).
+					&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Xor: []byte{0x0, 0x0, 0x0, 0x0}, Mask: allowedNet.Netmask.To4()},
+					&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: allowedNet.IP.To4()},
+					// [ meta load l4proto => reg 2 ]
+					&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
+					// [ cmp eq reg 2 UDP ]
+					&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
+					// add counter
+					&expr.Objref{Type: 1, Name: counter.Name},
+					&expr.Verdict{Kind: expr.VerdictAccept},
+				},
+			})
+			counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter40_out_" + allowedNet.IP.String()}).(*nftables.CounterObj)
+			nftConn.AddRule(&nftables.Rule{ // out any proto
+				Table: plTable,
+				Chain: vpnCoexistenceChainOut,
+				Exprs: []expr.Any{
+					// [ dst IP: payload load 4b @ network header + 16 => reg 1 ]
+					&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 16, Len: 4},
+					// By specifying Xor to 0x0,0x0,0x0,0x0 and Mask to the CIDR mask, the rule will match the CIDR of the IP (e.g in this case 10.0.0.0/24).
+					&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Xor: []byte{0x0, 0x0, 0x0, 0x0}, Mask: allowedNet.Netmask.To4()},
+					&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: allowedNet.IP.To4()},
+					// add counter
+					&expr.Objref{Type: 1, Name: counter.Name},
+					&expr.Verdict{Kind: expr.VerdictAccept},
+				},
+			})
+		}
+	}
+
+	// allow PL service binaries in-out. Then we don't need to explicitly create allow rules for REST API servers, etc.
+	// also allow in-out for our other default allowed apps (PL Comms, etc.)
 	// 	TODO: permit PL Comms etc. only inbound UDP
-	allowedAppsCgroupClassid := 0x70561e1d
+	// allowedAppsCgroupClassid := 0x70561e1d
+	// allowedAppsCgroupClassid := []byte{0x70, 0x56, 0x1e, 0x1d} // TODO FIXME: Vlad - do I need to reorder bytes?
+	allowedAppsCgroupClassid := []byte{0x1d, 0x1e, 0x56, 0x70}
+	counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter50_in"}).(*nftables.CounterObj)
+	nftConn.AddRule(&nftables.Rule{
+		Table: plTable,
+		Chain: vpnCoexistenceChainIn,
+		Exprs: []expr.Any{
+			// [ meta load cgroup ID => reg 1 ]
+			&expr.Meta{Key: expr.MetaKeyCGROUP, Register: 1},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: allowedAppsCgroupClassid},
+			// add counter
+			&expr.Objref{Type: 1, Name: counter.Name},
+			//[ immediate reg 0 accept ]
+			&expr.Verdict{Kind: expr.VerdictAccept}},
+	})
+	counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter50_out"}).(*nftables.CounterObj)
+	nftConn.AddRule(&nftables.Rule{
+		Table: plTable,
+		Chain: vpnCoexistenceChainOut,
+		Exprs: []expr.Any{
+			// [ meta load cgroup ID => reg 1 ]
+			&expr.Meta{Key: expr.MetaKeyCGROUP, Register: 1},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: allowedAppsCgroupClassid},
+			// add counter
+			&expr.Objref{Type: 1, Name: counter.Name},
+			//[ immediate reg 0 accept ]
+			&expr.Verdict{Kind: expr.VerdictAccept}},
+	})
 
-	// TODO FIXME: Vlad - replicate further rules from firewall_windows.go
-	// ...
+	// TODO: Vlad - replicate further rules from firewall_windows.go as needed
 
 	// Apply the above (commands are queued till a call to Flush())
 	if err := nftConn.Flush(); err != nil {
-		return log.ErrorFE("enable - error nft flush: %w", err)
+		return log.ErrorFE("doEnable - error nft flush: %w", err)
 	}
 
 	// To fulfill such flow (example): Connected -> FWDisable -> FWEnable
@@ -305,8 +369,12 @@ func doEnable() (err error) {
 	return err
 }
 
-// TODO FIXME: Vlad - flesh out
-func doDisable() (err error) {
+func doDisable() (err error) { // delete our table
+	nftConn.DelTable(&nftables.Table{Name: PL_TABLE, Family: nftables.TableFamilyINet})
+	if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), "no such file or directory") {
+		return log.ErrorFE("doDisable - error 'nft delete table inet filter': %w", err)
+	}
+
 	return nil
 }
 
@@ -315,13 +383,13 @@ func implSetEnabled(isEnabled, _ bool) error {
 
 	if isEnabled {
 		return doEnable()
-	} else { // TODO FIXME: Vlad - disable FW ...
+	} else { // TODO FIXME: Vlad - refactor
 		curAllowedLanIPs = nil // forget allowed LAN IP addresses
 		isPersistent = false
 		allowedForICMP = nil
-	}
 
-	return nil
+		return doDisable()
+	}
 }
 
 func implSetPersistent(persistent bool) error {
@@ -777,49 +845,223 @@ func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
 }
 
 func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
-	return true, "", "", "", nil
+	weHaveTopFirewallPriority, retErr = implGetEnabled()
+	return weHaveTopFirewallPriority, "", "", "", retErr
 }
 
 func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
 	return nil
 }
 
+// Apply on our interface wgprivateline, when it's up:
+//
+//	conntrack state invalid drop on input
+//	conntrack state established,related accept on input; state established accept on output
+//	allow meet.privateline.network, same as in firewall_windows.go
+//
+// TODO: Vlad - do we need to worry about forward chains?
 func implDeployPostConnectionRules() (retErr error) {
-	return nil
+	wgprivateline := []byte("wgprivateline\x00")
+
+	plTable := &nftables.Table{Name: PL_TABLE, Family: nftables.TableFamilyINet}
+
+	// conttrack state invalid drop on input
+	counter := nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter60"}).(*nftables.CounterObj)
+	nftConn.AddRule(&nftables.Rule{
+		Table: plTable,
+		Chain: &nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_IN},
+		Exprs: []expr.Any{
+			// [ meta load iifname => reg 1 ]
+			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: wgprivateline},
+			&expr.Ct{Register: 1, SourceRegister: false, Key: expr.CtKeySTATE},
+			&expr.Bitwise{
+				SourceRegister: 1,
+				DestRegister:   1,
+				Len:            4,
+				Mask:           binaryutil.NativeEndian.PutUint32(expr.CtStateBitINVALID),
+				Xor:            binaryutil.NativeEndian.PutUint32(0),
+			},
+			&expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: []byte{0, 0, 0, 0}},
+			// add counter
+			&expr.Objref{Type: 1, Name: counter.Name},
+			&expr.Verdict{Kind: expr.VerdictDrop},
+		},
+	})
+
+	// conntrack state established,related accept on input
+	counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter70"}).(*nftables.CounterObj)
+	nftConn.AddRule(&nftables.Rule{
+		Table: plTable,
+		Chain: &nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_IN},
+		Exprs: []expr.Any{
+			// [ meta load iifname => reg 1 ]
+			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: wgprivateline},
+			&expr.Ct{Register: 1, SourceRegister: false, Key: expr.CtKeySTATE},
+			&expr.Bitwise{
+				SourceRegister: 1,
+				DestRegister:   1,
+				Len:            4,
+				Mask:           binaryutil.NativeEndian.PutUint32(expr.CtStateBitESTABLISHED | expr.CtStateBitRELATED),
+				Xor:            binaryutil.NativeEndian.PutUint32(0),
+			},
+			&expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: []byte{0, 0, 0, 0}},
+			// add counter
+			&expr.Objref{Type: 1, Name: counter.Name},
+			&expr.Verdict{Kind: expr.VerdictAccept},
+		},
+	})
+
+	// conntrack state established accept on output
+	counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter80"}).(*nftables.CounterObj)
+	nftConn.AddRule(&nftables.Rule{
+		Table: plTable,
+		Chain: &nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_OUT},
+		Exprs: []expr.Any{
+			// [ meta load iifname => reg 1 ]
+			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: wgprivateline},
+			&expr.Ct{Register: 1, SourceRegister: false, Key: expr.CtKeySTATE},
+			&expr.Bitwise{
+				SourceRegister: 1,
+				DestRegister:   1,
+				Len:            4,
+				Mask:           binaryutil.NativeEndian.PutUint32(expr.CtStateBitESTABLISHED),
+				Xor:            binaryutil.NativeEndian.PutUint32(0),
+			},
+			&expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: []byte{0, 0, 0, 0}},
+			// add counter
+			&expr.Objref{Type: 1, Name: counter.Name},
+			&expr.Verdict{Kind: expr.VerdictAccept},
+		},
+	})
+
+	// Allow our hosts (meet.privateline.network, etc.) in: UDP
+	for _, plInternalHostname := range platform.PLInternalHostnamesToAcceptIncomingUdpFrom() {
+		var (
+			IPs            []net.IP
+			ourHostIPsIPv4 = &nftables.Set{
+				Name:    "Allow incoming IPv4 UDP for " + plInternalHostname,
+				Table:   plTable,
+				KeyType: nftables.TypeIPAddr, // set for IPv4 addresses
+			}
+			ourHostIPsIPv6 = &nftables.Set{
+				Name:    "Allow incoming IPv6 UDP for " + plInternalHostname,
+				Table:   plTable,
+				KeyType: nftables.TypeIP6Addr, // set for IPv6 addresses
+			}
+		)
+
+		if IPs, retErr = net.LookupIP(plInternalHostname); retErr != nil {
+			retErr = log.ErrorFE("could not lookup IPs for '%s': %w", plInternalHostname, retErr)
+			continue
+		}
+
+		for _, IP := range IPs { // add IPs for this hostname to set
+			if IP.To4() != nil { // IPv4
+				log.Debug("IPv4 UDP: allow remote hostname " + plInternalHostname)
+				if err := nftConn.SetAddElements(ourHostIPsIPv4, []nftables.SetElement{{Key: IP.To4()}}); err != nil {
+					return log.ErrorFE("enable - error adding IPv4 addr for '%s' to set: %w", plInternalHostname, err)
+				}
+			} else { // IPv6
+				log.Debug("IPv6 UDP: allow remote hostname " + plInternalHostname)
+				if err := nftConn.SetAddElements(ourHostIPsIPv6, []nftables.SetElement{{Key: IP}}); err != nil {
+					return log.ErrorFE("enable - error adding IPv6 addr for '%s' to set: %w", plInternalHostname, err)
+				}
+			}
+		}
+
+		// in UDP
+		counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter90_in_for_" + plInternalHostname}).(*nftables.CounterObj)
+		nftConn.AddRule(&nftables.Rule{ // IPv4
+			Table: plTable,
+			Chain: &nftables.Chain{
+				Name:     VPN_COEXISTENCE_CHAIN_IN,
+				Table:    plTable,
+				Type:     nftables.ChainTypeFilter,
+				Hooknum:  nftables.ChainHookInput,
+				Priority: nftables.ChainPriorityFirst, // our rules take top priority, are processed 1st
+			},
+			Exprs: []expr.Any{
+				// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
+				&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4},
+				// [ lookup reg 1, ourHostIPs set ]
+				&expr.Lookup{SourceRegister: 1, SetName: ourHostIPsIPv4.Name, SetID: ourHostIPsIPv4.ID},
+				// [ meta load l4proto => reg 2 ]
+				&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
+				// [ cmp eq reg 2 UDP ]
+				&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
+				// add counter
+				&expr.Objref{Type: 1, Name: counter.Name},
+				//[ immediate reg 0 accept ]
+				&expr.Verdict{Kind: expr.VerdictAccept},
+			},
+		})
+		counter = nftConn.AddObj(&nftables.CounterObj{Table: plTable, Name: "counter90_out_for_" + plInternalHostname}).(*nftables.CounterObj)
+		nftConn.AddRule(&nftables.Rule{ // IPv6
+			Table: plTable,
+			Chain: &nftables.Chain{
+				Name:     VPN_COEXISTENCE_CHAIN_IN,
+				Table:    plTable,
+				Type:     nftables.ChainTypeFilter,
+				Hooknum:  nftables.ChainHookInput,
+				Priority: nftables.ChainPriorityFirst, // our rules take top priority, are processed 1st
+			},
+			Exprs: []expr.Any{
+				// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
+				&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4},
+				// [ lookup reg 1, ourHostIPs set ]
+				&expr.Lookup{SourceRegister: 1, SetName: ourHostIPsIPv6.Name, SetID: ourHostIPsIPv6.ID},
+				// [ meta load l4proto => reg 2 ]
+				&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
+				// [ cmp eq reg 2 UDP ]
+				&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
+				// add counter
+				&expr.Objref{Type: 1, Name: counter.Name},
+				//[ immediate reg 0 accept ]
+				&expr.Verdict{Kind: expr.VerdictAccept},
+			},
+		})
+	}
+
+	if err := nftConn.Flush(); err != nil {
+		return log.ErrorFE("implDeployPostConnectionRules - error: %w", err)
+	}
+
+	return retErr
 }
 
 func implCleanupRegistration() (err error) {
-	return nil
+	return doDisable()
 }
 
 func implReEnable() (retErr error) {
 	log.Info("implReEnable")
 
 	if err := doDisable(); err != nil {
-		return fmt.Errorf("failed to disable firewall: %w", err)
+		return log.ErrorFE("failed to disable firewall: %w", err)
 	}
 
 	if err := doEnable(); err != nil {
-		return fmt.Errorf("failed to enable firewall: %w", err)
+		return log.ErrorFE("failed to enable firewall: %w", err)
 	}
 
 	return doAddClientIPFilters(connectedClientInterfaceIP, connectedClientInterfaceIPv6)
 }
 
+// TODO FIXME: Vlad - flesh out
 func implTotalShieldEnabled() bool {
-	return false // TODO FIXME: Vlad - update
+	return false
 }
-
 func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 	return nil
 }
 
-// TODO FIXME: Vlad - flesh out
+// TODO FIXME: Vlad - flesh out. Do we need this?... traffic always allowed over lo interface.
 func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr error) {
 	return nil
 }
-
-// TODO FIXME: Vlad - flesh out and check usage
 func doRemoveClientIPFilters() (retErr error) {
 	return nil
 }

@@ -42,8 +42,8 @@ func doOsInitForBuild() (warnings []string, errors []error, logInfo []string) {
 		logInfo = append(logInfo, "Running in SNAP environment!")
 	}
 
-	firewallScript = path.Join(installDir, "etc/firewall.sh")
-	splitTunScript = path.Join(installDir, "etc/splittun.sh")
+	firewallScript = path.Join(installDir, "etc/firewall-helper.sh")
+	splitTunScript = path.Join(installDir, "etc/firewall-helper.sh")
 	openvpnCaKeyFile = path.Join(installDir, "etc/ca.crt")
 	openvpnTaKeyFile = path.Join(installDir, "etc/ta.key")
 	openvpnUpScript = path.Join(installDir, "etc/client.up")

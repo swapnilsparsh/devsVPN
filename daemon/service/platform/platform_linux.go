@@ -248,5 +248,5 @@ func ResolvectlBinPath() string {
 }
 
 func implPLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) {
-	return []string{}, nil // TODO FIXME: Vlad - implement on Linux also
+	return []string{}, nil // Vlad - on Linux the list of PL apps is implemented in firewall-helper.sh so far
 }
