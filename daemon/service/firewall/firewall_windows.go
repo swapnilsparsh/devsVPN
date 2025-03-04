@@ -631,7 +631,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		return fmt.Errorf("failed to check/create provider or sublayer: %w", err)
 	}
 
-	vpnEntryHostsParsed := getPrefsCallback().UserPrefs.Windows.VpnEntryHostsParsed
+	vpnEntryHostsParsed := getPrefsCallback().VpnEntryHostsParsed
 
 	// IPv6 filters - in and out
 	for _, ipv6Layer := range v6LayersAll {
