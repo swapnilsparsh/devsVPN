@@ -51,9 +51,13 @@ const (
 )
 
 var (
-	nftConn       = &nftables.Conn{}
-	mutexInternal sync.Mutex
-	ourSets       []*nftables.Set // List of all our nft sets, to delete in one batch. Protected by mutexInternal.
+	mutexInternal                   sync.Mutex
+	stopWatchingFirewall            = make(chan bool, 2) // used to send a stop signal to keepFirewallTopPri() thread
+	keepFirewallTopPriTaskIsRunning bool                 // We use this var to ensure only one instance of keepFirewallTopPri is running.
+	// No separate locking is needed for this var because it's used only inside functions protected by mutexInternal.
+
+	nftConn = &nftables.Conn{}
+	ourSets []*nftables.Set // List of all our nft sets, to delete in one batch. Protected by mutexInternal.
 
 	// key: is a string representation of allowed IP
 	// value: true - if exception rule is persistent (persistent, means will stay available even client is disconnected)
@@ -75,6 +79,43 @@ func implInitialize() error {
 	return nil
 }
 
+// keepFirewallTopPri runs asynchronously as a forked thread, checks regularly whether we have top firewall priority. If not - recreates our firewall objects.
+// Its caller creates the stopWatchingFirewall chan before calling keepFirewallTopPri()
+// To stop this thread - send to stopWatchingFirewall chan.
+func keepFirewallTopPri() {
+	log.Debug("keepFirewallTopPri starting")
+	for {
+		time.Sleep(time.Second * 10)
+		select {
+		case _ = <-stopWatchingFirewall:
+			log.Debug("keepFirewallTopPri exiting")
+			return
+		default: // no message received
+			if weHaveTopFirewallPriority, _, _, _, err := implHaveTopFirewallPriority(0); err != nil {
+				log.ErrorFE("error from implHaveTopFirewallPriority: %w", err)
+				return
+			} else if weHaveTopFirewallPriority {
+				continue
+			}
+
+			// TODO FIXME: signal stages to UI
+
+			log.Debug("keepFirewallTopPri - don't have top pri, need to reenable firewall")
+
+			if err := implReEnable(); err != nil {
+				log.ErrorFE("error from implReEnable: %w", err)
+				return
+			}
+
+			// TODO: Vlad - do we need to sleep 5s here?
+			if err := implDeployPostConnectionRules(); err != nil {
+				log.ErrorFE("error from implDeployPostConnectionRules: %w", err)
+				return
+			}
+		}
+	}
+}
+
 func createTableChainsObjects() (filter *nftables.Table,
 	input *nftables.Chain,
 	output *nftables.Chain,
@@ -90,7 +131,6 @@ func createTableChainsObjects() (filter *nftables.Table,
 		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_OUT, Table: filter, Type: nftables.ChainTypeFilter}
 }
 
-// TODO FIXME: Vlad - refactor, check whether jump rules to our chains exist on top of INPUT, OUTPUT
 func implGetEnabled() (exists bool, retErr error) {
 	filter, input, output, _, _ := createTableChainsObjects()
 
@@ -149,12 +189,12 @@ func implGetEnabled() (exists bool, retErr error) {
 		return false, log.ErrorE(errors.New("error - "+VPN_COEXISTENCE_CHAIN_OUT+" chain not found in table "+filter.Name), 0)
 	}
 
-	// TODO FIXME: Also check that helper script returns true - that cgroup exists, etc.
-	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "test"); err != nil {
-		return false, log.ErrorFE("error running '%s test': %w", platform.FirewallScript(), err)
-	} else if exitCode != 0 {
-		return false, log.ErrorFE("error - '%s test' exit code = %d", platform.FirewallScript(), exitCode)
-	}
+	// // TODO: Also check that helper script returns true - that cgroup exists, etc.
+	// if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "test"); err != nil {
+	// 	return false, log.ErrorFE("error running '%s test': %w", platform.FirewallScript(), err)
+	// } else if exitCode != 0 {
+	// 	return false, log.ErrorFE("error - '%s test' exit code = %d", platform.FirewallScript(), exitCode)
+	// }
 
 	return true, nil
 }
@@ -476,6 +516,12 @@ func doEnable() (err error) {
 	// Here we should restore all exceptions (all hosts which are allowed)
 	// return reApplyExceptions() // TODO FIXME: Vlad - refactor
 
+	// Fork the task to check that we have top firewall priority and to keep on re-grabbing it as needed. Must be a single instance.
+	if !keepFirewallTopPriTaskIsRunning {
+		keepFirewallTopPriTaskIsRunning = true
+		go keepFirewallTopPri()
+	}
+
 	return err
 }
 
@@ -729,6 +775,10 @@ func doDisable() (err error) {
 	if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
 		return log.ErrorFE("error in doDisable: %w", err)
 	}
+
+	// Stop the single instance of keepFirewallTopPri() task
+	stopWatchingFirewall <- true
+	keepFirewallTopPriTaskIsRunning = false
 
 	return nil
 }
@@ -1254,7 +1304,7 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 	return nil
 }
 
-// TODO FIXME: Vlad - flesh out. Do we need this?... traffic always allowed over lo interface.
+// TODO FIXME: Vlad - flesh out. Do we need this?... we always allow localhost traffic (lo interface)
 func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr error) {
 	return nil
 }

@@ -83,6 +83,11 @@ func (ph *pingHost) setPriority(phase int, vpnTypePriority int, hostPriority int
 func (s *Service) PingServers(firstPhaseTimeoutMs int, vpnTypePrioritized vpn.Type, skipSecondPhase bool) (map[string]int, error) {
 	startTime := time.Now()
 
+	// enable the firewall, need VPN coexistence logic up - otherwise, if another VPN is already running, our pings may not go through
+	if err := s.SetKillSwitchState(true); err != nil {
+		return nil, log.ErrorFE("error enabling firewall: %w", err)
+	}
+
 	if s._vpn != nil {
 		ret := s.ping_getLastResults()
 		if len(ret) == 0 {

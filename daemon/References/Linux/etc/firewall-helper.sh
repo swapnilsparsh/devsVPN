@@ -469,6 +469,8 @@ function init()
     #     fi
     # fi
 
+    test || { RET=$?; echo "test error: $RET"; exit $RET; }
+
     addDefaultWhitelistedApps
 
     set +e
