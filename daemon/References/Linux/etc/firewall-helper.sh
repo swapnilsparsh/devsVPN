@@ -23,7 +23,7 @@
 #  along with the Daemon for privateLINE Connect Desktop. If not, see <https://www.gnu.org/licenses/>.
 #
 
-echo -e "$(date '+%Y-%m-%d__%H-%M-%S_%Z')\t$@" >> /tmp/splittun_sh_ran.log
+echo -e "$(date '+%Y-%m-%d__%H-%M-%S_%Z')\t$@" >> /tmp/firewall-helper.sh_ran.log
 
 # default apps to be included in App Whitelist (to be allowed access to the enclave)
 # TODO FIXME: Vlad - do we need two separate cgroups - one for PL apps and other for user-specified apps?
