@@ -39,6 +39,8 @@ $base-font-family: "MainIVPNFont", "SF Pro Text", "Helvetica", "sans-serif";
 
   --link-color: #0078d7;
 
+  --login-text-color:#6f329d;
+
   @media (prefers-color-scheme: dark) {
     color-scheme: dark;
     --text-color-rgb: 255, 255, 255;
@@ -66,6 +68,8 @@ $base-font-family: "MainIVPNFont", "SF Pro Text", "Helvetica", "sans-serif";
     --shadow-opacity: 0.6;
 
     --flag-border-color-rgb: 41, 41, 41; //#292929;
+
+    --login-text-color:#ffffff;
   }
 }
 .defaultMainDiv {
@@ -82,8 +86,8 @@ $base-font-family: "MainIVPNFont", "SF Pro Text", "Helvetica", "sans-serif";
 
 .left_panel_block {
   @extend .left_panel_element;
-  min-height: 72px;
-  max-height: 72px;
+  // min-height: 72px;
+  // max-height: 72px;
 }
 
 .flexColumn {
@@ -142,8 +146,8 @@ div.scrollableColumnContainer::-webkit-scrollbar {
 }
 
 div.arrowRightSimple {
-  border: solid #8b9aab;
-  border-width: 0 1px 1px 0;
+  border: solid var(--text-color);
+  border-width: 0 2px 2px 0;
   display: inline-block;
 
   padding: 4px;

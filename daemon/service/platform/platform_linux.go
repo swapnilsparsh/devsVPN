@@ -28,8 +28,10 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
+	"github.com/hashicorp/go-envparse"
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
@@ -54,6 +56,7 @@ const (
 	// Note: This is not recommended!
 	// Command for user to connect required slot:   $ sudo snap connect privateline:etc-resolv-conf
 	snapPlugNameResolvconfAccess string = "etc-resolv-conf"
+	etcOsReleasePath                    = "/etc/os-release"
 )
 
 // SnapEnvInfo contains values of SNAP environment variables
@@ -194,6 +197,10 @@ func doOsInit() (warnings []string, errors []error, logInfo []string) {
 		errors = append(errors, err)
 	}
 
+	if err := parseOsVersion(); err != nil {
+		warnings = append(warnings, fmt.Errorf("error parsing OS version: %w", err).Error())
+	}
+
 	return warnings, errors, logInfo
 }
 
@@ -249,4 +256,26 @@ func ResolvectlBinPath() string {
 
 func implPLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) {
 	return []string{}, nil // Vlad - on Linux the list of PL apps is implemented in firewall-helper.sh so far
+}
+
+func parseOsVersion() (err error) {
+	var (
+		etcOsRelease map[string]string
+		ok           bool
+	)
+
+	if etcOsReleaseFile, err := os.Open(etcOsReleasePath); err != nil {
+		return fmt.Errorf("error opening file '%s': %w", etcOsReleasePath, err)
+	} else if etcOsRelease, err = envparse.Parse(etcOsReleaseFile); err != nil {
+		return fmt.Errorf("error parsing file '%s': %w", etcOsReleasePath, err)
+	}
+
+	if osVersion, ok = etcOsRelease["PRETTY_NAME"]; ok {
+		return nil
+	} else if osVersion, ok = etcOsRelease["NAME"]; ok {
+		return nil
+	} else {
+		osVersion = runtime.GOOS
+		return nil
+	}
 }

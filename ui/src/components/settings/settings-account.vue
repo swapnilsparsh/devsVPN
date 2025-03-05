@@ -1,67 +1,92 @@
 <template>
   <div class="flexColumn" style="justify-content: space-between; width: 100%">
-    <div class="flexColumn" style="gap: 2rem">
+    <div class="flexColumn">
       <div class="flexRow">
         <div>
           <div class="settingsTitle">ACCOUNT DETAILS</div>
           <div class="flexRowSpace" style="align-items: flex-start">
-            <div v-if="isProcessing || !this.IsSessionInfoReceived" class="flexColumn" style="gap: 10px">
-              <ShimmerEffect :width="'100px'" :height="'100px'" :border-radius="'100%'" />
-              <ShimmerEffect v-for="(item, index) in accountShimmerItems" :key="index" :width="'350px'"
-                :height="'20px'" />
+            <div
+              v-if="isProcessing || !this.IsSessionInfoReceived"
+              class="flexColumn"
+              style="gap: 10px"
+            >
+              <ShimmerEffect
+                :width="'100px'"
+                :height="'100px'"
+                :border-radius="'100%'"
+              />
+              <ShimmerEffect
+                v-for="(item, index) in accountShimmerItems"
+                :key="index"
+                :width="'350px'"
+                :height="'20px'"
+              />
             </div>
-            <div v-else-if="$store.state.account.userDetails.id" class="flexColumn">
-              <div class="defColor paramName">Account ID:</div>
-              <div
-                style="margin-bottom: 2rem"
-                v-if="this.IsAccIdLogin"
-                class="flexRow paramBlockDetailedConfig"
-              >
-                <label
-                  class="settingsBigBoldFont selectable"
-                  :class="{ blurred: isAccountIDBlurred }"
-                >
-                  {{ this.$store.state.account.session.AccountID }}
-                </label>
-                <div
-                  @click="toggleAccountIDBlur"
-                  style="cursor: pointer; margin-left: 10px"
-                  title="Click to show or hide the account ID"
-                >
-                  <div v-if="isAccountIDBlurred">
-                    <img
-                      style="vertical-align: middle"
-                      src="@/assets/eye-close.svg"
-                    />
-                  </div>
-                  <div v-if="!isAccountIDBlurred">
-                    <img
-                      style="vertical-align: middle"
-                      src="@/assets/eye-open.svg"
-                    />
-                  </div>
-                </div>
-                <div style="display: inline-block">
-                  <div style="display: inline-block" title="Copy the account ID">
-                    <img
-                      style="vertical-align: middle; cursor: pointer"
-                      src="@/assets/copy.svg"
-                      @click="copyAccountID"
-                      alt="Copy"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <img v-if="!profileImage" src="@/assets/avtar.svg" style="height: 50px; width: 50px" />
-                <img v-else :src="profileImage" style="
+            <div
+              v-else-if="$store.state.account.userDetails.id"
+              class="flexColumn"
+            >
+              <div style="display: flex; flex-direction: column; gap: 5px">
+                <!-- <img
+                  v-if="!profileImage"
+                  src="@/assets/avtar.svg"
+                  style="height: 50px; width: 50px"
+                />
+                <img
+                  v-else
+                  :src="profileImage"
+                  style="
                     height: 50px;
                     width: 50px;
                     border-radius: 100%;
                     border: 5px solid #fff;
                     margin-bottom: 10px;
-                  " />
+                  "
+                /> -->
+
+                <div
+                  class="flexRow paramBlockDetailedConfig"
+                  v-if="this.IsAccIdLogin"
+                >
+                  <div class="defColor paramName">Account ID:</div>
+                  <div
+                    class="detailedParamValue selectable"
+                    :class="{ blurred: isAccountIDBlurred }"
+                  >
+                    {{ this.$store.state.account.session.AccountID }}
+                  </div>
+                  <div
+                    @click="toggleAccountIDBlur"
+                    style="cursor: pointer; margin-left: 10px"
+                    title="Click to show or hide the account ID"
+                  >
+                    <div v-if="isAccountIDBlurred">
+                      <img
+                        style="vertical-align: middle"
+                        src="@/assets/eye-close.svg"
+                      />
+                    </div>
+                    <div v-if="!isAccountIDBlurred">
+                      <img
+                        style="vertical-align: middle"
+                        src="@/assets/eye-open.svg"
+                      />
+                    </div>
+                  </div>
+                  <div style="display: inline-block">
+                    <div
+                      style="display: inline-block"
+                      title="Copy the account ID"
+                    >
+                      <img
+                        style="vertical-align: middle; cursor: pointer"
+                        src="@/assets/copy.svg"
+                        @click="copyAccountID"
+                        alt="Copy"
+                      />
+                    </div>
+                  </div>
+                </div>
 
                 <div class="flexRow paramBlockDetailedConfig">
                   <div class="defColor paramName">Name:</div>
@@ -69,6 +94,7 @@
                     {{ $store.state.account.userDetails.name }}
                   </div>
                 </div>
+
                 <div
                   v-if="!this.IsAccIdLogin"
                   class="flexRow paramBlockDetailedConfig"
@@ -78,7 +104,11 @@
                     {{ $store.state.account.userDetails.email }}
                   </div>
                 </div>
-                <div v-if="!this.IsAccIdLogin" class="flexRow paramBlockDetailedConfig">
+
+                <div
+                  v-if="!this.IsAccIdLogin"
+                  class="flexRow paramBlockDetailedConfig"
+                >
                   <div class="defColor paramName">Phone:</div>
                   <div class="detailedParamValue">
                     {{ $store.state.account.userDetails.phone }}
@@ -86,14 +116,14 @@
                 </div>
 
                 <div class="flexRow paramBlockDetailedConfig">
-                  <div class="defColor paramName">Account Created on:</div>
+                  <div class="defColor paramName">Account Created On:</div>
                   <div class="detailedParamValue">
                     {{ formattedCreatedAt }}
                   </div>
                 </div>
 
                 <div class="flexRow paramBlockDetailedConfig">
-                  <div class="defColor paramName">Account verification:</div>
+                  <div class="defColor paramName">Account Verification:</div>
                   <div class="detailedParamValue">
                     {{
                       $store.state.account.userDetails.isVerified
@@ -104,46 +134,103 @@
                 </div>
               </div>
             </div>
-            <div v-else>User profile data wasn't retrieved yet, please check later.</div>
+            <div v-else>
+              User profile data wasn't retrieved yet, please check later.
+            </div>
             <!-- <div v-else>Api Error: Data couldn't be fetched at this moment.</div> -->
           </div>
         </div>
-        <div v-if="this.IsSessionInfoReceived && this.IsAccIdLogin" class="overlay-container" style="margin: auto;" @click="toggleAccountIDBlur" title="Click to show or hide the account ID QR code">
-          <div ref="accIdQrcodePlaceholder" :class="{ blurred: isAccountIDBlurred }"></div>
+        <div
+          v-if="this.IsSessionInfoReceived && this.IsAccIdLogin"
+          class="overlay-container"
+          style="margin: auto"
+          @click="toggleAccountIDBlur"
+          title="Click to show or hide the account ID QR code"
+        >
+          <div
+            ref="accIdQrcodePlaceholder"
+            :class="{ blurred: isAccountIDBlurred }"
+          ></div>
           <div v-if="isAccountIDBlurred" class="overlay">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" fill="black" viewBox="0 0 512 512">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="32"
+              fill="black"
+              viewBox="0 0 512 512"
+            >
               <path
-                d="M 36.01223241590214 59.49847094801223 Q 21.137614678899084 50.103975535168196 9.394495412844037 62.62996941896024 Q 0 77.5045871559633 12.525993883792049 89.24770642201835 L 475.98776758409787 452.50152905198775 L 475.98776758409787 452.50152905198775 Q 490.86238532110093 461.8960244648318 502.60550458715596 449.37003058103977 Q 512 434.4954128440367 499.47400611620793 422.7522935779817 L 417.27217125382265 358.5565749235474 L 417.27217125382265 358.5565749235474 Q 439.97553516819573 334.28746177370033 455.6330275229358 309.2354740061162 Q 471.2905198776758 284.9663608562691 479.9021406727829 265.39449541284404 Q 483.0336391437309 256 479.9021406727829 246.60550458715596 Q 470.50764525993884 224.68501529051989 452.50152905198775 197.28440366972478 Q 434.4954128440367 169.88379204892968 407.0948012232416 144.04892966360856 Q 378.91131498470946 117.43119266055047 341.3333333333333 99.42507645259938 Q 303.75535168195717 81.41896024464832 256 80.63608562691131 Q 216.07339449541286 81.41896024464832 182.40978593272172 93.94495412844037 Q 149.5290519877676 107.25382262996942 123.69418960244649 128.3914373088685 L 36.01223241590214 59.49847094801223 L 36.01223241590214 59.49847094801223 Z M 180.0611620795107 173.01529051987768 Q 211.37614678899084 144.04892966360856 256 143.26605504587155 Q 303.75535168195717 144.83180428134557 335.8532110091743 176.14678899082568 Q 367.16819571865443 208.2446483180428 368.73394495412845 256 Q 368.73394495412845 285.7492354740061 355.4250764525994 310.0183486238532 L 324.8929663608563 286.5321100917431 L 324.8929663608563 286.5321100917431 Q 335.0703363914373 263.04587155963304 328.8073394495413 236.42813455657492 Q 321.76146788990826 212.15902140672782 302.9724770642202 197.28440366972478 Q 283.40061162079513 182.40978593272172 259.13149847094803 180.8440366972477 Q 252.085626911315 182.40978593272172 253.651376146789 190.23853211009174 Q 256 197.28440366972478 256 205.8960244648318 Q 256 218.42201834862385 250.51987767584097 227.8165137614679 L 180.0611620795107 173.01529051987768 L 180.0611620795107 173.01529051987768 Z M 297.49235474006116 360.9051987767584 Q 277.9204892966361 368.73394495412845 256 368.73394495412845 Q 208.2446483180428 367.16819571865443 176.14678899082568 335.8532110091743 Q 144.83180428134557 303.75535168195717 143.26605504587155 256 Q 143.26605504587155 248.17125382262998 144.04892966360856 240.34250764525993 L 70.45871559633028 182.40978593272172 L 70.45871559633028 182.40978593272172 Q 43.84097859327217 218.42201834862385 32.88073394495413 246.60550458715596 Q 28.966360856269112 256 32.88073394495413 265.39449541284404 Q 41.49235474006116 287.31498470948014 59.49847094801223 314.7155963302752 Q 77.5045871559633 342.11620795107035 105.68807339449542 367.9510703363914 Q 133.0886850152905 394.56880733944956 170.66666666666666 412.5749235474006 Q 208.2446483180428 430.5810397553517 256 431.3639143730887 Q 312.3669724770642 429.79816513761466 354.64220183486236 406.3119266055046 L 297.49235474006116 360.9051987767584 L 297.49235474006116 360.9051987767584 Z" />
+                d="M 36.01223241590214 59.49847094801223 Q 21.137614678899084 50.103975535168196 9.394495412844037 62.62996941896024 Q 0 77.5045871559633 12.525993883792049 89.24770642201835 L 475.98776758409787 452.50152905198775 L 475.98776758409787 452.50152905198775 Q 490.86238532110093 461.8960244648318 502.60550458715596 449.37003058103977 Q 512 434.4954128440367 499.47400611620793 422.7522935779817 L 417.27217125382265 358.5565749235474 L 417.27217125382265 358.5565749235474 Q 439.97553516819573 334.28746177370033 455.6330275229358 309.2354740061162 Q 471.2905198776758 284.9663608562691 479.9021406727829 265.39449541284404 Q 483.0336391437309 256 479.9021406727829 246.60550458715596 Q 470.50764525993884 224.68501529051989 452.50152905198775 197.28440366972478 Q 434.4954128440367 169.88379204892968 407.0948012232416 144.04892966360856 Q 378.91131498470946 117.43119266055047 341.3333333333333 99.42507645259938 Q 303.75535168195717 81.41896024464832 256 80.63608562691131 Q 216.07339449541286 81.41896024464832 182.40978593272172 93.94495412844037 Q 149.5290519877676 107.25382262996942 123.69418960244649 128.3914373088685 L 36.01223241590214 59.49847094801223 L 36.01223241590214 59.49847094801223 Z M 180.0611620795107 173.01529051987768 Q 211.37614678899084 144.04892966360856 256 143.26605504587155 Q 303.75535168195717 144.83180428134557 335.8532110091743 176.14678899082568 Q 367.16819571865443 208.2446483180428 368.73394495412845 256 Q 368.73394495412845 285.7492354740061 355.4250764525994 310.0183486238532 L 324.8929663608563 286.5321100917431 L 324.8929663608563 286.5321100917431 Q 335.0703363914373 263.04587155963304 328.8073394495413 236.42813455657492 Q 321.76146788990826 212.15902140672782 302.9724770642202 197.28440366972478 Q 283.40061162079513 182.40978593272172 259.13149847094803 180.8440366972477 Q 252.085626911315 182.40978593272172 253.651376146789 190.23853211009174 Q 256 197.28440366972478 256 205.8960244648318 Q 256 218.42201834862385 250.51987767584097 227.8165137614679 L 180.0611620795107 173.01529051987768 L 180.0611620795107 173.01529051987768 Z M 297.49235474006116 360.9051987767584 Q 277.9204892966361 368.73394495412845 256 368.73394495412845 Q 208.2446483180428 367.16819571865443 176.14678899082568 335.8532110091743 Q 144.83180428134557 303.75535168195717 143.26605504587155 256 Q 143.26605504587155 248.17125382262998 144.04892966360856 240.34250764525993 L 70.45871559633028 182.40978593272172 L 70.45871559633028 182.40978593272172 Q 43.84097859327217 218.42201834862385 32.88073394495413 246.60550458715596 Q 28.966360856269112 256 32.88073394495413 265.39449541284404 Q 41.49235474006116 287.31498470948014 59.49847094801223 314.7155963302752 Q 77.5045871559633 342.11620795107035 105.68807339449542 367.9510703363914 Q 133.0886850152905 394.56880733944956 170.66666666666666 412.5749235474006 Q 208.2446483180428 430.5810397553517 256 431.3639143730887 Q 312.3669724770642 429.79816513761466 354.64220183486236 406.3119266055046 L 297.49235474006116 360.9051987767584 L 297.49235474006116 360.9051987767584 Z"
+              />
             </svg>
           </div>
         </div>
       </div>
 
+      <div class="device-limit-container">
+        <div class="settingsTitle">Device List</div>
+        <div class="device-list">
+          <table>
+            <thead>
+              <tr>
+                <th>Device Name</th>
+                <th>Platform</th>
+                <th>Configured On</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="device in deviceListData" :key="device.device_name">
+                <td>{{ device.device_name }}</td>
+                <td>{{ device.type }}</td>
+                <td>{{ new Date(device.createdAt).toLocaleString() }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div>
         <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
-        <div v-if="$store.state.account.subscriptionData != null" class="flexRowSpace" style="align-items: flex-start">
-          <div v-if="isSubscriptionProcessing" class="flexColumn" style="gap: 10px">
+        <div
+          v-if="$store.state.account.subscriptionData != null"
+          class="flexRowSpace"
+          style="align-items: flex-start"
+        >
+          <div
+            v-if="isSubscriptionProcessing"
+            class="flexColumn"
+            style="gap: 10px"
+          >
             <ShimmerEffect :width="'350px'" :height="'20px'" />
             <ShimmerEffect :width="'350px'" :height="'20px'" />
             <ShimmerEffect :width="'350px'" :height="'20px'" />
           </div>
-          <div v-else-if="$store.state.account.subscriptionData.Plan" class="flexColumn" style="width: 100%">
+          <div
+            v-else-if="$store.state.account.subscriptionData.Plan"
+            class="flexColumn"
+            style="width: 100%; gap: 5px"
+          >
             <div class="flexRow paramBlockDetailedConfig">
               <div class="defColor paramName">Plan Name:</div>
               <div class="flexRow" style="gap: 16px">
                 <div class="detailedParamValue">
                   {{ $store.state.account.subscriptionData.Plan.name }}
                 </div>
-                <div v-if="
-                  $store.state.account.subscriptionData.Plan.name === 'Free'
-                " class="medium_text link" @click="UpgradeSubscription">
+                <div
+                  v-if="
+                    $store.state.account.subscriptionData.Plan.name === 'Free'
+                  "
+                  class="medium_text link"
+                  @click="UpgradeSubscription"
+                >
                   Upgrade
                 </div>
               </div>
             </div>
 
-            <div v-if="$store.state.account.subscriptionData.Plan.name === 'Group'"
-              class="flexRow paramBlockDetailedConfig">
+            <div
+              v-if="$store.state.account.subscriptionData.Plan.name === 'Group'"
+              class="flexRow paramBlockDetailedConfig"
+            >
               <div class="defColor paramName">Group Size:</div>
 
               <div class="detailedParamValue">
@@ -158,31 +245,49 @@
               </div>
             </div>
 
-            <div v-if="$store.state.account.subscriptionData.Plan.name !== 'Free'"
-              class="flexRow paramBlockDetailedConfig" style="align-items: flex-start">
+            <div
+              v-if="$store.state.account.subscriptionData.Plan.name == 'Free'"
+              class="flexRow paramBlockDetailedConfig"
+              style="align-items: flex-start"
+            >
               <div class="defColor paramName">Expires on:</div>
               <div style="gap: 16px">
                 <div class="detailedParamValue" style="white-space: nowrap">
                   {{ formattedSubscriptionExpiryDate }}
                 </div>
-                <div class="medium_text link" style="text-align: left" @click="RenewSubscription">
-                  {{
-                    endingInDays <= 0 ? "Plan Expired! Renew subscription" : `Plan ending in ${endingInDays} days` }}
-                    </div>
-                </div>
               </div>
             </div>
-          </div>
-          <div v-else style="text-align: left">
-            No active plan found.
-            <span class="medium_text link" @click="UpgradeSubscription">Upgrade</span>
+            <div
+              class="medium_text link"
+              style="text-align: center; margin-top: 2rem"
+              @click="RenewSubscription"
+            >
+              {{
+                endingInDays <= 0
+                  ? "Plan Expired! Renew subscription"
+                  : `Plan ending in ${endingInDays} days`
+              }}
+            </div>
           </div>
         </div>
-      </div>
-      <div class="flexRow">
-        <button id="logoutButton" @click="logOut()">LOG OUT</button>
+        <div v-else style="text-align: left">
+          No active plan found.
+          <span class="medium_text link" @click="UpgradeSubscription"
+            >Upgrade</span
+          >
+        </div>
       </div>
     </div>
+    <div class="flexRow">
+      <button
+        id="logoutButton"
+        style="background-color: #6f329d; color: #fff"
+        @click="logOut()"
+      >
+        LOG OUT
+      </button>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -204,6 +309,7 @@ export default {
   data: function () {
     return {
       apiProfileTimeout: null,
+      apiDeviceListTimeout: null,
       apiSubscriptionTimeout: null,
       isProcessing: true,
       isSubscriptionProcessing: true,
@@ -216,6 +322,9 @@ export default {
     profileImage() {
       const profile = this.$store.state.account.userDetails.profile;
       return profile ? `https://api.privateline.io/uploads/${profile}` : "";
+    },
+    deviceListData() {
+      return this.$store.state.account.deviceList.rows || [];
     },
     createdAt() {
       return this.$store.state.account.userDetails.createdAt;
@@ -267,7 +376,8 @@ export default {
       ) {
         const accountId = this.$store.state.account.session.AccountID;
         // Check if accountId matches the pattern XXXX-XXXX-XXXX. Characters '0', 'O', 'I' are forbidden.
-        const accountIdPattern = /^(a-)?([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$/;
+        const accountIdPattern =
+          /^(a-)?([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$/;
         value = accountIdPattern.test(accountId);
       }
 
@@ -278,13 +388,14 @@ export default {
         this.IsAccountStateExists &&
         this.$store.state.account.accountStatus.Upgradable &&
         this.$store.state.account.accountStatus.CurrentPlan.toLowerCase() !=
-        "privateLINE pro"
+          "privateLINE pro"
       );
     },
   },
   mounted() {
     //this.accountStatusRequest();
     this.profileData();
+    this.deviceList();
     this.getSubscriptionData();
     this.waitForSessionInfo();
   },
@@ -367,14 +478,12 @@ export default {
     async waitForSessionInfo() {
       // wait for 10s for session information to come through
       for (let i = 0; !this.IsSessionInfoReceived && i < 40; i++) {
-        await new Promise(r => setTimeout(r, 250));
+        await new Promise((r) => setTimeout(r, 250));
       }
 
       // if session info received - trigger rendering account ID QR code
-      if (this.IsSessionInfoReceived)
-        this.computeAndSetAccIdQrCode();
-      else
-        console.log("waitForSessionInfo() timed out")
+      if (this.IsSessionInfoReceived) this.computeAndSetAccIdQrCode();
+      else console.log("waitForSessionInfo() timed out");
     },
     async profileData() {
       try {
@@ -397,6 +506,29 @@ export default {
         this.isProcessing = false;
         clearTimeout(this.apiProfileTimeout);
         this.apiProfileTimeout = null;
+      }
+    },
+
+    async deviceList() {
+      try {
+        this.isProcessing = true;
+
+        this.apiDeviceListTimeout = setTimeout(() => {
+          throw Error("Device List API Time Out");
+        }, 10 * 1000);
+        await sender.DeviceList();
+      } catch (err) {
+        console.log({ err });
+        sender.showMessageBoxSync({
+          type: "error",
+          buttons: ["OK"],
+          message: "API Error",
+          detail: `Device list couldn't be fetched at this moment, please check your internet connection!`,
+        });
+      } finally {
+        this.isProcessing = false;
+        clearTimeout(this.apiDeviceListTimeout);
+        this.apiDeviceListTimeout = null;
       }
     },
 
@@ -424,8 +556,7 @@ export default {
       }
     },
     computeAndSetAccIdQrCode() {
-      if (!this.IsAccIdLogin)
-          return;
+      if (!this.IsAccIdLogin) return;
 
       // generating QRcode
       if (this.acctIdQRCodeSvg === "") {
@@ -476,6 +607,30 @@ export default {
 
 .defColor {
   @extend .settingsDefaultTextColor;
+}
+
+.device-limit-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 2rem 0;
+}
+
+.device-list {
+  max-height: 115px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
 }
 
 .statusButton {
@@ -554,6 +709,8 @@ export default {
   padding: 5px;
   margin-right: auto;
   margin-left: auto;
+  border-radius: 5px;
+  padding: 6px;
 
   font-weight: 500;
   font-size: 10px;
@@ -572,19 +729,15 @@ div.param {
 div.paramBlockDetailedConfig {
   @extend .flexRow;
   margin-top: 2px;
+  gap: 5px;
 }
 
 .defColor {
   @extend .settingsDefaultTextColor;
 }
 
-div.paramName {
-  min-width: 161px;
-  max-width: 161px;
-}
-
 div.detailedParamValue {
-  opacity: 0.7;
+  font-weight: 500;
   overflow-wrap: break-word;
   -webkit-user-select: text;
   user-select: text;

@@ -4,7 +4,7 @@
     <div v-show="true" class="connectionDetailWrap">
       <div v-if="true">
         <!-- <div class="settingsBoldFont">Wireguard key information:</div> -->
-        <div style="height: 16px"></div>
+        <div style="height: 5px"></div>
         <!-- <spinner :loading="isProcessing" /> -->
         <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Version:</div>
@@ -69,18 +69,26 @@
             <div class="failedText" v-if="!vpnCoexistenceInGoodState">
               <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
               FAILED
-              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()">Retry</button>
+              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()">
+                Retry
+              </button>
             </div>
-            <div class="goodText" v-if="vpnCoexistenceInGoodState">
-              GOOD
-            </div>
+            <div class="goodText" v-if="vpnCoexistenceInGoodState">GOOD</div>
           </div>
         </div>
 
-        <div v-if="this.$store.state.vpnState.connectionInfo !== null" class="flexRow paramBlockDetailedConfig">
+        <div
+          v-if="this.$store.state.vpnState.connectionInfo !== null"
+          class="flexRow paramBlockDetailedConfig"
+        >
           <div class="defColor paramName">Transfer:</div>
           <!-- Sugestion: Blue for idle state and green for data exchanged -->
-          <div :class="{ greenBlinkingDot: isReceivedSendChanging, blueDot: !isReceivedSendChanging }"></div>
+          <div
+            :class="{
+              greenBlinkingDot: isReceivedSendChanging,
+              blueDot: !isReceivedSendChanging,
+            }"
+          ></div>
           <div class="detailedParamValue">
             {{ this.$store.state.vpnState.transferredData.ReceivedData }}
             received,
@@ -88,20 +96,26 @@
           </div>
         </div>
 
-        <div v-if="this.$store.state.vpnState.connectionInfo !== null" class="flexRow paramBlockDetailedConfig">
+        <div
+          v-if="this.$store.state.vpnState.connectionInfo !== null"
+          class="flexRow paramBlockDetailedConfig"
+        >
           <div class="defColor paramName">Latest Handshake:</div>
-          <div :class="{ greenBlinkingDot: isBlinking, greenDot: !isBlinking }"></div>
+          <div
+            :class="{ greenBlinkingDot: isBlinking, greenDot: !isBlinking }"
+          ></div>
           <div class="detailedParamValue">
             {{ formattedElapsedTime }}
           </div>
         </div>
 
-        <div v-if="isDevRestApiBackend" class="flexRow paramBlockDetailedConfig">
+        <div
+          v-if="isDevRestApiBackend"
+          class="flexRow paramBlockDetailedConfig"
+        >
           <div class="defColor paramName">Network:</div>
           <div class="detailedParamValue">
-            <div class="failedText">
-              Development REST API servers
-            </div>
+            <div class="failedText">Development REST API servers</div>
           </div>
         </div>
 
@@ -216,7 +230,7 @@ export default {
     },
     isDevRestApiBackendStore() {
       this.isDevRestApiBackend = this.isDevRestApiBackendStore;
-    }
+    },
   },
 
   methods: {
@@ -299,14 +313,17 @@ export default {
       );
       if (ret.response == 1) return; // cancel
       if (ret.response == 0) {
-        let errMsg = "Error: failed to get top firewall permissions - please disconnect PL Connect or stop the connection attempt, and retry VPN Coexistence wizard again.";
+        let errMsg =
+          "Error: failed to get top firewall permissions - please disconnect PL Connect or stop the connection attempt, and retry VPN Coexistence wizard again.";
         try {
           let resp = await sender.KillSwitchReregister(true);
           //console.log("resp", resp);
           if (resp && resp !== null) {
             if (resp.OtherVpnUnknownToUs != null && resp.OtherVpnUnknownToUs) {
-              errMsg = "Error: failed to get top firewall permissions - please take a screenshot or photo of this error message and email it to support@privateline.io";
-              let detailMsg = `Error: ${resp.ErrorMessage}\n\n` +
+              errMsg =
+                "Error: failed to get top firewall permissions - please take a screenshot or photo of this error message and email it to support@privateline.io";
+              let detailMsg =
+                `Error: ${resp.ErrorMessage}\n\n` +
                 `Other VPN \'${resp.OtherVpnName}\' - \'${resp.OtherVpnGUID}\' is not registered in our database, we don't know how to stop it.\n\n` +
                 "You can also try the following manual steps to try to allow PL Connect get the necessary top firewall permissions:\n\n" +
                 "(1) Disconnect the other VPN and click Retry in PL Connect again. If successful - then reconnect to the other VPN.\n\n" +
@@ -331,8 +348,7 @@ export default {
           }
 
           // Check the result. If good - start connection attempt, as daemon disconnected VPN during KillSwitchReregister() call.
-          if (this.weHaveTopFirewallPriority)
-            await sender.Connect(); // Re-connect
+          if (this.weHaveTopFirewallPriority) await sender.Connect(); // Re-connect
         } catch (e) {
           console.error(e);
           sender.showMessageBoxSync({
@@ -344,11 +360,19 @@ export default {
           return;
         }
       }
-    }
+    },
   },
   computed: {
     osVersionRelease() {
-      return sender.osVersionRelease();
+      switch (Platform()) {
+        case PlatformEnum.Windows:
+        case PlatformEnum.macOS:
+          return sender.osVersionRelease();
+        case PlatformEnum.Linux:
+          return this.$store.state.osVersion;
+        default:
+          return sender.osVersionRelease();
+      }
     },
     adjustedHandshakeTime() {
       // Check if connectionInfo is null
@@ -360,7 +384,7 @@ export default {
       return this.$store.state.vpnState.handshake.HandshakeTime;
     },
     weHaveTopFirewallPriority() {
-       return this.$store.state.vpnState.firewallState.WeHaveTopFirewallPriority;
+      return this.$store.state.vpnState.firewallState.WeHaveTopFirewallPriority;
     },
     isDevRestApiBackendStore() {
       return this.$store.state.usingDevelopmentRestApiBackend;
@@ -409,7 +433,7 @@ export default {
 
       t.setSeconds(
         t.getSeconds() +
-        this.$store.state.account.session.WgKeysRegenIntervalSec
+          this.$store.state.account.session.WgKeysRegenIntervalSec
       );
 
       let now = new Date();
@@ -467,9 +491,12 @@ div.detailedConfigParamBlock {
   width: 100%;
 }
 
-div.detailedParamValue {
-  opacity: 0.7;
+div.paramBlockDetailedConfig {
+  gap: 5px;
+}
 
+div.detailedParamValue {
+  font-weight: 600;
   overflow-wrap: break-word;
   -webkit-user-select: text;
   user-select: text;
@@ -480,9 +507,9 @@ div.detailedParamValue {
 }
 
 div.paramName {
-  min-width: 120px;
-  max-width: 120px;
-  font-size: 11px;
+  color: var(--text-color-details);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 div.greenDot {

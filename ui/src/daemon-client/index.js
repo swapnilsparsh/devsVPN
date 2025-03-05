@@ -73,6 +73,7 @@ const daemonRequests = Object.freeze({
   SessionDelete: "SessionDelete",
   SessionStatus: "SessionStatus",
   ProfileData: "ProfileData",
+  DeviceList: "DeviceList",
   SubscriptionData: "SubscriptionData",
 
   WiFiSettings: "WiFiSettings",
@@ -152,6 +153,7 @@ const daemonResponses = Object.freeze({
 
   AccountInfoResp: "AccountInfoResp",
   ProfileDataResp: "ProfileDataResp",
+  DeviceListResp: "DeviceListResp",
 
   TransferredDataResp: "TransferredDataResp",
   HandshakeResp: "HandshakeResp",
@@ -353,6 +355,7 @@ function commitSession(sessionRespObj) {
   const session = {
     AccountID: sessionRespObj.AccountID,
     Session: sessionRespObj.Session,
+    DeviceName: sessionRespObj.DeviceName,
     WgPublicKey: sessionRespObj.WgPublicKey,
     WgLocalIP: sessionRespObj.WgLocalIP,
     WgUsePresharedKey: sessionRespObj.WgUsePresharedKey,
@@ -396,7 +399,7 @@ async function processResponse(response) {
     if (obj.Command == "APIResponse")
       log.debug(
         `<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` +
-          (obj.Error ? " Error!" : "")
+        (obj.Error ? " Error!" : "")
       );
     else if (obj.Command != "TransferredDataResp")
       log.debug(`<== ${obj.Command} [${obj.Idx}]`);
@@ -408,6 +411,7 @@ async function processResponse(response) {
     case daemonResponses.HelloResp:
       store.commit("daemonVersion", obj.Version);
       store.commit("daemonProcessorArch", obj.ProcessorArch);
+      store.commit("osVersion", obj.OsVersion);
 
       store.commit("usingDevelopmentRestApiBackend", obj.DevRestApiBackend);
 
@@ -975,6 +979,7 @@ async function Login(
   if (resp.APIStatus === API_SUCCESS) {
     commitSession(resp.Session);
     ProfileData();
+    DeviceList();
     SubscriptionData();
   }
 
@@ -983,7 +988,7 @@ async function Login(
   return resp;
 }
 
-async function SsoLogin( Code, SessionState) {
+async function SsoLogin(Code, SessionState) {
   let resp = await sendRecv({
     Command: daemonRequests.SsoLogin,
     Code: Code,
@@ -992,6 +997,7 @@ async function SsoLogin( Code, SessionState) {
 
   if (resp.APIStatus === API_SUCCESS) {
     ProfileData();
+    DeviceList();
     SubscriptionData();
   }
   return resp;
@@ -1018,6 +1024,15 @@ async function ProfileData() {
   const profileData = resp.RawResponse.data;
   store.commit(`account/userDetails`, profileData);
   return profileData;
+}
+
+async function DeviceList() {
+  let resp = await sendRecv({
+    Command: daemonRequests.DeviceList,
+  });
+  const deviceList = resp.RawResponse.data;
+  store.commit(`account/deviceList`, deviceList);
+  return deviceList;
 }
 
 async function SubscriptionData() {
@@ -1589,7 +1604,7 @@ async function KillSwitchReregister(CanStopOtherVpn) {
     Command: daemonRequests.KillSwitchReregister,
     CanStopOtherVpn,
   },
-  [daemonResponses.KillSwitchReregisterErrorResp]
+    [daemonResponses.KillSwitchReregisterErrorResp]
   );
   return ret;
 }
@@ -2002,5 +2017,6 @@ export default {
   SetLocalParanoidModePassword,
   AccountInfo,
   ProfileData,
+  DeviceList,
   SubscriptionData,
 };

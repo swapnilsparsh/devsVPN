@@ -16,6 +16,7 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/nftables v0.3.0 // indirect
 	github.com/google/uuid v1.5.0 // indirect
+	github.com/hashicorp/go-envparse v0.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mdlayher/netlink v1.7.3-0.20250113171957-fbb4dce95f42 // indirect
 	github.com/mdlayher/socket v0.5.0 // indirect

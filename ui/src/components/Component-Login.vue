@@ -3,16 +3,16 @@
     <div class="flexRow flexRowRestSpace">
       <spinner :loading="isProcessing" />
 
-      <div class="column">
-        <div class="centered" style="margin-top: -50px; margin-bottom: 30px">
-          <img width=" 70%" src="@/assets/logo.svg" />
-        </div>
+      <!-- <div class="column"> -->
+      <div class="centered">
+        <img width=" 70%" src="@/assets/logo.svg" />
+      </div>
 
+      <div class="column">
         <div>
           <!-- ACCOUNT ID -->
           <div class="centered">
-            <div class="large_text">Login</div>
-            <div class="medium_text">to privateLINE Connect</div>
+            <div class="large_text">Log In</div>
             <div style="height: 12px" />
           </div>
 
@@ -37,6 +37,8 @@
 
           </div> -->
           <!-- ============ account ID formatting feature start ============= -->
+          <div class="medium_text" style="font-weight: 600">Account ID:</div>
+          <div style="height: 12px" />
           <div
             v-if="isAccountIdLogin"
             style="position: relative; display: flex; align-items: center"
@@ -51,7 +53,12 @@
               @keyup="keyup($event)"
             />
             <span class="input-button">
-                <img @click="startScanning" style="cursor: pointer;" title="QR Code Scanner" src="@/assets/qr-scan.svg" />
+              <img
+                @click="startScanning"
+                style="cursor: pointer"
+                title="QR Code Scanner"
+                src="@/assets/qr-scan.svg"
+              />
             </span>
           </div>
           <!-- ============ account ID formatting feature end ============= -->
@@ -88,23 +95,70 @@
         </div>
         -->
 
-        <div style="height: 24px" />
-        <button class="master" @click="Login">Login</button>
-        <div style="height: 12px" />
+        <div style="height: 18px" />
+        <button
+          class="master"
+          style="height: 45px; border-radius: 10px; font-weight: 600"
+          @click="Login"
+        >
+          Login
+        </button>
+        <div style="height: 18px" />
         <!--
         <button v-if="!isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Account ID</button>
         <button v-if="isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Email And
           Password</button>
         <div style="height: 12px" />
         -->
-        <!-- Disable "SSO Login" button per PLCON-89
-        <button class="slave" v-on:click="openSSO">SSO Login</button>
-        <div style="height: 12px" />
+        
+        <!-- SSO login disabled per PLCON-89 Remove SSO login option from main screen from Desktop apps
+        <button
+          class="slave"
+          style="
+            height: 45px;
+            border-radius: 10px;
+            background: transparent;
+            border: 2px solid #6f329d;
+            color: var(--login-text-color);
+            font-weight: 600;
+          "
+          v-on:click="openSSO"
+        >
+          SSO Log In
+        </button>
         -->
-        <button class="slave" @click="CreateAccount">Create an account</button>
-        <div style="height: 12px" />
+
+        <div style="height: 18px" />
+        <button
+          class="slave"
+          style="
+            height: 45px;
+            border-radius: 10px;
+            background: transparent;
+            border: 2px solid #6f329d;
+            color: var(--login-text-color);
+            font-weight: 600;
+          "
+          @click="CreateAccount"
+        >
+          Create an Account
+        </button>
+        <div style="height: 18px" />
         <video v-show="stream" ref="videoRef" autoplay></video>
       </div>
+      <!-- </div> -->
+    </div>
+    <div v-if="versionSingle" class="version" style="margin-bottom: 10px">
+      <!-- single version -->
+      {{ versionSingle }}
+    </div>
+
+    <div v-else style="margin-bottom: 12px">
+      <!-- daemon and UI versions different-->
+      <div class="version">
+        {{ versionUI }}
+      </div>
+      <div class="version">daemon {{ versionDaemon }}</div>
     </div>
 
     <!-- <div class="flexRow leftright_margins" style="margin-bottom: 20px">
@@ -175,7 +229,7 @@ export default {
       password: "",
       isProcessing: false,
       isAccountIdLogin: true,
-      accountID: '',
+      accountID: "",
 
       rawResponse: null,
       apiResponseStatus: 0,
@@ -225,6 +279,28 @@ export default {
       if (this.$store.state.vpnState.firewallState.IsEnabled)
         return "Firewall enabled and blocking all traffic";
       return "Firewall disabled";
+    },
+    versionSingle: function () {
+      if (this.versionDaemon === this.versionUI) return this.versionDaemon;
+      return null;
+    },
+    versionDaemon: function () {
+      try {
+        let v = this.$store.state.daemonVersion;
+        if (!v) return "version unknown";
+        return `v${v}`;
+      } catch (e) {
+        return "version unknown";
+      }
+    },
+    versionUI: function () {
+      try {
+        let v = sender.appGetVersion().Version;
+        if (!v) return "version unknown";
+        return `v${v}`;
+      } catch (e) {
+        return "version unknown";
+      }
     },
   },
   watch: {
@@ -365,12 +441,14 @@ export default {
         this.isProcessing = true;
         if (this.isAccountIdLogin) {
           // const pattern = new RegExp("^([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$");
-          const pattern = new RegExp("^(a-)?([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$"); // Allowing both XXXX-XXXX-XXXX Or a-XXXX-XXXX-XXXX
+          const pattern = new RegExp(
+            "^(a-)?([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$"
+          ); // Allowing both XXXX-XXXX-XXXX Or a-XXXX-XXXX-XXXX
           if (this.accountID) this.accountID = this.accountID.trim();
           if (!pattern.test(this.accountID)) {
             throw new Error(
               "Invalid account ID. Your account ID has to be in 'XXXX-XXXX-XXXX' format. Please check your account ID and try again.\n\n" +
-              "If you previously entered your account ID as a-XXXX-XXXX-XXXX - now you can simply enter it as XXXX-XXXX-XXXX"
+                "If you previously entered your account ID as a-XXXX-XXXX-XXXX - now you can simply enter it as XXXX-XXXX-XXXX"
             );
           }
         } else {
@@ -401,10 +479,12 @@ export default {
             return;
           }
         }
-        
+
         // Only send account ID to the daemon in XXXX-XXXX-XXXX format irrespective of whether the user entered account ID as XXXX-XXXX-XXXX, or as a-XXXX-XXXX-XXXX
         const resp = await sender.Login(
-          this.isAccountIdLogin ? (this.accountID.startsWith('a-') ? this.accountID.substring(2,16) : this.accountID) : this.email,
+          this.isAccountIdLogin ? 
+            (this.accountID.startsWith("a-") ? this.accountID.substring(2, 16) : this.accountID)
+            : this.email,
           this.isAccountIdLogin ? "" : this.password
           // isForceLogout === true || this.isForceLogoutRequested === true,
           // this.captchaID,
@@ -415,7 +495,8 @@ export default {
         //console.log("resp", resp);
         //const accountInfoResponse = await sender.AccountInfo();
         //console.log("accountInfoResponse", accountInfoResponse);
-        if (resp.APIStatus === 429) { // API error: [429] Too many requests from this IP or email, please try again later
+        if (resp.APIStatus === 429) {
+          // API error: [429] Too many requests from this IP or email, please try again later
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
@@ -521,7 +602,8 @@ export default {
     },
     openSSO() {
       sender.shellOpenExternal(
-        `https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`);
+        `https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`
+      );
     },
     onLoginWithAccountId() {
       this.isAccountIdLogin = !this.isAccountIdLogin;
@@ -539,26 +621,34 @@ export default {
       this.isForceLogoutRequested = false;
     },
     keyup(event) {
-      let input = this.accountID || '';
-      const sanitized = input.toUpperCase().replace(/[^A-HJ-NP-Z0-9-]/gi, '');
+      let input = this.accountID || "";
+      const sanitized = input.toUpperCase().replace(/[^A-HJ-NP-Z0-9-]/gi, "");
 
-      if (sanitized.startsWith('A-')) {
+      if (sanitized.startsWith("A-")) {
         // Limit to the format a-XXXX-XXXX-XXXX
-        const trimmed = sanitized.replace(/-/g, '').substring(0, 13); // Exclude 'A-'
-        this.accountID = `a-${trimmed.substring(1).match(/.{1,4}/g)?.join('-') || ''}`;
+        const trimmed = sanitized.replace(/-/g, "").substring(0, 13); // Exclude 'A-'
+        this.accountID = `a-${
+          trimmed
+            .substring(1)
+            .match(/.{1,4}/g)
+            ?.join("-") || ""
+        }`;
       } else {
         // Default to the format XXXX-XXXX-XXXX
-        const trimmed = sanitized.replace(/-/g, '').substring(0, 12);
-        this.accountID = trimmed.match(/.{1,4}/g)?.join('-') || '';
+        const trimmed = sanitized.replace(/-/g, "").substring(0, 12);
+        this.accountID = trimmed.match(/.{1,4}/g)?.join("-") || "";
       }
 
       // Handle the Enter key
-      if (event.key === 'Enter' && !this.isProcessing && !this.$store.getters["account/isLoggedIn"]) {
+      if (
+        event.key === "Enter" &&
+        !this.isProcessing &&
+        !this.$store.getters["account/isLoggedIn"]
+      ) {
         event.preventDefault();
         this.Login();
       }
     },
-
 
     updateColorScheme() {
       let isDarkTheme = false;
@@ -618,7 +708,7 @@ export default {
   position: absolute;
   top: 4px;
   right: 5px;
-  margin: 0;
+  margin: 7px;
   padding: 0;
 }
 
@@ -635,6 +725,7 @@ video {
 .column {
   @extend .leftright_margins;
   width: 100%;
+  margin-bottom: 70px;
 }
 
 .centered {
@@ -645,8 +736,9 @@ video {
 
 .large_text {
   font-weight: 600;
-  font-size: 18px;
+  font-size: 22px;
   line-height: 120%;
+  text-align: left;
 }
 
 .small_text {
@@ -660,5 +752,10 @@ video {
   font-size: 11px;
   line-height: 13px;
   color: var(--text-color-details);
+}
+
+div.version {
+  text-align: center;
+  font-weight: 600;
 }
 </style>

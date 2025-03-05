@@ -64,6 +64,7 @@ func (p *Protocol) createHelloResponse() *types.HelloResp {
 		ParanoidMode:        types.ParanoidModeStatus{IsEnabled: p._eaa.IsEnabled()},
 		Version:             version.Version(),
 		ProcessorArch:       runtime.GOARCH,
+		OsVersion:           platform.OsVersion(),
 		Session:             types.CreateSessionResp(prefs.Session),
 		DevRestApiBackend:   p._service.GetRestApiBackend(),
 		Account:             prefs.Account,
