@@ -377,8 +377,8 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 	var MTU int
 	if wg.connectParams.mtu > 0 {
 		MTU = wg.connectParams.mtu
-	} else { // If MTU not specified explicitly, set 1380 - reasonable default on Linux, same as Mullvad
-		MTU = 1380
+	} else { // If MTU not specified explicitly, set 1340 = 1420 (NordVPN default) - 80 (IPv6 header overhead)
+		MTU = 1340
 	}
 	interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", MTU))
 
