@@ -23,8 +23,10 @@
 package firewall
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -41,7 +43,9 @@ import (
 const (
 	ENOENT_ERRMSG = "no such file or directory"
 
-	PL_TABLE                  = "privateline"
+	TABLE      = "filter" // type IPv4
+	TABLE_TYPE = nftables.TableFamilyIPv4
+
 	VPN_COEXISTENCE_CHAIN_IN  = "privateline-vpn-coexistence-in"
 	VPN_COEXISTENCE_CHAIN_OUT = "privateline-vpn-coexistence-out"
 )
@@ -49,6 +53,7 @@ const (
 var (
 	nftConn       = &nftables.Conn{}
 	mutexInternal sync.Mutex
+	ourSets       []*nftables.Set // List of all our nft sets, to delete in one batch. Protected by mutexInternal.
 
 	// key: is a string representation of allowed IP
 	// value: true - if exception rule is persistent (persistent, means will stay available even client is disconnected)
@@ -70,18 +75,78 @@ func implInitialize() error {
 	return nil
 }
 
+func createTableChainsObjects() (filter *nftables.Table,
+	input *nftables.Chain,
+	output *nftables.Chain,
+	vpnCoexistenceChainIn *nftables.Chain,
+	vpnCoexistenceChainOut *nftables.Chain) {
+
+	filter = &nftables.Table{Family: TABLE_TYPE, Name: TABLE}
+
+	return filter,
+		&nftables.Chain{Name: "INPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookInput, Priority: nftables.ChainPriorityFilter},
+		&nftables.Chain{Name: "OUTPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookOutput, Priority: nftables.ChainPriorityFilter},
+		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_IN, Table: filter, Type: nftables.ChainTypeFilter},
+		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_OUT, Table: filter, Type: nftables.ChainTypeFilter}
+}
+
+// TODO FIXME: Vlad - refactor, check whether jump rules to our chains exist on top of INPUT, OUTPUT
 func implGetEnabled() (exists bool, retErr error) {
-	// Check that our table exists
-	if table, err := nftConn.ListTableOfFamily(PL_TABLE, nftables.TableFamilyINet); err != nil {
-		if strings.Contains(err.Error(), ENOENT_ERRMSG) {
+	filter, input, output, _, _ := createTableChainsObjects()
+
+	// get INPUT, OUTPUT rulesets - to delete our jump rules
+	inputRules, err := nftConn.GetRules(filter, input)
+	if err != nil {
+		return false, log.ErrorFE("error listing INPUT rules: %w", err)
+	}
+	outputRules, err := nftConn.GetRules(filter, output)
+	if err != nil {
+		return false, log.ErrorFE("error listing OUTPUT rules: %w", err)
+	}
+
+	// check that the 0th rules in INPUT, OUTPUT are jumps to our chains
+	if len(inputRules) >= 1 {
+		verdict, _ := inputRules[0].Exprs[0].(*expr.Verdict)
+		if reflect.TypeOf(inputRules[0].Exprs[0]) != reflect.TypeFor[*expr.Verdict]() || verdict.Kind != expr.VerdictJump || verdict.Chain != VPN_COEXISTENCE_CHAIN_IN {
+			log.Warning("jump to our table " + VPN_COEXISTENCE_CHAIN_IN + " is not a 0th rule in INPUT")
 			return false, nil
-		} else {
-			return false, log.ErrorFE("error - ListTableOfFamily: %w", err)
 		}
-	} else if table == nil {
-		return false, log.ErrorFE("error - ListTableOfFamily returned nil")
-	} else if table.Name != PL_TABLE {
-		return false, log.ErrorFE("error - ListTableOfFamily returned table with wrong name '%s'", table.Name)
+	} else {
+		log.Debug("INPUT chain empty or not found")
+		return false, nil
+	}
+
+	if len(outputRules) >= 1 {
+		verdict, _ := outputRules[0].Exprs[0].(*expr.Verdict)
+		if reflect.TypeOf(outputRules[0].Exprs[0]) != reflect.TypeFor[*expr.Verdict]() || verdict.Kind != expr.VerdictJump || verdict.Chain != VPN_COEXISTENCE_CHAIN_OUT {
+			log.Warning("jump to our table " + VPN_COEXISTENCE_CHAIN_OUT + " is not a 0th rule in OUTPUT")
+			return false, nil
+		}
+	} else {
+		log.Debug("OUTPUT chain empty or not found")
+		return false, nil
+	}
+
+	// Check that our chains exist
+
+	var coexChainInFound, coexChainOutFound bool
+	chains, err := nftConn.ListChainsOfTableFamily(TABLE_TYPE)
+	if err != nil {
+		return false, log.ErrorFE("error listing chains: %w", err)
+	}
+	for _, chain := range chains {
+		if chain.Name == VPN_COEXISTENCE_CHAIN_IN {
+			coexChainInFound = true
+		} else if chain.Name == VPN_COEXISTENCE_CHAIN_OUT {
+			coexChainOutFound = true
+		}
+	}
+
+	if !coexChainInFound {
+		return false, log.ErrorE(errors.New("error - "+VPN_COEXISTENCE_CHAIN_IN+" chain not found in table "+filter.Name), 0)
+	}
+	if !coexChainOutFound {
+		return false, log.ErrorE(errors.New("error - "+VPN_COEXISTENCE_CHAIN_OUT+" chain not found in table "+filter.Name), 0)
 	}
 
 	// Also check that helper script returns true - that cgroup exists, etc.
@@ -94,38 +159,78 @@ func implGetEnabled() (exists bool, retErr error) {
 	return true, nil
 }
 
-func createTableAndChains() (plTable *nftables.Table, vpnCoexistenceChainIn *nftables.Chain, vpnCoexistenceChainOut *nftables.Chain, err error) {
-	// Create privateline table, if not present
-	plTable = nftConn.AddTable(&nftables.Table{
-		Family: nftables.TableFamilyINet,
-		Name:   PL_TABLE,
-	})
+func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nftables.Chain, vpnCoexistenceChainOut *nftables.Chain, err error) {
+	filter, input, output, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
+
+	// Create filter table, if not present
+	filter = nftConn.AddTable(filter)
+
+	// create INPUT, OUTPUT chains, if not present
+	input = nftConn.AddChain(input)
+	output = nftConn.AddChain(output)
 
 	// Create VPN coexistence chains
-	vpnCoexistenceChainIn = nftConn.AddChain(&nftables.Chain{
-		Name:     VPN_COEXISTENCE_CHAIN_IN,
-		Table:    plTable,
-		Type:     nftables.ChainTypeFilter,
-		Hooknum:  nftables.ChainHookInput,
-		Priority: nftables.ChainPriorityFirst, // our rules take top priority, are processed 1st
-	})
-	vpnCoexistenceChainOut = nftConn.AddChain(&nftables.Chain{
-		Name:     VPN_COEXISTENCE_CHAIN_OUT,
-		Table:    plTable,
-		Type:     nftables.ChainTypeFilter,
-		Hooknum:  nftables.ChainHookOutput,
-		Priority: nftables.ChainPriorityFirst, // our rules take top priority, are processed 1st
-	})
+	vpnCoexistenceChainIn = nftConn.AddChain(vpnCoexistenceChainIn)
+	vpnCoexistenceChainOut = nftConn.AddChain(vpnCoexistenceChainOut)
 
-	// Apply the above (commands are queued till a call to Flush())
-	if err := nftConn.Flush(); err != nil {
-		return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush: %w", err)
+	if err := nftConn.Flush(); err != nil { // Apply the above (commands are queued till a call to Flush())
+		return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 1: %w", err)
 	}
 
-	return plTable, vpnCoexistenceChainIn, vpnCoexistenceChainOut, nil
+	// // get INPUT, OUTPUT rulesets - to be able to insert our jump rules on top
+	// inputRules, err := nftConn.GetRules(filter, input)
+	// if err != nil {
+	// 	return nil, nil, nil, log.ErrorFE("error listing input rules: %w", err)
+	// }
+	// outputRules, err := nftConn.GetRules(filter, output)
+	// if err != nil {
+	// 	return nil, nil, nil, log.ErrorFE("error listing output rules: %w", err)
+	// }
+
+	// add rules to jump to our chains from the top of INPUT, OUTPUT
+	jumpInRule := nftables.Rule{
+		Table: filter,
+		Chain: input,
+		Exprs: []expr.Any{
+			&expr.Verdict{
+				//Kind:  expr.VerdictKind(unix.NFT_JUMP),
+				Kind:  expr.VerdictJump,
+				Chain: VPN_COEXISTENCE_CHAIN_IN,
+			},
+		},
+	}
+	// if len(inputRules) >= 1 {
+	// 	jumpInRule.Position = inputRules[0].Handle
+	// }
+	nftConn.InsertRule(&jumpInRule)
+
+	jumpOutRule := nftables.Rule{
+		Table: filter,
+		Chain: output,
+		Exprs: []expr.Any{
+			&expr.Verdict{
+				//Kind:  expr.VerdictKind(unix.NFT_JUMP),
+				Kind:  expr.VerdictJump,
+				Chain: VPN_COEXISTENCE_CHAIN_OUT,
+			},
+		},
+	}
+	// if len(outputRules) >= 1 {
+	// 	jumpOutRule.Position = outputRules[0].Handle
+	// }
+	nftConn.InsertRule(&jumpOutRule)
+
+	if err := nftConn.Flush(); err != nil { // Apply the above (commands are queued till a call to Flush())
+		return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 2: %w", err)
+	}
+
+	return filter, vpnCoexistenceChainIn, vpnCoexistenceChainOut, nil
 }
 
 func doEnable() (err error) {
+	mutexInternal.Lock()
+	defer mutexInternal.Unlock()
+
 	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "-start"); err != nil {
 		return log.ErrorFE("error initializing firewall script: %w", err)
 	} else if exitCode != 0 {
@@ -134,7 +239,7 @@ func doEnable() (err error) {
 
 	prefs := getPrefsCallback()
 
-	plTable, vpnCoexistenceChainIn, vpnCoexistenceChainOut, err := createTableAndChains()
+	filter, vpnCoexistenceChainIn, vpnCoexistenceChainOut, err := createTableAndChains()
 	if err != nil {
 		return log.ErrorFE("error createTableAndChains: %w", err)
 	}
@@ -142,21 +247,23 @@ func doEnable() (err error) {
 	// create a set of Wireguard endpoint IPs, and a set of our DNS servers, incl. custom DNS
 	wgEndpointAddrsIPv4 := &nftables.Set{
 		Name:    "Wireguard_endpoint_IPv4_addrs",
-		Table:   plTable,
+		Table:   filter,
 		KeyType: nftables.TypeIPAddr, // our keys are IPv4 addresses
 	}
 	if err := nftConn.AddSet(wgEndpointAddrsIPv4, []nftables.SetElement{}); err != nil {
 		return log.ErrorFE("enable - error creating nft set: %w", err)
 	}
+	ourSets = append(ourSets, wgEndpointAddrsIPv4)
 
 	privatelineDnsAddrsIPv4 := &nftables.Set{
 		Name:    "privateLINE_DNS",
-		Table:   plTable,
+		Table:   filter,
 		KeyType: nftables.TypeIPAddr, // our keys are IPv4 addresses so far
 	}
 	if err := nftConn.AddSet(privatelineDnsAddrsIPv4, []nftables.SetElement{}); err != nil {
 		return log.ErrorFE("enable - error creating nft set: %w", err)
 	}
+	ourSets = append(ourSets, privatelineDnsAddrsIPv4)
 
 	for _, vpnEntryHostParsed := range prefs.VpnEntryHostsParsed {
 		if err = nftConn.SetAddElements(wgEndpointAddrsIPv4, []nftables.SetElement{{Key: vpnEntryHostParsed.VpnEntryHostIP}}); err != nil {
@@ -176,12 +283,13 @@ func doEnable() (err error) {
 	// create a set of TCP & UDP protocols
 	tcpAndUdp := &nftables.Set{
 		Name:    "TCP_UDP",
-		Table:   plTable,
+		Table:   filter,
 		KeyType: nftables.TypeInetProto, // protocol type is 1 byte
 	}
 	if err := nftConn.AddSet(tcpAndUdp, []nftables.SetElement{}); err != nil {
 		return log.ErrorFE("enable - error creating nft set: %w", err)
 	}
+	ourSets = append(ourSets, tcpAndUdp)
 	nftConn.SetAddElements(tcpAndUdp, []nftables.SetElement{{Key: []byte{unix.IPPROTO_TCP}}, {Key: []byte{unix.IPPROTO_UDP}}})
 
 	// Create rules
@@ -193,7 +301,7 @@ func doEnable() (err error) {
 	// allow lo traffic
 	lo := []byte("lo\x00")
 	nftConn.AddRule(&nftables.Rule{
-		Table: plTable,
+		Table: filter,
 		Chain: vpnCoexistenceChainIn,
 		Exprs: []expr.Any{
 			// [ meta load iifname => reg 1 ]
@@ -203,7 +311,7 @@ func doEnable() (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 	nftConn.AddRule(&nftables.Rule{
-		Table: plTable,
+		Table: filter,
 		Chain: vpnCoexistenceChainOut,
 		Exprs: []expr.Any{
 			// [ meta load iifname => reg 1 ]
@@ -215,7 +323,7 @@ func doEnable() (err error) {
 
 	// Allow our Wireguard gateways: in UDP, out TCP+UDP (any proto)
 	nftConn.AddRule(&nftables.Rule{ // in UDP
-		Table: plTable,
+		Table: filter,
 		Chain: vpnCoexistenceChainIn,
 		Exprs: []expr.Any{
 			// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
@@ -232,7 +340,7 @@ func doEnable() (err error) {
 		},
 	})
 	nftConn.AddRule(&nftables.Rule{ // out any proto
-		Table: plTable,
+		Table: filter,
 		Chain: vpnCoexistenceChainOut,
 		Exprs: []expr.Any{
 			// [ dest IP: payload load 4b @ network header + 16 => reg 1 ]
@@ -247,7 +355,7 @@ func doEnable() (err error) {
 
 	// Allow UDP src port 53 from our DNS servers, incl. custom DNS
 	nftConn.AddRule(&nftables.Rule{ // in UDP, src port 53
-		Table: plTable,
+		Table: filter,
 		Chain: vpnCoexistenceChainIn,
 		Exprs: []expr.Any{
 			// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
@@ -269,7 +377,7 @@ func doEnable() (err error) {
 
 	// Allow TCP+UDP dst port 53 to our DNS servers, incl. custom DNS
 	nftConn.AddRule(&nftables.Rule{ // out TCP+UDP, dst port 53
-		Table: plTable,
+		Table: filter,
 		Chain: vpnCoexistenceChainOut,
 		Exprs: []expr.Any{
 			// [ dest IP: payload load 4b @ network header + 16 => reg 1 ]
@@ -294,7 +402,7 @@ func doEnable() (err error) {
 	for _, vpnEntryHostParsed := range prefs.VpnEntryHostsParsed {
 		for _, allowedNet := range vpnEntryHostParsed.AllowedIPs {
 			nftConn.AddRule(&nftables.Rule{ // in UDP
-				Table: plTable,
+				Table: filter,
 				Chain: vpnCoexistenceChainIn,
 				Exprs: []expr.Any{
 					// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
@@ -311,7 +419,7 @@ func doEnable() (err error) {
 				},
 			})
 			nftConn.AddRule(&nftables.Rule{ // out any proto
-				Table: plTable,
+				Table: filter,
 				Chain: vpnCoexistenceChainOut,
 				Exprs: []expr.Any{
 					// [ dst IP: payload load 4b @ network header + 16 => reg 1 ]
@@ -333,7 +441,7 @@ func doEnable() (err error) {
 	// allowedAppsCgroupClassid := []byte{0x70, 0x56, 0x1e, 0x1d} // TODO FIXME: Vlad - do I need to reorder bytes?
 	allowedAppsCgroupClassid := []byte{0x1d, 0x1e, 0x56, 0x70}
 	nftConn.AddRule(&nftables.Rule{
-		Table: plTable,
+		Table: filter,
 		Chain: vpnCoexistenceChainIn,
 		Exprs: []expr.Any{
 			// [ meta load cgroup ID => reg 1 ]
@@ -344,7 +452,7 @@ func doEnable() (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 	nftConn.AddRule(&nftables.Rule{
-		Table: plTable,
+		Table: filter,
 		Chain: vpnCoexistenceChainOut,
 		Exprs: []expr.Any{
 			// [ meta load cgroup ID => reg 1 ]
@@ -377,27 +485,27 @@ func doEnable() (err error) {
 //
 // TODO: Vlad - do we need to worry about forward chains?
 func implDeployPostConnectionRules() (retErr error) {
+	mutexInternal.Lock()
+	defer mutexInternal.Unlock()
+
 	wgprivateline := []byte("wgprivateline\x00")
 
-	plTable, vpnCoexistenceChainIn, vpnCoexistenceChainOut, err := createTableAndChains()
-	if err != nil {
-		return log.ErrorFE("error createTableAndChains: %w", err)
-	}
+	filter, _, _, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
 
-	vpnCoexistenceChainInRules, _ := nftConn.GetRules(plTable, vpnCoexistenceChainIn)
-	if err != nil {
-		return log.ErrorFE("error listing vpnCoexistenceChainIn rules: %w", err)
-	}
-	vpnCoexistenceChainOutRules, _ := nftConn.GetRules(plTable, vpnCoexistenceChainOut)
-	if err != nil {
-		return log.ErrorFE("error listing vpnCoexistenceChainOut rules: %w", err)
-	}
+	// vpnCoexistenceChainInRules, err := nftConn.GetRules(filter, vpnCoexistenceChainIn)
+	// if err != nil {
+	// 	return log.ErrorFE("error listing vpnCoexistenceChainIn rules: %w", err)
+	// }
+	// vpnCoexistenceChainOutRules, err := nftConn.GetRules(filter, vpnCoexistenceChainOut)
+	// if err != nil {
+	// 	return log.ErrorFE("error listing vpnCoexistenceChainOut rules: %w", err)
+	// }
 
 	// conntrack state established,related accept on input
-	nftConn.AddRule(&nftables.Rule{
-		Table:    plTable,
-		Chain:    vpnCoexistenceChainIn,
-		Position: vpnCoexistenceChainInRules[0].Handle,
+	nftConn.InsertRule(&nftables.Rule{
+		Table: filter,
+		Chain: vpnCoexistenceChainIn,
+		// Position: vpnCoexistenceChainInRules[0].Handle,
 		Exprs: []expr.Any{
 			// [ meta load iifname => reg 1 ]
 			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
@@ -417,10 +525,10 @@ func implDeployPostConnectionRules() (retErr error) {
 	})
 
 	// conttrack state invalid drop on input
-	nftConn.AddRule(&nftables.Rule{
-		Table:    plTable,
-		Chain:    vpnCoexistenceChainIn,
-		Position: vpnCoexistenceChainInRules[0].Handle,
+	nftConn.InsertRule(&nftables.Rule{
+		Table: filter,
+		Chain: vpnCoexistenceChainIn,
+		// Position: vpnCoexistenceChainInRules[0].Handle,
 		Exprs: []expr.Any{
 			// [ meta load iifname => reg 1 ]
 			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
@@ -440,10 +548,10 @@ func implDeployPostConnectionRules() (retErr error) {
 	})
 
 	// conntrack state established accept on output
-	nftConn.AddRule(&nftables.Rule{
-		Table:    plTable,
-		Chain:    vpnCoexistenceChainOut,
-		Position: vpnCoexistenceChainOutRules[0].Handle,
+	nftConn.InsertRule(&nftables.Rule{
+		Table: filter,
+		Chain: vpnCoexistenceChainOut,
+		// Position: vpnCoexistenceChainOutRules[0].Handle,
 		Exprs: []expr.Any{
 			// [ meta load iifname => reg 1 ]
 			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
@@ -462,28 +570,34 @@ func implDeployPostConnectionRules() (retErr error) {
 		},
 	})
 
+	if err := nftConn.Flush(); err != nil { // flush early, as later DNS lookups are prone to failure
+		return log.ErrorFE("implDeployPostConnectionRules - error: %w", err)
+	}
+
 	// Allow our hosts (meet.privateline.network, etc.) in: UDP
 	for _, plInternalHostname := range platform.PLInternalHostnamesToAcceptIncomingUdpFrom() {
 		var (
 			IPs            []net.IP
 			ourHostIPsIPv4 = &nftables.Set{
 				Name:    "Allow incoming IPv4 UDP for " + plInternalHostname,
-				Table:   plTable,
+				Table:   filter,
 				KeyType: nftables.TypeIPAddr, // set for IPv4 addresses
 			}
-			ourHostIPsIPv6 = &nftables.Set{
-				Name:    "Allow incoming IPv6 UDP for " + plInternalHostname,
-				Table:   plTable,
-				KeyType: nftables.TypeIP6Addr, // set for IPv6 addresses
-			}
+			// ourHostIPsIPv6 = &nftables.Set{
+			// 	Name:    "Allow incoming IPv6 UDP for " + plInternalHostname,
+			// 	Table:   filter,
+			// 	KeyType: nftables.TypeIP6Addr, // set for IPv6 addresses
+			// }
 		)
 
 		if err := nftConn.AddSet(ourHostIPsIPv4, []nftables.SetElement{}); err != nil {
 			return log.ErrorFE("implDeployPostConnectionRules - error creating nft set: %w", err)
 		}
-		if err := nftConn.AddSet(ourHostIPsIPv6, []nftables.SetElement{}); err != nil {
-			return log.ErrorFE("implDeployPostConnectionRules - error creating nft set: %w", err)
-		}
+		ourSets = append(ourSets, ourHostIPsIPv4)
+		// if err := nftConn.AddSet(ourHostIPsIPv6, []nftables.SetElement{}); err != nil {
+		// 	return log.ErrorFE("implDeployPostConnectionRules - error creating nft set: %w", err)
+		// }
+		// ourSets = append(ourSets, ourHostIPsIPv6)
 
 		if IPs, retErr = net.LookupIP(plInternalHostname); retErr != nil {
 			retErr = log.ErrorFE("could not lookup IPs for '%s': %w", plInternalHostname, retErr)
@@ -496,17 +610,17 @@ func implDeployPostConnectionRules() (retErr error) {
 				if err := nftConn.SetAddElements(ourHostIPsIPv4, []nftables.SetElement{{Key: IP.To4()}}); err != nil {
 					return log.ErrorFE("enable - error adding IPv4 addr for '%s' to set: %w", plInternalHostname, err)
 				}
-			} else { // IPv6
-				log.Debug("IPv6 UDP: allow remote hostname " + plInternalHostname)
-				if err := nftConn.SetAddElements(ourHostIPsIPv6, []nftables.SetElement{{Key: IP}}); err != nil {
-					return log.ErrorFE("enable - error adding IPv6 addr for '%s' to set: %w", plInternalHostname, err)
-				}
+				// } else { // IPv6
+				// 	log.Debug("IPv6 UDP: allow remote hostname " + plInternalHostname)
+				// 	if err := nftConn.SetAddElements(ourHostIPsIPv6, []nftables.SetElement{{Key: IP}}); err != nil {
+				// 		return log.ErrorFE("enable - error adding IPv6 addr for '%s' to set: %w", plInternalHostname, err)
+				// 	}
 			}
 		}
 
 		// in UDP
 		nftConn.AddRule(&nftables.Rule{ // IPv4
-			Table: plTable,
+			Table: filter,
 			Chain: vpnCoexistenceChainIn,
 			Exprs: []expr.Any{
 				// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
@@ -522,23 +636,23 @@ func implDeployPostConnectionRules() (retErr error) {
 				&expr.Verdict{Kind: expr.VerdictAccept},
 			},
 		})
-		nftConn.AddRule(&nftables.Rule{ // IPv6
-			Table: plTable,
-			Chain: vpnCoexistenceChainIn,
-			Exprs: []expr.Any{
-				// [ src IPv6 addr: payload load 16b @ network header + 8 => reg 1 ]
-				&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 8, Len: 16},
-				// [ lookup reg 1, ourHostIPsIPv6 set ]
-				&expr.Lookup{SourceRegister: 1, SetName: ourHostIPsIPv6.Name, SetID: ourHostIPsIPv6.ID},
-				// [ meta load l4proto => reg 2 ]
-				&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
-				// [ cmp eq reg 2 UDP ]
-				&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
-				&expr.Counter{},
-				//[ immediate reg 0 accept ]
-				&expr.Verdict{Kind: expr.VerdictAccept},
-			},
-		})
+		// nftConn.AddRule(&nftables.Rule{ // IPv6
+		// 	Table: filter,
+		// 	Chain: vpnCoexistenceChainIn,
+		// 	Exprs: []expr.Any{
+		// 		// [ src IPv6 addr: payload load 16b @ network header + 8 => reg 1 ]
+		// 		&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 8, Len: 16},
+		// 		// [ lookup reg 1, ourHostIPsIPv6 set ]
+		// 		&expr.Lookup{SourceRegister: 1, SetName: ourHostIPsIPv6.Name, SetID: ourHostIPsIPv6.ID},
+		// 		// [ meta load l4proto => reg 2 ]
+		// 		&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
+		// 		// [ cmp eq reg 2 UDP ]
+		// 		&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
+		// 		&expr.Counter{},
+		// 		//[ immediate reg 0 accept ]
+		// 		&expr.Verdict{Kind: expr.VerdictAccept},
+		// 	},
+		// })
 	}
 
 	if err := nftConn.Flush(); err != nil {
@@ -548,10 +662,70 @@ func implDeployPostConnectionRules() (retErr error) {
 	return retErr
 }
 
-func doDisable() (err error) { // delete our table
-	nftConn.DelTable(&nftables.Table{Name: PL_TABLE, Family: nftables.TableFamilyINet})
+func doDisable() (err error) {
+	mutexInternal.Lock()
+	defer mutexInternal.Unlock()
+
+	filter, input, output, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
+
+	// get INPUT, OUTPUT rulesets - to delete our jump rules
+	inputRules, err := nftConn.GetRules(filter, input)
+	if err != nil {
+		return log.ErrorFE("error listing input rules: %w", err)
+	}
+	outputRules, err := nftConn.GetRules(filter, output)
+	if err != nil {
+		return log.ErrorFE("error listing output rules: %w", err)
+	}
+
+	for _, inRule := range inputRules {
+		if reflect.TypeOf(inRule.Exprs[0]) != reflect.TypeFor[*expr.Verdict]() {
+			continue
+		}
+		verdict, _ := inRule.Exprs[0].(*expr.Verdict)
+		if verdict.Kind == expr.VerdictJump && verdict.Chain == VPN_COEXISTENCE_CHAIN_IN {
+			if err = nftConn.DelRule(inRule); err != nil {
+				log.Debug(fmt.Errorf("error deleting jump rule in input: %w", err))
+			}
+
+		}
+	}
+
+	for _, outRule := range outputRules {
+		if reflect.TypeOf(outRule.Exprs[0]) != reflect.TypeFor[*expr.Verdict]() {
+			continue
+		}
+		verdict, _ := outRule.Exprs[0].(*expr.Verdict)
+		if verdict.Kind == expr.VerdictJump && verdict.Chain == VPN_COEXISTENCE_CHAIN_OUT {
+			if err = nftConn.DelRule(outRule); err != nil {
+				log.Debug(fmt.Errorf("error deleting jump rule in output: %w", err))
+			}
+		}
+	}
+
 	if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
-		return log.ErrorFE("doDisable - error 'nft delete table inet filter': %w", err)
+		return log.ErrorFE("error in doDisable: %w", err)
+	}
+
+	// drop our chains
+	nftConn.FlushChain(vpnCoexistenceChainIn)
+	nftConn.DelChain(vpnCoexistenceChainIn)
+	nftConn.FlushChain(vpnCoexistenceChainOut)
+	nftConn.DelChain(vpnCoexistenceChainOut)
+
+	if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
+		return log.ErrorFE("error in doDisable: %w", err)
+	}
+
+	// drop our sets
+	for _, ourSet := range ourSets {
+		nftConn.FlushSet(ourSet)
+		nftConn.DelSet(ourSet)
+	}
+	ourSets = []*nftables.Set{}
+
+	if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
+		return log.ErrorFE("error in doDisable: %w", err)
 	}
 
 	return nil
