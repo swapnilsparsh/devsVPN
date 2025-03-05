@@ -927,4 +927,5 @@ else
     echo "        $0 stop"
     echo "    Check whether all apps or only whitelisted apps are allowed access to the enclave:"
     echo "        $0 appWhitelistEnabled"
+    exit 1
 fi

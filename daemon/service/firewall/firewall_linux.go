@@ -150,10 +150,10 @@ func implGetEnabled() (exists bool, retErr error) {
 	}
 
 	// TODO FIXME: Also check that helper script returns true - that cgroup exists, etc.
-	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "-status"); err != nil {
-		return false, log.ErrorFE("error running '%s -status': %w", platform.FirewallScript(), err)
+	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "test"); err != nil {
+		return false, log.ErrorFE("error running '%s test': %w", platform.FirewallScript(), err)
 	} else if exitCode != 0 {
-		return false, log.ErrorFE("error - '%s -status' exit code = %d", platform.FirewallScript(), exitCode)
+		return false, log.ErrorFE("error - '%s test' exit code = %d", platform.FirewallScript(), exitCode)
 	}
 
 	return true, nil
@@ -231,7 +231,7 @@ func doEnable() (err error) {
 	mutexInternal.Lock()
 	defer mutexInternal.Unlock()
 
-	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "-start"); err != nil {
+	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "start"); err != nil {
 		return log.ErrorFE("error initializing firewall script: %w", err)
 	} else if exitCode != 0 {
 		return log.ErrorE(fmt.Errorf("error initializing firewall script - exit code %d", exitCode), 0)
@@ -608,12 +608,12 @@ func implDeployPostConnectionRules() (retErr error) {
 
 		for _, IP := range IPs { // add IPs for this hostname to set
 			if IP.To4() != nil { // IPv4
-				log.Debug("IPv4 UDP: allow remote hostname " + plInternalHostname)
+				log.Info("IPv4 UDP: allow remote hostname " + plInternalHostname)
 				if err := nftConn.SetAddElements(ourHostIPsIPv4, []nftables.SetElement{{Key: IP.To4()}}); err != nil {
 					return log.ErrorFE("enable - error adding IPv4 addr for '%s' to set: %w", plInternalHostname, err)
 				}
 				// } else { // IPv6
-				// 	log.Debug("IPv6 UDP: allow remote hostname " + plInternalHostname)
+				// 	log.Info("IPv6 UDP: allow remote hostname " + plInternalHostname)
 				// 	if err := nftConn.SetAddElements(ourHostIPsIPv6, []nftables.SetElement{{Key: IP}}); err != nil {
 				// 		return log.ErrorFE("enable - error adding IPv6 addr for '%s' to set: %w", plInternalHostname, err)
 				// 	}
