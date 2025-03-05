@@ -794,6 +794,9 @@ func ensurePersistent(secondsToWait int) {
 
 // ClientConnected - allow communication for local vpn/client IP address
 func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net.IP, clientPort int, serverIP net.IP, serverPort int, isTCP bool) error {
+	// TODO FIXME: Vlad - stubbing out for now
+	return nil
+
 	inf, err := netinfo.InterfaceByIPAddr(clientLocalIPAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get local interface by IP: %w", err)
@@ -822,6 +825,9 @@ func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net
 
 // ClientDisconnected - Disable communication for local vpn/client IP address
 func implClientDisconnected() error {
+	// TODO FIXME: Vlad - stubbing out for now
+	return nil
+
 	// remove all exceptions related to current connection (all non-persistent exceptions)
 	err := removeAllHostsFromExceptions()
 	if err != nil {
@@ -931,6 +937,8 @@ func implOnChangeDNS(addr net.IP) error {
 
 // implOnUserExceptionsUpdated() called when 'userExceptions' value were updated. Necessary to update firewall rules.
 func implOnUserExceptionsUpdated() error {
+	// TODO FIXME: Vlad - stubbing out for now
+	return nil
 
 	applyFunc := func(isIpv4 bool) error {
 		userExceptions := getUserExceptions(isIpv4, !isIpv4)
@@ -965,10 +973,16 @@ func implOnUserExceptionsUpdated() error {
 }
 
 func implSingleDnsRuleOff() (retErr error) {
+	// TODO FIXME: Vlad - stubbing out for now
+	return nil
+
 	return shell.Exec(log, platform.FirewallScript(), "-only_dns_off")
 }
 
 func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
+	// TODO FIXME: Vlad - stubbing out for now
+	return nil
+
 	exceptions := ""
 	if prioritized, _ := getAllowedIpExceptions(); len(prioritized) > 0 {
 		exceptions = strings.Join(prioritized, ",")
@@ -980,6 +994,9 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 //---------------------------------------------------------------------
 
 func applyAddHostsToExceptions(hostsIPs []string, isPersistent bool, onlyForICMP bool) error {
+	// TODO FIXME: Vlad - stubbing out for now
+	return nil
+
 	ipList := strings.Join(hostsIPs, ",")
 
 	if len(ipList) > 0 {
@@ -1003,6 +1020,9 @@ func applyAddHostsToExceptions(hostsIPs []string, isPersistent bool, onlyForICMP
 }
 
 func applyRemoveHostsFromExceptions(hostsIPs []string, isPersistent bool, onlyForICMP bool) error {
+	// TODO FIXME: Vlad - stubbing out for now
+	return nil
+
 	ipList := strings.Join(hostsIPs, ",")
 
 	if len(ipList) > 0 {
