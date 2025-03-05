@@ -94,7 +94,7 @@ func createTableChainsObjects() (filter *nftables.Table,
 func implGetEnabled() (exists bool, retErr error) {
 	filter, input, output, _, _ := createTableChainsObjects()
 
-	// get INPUT, OUTPUT rulesets - to delete our jump rules
+	// get INPUT, OUTPUT rulesets - to check that our jump rules are on top of INPUT, OUTPUT
 	inputRules, err := nftConn.GetRules(filter, input)
 	if err != nil {
 		return false, log.ErrorFE("error listing INPUT rules: %w", err)
@@ -149,7 +149,7 @@ func implGetEnabled() (exists bool, retErr error) {
 		return false, log.ErrorE(errors.New("error - "+VPN_COEXISTENCE_CHAIN_OUT+" chain not found in table "+filter.Name), 0)
 	}
 
-	// Also check that helper script returns true - that cgroup exists, etc.
+	// TODO FIXME: Also check that helper script returns true - that cgroup exists, etc.
 	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "-status"); err != nil {
 		return false, log.ErrorFE("error running '%s -status': %w", platform.FirewallScript(), err)
 	} else if exitCode != 0 {
@@ -294,9 +294,11 @@ func doEnable() (err error) {
 
 	// Create rules
 
-	// TODO FIXME: Vlad - allow ICMP: allow echo request out, echo reply in, and bi-directional fragmentation messages
+	// TODO: Vlad - allow ICMP: allow echo request out, echo reply in, and bi-directional fragmentation messages
 	//	- to/fro Wireguard endpoints
 	//	- PL IP ranges
+	//
+	//	? Maybe not necessary to create allow rules explicitly? Connmark established,related allows pinging many (but not all) PL internal hosts.
 
 	// allow lo traffic
 	lo := []byte("lo\x00")
