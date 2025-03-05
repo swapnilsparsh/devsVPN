@@ -1082,9 +1082,9 @@ func (s *Service) SetKillSwitchState(isEnabled bool) error {
 		// In this case we are trying to save info message into system log
 		if !s._evtReceiver.IsClientConnected(false) {
 			if isEnabled {
-				s.systemLog(Info, "IVPN Firewall enabled")
+				s.systemLog(Info, "privateLINE Firewall enabled")
 			} else {
-				s.systemLog(Info, "IVPN Firewall disabled")
+				s.systemLog(Info, "privateLINE Firewall disabled")
 			}
 		}
 	}
