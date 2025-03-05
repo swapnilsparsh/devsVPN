@@ -387,10 +387,10 @@ function init()
     # Backup some parameters for restore function (_def_interface_name, /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter )
     ##############################################
     backup
-    # Set required reverse path filtering parameter
-    if [ -f /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter ]; then
-        echo 2 > /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter
-    fi
+#    # Set required reverse path filtering parameter
+#    if [ -f /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter ]; then
+#        echo 2 > /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter
+#    fi
 
     ##############################################
     # Create cgroup
