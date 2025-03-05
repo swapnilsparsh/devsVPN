@@ -98,7 +98,8 @@ func keepFirewallTopPri() {
 				continue
 			}
 
-			// TODO FIXME: signal stages to UI
+			// signal loss of top firewall priority to UI
+			onKillSwitchStateChangedCallback()
 
 			log.Debug("keepFirewallTopPri - don't have top pri, need to reenable firewall")
 
@@ -106,6 +107,9 @@ func keepFirewallTopPri() {
 				log.ErrorFE("error from implReEnable: %w", err)
 				return
 			}
+
+			// signal firewall status after implReEnable() to UI
+			onKillSwitchStateChangedCallback()
 
 			// TODO: Vlad - do we need to sleep 5s here?
 			if err := implDeployPostConnectionRules(); err != nil {

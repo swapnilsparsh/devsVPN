@@ -63,13 +63,13 @@
           </div>
         </div>
 
-        <div v-if="isWindows" class="flexRow paramBlockDetailedConfig">
+        <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">VPN Coexistence:</div>
           <div class="detailedParamValue">
             <div class="failedText" v-if="!vpnCoexistenceInGoodState">
               <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
               FAILED
-              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()">
+              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()" v-if="isWindows">
                 Retry
               </button>
             </div>

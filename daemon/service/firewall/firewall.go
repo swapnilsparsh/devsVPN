@@ -38,6 +38,7 @@ import (
 var log *logger.Logger
 
 type GetPrefsCallback func() preferences.Preferences
+type OnKillSwitchStateChangedCallback func()
 
 func init() {
 	log = logger.NewLogger("frwl")
@@ -62,7 +63,8 @@ var (
 	stateAllowLan          bool
 	stateAllowLanMulticast bool
 
-	getPrefsCallback GetPrefsCallback
+	getPrefsCallback                 GetPrefsCallback
+	onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback
 )
 
 type FirewallError struct {
@@ -95,11 +97,12 @@ func (fe *FirewallError) OtherVpnUnknownToUs() bool {
 
 // Initialize is doing initialization stuff
 // Must be called on application start
-func Initialize(prefsCallback GetPrefsCallback) error {
+func Initialize(prefsCallback GetPrefsCallback, killSwitchStateChangedCallback OnKillSwitchStateChangedCallback) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	getPrefsCallback = prefsCallback
+	onKillSwitchStateChangedCallback = killSwitchStateChangedCallback
 	return implInitialize()
 }
 
