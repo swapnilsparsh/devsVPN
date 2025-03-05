@@ -63,12 +63,13 @@
           </div>
         </div>
 
-        <div class="flexRow paramBlockDetailedConfig">
+        <!-- On Windows show always, on Linux show only when connected -->
+        <div class="flexRow paramBlockDetailedConfig" v-if="isWindows || this.$store.state.vpnState.connectionInfo !== null">
           <div class="defColor paramName">VPN Coexistence:</div>
           <div class="detailedParamValue">
             <!-- On Windows always show FAILED status. On Linux VPN coexistence is reported true only if firewall is enabled.-->
             <!-- So when disconnected on Linux, firewall will be down and VPN coexistence will report false - don't show it. -->
-            <div class="failedText" v-if="!vpnCoexistenceInGoodState && (isWindows || this.$store.state.vpnState.connectionInfo !== null)">
+            <div class="failedText" v-if="!vpnCoexistenceInGoodState">
               <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
               FAILED
               <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()" v-if="isWindows">
