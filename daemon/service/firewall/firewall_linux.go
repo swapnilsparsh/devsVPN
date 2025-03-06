@@ -483,9 +483,7 @@ func doEnable() (err error) {
 	// allow PL service binaries in-out. Then we don't need to explicitly create allow rules for REST API servers, etc.
 	// also allow in-out for our other default allowed apps (PL Comms, etc.)
 	// 	TODO: permit PL Comms etc. only inbound UDP
-	// allowedAppsCgroupClassid := 0x70561e1d
-	// allowedAppsCgroupClassid := []byte{0x70, 0x56, 0x1e, 0x1d} // TODO FIXME: Vlad - do I need to reorder bytes?
-	allowedAppsCgroupClassid := []byte{0x1d, 0x1e, 0x56, 0x70}
+	allowedAppsCgroupClassid := []byte{0x1d, 0x1e, 0x56, 0x70} // have to list bytes in reverse order here, x86 is little-endian
 	nftConn.AddRule(&nftables.Rule{
 		Table: filter,
 		Chain: vpnCoexistenceChainIn,

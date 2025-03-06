@@ -396,7 +396,7 @@ function init()
     # Create cgroup
     ##############################################
     [ ! -d ${_cgroup_folder} ]                  && mkdir -p ${_cgroup_folder}
-    [ ! -e ${_cgroup_folder}/net_cls.classid ]  && echo ${_cgroup_classid} > ${_cgroup_folder}/net_cls.classid
+    echo ${_cgroup_classid} > ${_cgroup_folder}/net_cls.classid
     
     ##############################################
     # Firewall rules for packets coming from cgroup
