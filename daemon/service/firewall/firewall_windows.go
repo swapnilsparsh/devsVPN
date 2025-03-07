@@ -63,8 +63,7 @@ var (
 	layersAllOut = slices.Concat(v4LayersOut, v6LayersOut)
 
 	// used to block-all when Total Shield is enabled
-	totalShieldEnabled bool
-	totalShieldLayers  = []*TotalShieldBlockInfo{
+	totalShieldLayers = []*TotalShieldBlockInfo{
 		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthConnectV4, false, 0},
 		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthRecvAcceptV4, false, 0},
 		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthConnectV6, true, 0},
@@ -1098,11 +1097,11 @@ func implDeployPostConnectionRules() (retErr error) {
 	return retErr
 }
 
-func implTotalShieldEnabled() bool {
-	return totalShieldEnabled
-}
-
 func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
+	if totalShieldEnabled == _totalShieldEnabled {
+		return nil
+	}
+
 	if firewallEnabled, err := implGetEnabled(); err != nil {
 		return fmt.Errorf("implTotalShieldApply() failed to get info if firewall is on: %w", err)
 	} else if !firewallEnabled { // nothing to do

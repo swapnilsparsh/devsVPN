@@ -51,10 +51,14 @@ const (
 )
 
 var (
-	mutexInternal                   sync.Mutex
-	stopWatchingFirewall            = make(chan bool, 2) // used to send a stop signal to keepFirewallTopPri() thread
-	keepFirewallTopPriTaskIsRunning bool                 // We use this var to ensure only one instance of keepFirewallTopPri is running.
-	// No separate locking is needed for this var because it's used only inside functions protected by mutexInternal.
+	mutexInternal                 sync.Mutex           // global lock for firewall read and write operations in firewall_linux.go
+	stopMonitoringFirewallChanges = make(chan bool, 2) // used to send a stop signal to monitorFirewallChanges() thread
+	// implReregisterFirewallAtTopPriorityMutex sync.Mutex           // to ensure there's only one instance of implReregisterFirewallAtTopPriority function
+	monitorFirewallChangesMutex        sync.Mutex // to ensure there's only one instance of monitorFirewallChanges function
+	implDeployPostConnectionRulesMutex sync.Mutex // to ensure there's only one instance of implDeployPostConnectionRules function
+
+	nftMonitor *nftables.Monitor
+	nftEvents  chan *nftables.MonitorEvents
 
 	nftConn = &nftables.Conn{}
 	ourSets []*nftables.Set // List of all our nft sets, to delete in one batch. Protected by mutexInternal.
@@ -79,60 +83,123 @@ func implInitialize() error {
 	return nil
 }
 
-// keepFirewallTopPri runs asynchronously as a forked thread, checks regularly whether we have top firewall priority. If not - recreates our firewall objects.
-// Its caller creates the stopWatchingFirewall chan before calling keepFirewallTopPri()
-// To stop this thread - send to stopWatchingFirewall chan.
-func keepFirewallTopPri() {
-	log.Debug("keepFirewallTopPri starting")
+func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
+	weHaveTopFirewallPriority, retErr = implGetEnabled()
+	return weHaveTopFirewallPriority, "", "", "", retErr
+}
+
+func registerNftMonitor() (err error) {
+	nftMonitor = nftables.NewMonitor() // will be closed when monitorFirewallChanges() exits
+	// TODO FIXME: Vlad - add filtering conditions
+
+	if nftEvents, err = nftConn.AddGenerationalMonitor(nftMonitor); err != nil {
+		return log.ErrorFE("error AddGenerationalMonitor: %w", err)
+	}
+
+	return nil
+}
+
+// implReregisterFirewallAtTopPriority - here we assume VPN connection is already established, so we include creation of all firewall objects, incl. post-connection
+func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
+	// to ensure there's only one instance of this function, and that no other read or write operations are taking place in parallel
+	mutexInternal.Lock()
+	defer mutexInternal.Unlock()
+
+	log.Debug("implReregisterFirewallAtTopPriority entered")
+	defer log.Debug("implReregisterFirewallAtTopPriority exited")
+
+	if weHaveTopFirewallPriority, err := implGetEnabled(); err != nil {
+		return log.ErrorFE("error from implReregisterFirewallAtTopPriority: %w", err)
+	} else if weHaveTopFirewallPriority {
+		return nil
+	}
+
+	// signal loss of top firewall priority to UI
+	onKillSwitchStateChangedCallback()
+
+	log.Debug("implReregisterFirewallAtTopPriority - don't have top pri, need to reenable firewall")
+
+	if err := implReEnable(true); err != nil {
+		return log.ErrorFE("error in implReEnable: %w", err)
+	}
+
+	// signal firewall status after implReEnable() to UI
+	onKillSwitchStateChangedCallback()
+
+	go implDeployPostConnectionRules(false) // forking in the background, as otherwise DNS timeouts are up to ~15 sec, they freeze UI changes
+
+	return nil
+}
+
+// monitorFirewallChanges runs as a background thread, listens for nftable change events.
+// It checks regularly whether we have top firewall priority. If not - recreates our firewall objects.
+// Its caller creates the stopMonitoringFirewallChanges chan before calling monitorFirewallChanges()
+// To stop this thread - send to stopMonitoringFirewallChanges chan.
+func monitorFirewallChanges() {
+	// to ensure there's only one instance of monitorFirewallChanges
+	monitorFirewallChangesMutex.Lock()
+	defer monitorFirewallChangesMutex.Unlock()
+
+	log.Debug("monitorFirewallChanges entered")
+	defer log.Debug("monitorFirewallChanges exited")
+
+	defer nftMonitor.Close()
+
 	for {
-		time.Sleep(time.Second * 10)
 		select {
-		case _ = <-stopWatchingFirewall:
-			log.Debug("keepFirewallTopPri exiting")
+		case _ = <-stopMonitoringFirewallChanges:
+			log.Debug("monitorFirewallChanges exiting on stop signal")
 			return
-		default: // no message received
-			if weHaveTopFirewallPriority, _, _, _, err := implHaveTopFirewallPriority(0); err != nil {
-				log.ErrorFE("error from implHaveTopFirewallPriority: %w", err)
-				return
-			} else if weHaveTopFirewallPriority {
-				continue
-			}
-
-			// signal loss of top firewall priority to UI
-			onKillSwitchStateChangedCallback()
-
-			log.Debug("keepFirewallTopPri - don't have top pri, need to reenable firewall")
-
-			if err := implReEnable(); err != nil {
-				log.ErrorFE("error from implReEnable: %w", err)
+		case event, ok := <-nftEvents:
+			if !ok {
+				log.ErrorFE("error - reading from nftEvents channel not ok, monitorFirewallChanges exiting")
 				return
 			}
 
-			// signal firewall status after implReEnable() to UI
-			onKillSwitchStateChangedCallback()
+			genMsg := event.GeneratedBy.Data.(*nftables.GenMsg)
+			if strings.Contains(genMsg.ProcComm, "privateline-con") {
+				continue // ignore our own firewall changes
+			}
+			log.Debug("monitorFirewallChanges event generated by " + genMsg.ProcComm)
 
-			// TODO: Vlad - do we need to sleep 5s here?
-			if err := implDeployPostConnectionRules(); err != nil {
-				log.ErrorFE("error from implDeployPostConnectionRules: %w", err)
-				return
+			for _, change := range event.Changes {
+				if change.Error != nil {
+					log.ErrorFE("nftMonitor event change error, monitorFirewallChanges exiting. err=%w", change.Error)
+					return
+				}
+				// log.Debug("monitorFirewallChanges event.Changes loop iteration")
+
+				switch change.Type {
+				case nftables.MonitorEventTypeNewRule:
+					go implReregisterFirewallAtTopPriority(false)
+
+				case nftables.MonitorEventTypeDelRule:
+					gotRule := change.Data.(*nftables.Rule)
+					verdict, _ := gotRule.Exprs[0].(*expr.Verdict)
+					if reflect.TypeOf(gotRule.Exprs[0]) == reflect.TypeFor[*expr.Verdict]() && verdict.Kind == expr.VerdictJump &&
+						(verdict.Chain == VPN_COEXISTENCE_CHAIN_IN || verdict.Chain == VPN_COEXISTENCE_CHAIN_OUT) {
+						go implReregisterFirewallAtTopPriority(false)
+					}
+
+				case nftables.MonitorEventTypeDelChain:
+					gotChain := change.Data.(*nftables.Chain)
+					switch gotChain.Name {
+					case "INPUT":
+					case "OUTPUT":
+					case VPN_COEXISTENCE_CHAIN_IN:
+					case VPN_COEXISTENCE_CHAIN_OUT:
+						go implReregisterFirewallAtTopPriority(false)
+					}
+
+				case nftables.MonitorEventTypeDelTable:
+					gotTable := change.Data.(*nftables.Table)
+					if gotTable.Name == TABLE {
+						go implReregisterFirewallAtTopPriority(false)
+					}
+				}
 			}
 		}
 	}
-}
-
-func createTableChainsObjects() (filter *nftables.Table,
-	input *nftables.Chain,
-	output *nftables.Chain,
-	vpnCoexistenceChainIn *nftables.Chain,
-	vpnCoexistenceChainOut *nftables.Chain) {
-
-	filter = &nftables.Table{Family: TABLE_TYPE, Name: TABLE}
-
-	return filter,
-		&nftables.Chain{Name: "INPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookInput, Priority: nftables.ChainPriorityFilter},
-		&nftables.Chain{Name: "OUTPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookOutput, Priority: nftables.ChainPriorityFilter},
-		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_IN, Table: filter, Type: nftables.ChainTypeFilter},
-		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_OUT, Table: filter, Type: nftables.ChainTypeFilter}
 }
 
 func implGetEnabled() (exists bool, retErr error) {
@@ -152,7 +219,7 @@ func implGetEnabled() (exists bool, retErr error) {
 	if len(inputRules) >= 1 {
 		verdict, _ := inputRules[0].Exprs[0].(*expr.Verdict)
 		if reflect.TypeOf(inputRules[0].Exprs[0]) != reflect.TypeFor[*expr.Verdict]() || verdict.Kind != expr.VerdictJump || verdict.Chain != VPN_COEXISTENCE_CHAIN_IN {
-			log.Warning("jump to our table " + VPN_COEXISTENCE_CHAIN_IN + " is not a 0th rule in INPUT")
+			log.Debug("jump to our table " + VPN_COEXISTENCE_CHAIN_IN + " is not a 0th rule in INPUT")
 			return false, nil
 		}
 	} else {
@@ -163,7 +230,7 @@ func implGetEnabled() (exists bool, retErr error) {
 	if len(outputRules) >= 1 {
 		verdict, _ := outputRules[0].Exprs[0].(*expr.Verdict)
 		if reflect.TypeOf(outputRules[0].Exprs[0]) != reflect.TypeFor[*expr.Verdict]() || verdict.Kind != expr.VerdictJump || verdict.Chain != VPN_COEXISTENCE_CHAIN_OUT {
-			log.Warning("jump to our table " + VPN_COEXISTENCE_CHAIN_OUT + " is not a 0th rule in OUTPUT")
+			log.Debug("jump to our table " + VPN_COEXISTENCE_CHAIN_OUT + " is not a 0th rule in OUTPUT")
 			return false, nil
 		}
 	} else {
@@ -203,6 +270,21 @@ func implGetEnabled() (exists bool, retErr error) {
 	return true, nil
 }
 
+func createTableChainsObjects() (filter *nftables.Table,
+	input *nftables.Chain,
+	output *nftables.Chain,
+	vpnCoexistenceChainIn *nftables.Chain,
+	vpnCoexistenceChainOut *nftables.Chain) {
+
+	filter = &nftables.Table{Family: TABLE_TYPE, Name: TABLE}
+
+	return filter,
+		&nftables.Chain{Name: "INPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookInput, Priority: nftables.ChainPriorityFilter},
+		&nftables.Chain{Name: "OUTPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookOutput, Priority: nftables.ChainPriorityFilter},
+		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_IN, Table: filter, Type: nftables.ChainTypeFilter},
+		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_OUT, Table: filter, Type: nftables.ChainTypeFilter}
+}
+
 func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nftables.Chain, vpnCoexistenceChainOut *nftables.Chain, err error) {
 	filter, input, output, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
 
@@ -237,7 +319,6 @@ func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nfta
 		Chain: input,
 		Exprs: []expr.Any{
 			&expr.Verdict{
-				//Kind:  expr.VerdictKind(unix.NFT_JUMP),
 				Kind:  expr.VerdictJump,
 				Chain: VPN_COEXISTENCE_CHAIN_IN,
 			},
@@ -253,7 +334,6 @@ func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nfta
 		Chain: output,
 		Exprs: []expr.Any{
 			&expr.Verdict{
-				//Kind:  expr.VerdictKind(unix.NFT_JUMP),
 				Kind:  expr.VerdictJump,
 				Chain: VPN_COEXISTENCE_CHAIN_OUT,
 			},
@@ -271,9 +351,33 @@ func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nfta
 	return filter, vpnCoexistenceChainIn, vpnCoexistenceChainOut, nil
 }
 
-func doEnable() (err error) {
-	mutexInternal.Lock()
-	defer mutexInternal.Unlock()
+func implReEnable(internalMutexGrabbed bool) (retErr error) {
+	if !internalMutexGrabbed {
+		mutexInternal.Lock()
+		defer mutexInternal.Unlock()
+	}
+
+	log.Info("implReEnable")
+
+	if err := doDisable(true); err != nil {
+		return log.ErrorFE("failed to disable firewall: %w", err)
+	}
+
+	if err := doEnable(true); err != nil {
+		return log.ErrorFE("failed to enable firewall: %w", err)
+	}
+
+	return doAddClientIPFilters(connectedClientInterfaceIP, connectedClientInterfaceIPv6)
+}
+
+func doEnable(internalMutexGrabbed bool) (err error) {
+	if !internalMutexGrabbed {
+		mutexInternal.Lock()
+		defer mutexInternal.Unlock()
+	}
+
+	log.Debug("doEnable entered")
+	defer log.Debug("doEnable exited")
 
 	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "start"); err != nil {
 		return log.ErrorFE("error initializing firewall script: %w", err)
@@ -344,30 +448,7 @@ func doEnable() (err error) {
 	//
 	//	? Maybe not necessary to create allow rules explicitly? Connmark established,related allows pinging many (but not all) PL internal hosts.
 
-	// allow lo traffic
-	lo := []byte("lo\x00")
-	nftConn.AddRule(&nftables.Rule{
-		Table: filter,
-		Chain: vpnCoexistenceChainIn,
-		Exprs: []expr.Any{
-			// [ meta load iifname => reg 1 ]
-			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
-			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: lo},
-			//[ immediate reg 0 accept ]
-			&expr.Verdict{Kind: expr.VerdictAccept}},
-	})
-	nftConn.AddRule(&nftables.Rule{
-		Table: filter,
-		Chain: vpnCoexistenceChainOut,
-		Exprs: []expr.Any{
-			// [ meta load iifname => reg 1 ]
-			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
-			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: lo},
-			//[ immediate reg 0 accept ]
-			&expr.Verdict{Kind: expr.VerdictAccept}},
-	})
-
-	// Allow our Wireguard gateways: in UDP, out TCP+UDP (any proto)
+	// Allow our Wireguard gateways: in UDP and established+related, out TCP+UDP (any proto)
 	nftConn.AddRule(&nftables.Rule{ // in UDP
 		Table: filter,
 		Chain: vpnCoexistenceChainIn,
@@ -380,6 +461,28 @@ func doEnable() (err error) {
 			&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
 			// [ cmp eq reg 2 UDP ]
 			&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
+			&expr.Counter{},
+			//[ immediate reg 0 accept ]
+			&expr.Verdict{Kind: expr.VerdictAccept},
+		},
+	})
+	nftConn.AddRule(&nftables.Rule{ // in established+related
+		Table: filter,
+		Chain: vpnCoexistenceChainIn,
+		Exprs: []expr.Any{
+			// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
+			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4},
+			// [ lookup reg 1, set Wireguard endpoints whitelist ]
+			&expr.Lookup{SourceRegister: 1, SetName: wgEndpointAddrsIPv4.Name, SetID: wgEndpointAddrsIPv4.ID},
+			&expr.Ct{Register: 2, SourceRegister: false, Key: expr.CtKeySTATE},
+			&expr.Bitwise{
+				SourceRegister: 2,
+				DestRegister:   2,
+				Len:            4,
+				Mask:           binaryutil.NativeEndian.PutUint32(expr.CtStateBitESTABLISHED | expr.CtStateBitRELATED),
+				Xor:            binaryutil.NativeEndian.PutUint32(0),
+			},
+			&expr.Cmp{Op: expr.CmpOpNeq, Register: 2, Data: []byte{0, 0, 0, 0}},
 			&expr.Counter{},
 			//[ immediate reg 0 accept ]
 			&expr.Verdict{Kind: expr.VerdictAccept},
@@ -507,40 +610,12 @@ func doEnable() (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 
-	// TODO: Vlad - replicate further rules from firewall_windows.go as needed
-
-	// Apply the above (commands are queued till a call to Flush())
-	if err := nftConn.Flush(); err != nil {
-		return log.ErrorFE("doEnable - error nft flush: %w", err)
+	if err := nftConn.Flush(); err != nil { // preliminary flush
+		return log.ErrorFE("doEnable - error nft flush 1: %w", err)
 	}
 
-	// To fulfill such flow (example): Connected -> FWDisable -> FWEnable
-	// Here we should restore all exceptions (all hosts which are allowed)
-	// return reApplyExceptions() // TODO FIXME: Vlad - refactor
-
-	// Fork the task to check that we have top firewall priority and to keep on re-grabbing it as needed. Must be a single instance.
-	if !keepFirewallTopPriTaskIsRunning {
-		keepFirewallTopPriTaskIsRunning = true
-		go keepFirewallTopPri()
-	}
-
-	return err
-}
-
-// Apply on our interface wgprivateline, when it's up:
-//
-//	conntrack state invalid drop on input
-//	conntrack state established,related accept on input; state established accept on output
-//	allow meet.privateline.network, same as in firewall_windows.go
-//
-// TODO: Vlad - do we need to worry about forward chains?
-func implDeployPostConnectionRules() (retErr error) {
-	mutexInternal.Lock()
-	defer mutexInternal.Unlock()
-
+	// create rules for wgprivateline interface - even if it doesn't exist yet
 	wgprivateline := []byte("wgprivateline\x00")
-
-	filter, _, _, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
 
 	// vpnCoexistenceChainInRules, err := nftConn.GetRules(filter, vpnCoexistenceChainIn)
 	// if err != nil {
@@ -551,7 +626,7 @@ func implDeployPostConnectionRules() (retErr error) {
 	// 	return log.ErrorFE("error listing vpnCoexistenceChainOut rules: %w", err)
 	// }
 
-	// conntrack state established,related accept on input
+	// conntrack state established,related accept on input on interface wgprivateline
 	nftConn.InsertRule(&nftables.Rule{
 		Table: filter,
 		Chain: vpnCoexistenceChainIn,
@@ -574,7 +649,7 @@ func implDeployPostConnectionRules() (retErr error) {
 		},
 	})
 
-	// conttrack state invalid drop on input
+	// conttrack state invalid drop on input on interface wgprivateline
 	nftConn.InsertRule(&nftables.Rule{
 		Table: filter,
 		Chain: vpnCoexistenceChainIn,
@@ -597,7 +672,7 @@ func implDeployPostConnectionRules() (retErr error) {
 		},
 	})
 
-	// conntrack state established accept on output
+	// conntrack state established accept on output on interface wgprivateline
 	nftConn.InsertRule(&nftables.Rule{
 		Table: filter,
 		Chain: vpnCoexistenceChainOut,
@@ -620,9 +695,82 @@ func implDeployPostConnectionRules() (retErr error) {
 		},
 	})
 
-	if err := nftConn.Flush(); err != nil { // flush early, as later DNS lookups are prone to failure
-		return log.ErrorFE("implDeployPostConnectionRules - error: %w", err)
+	// allow lo traffic
+	lo := []byte("lo\x00")
+	nftConn.InsertRule(&nftables.Rule{
+		Table: filter,
+		Chain: vpnCoexistenceChainIn,
+		Exprs: []expr.Any{
+			// [ meta load iif => reg 1 ]
+			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: lo},
+			//[ immediate reg 0 accept ]
+			&expr.Verdict{Kind: expr.VerdictAccept}},
+	})
+	nftConn.InsertRule(&nftables.Rule{
+		Table: filter,
+		Chain: vpnCoexistenceChainOut,
+		Exprs: []expr.Any{
+			// [ meta load iif => reg 1 ]
+			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: lo},
+			//[ immediate reg 0 accept ]
+			&expr.Verdict{Kind: expr.VerdictAccept}},
+	})
+
+	if totalShieldEnabled { // add DROP rules at the end of our chains
+		log.Debug("doEnable: enabling TotalShield")
+		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainIn, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
+		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainOut, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
 	}
+
+	if err := nftConn.Flush(); err != nil {
+		return log.ErrorFE("doEnable - error nft flush 2: %w", err)
+	}
+
+	// TODO: Vlad - replicate further rules from firewall_windows.go as needed
+
+	// To fulfill such flow (example): Connected -> FWDisable -> FWEnable
+	// Here we should restore all exceptions (all hosts which are allowed)
+	// return reApplyExceptions() // TODO FIXME: Vlad - refactor
+
+	// Fork the task to check that we have top firewall priority and to keep on re-grabbing it as needed. Must be a single instance.
+	if monitorFirewallChangesMutex.TryLock() { // if TryLock succeeds - then no instance of monitorFirewallChanges() was already running
+		defer monitorFirewallChangesMutex.Unlock()
+		if err = registerNftMonitor(); err != nil {
+			return log.ErrorFE("error registerNftMonitor: %w", err)
+		}
+		go monitorFirewallChanges()
+	}
+
+	return err
+}
+
+// Rules to add after VPN is connected:
+//
+//	allow meet.privateline.network, same as in firewall_windows.go
+//
+//	have to insert post-rules on top of our chains, otherwise they'd interfere with DROP rules at the end of our chains
+//
+// TODO: Vlad - do we need to worry about forward chains?
+func implDeployPostConnectionRules(internalMutexGrabbed bool) (retErr error) {
+	// if !internalMutexGrabbed {
+	// 	mutexInternal.Lock()
+	// 	defer mutexInternal.Unlock()
+	// }
+
+	implDeployPostConnectionRulesMutex.Lock() // ensure only one instance of this func can run at a time
+	defer implDeployPostConnectionRulesMutex.Unlock()
+
+	// log.Debug("implDeployPostConnectionRules entered")
+
+	if firewallEnabled, err := implGetEnabled(); err != nil {
+		return log.ErrorFE("status check error: %w", err)
+	} else if !firewallEnabled || !vpnConnectedCallback() {
+		return nil // our tables not up or VPN not connected, so skipping
+	}
+
+	filter, _, _, vpnCoexistenceChainIn, _ := createTableChainsObjects()
 
 	// Allow our hosts (meet.privateline.network, etc.) in: UDP
 	for _, plInternalHostname := range platform.PLInternalHostnamesToAcceptIncomingUdpFrom() {
@@ -669,7 +817,7 @@ func implDeployPostConnectionRules() (retErr error) {
 		}
 
 		// in UDP
-		nftConn.AddRule(&nftables.Rule{ // IPv4
+		nftConn.InsertRule(&nftables.Rule{ // IPv4
 			Table: filter,
 			Chain: vpnCoexistenceChainIn,
 			Exprs: []expr.Any{
@@ -686,7 +834,7 @@ func implDeployPostConnectionRules() (retErr error) {
 				&expr.Verdict{Kind: expr.VerdictAccept},
 			},
 		})
-		// nftConn.AddRule(&nftables.Rule{ // IPv6
+		// nftConn.InsertRule(&nftables.Rule{ // IPv6
 		// 	Table: filter,
 		// 	Chain: vpnCoexistenceChainIn,
 		// 	Exprs: []expr.Any{
@@ -712,9 +860,20 @@ func implDeployPostConnectionRules() (retErr error) {
 	return retErr
 }
 
-func doDisable() (err error) {
-	mutexInternal.Lock()
-	defer mutexInternal.Unlock()
+func doDisable(internalMutexGrabbed bool) (err error) {
+	if !internalMutexGrabbed {
+		mutexInternal.Lock()
+		defer mutexInternal.Unlock()
+	}
+
+	log.Debug("doDisable entered")
+	defer log.Debug("doDisable exited")
+
+	if !monitorFirewallChangesMutex.TryLock() { // if TryLock() failed - then instance of monitorFirewallChanges() is already running
+		stopMonitoringFirewallChanges <- true // send monitorFirewallChanges() a stop signal
+		monitorFirewallChangesMutex.Lock()    // wait for it to stop, lock its mutex till the end of doDisable()
+	}
+	defer monitorFirewallChangesMutex.Unlock()
 
 	filter, input, output, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
 
@@ -778,10 +937,6 @@ func doDisable() (err error) {
 		return log.ErrorFE("error in doDisable: %w", err)
 	}
 
-	// Stop the single instance of keepFirewallTopPri() task
-	stopWatchingFirewall <- true
-	keepFirewallTopPriTaskIsRunning = false
-
 	return nil
 }
 
@@ -789,13 +944,13 @@ func implSetEnabled(isEnabled, _ bool) error {
 	curStateEnabled = isEnabled
 
 	if isEnabled {
-		return doEnable()
+		return doEnable(false)
 	} else { // TODO FIXME: Vlad - refactor
 		curAllowedLanIPs = nil // forget allowed LAN IP addresses
 		isPersistent = false
 		allowedForICMP = nil
 
-		return doDisable()
+		return doDisable(false)
 	}
 }
 
@@ -984,7 +1139,7 @@ func implOnChangeDNS(addr net.IP) error {
 		return nil
 	}
 
-	return implReEnable() // TODO FIXME: Vlad - do we really need full reenable here? maybe just add the allow inbound rule for the new DNS srv?
+	return implReEnable(false) // TODO FIXME: Vlad - do we really need full reenable here? maybe just add the allow inbound rule for the new DNS srv?
 }
 
 // implOnUserExceptionsUpdated() called when 'userExceptions' value were updated. Necessary to update firewall rules.
@@ -1271,38 +1426,83 @@ func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
 	return ret
 }
 
-func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
-	weHaveTopFirewallPriority, retErr = implGetEnabled()
-	return weHaveTopFirewallPriority, "", "", "", retErr
-}
-
-func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
-	return nil
-}
-
 func implCleanupRegistration() (err error) {
-	return doDisable()
+	return doDisable(false)
 }
 
-func implReEnable() (retErr error) {
-	log.Info("implReEnable")
-
-	if err := doDisable(); err != nil {
-		return log.ErrorFE("failed to disable firewall: %w", err)
-	}
-
-	if err := doEnable(); err != nil {
-		return log.ErrorFE("failed to enable firewall: %w", err)
-	}
-
-	return doAddClientIPFilters(connectedClientInterfaceIP, connectedClientInterfaceIPv6)
-}
-
-// TODO FIXME: Vlad - flesh out
-func implTotalShieldEnabled() bool {
-	return false
-}
 func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
+	mutexInternal.Lock()
+	defer mutexInternal.Unlock()
+
+	if totalShieldEnabled == _totalShieldEnabled {
+		return nil
+	}
+
+	if _totalShieldEnabled {
+		log.Debug("implTotalShieldApply: enabling TotalShield")
+	} else {
+		log.Debug("implTotalShieldApply: disabling TotalShield")
+	}
+
+	if firewallEnabled, err := implGetEnabled(); err != nil {
+		return log.ErrorFE("status check error: %w", err)
+	} else if !firewallEnabled {
+		totalShieldEnabled = _totalShieldEnabled
+		return nil
+	}
+
+	// if the firewall is up - gotta add or remove drop rules to reflect new Total Shield setting
+	if _totalShieldEnabled {
+		totalShieldEnabled_previous := totalShieldEnabled
+		totalShieldEnabled = _totalShieldEnabled // have to set totalShieldEnabled before doEnable() called from implReEnable()
+
+		if err := implReEnable(true); err != nil {
+			totalShieldEnabled = totalShieldEnabled_previous
+			return log.ErrorFE("error in implReEnable: %w", err)
+		}
+
+		go implDeployPostConnectionRules(false) // fork in the background, don't want UI to wait if DNS resolution is to time out
+	} else { // delete DROP rules, they'll be the last rules if present
+		filter, _, _, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
+
+		vpnCoexistenceChainInRules, err := nftConn.GetRules(filter, vpnCoexistenceChainIn)
+		if err != nil {
+			return log.ErrorFE("error listing vpnCoexistenceChainIn rules: %w", err)
+		}
+		vpnCoexistenceChainOutRules, err := nftConn.GetRules(filter, vpnCoexistenceChainOut)
+		if err != nil {
+			return log.ErrorFE("error listing vpnCoexistenceChainOut rules: %w", err)
+		}
+
+		if len(vpnCoexistenceChainInRules) >= 1 {
+			lastInRule := vpnCoexistenceChainInRules[len(vpnCoexistenceChainInRules)-1]
+			if len(lastInRule.Exprs) >= 1 {
+				verdict, _ := lastInRule.Exprs[1].(*expr.Verdict)
+				if reflect.TypeOf(lastInRule.Exprs[1]) == reflect.TypeFor[*expr.Verdict]() && verdict.Kind == expr.VerdictDrop {
+					nftConn.DelRule(lastInRule)
+					if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
+						return log.ErrorFE("nft flush 1 error in implTotalShieldApply: %w", err)
+					}
+				}
+			}
+		}
+
+		if len(vpnCoexistenceChainOutRules) >= 1 {
+			lastOutRule := vpnCoexistenceChainOutRules[len(vpnCoexistenceChainOutRules)-1]
+			if len(lastOutRule.Exprs) >= 1 {
+				verdict, _ := lastOutRule.Exprs[1].(*expr.Verdict)
+				if reflect.TypeOf(lastOutRule.Exprs[1]) == reflect.TypeFor[*expr.Verdict]() && verdict.Kind == expr.VerdictDrop {
+					nftConn.DelRule(lastOutRule)
+					if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
+						return log.ErrorFE("nft flush 2 error in implTotalShieldApply: %w", err)
+					}
+				}
+			}
+		}
+
+		totalShieldEnabled = _totalShieldEnabled
+	}
+
 	return nil
 }
 

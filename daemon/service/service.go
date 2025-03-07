@@ -246,7 +246,7 @@ func (s *Service) init() error {
 	}
 
 	// initialize firewall functionality
-	if err := firewall.Initialize(s.Preferences, s._evtReceiver.OnKillSwitchStateChanged); err != nil {
+	if err := firewall.Initialize(s.Preferences, s._evtReceiver.OnKillSwitchStateChanged, s.Connected); err != nil {
 		return fmt.Errorf("firewall initialization error : %w", err)
 	}
 
@@ -1588,7 +1588,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 		}()
 	}
 
-	sInf := s.GetVpnSessionInfo()
+	// sInf := s.GetVpnSessionInfo()
 
 	var (
 		err                        error
@@ -1616,15 +1616,15 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 		return fmt.Errorf("error net.ParseIP(%s)", splittun.BlackHoleIPv6)
 	}
 
-	addressesCfg := splittun.ConfigAddresses{
-		IPv4Tunnel: sInf.VpnLocalIPv4,
-		IPv4Public: sInf.OutboundIPv4,
-		IPv6Tunnel: sInf.VpnLocalIPv6,
-		IPv6Public: sInf.OutboundIPv6,
+	// addressesCfg := splittun.ConfigAddresses{
+	// 	IPv4Tunnel: sInf.VpnLocalIPv4,
+	// 	IPv4Public: sInf.OutboundIPv4,
+	// 	IPv6Tunnel: sInf.VpnLocalIPv6,
+	// 	IPv6Public: sInf.OutboundIPv6,
 
-		IPv4Endpoint: ipv4Endpoint,
-		IPv6Endpoint: ipv6Endpoint,
-	}
+	// 	IPv4Endpoint: ipv4Endpoint,
+	// 	IPv6Endpoint: ipv6Endpoint,
+	// }
 
 	// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servers or to manually defined server
 	if err := firewall.SingleDnsRuleOff(); err != nil { // disable custom DNS rule (if exists)
@@ -1645,11 +1645,11 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	}
 
 	// Apply Split-Tun config
-	if runtime.GOOS == "windows" {
-		return firewall.TotalShieldApply(!prefs.IsSplitTunnel) // TODO: Vlad - on Windows go to firewall instead
-	} else {
-		return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
-	}
+	// if runtime.GOOS == "windows" {
+	return firewall.TotalShieldApply(!prefs.IsSplitTunnel)
+	// } else {
+	// 	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
+	// }
 }
 
 func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAlreadyRunning bool, err error) {

@@ -39,6 +39,7 @@ var log *logger.Logger
 
 type GetPrefsCallback func() preferences.Preferences
 type OnKillSwitchStateChangedCallback func()
+type VpnConnectedCallback func() bool
 
 func init() {
 	log = logger.NewLogger("frwl")
@@ -57,6 +58,8 @@ var (
 
 	customDNS net.IP
 
+	totalShieldEnabled bool
+
 	// List of IP masks that are allowed for any communication
 	userExceptions []net.IPNet
 
@@ -65,6 +68,7 @@ var (
 
 	getPrefsCallback                 GetPrefsCallback
 	onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback
+	vpnConnectedCallback             VpnConnectedCallback
 )
 
 type FirewallError struct {
@@ -97,12 +101,15 @@ func (fe *FirewallError) OtherVpnUnknownToUs() bool {
 
 // Initialize is doing initialization stuff
 // Must be called on application start
-func Initialize(prefsCallback GetPrefsCallback, killSwitchStateChangedCallback OnKillSwitchStateChangedCallback) error {
+func Initialize(prefsCallback GetPrefsCallback, killSwitchStateChangedCallback OnKillSwitchStateChangedCallback, _vpnConnectedCallback VpnConnectedCallback) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	getPrefsCallback = prefsCallback
 	onKillSwitchStateChangedCallback = killSwitchStateChangedCallback
+	getPrefsCallback = prefsCallback
+	totalShieldEnabled = !getPrefsCallback().IsSplitTunnel
+	vpnConnectedCallback = _vpnConnectedCallback
+
 	return implInitialize()
 }
 
@@ -150,7 +157,7 @@ func ReEnable() error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implReEnable()
+	return implReEnable(false)
 }
 
 // CleanupRegistration will completely clean up firewall registation, all of its objects. To be used only during uninstallation.
@@ -191,7 +198,7 @@ func GetEnabled() (bool, error) {
 	if err != nil {
 		log.Error("Status check error: ", err)
 	}
-	log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t totalShieldEnabled:%t", ret, stateAllowLan, stateAllowLanMulticast, implTotalShieldEnabled()))
+	log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t totalShieldEnabled:%t", ret, stateAllowLan, stateAllowLanMulticast, totalShieldEnabled))
 
 	return ret, err
 }
@@ -208,7 +215,7 @@ func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, weHaveTopFire
 	if weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err = implHaveTopFirewallPriority(0); err != nil {
 		log.Error(fmt.Errorf("error checking whether we have top firewall priority: %w", err))
 	}
-	log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t totalShieldEnabled:%t", ret, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast, implTotalShieldEnabled()))
+	log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t totalShieldEnabled:%t", ret, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast, totalShieldEnabled))
 
 	return ret, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err
 }
@@ -251,7 +258,7 @@ func deployPostConnectionRulesAsync() {
 	if enabled, err := implGetEnabled(); err != nil {
 		log.Error(fmt.Errorf("status check error: %w", err))
 	} else if enabled {
-		implDeployPostConnectionRules()
+		implDeployPostConnectionRules(false)
 	}
 }
 
@@ -265,19 +272,22 @@ func DeployPostConnectionRules(async bool) (retErr error) {
 		mutex.Lock()
 		defer mutex.Unlock()
 
-		return implDeployPostConnectionRules()
+		return implDeployPostConnectionRules(false)
 	}
 }
 
 func TotalShieldEnabled() bool {
-	return implTotalShieldEnabled()
+	return totalShieldEnabled
 }
 
-func TotalShieldApply(totalShieldEnabled bool) (err error) {
+func TotalShieldApply(_totalShieldEnabled bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implTotalShieldApply(totalShieldEnabled)
+	if totalShieldEnabled == _totalShieldEnabled {
+		return
+	}
+	return implTotalShieldApply(_totalShieldEnabled)
 }
 
 // ClientConnected - allow communication for local vpn/client IP address
