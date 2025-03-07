@@ -26,7 +26,7 @@
         </div>
       </div>
     </div>
-    <div style="display: flex; align-items: center; gap: 8px; width: 30%">
+    <div style="display: flex; align-items: center; gap: 8px; width: 70%">
       <span style="color: #178fe6; font-weight: 500">Connection Status:</span>
       <div
         :style="{
