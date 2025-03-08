@@ -299,9 +299,9 @@ func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nfta
 	vpnCoexistenceChainIn = nftConn.AddChain(vpnCoexistenceChainIn)
 	vpnCoexistenceChainOut = nftConn.AddChain(vpnCoexistenceChainOut)
 
-	if err := nftConn.Flush(); err != nil { // Apply the above (commands are queued till a call to Flush())
-		return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 1: %w", err)
-	}
+	// if err := nftConn.Flush(); err != nil { // Apply the above (commands are queued till a call to Flush())
+	// 	return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 1: %w", err)
+	// }
 
 	// // get INPUT, OUTPUT rulesets - to be able to insert our jump rules on top
 	// inputRules, err := nftConn.GetRules(filter, input)
@@ -610,9 +610,9 @@ func doEnable(internalMutexGrabbed bool) (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 
-	if err := nftConn.Flush(); err != nil { // preliminary flush
-		return log.ErrorFE("doEnable - error nft flush 1: %w", err)
-	}
+	// if err := nftConn.Flush(); err != nil { // preliminary flush
+	// 	return log.ErrorFE("doEnable - error nft flush 1: %w", err)
+	// }
 
 	// create rules for wgprivateline interface - even if it doesn't exist yet
 	wgprivateline := []byte("wgprivateline\x00")
@@ -718,7 +718,7 @@ func doEnable(internalMutexGrabbed bool) (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 
-	if totalShieldEnabled { // add DROP rules at the end of our chains
+	if totalShieldEnabled && vpnConnectedCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
 		log.Debug("doEnable: enabling TotalShield")
 		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainIn, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
 		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainOut, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
@@ -912,9 +912,9 @@ func doDisable(internalMutexGrabbed bool) (err error) {
 		}
 	}
 
-	if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
-		return log.ErrorFE("error in doDisable: %w", err)
-	}
+	// if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
+	// 	return log.ErrorFE("error during flush 1 in doDisable: %w", err)
+	// }
 
 	// drop our chains
 	nftConn.FlushChain(vpnCoexistenceChainIn)
@@ -922,9 +922,9 @@ func doDisable(internalMutexGrabbed bool) (err error) {
 	nftConn.FlushChain(vpnCoexistenceChainOut)
 	nftConn.DelChain(vpnCoexistenceChainOut)
 
-	if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
-		return log.ErrorFE("error in doDisable: %w", err)
-	}
+	// if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
+	// 	return log.ErrorFE("error during flush 2 in doDisable: %w", err)
+	// }
 
 	// drop our sets
 	for _, ourSet := range ourSets {
@@ -934,7 +934,7 @@ func doDisable(internalMutexGrabbed bool) (err error) {
 	ourSets = []*nftables.Set{}
 
 	if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
-		return log.ErrorFE("error in doDisable: %w", err)
+		return log.ErrorFE("error during flush 3 in doDisable: %w", err)
 	}
 
 	return nil
@@ -1452,7 +1452,7 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 	}
 
 	// if the firewall is up - gotta add or remove drop rules to reflect new Total Shield setting
-	if _totalShieldEnabled {
+	if _totalShieldEnabled && vpnConnectedCallback() { // enable Total Shield blocks only if VPN is connected or connecting
 		totalShieldEnabled_previous := totalShieldEnabled
 		totalShieldEnabled = _totalShieldEnabled // have to set totalShieldEnabled before doEnable() called from implReEnable()
 
@@ -1474,15 +1474,15 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 			return log.ErrorFE("error listing vpnCoexistenceChainOut rules: %w", err)
 		}
 
+		doFlush := false
+
 		if len(vpnCoexistenceChainInRules) >= 1 {
 			lastInRule := vpnCoexistenceChainInRules[len(vpnCoexistenceChainInRules)-1]
 			if len(lastInRule.Exprs) >= 1 {
 				verdict, _ := lastInRule.Exprs[1].(*expr.Verdict)
 				if reflect.TypeOf(lastInRule.Exprs[1]) == reflect.TypeFor[*expr.Verdict]() && verdict.Kind == expr.VerdictDrop {
 					nftConn.DelRule(lastInRule)
-					if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
-						return log.ErrorFE("nft flush 1 error in implTotalShieldApply: %w", err)
-					}
+					doFlush = true
 				}
 			}
 		}
@@ -1493,10 +1493,14 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 				verdict, _ := lastOutRule.Exprs[1].(*expr.Verdict)
 				if reflect.TypeOf(lastOutRule.Exprs[1]) == reflect.TypeFor[*expr.Verdict]() && verdict.Kind == expr.VerdictDrop {
 					nftConn.DelRule(lastOutRule)
-					if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
-						return log.ErrorFE("nft flush 2 error in implTotalShieldApply: %w", err)
-					}
+					doFlush = true
 				}
+			}
+		}
+
+		if doFlush {
+			if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
+				return log.ErrorFE("nft flush error in implTotalShieldApply: %w", err)
 			}
 		}
 
