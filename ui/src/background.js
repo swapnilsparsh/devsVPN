@@ -742,7 +742,7 @@ function createWindow(doNotShowWhenReady) {
     width: store.state.settings.minimizedUI
       ? config.MinimizedUIWidth
       : config.MaximizedUIWidth,
-    height: 600,
+    height: 500,
 
     resizable: false,
     fullscreenable: false,

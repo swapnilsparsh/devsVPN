@@ -2258,6 +2258,24 @@ func (s *Service) ProfileData() (
 	return apiCode, profileDataResponse, err
 }
 
+func (s *Service) DeviceList() (
+	apiCode int,
+	response *api_types.DeviceListResponse,
+	err error) {
+	var (
+		deviceListResponse *api_types.DeviceListResponse
+	)
+	// Not querying Device List if we're not logged in yet
+	session := s.Preferences().Session
+	if !session.IsLoggedIn() {
+		log.Error("we're not logged in yet, so not querying Device List (/user/devices API)")
+		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
+	}
+
+	deviceListResponse, err = s._api.DeviceList(s.Preferences().Session.Session)
+	return apiCode, deviceListResponse, err
+}
+
 func (s *Service) SubscriptionData() (
 	apiCode int,
 	response *api_types.SubscriptionDataResponse,

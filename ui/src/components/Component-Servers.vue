@@ -197,7 +197,6 @@
           <div class="flexRow" style="position: relative; overflow: hidden">
             <serverNameControl
               class="serverName"
-              style="max-width: 194px"
               :SecondLineMaxWidth="
                 isFastestServerConfig === true ? '202px' : null
               "
@@ -846,8 +845,7 @@ input#filter {
 }
 
 .serverName {
-  max-width: 195px;
-  width: 195px;
+  width: 100%;
   font-weight: 600;
 }
 
