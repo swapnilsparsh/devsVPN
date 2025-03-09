@@ -58,7 +58,7 @@ export default {
       ];
 
       // topics.forEach(topic => {
-      //   const url = `https://push.privateline.io//${topic}/sse`; // TODO: FIX ME @Sandeep Enable this url
+      //   const url = `https://push.privateline.io/${topic}/sse`; // TODO: FIX ME @Sandeep Enable this url
       //   // const url = `https://ntfy.sh/${topic}/sse`;
       //   const eventSource = new EventSource(url);
 
@@ -75,7 +75,7 @@ export default {
 
       // ENABLE FOR STAGE TESTING 
       topicStage.forEach(topic => {
-        const url = `https://push.privateline.io//${topic}/sse`; // TODO: FIX ME @Sandeep Enable this url
+        const url = `https://push.privateline.io/${topic}/sse`; // TODO: FIX ME @Sandeep Enable this url
         // const url = `https://ntfy.sh/${topic}/sse`;
         const eventSource = new EventSource(url);
 
