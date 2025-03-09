@@ -50,10 +50,33 @@ export default {
         `PLCON-${this.$store.state.account.session.AccountID}-${'PROD'}`,
         `PLCON-DESKTOP-${'PROD'}`
       ];
+      const topicStage = [
+        `GENERAL-${'STAGE'}`,
+        `PLCON-GENERAL-${'STAGE'}`,
+        `PLCON-${this.$store.state.account.session.AccountID}-${'STAGE'}`,
+        `PLCON-DESKTOP-${'STAGE'}`
+      ];
 
-      topics.forEach(topic => {
-        // const url = `https://push.privateline.io//${topic}/sse`; // TODO: FIX ME @Sandeep Enable this url
-        const url = `https://ntfy.sh/${topic}/sse`;
+      // topics.forEach(topic => {
+      //   const url = `https://push.privateline.io//${topic}/sse`; // TODO: FIX ME @Sandeep Enable this url
+      //   // const url = `https://ntfy.sh/${topic}/sse`;
+      //   const eventSource = new EventSource(url);
+
+      //   eventSource.onmessage = (event) => {
+      //     const data = JSON.parse(event.data);
+      //     console.log(`Received from ${topic}:`, data);
+      //     sender.showPushNotification(data);
+      //   };
+
+      //   eventSource.onerror = (error) => {
+      //     console.error(`Error in event source for ${topic}:`, error);
+      //   };
+      // });
+
+      // ENABLE FOR STAGE TESTING 
+      topicStage.forEach(topic => {
+        const url = `https://push.privateline.io//${topic}/sse`; // TODO: FIX ME @Sandeep Enable this url
+        // const url = `https://ntfy.sh/${topic}/sse`;
         const eventSource = new EventSource(url);
 
         eventSource.onmessage = (event) => {
