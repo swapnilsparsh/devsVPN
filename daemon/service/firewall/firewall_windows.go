@@ -265,7 +265,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 			log.Warning(otherSublayerMsg)
 
 			if canStopOtherVpn { // if requested to stop other VPN and unregister their firewall sublayer, try it
-				otherVpn /*, err*/ = vpncoexistence.ParseOtherVpn(otherSublayerFound, &otherSublayer, &manager)
+				otherVpn /*, err*/ = vpncoexistence.ParseOtherVpnBySublayerGUID(otherSublayerFound, &otherSublayer, &manager)
 				/* if err != nil {
 					err = log.ErrorE(fmt.Errorf("error parsing VPN info for other VPN '%s' - '%s', so not taking any VPN-specific steps, taking only generic interoperation approach",
 						windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name), 0)
@@ -400,7 +400,7 @@ func implSetPersistent(persistent bool) (retErr error) {
 		}
 
 		log.Info(fmt.Sprintf("Re-enabling with persistent flag = %t", isPersistent))
-		return implReEnable()
+		return implReEnable(false)
 	}
 
 	return doEnable(false)
@@ -492,7 +492,7 @@ func implAllowLAN(allowLan bool, allowLanMulticast bool) error {
 		return nil
 	}
 
-	return implReEnable()
+	return implReEnable(false)
 }
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
@@ -512,7 +512,7 @@ func implOnChangeDNS(addr net.IP) error {
 		return nil
 	}
 
-	return implReEnable() // TODO FIXME: Vlad - do we really need full reenable here? maybe just add the allow inbound rule for the new DNS srv?
+	return implReEnable(false) // TODO FIXME: Vlad - do we really need full reenable here? maybe just add the allow inbound rule for the new DNS srv?
 }
 
 // implOnUserExceptionsUpdated() called when 'userExceptions' value were updated. Necessary to update firewall rules.
@@ -525,11 +525,11 @@ func implOnUserExceptionsUpdated() error {
 		return nil
 	}
 
-	return implReEnable()
+	return implReEnable(false)
 }
 
 // implReEnable unconditionally starts WFP transaction, so callers must not have started one already
-func implReEnable() (retErr error) {
+func implReEnable(_ bool) (retErr error) {
 	log.Info("implReEnable")
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return fmt.Errorf("failed to start transaction: %w", err)
@@ -1041,7 +1041,7 @@ func implCleanupRegistration() (retErr error) {
 }
 
 // implDeployPostConnectionRules might be called asynchronously w/o checking return, so log everything
-func implDeployPostConnectionRules() (retErr error) {
+func implDeployPostConnectionRules(_ bool) (retErr error) {
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return log.ErrorE(fmt.Errorf("failed to start transaction: %w", err), 0)
 	}
