@@ -153,7 +153,7 @@ func monitorFirewallChanges() {
 	// Run VPN coexistence logic synchronously here, before we start the loop for processing nft events.
 	// The reason is that VPN coexistence logic generates nft events itself, so we want to:
 	//	- Run VPN coexistence logic first
-	//	- Process accumulated nft events later - and, if needed, run implReEnable() hopefully only once
+	//	- Process buffered nft events later - and, if needed, run implReEnable() hopefully only once
 	if err := vpncoexistence.EnableCoexistenceWithOtherVpns(getPrefsCallback()); err != nil {
 		log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
 	}
