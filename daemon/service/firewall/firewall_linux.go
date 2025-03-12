@@ -35,6 +35,7 @@ import (
 	"github.com/google/nftables/binaryutil"
 	"github.com/google/nftables/expr"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"golang.org/x/sys/unix"
@@ -386,6 +387,9 @@ func doEnable(internalMutexGrabbed bool) (err error) {
 	}
 
 	prefs := getPrefsCallback()
+
+	// enable VPN coexistence logic for other VPNs (if any present) - fork to the background
+	go vpncoexistence.EnableCoexistenceWithOtherVpns(getPrefsCallback())
 
 	filter, vpnCoexistenceChainIn, vpnCoexistenceChainOut, err := createTableAndChains()
 	if err != nil {
@@ -874,6 +878,8 @@ func doDisable(internalMutexGrabbed bool) (err error) {
 		monitorFirewallChangesMutex.Lock()    // wait for it to stop, lock its mutex till the end of doDisable()
 	}
 	defer monitorFirewallChangesMutex.Unlock()
+
+	// TODO: Vlad - wrap down our configuration changes we did to other VPNs, when needed
 
 	filter, input, output, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
 
