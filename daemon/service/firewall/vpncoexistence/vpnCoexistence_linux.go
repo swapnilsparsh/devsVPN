@@ -42,39 +42,38 @@ func OtherVpnByInterfaceName(otherVpnInterfaceName string) (otherVpn *OtherVpnIn
 	}
 }
 
-func tryCmdLogOnError(binPath string, args ...string) {
+func tryCmdLogOnError(binPath string, args ...string) (retErr error) {
 	outText, outErrText, exitCode, isBufferTooSmall, err := shell.ExecAndGetOutput(nil, 1024*5, "", binPath, args...)
 	if err != nil || exitCode != 0 {
 		if strings.Contains(outText, "is already allowlisted") { // ignore some errors
-			return
+			return nil
 		}
 
 		// trim trailing newlines
 		outText = strings.TrimSuffix(outText, "\n")
 		outErrText = strings.TrimSuffix(outErrText, "\n")
 
-		log.ErrorFE("error executing command \"%s\" \"%s\". err=\"%w\", exitCode=%d, outText=\"%s\", outErrText=\"%s\", isBufferTooSmall=%t",
+		return log.ErrorFE("error executing command \"%s\" \"%s\". err=\"%w\", exitCode=%d, outText=\"%s\", outErrText=\"%s\", isBufferTooSmall=%t",
 			binPath, args, err, exitCode, outText, outErrText, isBufferTooSmall)
 	}
+
+	return nil
 }
 
 // Look for other VPNs by the network interface names we know for them, process steps for found ones
 func EnableCoexistenceWithOtherVpns(prefs preferences.Preferences) (retErr error) {
-	if !vpnCoexistenceLinuxMutex.TryLock() { // Best-effort attempt to launch. If another instance is already running - don't enqueue another one.
-		return nil
-	}
+	vpnCoexistenceLinuxMutex.Lock() // in theory should not be needeed, this func should already be single-instance - but just in case
 	defer vpnCoexistenceLinuxMutex.Unlock()
 
 	log.Debug("EnableCoexistenceWithOtherVpns entered")
 	defer log.Debug("EnableCoexistenceWithOtherVpns exited")
 
 	for otherVpnInterface, otherVpn := range OtherVpnsByInterfaceName {
-		_, err := netlink.LinkByName(otherVpnInterface)
-		if err == nil { // if the network interface that is known to belong to another VPN
+		if _, err := netlink.LinkByName(otherVpnInterface); err == nil { // if the network interface that is known to belong to another VPN
 			// Check other VPN CLI is in PATH
 			otherVpnResolvedCliPath, err := exec.LookPath(otherVpn.cliPath)
 			if err != nil || otherVpnResolvedCliPath == "" {
-				log.ErrorFE("network interface '%s' found for other VPN '%s', but its CLI '%s' not found in PATH, ignoring. err=%w", otherVpnInterface, otherVpn.name, otherVpn.cliPath, err)
+				retErr = log.ErrorFE("network interface '%s' found for other VPN '%s', but its CLI '%s' not found in PATH, ignoring. err=%w", otherVpnInterface, otherVpn.name, otherVpn.cliPath, err)
 				continue
 			}
 
@@ -84,13 +83,17 @@ func EnableCoexistenceWithOtherVpns(prefs preferences.Preferences) (retErr error
 				// So far we only know NordVPN, so add our Wireguard gateways to the other VPN's allowlist
 				plWgEntryHostIpCIDR := vpnEntryHost.EndpointIP + "/32"
 				cmdAddOurWgEndpointToOtherVpnAllowlist := append(otherVpn.cliCmds.cmdAddAllowlistOption, plWgEntryHostIpCIDR)
-				tryCmdLogOnError(otherVpnResolvedCliPath, cmdAddOurWgEndpointToOtherVpnAllowlist...)
+				if err = tryCmdLogOnError(otherVpnResolvedCliPath, cmdAddOurWgEndpointToOtherVpnAllowlist...); err != nil {
+					retErr = err
+				}
 
 				// also add privateLINE private IP ranges to the other VPN's allowlist
 				for _, allowedIpRangeCIDR := range strings.Split(vpnEntryHost.AllowedIPs, ",") { // CIDR format like "10.0.0.3/24"
 					allowedIpRangeCIDR = strings.TrimSpace(allowedIpRangeCIDR)
 					cmdAddPLAllowedIPsToOtherVpnAllowlist := append(otherVpn.cliCmds.cmdAddAllowlistOption, allowedIpRangeCIDR)
-					tryCmdLogOnError(otherVpnResolvedCliPath, cmdAddPLAllowedIPsToOtherVpnAllowlist...)
+					if err = tryCmdLogOnError(otherVpnResolvedCliPath, cmdAddPLAllowedIPsToOtherVpnAllowlist...); err != nil {
+						retErr = err
+					}
 				}
 			}
 		}
