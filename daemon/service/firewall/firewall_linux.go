@@ -133,8 +133,7 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
 }
 
 // monitorFirewallChanges runs as a background thread, listens for nftable change events.
-// It checks regularly whether we have top firewall priority. If not - recreates our firewall objects.
-// Its caller creates the stopMonitoringFirewallChanges chan before calling monitorFirewallChanges()
+// If events are relevant - it checks whether we have top firewall priority. If not - recreates our firewall objects.
 // To stop this thread - send to stopMonitoringFirewallChanges chan.
 func monitorFirewallChanges() {
 	// to ensure there's only one instance of monitorFirewallChanges
@@ -154,8 +153,10 @@ func monitorFirewallChanges() {
 	// The reason is that VPN coexistence logic generates nft events itself, so we want to:
 	//	- Run VPN coexistence logic first
 	//	- Process buffered nft events later - and, if needed, run implReEnable() hopefully only once
-	if err := vpncoexistence.EnableCoexistenceWithOtherVpns(getPrefsCallback()); err != nil {
-		log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
+	if vpnConnectedCallback() { // no need to enable VPN coexistence if we're not connected/connecting, as Total Shield won't be in effect
+		if err := vpncoexistence.EnableCoexistenceWithOtherVpns(getPrefsCallback()); err != nil {
+			log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
+		}
 	}
 
 	for {
