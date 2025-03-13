@@ -2,7 +2,6 @@
 
 import {
   app,
-  protocol,
   BrowserWindow,
   Menu,
   dialog,
