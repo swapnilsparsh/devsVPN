@@ -123,7 +123,7 @@ func createAddSublayer() error {
 	return nil
 }
 
-func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
+func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfigured bool, retErr error) {
 	// Can't delete the sublayer if there are rules registered under it. So if VPN is connected - disable firewall, reregister sublayer, enable firewall.
 
 	// if err := manager.TransactionStart(); err != nil { // start WFP transaction
@@ -150,12 +150,12 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
 	var wasEnabled bool
 	wasEnabled, retErr = implGetEnabled()
 	if retErr != nil {
-		return log.ErrorE(fmt.Errorf("status check error: %w", retErr), 0)
+		return false, log.ErrorE(fmt.Errorf("status check error: %w", retErr), 0)
 	}
 
 	if wasEnabled {
 		if retErr = implSetEnabled(false, false); retErr != nil {
-			return log.ErrorE(fmt.Errorf("error disabling firewall: %w", retErr), 0)
+			return false, log.ErrorE(fmt.Errorf("error disabling firewall: %w", retErr), 0)
 		}
 	}
 	var retErr2 error = nil
@@ -179,13 +179,13 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
 
 	if retErr = checkCreateProviderAndSublayer(false, canStopOtherVpn); retErr != nil {
 		log.Error(fmt.Errorf("error re-registering firewall sublayer at top priority: %w", retErr), 0)
-		return retErr
+		return false, retErr
 	}
 
 	if retErr != nil {
-		return retErr
+		return false, retErr
 	} else {
-		return retErr2
+		return false, retErr2
 	}
 }
 
@@ -1463,4 +1463,16 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 		return false, "", "", "", retErr
 	}
 	return implHaveTopFirewallPriority(recursionDepth + 1)
+}
+
+func implFirewallBackgroundMonitorAvailable() bool {
+	return false
+}
+
+func implFirewallBackgroundMonitor() error {
+	return nil
+}
+
+func implStopFirewallBackgroundMonitor() *sync.Mutex {
+	return nil
 }

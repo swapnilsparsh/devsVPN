@@ -88,6 +88,9 @@ func doPrepareToRun() error {
 func doStartedOnPort(port int, secret uint64) {
 }
 
+func doBeforeStop() {
+}
+
 // OS-specific service finalizer
 func doStopped() {
 	var stoppedChan = _stopped
