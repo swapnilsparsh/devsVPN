@@ -473,6 +473,7 @@ func doEnable(internalMutexGrabbed bool) (err error) {
 		Name:    PL_DNS_SET,
 		Table:   filter,
 		KeyType: nftables.TypeIPAddr, // our keys are IPv4 addresses so far
+		Dynamic: true,                // allow additions-deletions
 	}
 	if err := nftConn.AddSet(privatelineDnsAddrsIPv4, []nftables.SetElement{}); err != nil {
 		return log.ErrorFE("enable - error creating nft set: %w", err)
@@ -847,11 +848,13 @@ func implDeployPostConnectionRules(internalMutexGrabbed bool) (retErr error) {
 				Name:    "privateLINE_allow_incoming_IPv4_UDP_for_" + plInternalHostname,
 				Table:   filter,
 				KeyType: nftables.TypeIPAddr, // set for IPv4 addresses
+				Dynamic: true,                // allow additions-deletions
 			}
 			// ourHostIPsIPv6 = &nftables.Set{
 			// 	Name:    "Allow incoming IPv6 UDP for " + plInternalHostname,
 			// 	Table:   filter,
 			// 	KeyType: nftables.TypeIP6Addr, // set for IPv6 addresses
+			//	Dynamic: true,                // allow additions-deletions
 			// }
 		)
 
