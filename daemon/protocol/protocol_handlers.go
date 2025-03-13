@@ -23,6 +23,8 @@
 package protocol
 
 import (
+	"sync"
+
 	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
@@ -49,8 +51,13 @@ func (p *Protocol) OnSessionStatus(sessionToken string, sessionData preferences.
 	})
 }
 
-// OnKillSwitchStateChanged - Firewall change handler
+var OnKillSwitchStateChangedMutex sync.Mutex
+
+// OnKillSwitchStateChanged - Firewall change handler. Single-instance.
 func (p *Protocol) OnKillSwitchStateChanged() {
+	OnKillSwitchStateChangedMutex.Lock()
+	defer OnKillSwitchStateChangedMutex.Unlock()
+
 	if p._service == nil {
 		return
 	}

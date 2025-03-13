@@ -634,19 +634,20 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		}
 	}()
 
-	// Firewall must be enabled before starting VPN connection, required for VPN coexistence.
-	// Unconditionally run disable-then-enable, even if firewall was disabled before (this is to clean out old rules).
-	if firewallOn || firewallDuringConnection {
-		if err := s.ReEnableKillSwitch(); err != nil {
-			log.Error("Failed to reenable firewall:", err.Error())
-			return err
-		}
-	}
-
 	log.Info("Connecting...")
 
 	// save vpn object
 	s._vpn = vpnProc
+
+	// Firewall must be enabled before starting VPN connection, required for VPN coexistence.
+	// Unconditionally run disable-then-enable, even if firewall was disabled before (this is to clean out old rules).
+	// Must run it after s._vpn is set, so that firewall will know to enable Total Shield, if needed.
+	log.Info("Initializing firewall")
+	if firewallOn || firewallDuringConnection {
+		if err := s.ReEnableKillSwitch(); err != nil {
+			return log.ErrorFE("Failed to reenable firewall: %w", err)
+		}
+	}
 
 	internalStateChan := make(chan vpn.StateInfo, 1)
 	stopChannel := make(chan bool, 1)
@@ -673,17 +674,6 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 			log.Error("(stopping) error on notifying FW about disconnected client:", err)
 		}
 
-		/*
-			// when we were requested to enable firewall for this connection
-			// And initial FW state was disabled - we have to disable it back
-			if firewallDuringConnection && !fwInitState {
-		*/
-		if !firewallOn && firewallDuringConnection { // per firewallOn, firewallDuringConnection description
-			if err = s.SetKillSwitchState(false); err != nil {
-				log.Error("(stopping) failed to disable firewall:", err)
-			}
-		}
-
 		// notify routines to stop
 		close(stopChannel)
 
@@ -694,6 +684,16 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		}
 
 		connectRoutinesWaiter.Wait()
+
+		// when we were requested to enable firewall for this connection
+		// And initial FW state was disabled - we have to disable it back
+		// Need to wait for all connectRoutinesWaiter routines to end before disabling firewall, because implFirewallBackgroundMonitor() can reenable it.
+		// if firewallDuringConnection && !fwInitState {
+		if !firewallOn && firewallDuringConnection { // per firewallOn, firewallDuringConnection description
+			if err = s.SetKillSwitchState(false); err != nil {
+				log.Error("(stopping) failed to disable firewall:", err)
+			}
+		}
 
 		// Forget VPN object
 		s._vpn = nil
@@ -721,6 +721,24 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 			return fmt.Errorf("failed to get V2Ray remote endpoint: %w", err)
 		}
 		destinationIpAddresses = append(destinationIpAddresses, v2RayRemoteHost)
+	}
+
+	// if firewall background monitor is available on the platform - start it
+	if firewall.FirewallBackgroundMonitorAvailable() {
+		connectRoutinesWaiter.Add(1)
+		go func() {
+			log.Info("Firewall background monitor started")
+			defer func() {
+				if firewallBackgroundMonitorMutex := firewall.StopFirewallBackgroundMonitor(); firewallBackgroundMonitorMutex != nil {
+					firewallBackgroundMonitorMutex.Unlock()
+				}
+				log.Info("Firewall background monitor stopped")
+				connectRoutinesWaiter.Done()
+			}()
+
+			go firewall.FirewallBackgroundMonitor()
+			<-stopChannel // triggered when the stopChannel is closed
+		}()
 	}
 
 	// goroutine: process + forward VPN state change
@@ -899,11 +917,13 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		}
 	}()
 
-	// Check that firewall is enabled
-	if killSwitchState, err := s.KillSwitchState(); err != nil {
-		return log.ErrorFE("error checking firewall status: %w", err)
-	} else if runtime.GOOS == "windows" && !killSwitchState.IsEnabled { // this requirement on Windows only for now
-		return log.ErrorE(errors.New("error - firewall must be enabled by now"), 0)
+	// Check that firewall is enabled (this check necessary only on Windows)
+	if runtime.GOOS == "windows" {
+		if killSwitchState, err := s.KillSwitchState(); err != nil {
+			return log.ErrorFE("error checking firewall status: %w", err)
+		} else if !killSwitchState.IsEnabled {
+			return log.ErrorE(errors.New("error - firewall must be enabled by now"), 0)
+		}
 	}
 
 	// Check whether this device registration is active
@@ -933,9 +953,9 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 	}
 	s.SetVpnSessionInfo(sInfo)
 
-	log.Info("Initializing firewall")
-	// ensure firewall has no rules for DNS
-	firewall.OnChangeDNS(nil)
+	// log.Info("Initializing firewall")
+	// // ensure firewall has no rules for DNS
+	// firewall.OnChangeDNS(nil)
 
 	// firewallOn - enable firewall before connection (if true - the parameter 'firewallDuringConnection' will be ignored)
 	// firewallDuringConnection - enable firewall before connection and disable after disconnection (has effect only if Firewall not enabled before)

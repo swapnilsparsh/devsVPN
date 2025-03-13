@@ -497,5 +497,20 @@ func TryReregisterFirewallAtTopPriority(canStopOtherVpn bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implReregisterFirewallAtTopPriority(canStopOtherVpn)
+	_, err = implReregisterFirewallAtTopPriority(canStopOtherVpn)
+	return err
+}
+
+func FirewallBackgroundMonitorAvailable() bool {
+	return implFirewallBackgroundMonitorAvailable()
+}
+
+// FirewallBackgroundMonitor - caller should run it in a forked thread
+func FirewallBackgroundMonitor() (err error) {
+	return implFirewallBackgroundMonitor()
+}
+
+// StopFirewallBackgroundMonitor returns the locked mutex of the FirewallBackgroundMonitor, caller must unlock it. Returns nil on error.
+func StopFirewallBackgroundMonitor() (mutex *sync.Mutex) {
+	return implStopFirewallBackgroundMonitor()
 }

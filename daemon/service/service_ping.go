@@ -84,8 +84,12 @@ func (s *Service) PingServers(firstPhaseTimeoutMs int, vpnTypePrioritized vpn.Ty
 	startTime := time.Now()
 
 	// enable the firewall, need VPN coexistence logic up - otherwise, if another VPN is already running, our pings may not go through
-	if err := s.SetKillSwitchState(true); err != nil {
-		return nil, log.ErrorFE("error enabling firewall: %w", err)
+	if firewallEnabled, err := s.FirewallEnabled(); err != nil {
+		return nil, log.ErrorFE("error FirewallEnabled: %w", err)
+	} else if !firewallEnabled {
+		if err := s.ReEnableKillSwitch(); err != nil {
+			return nil, log.ErrorFE("error ReEnableKillSwitch: %w", err)
+		}
 	}
 
 	if s._vpn != nil {
