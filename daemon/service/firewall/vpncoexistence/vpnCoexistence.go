@@ -32,6 +32,7 @@ type otherVpnCliCmds struct {
 	cmdEnableSplitTun                  []string
 	cmdAddOurBinaryToSplitTunWhitelist []string
 	cmdAddAllowlistOption              []string // used only on Linux
+	cmdRemoveAllowlistOption           []string // used only on Linux
 	cmdConnect                         string
 	cmdDisconnect                      string
 }

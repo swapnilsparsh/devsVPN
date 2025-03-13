@@ -55,7 +55,7 @@ const (
 
 var (
 	mutexInternal                 sync.Mutex           // global lock for firewall read and write operations in firewall_linux.go
-	stopMonitoringFirewallChanges = make(chan bool, 1) // used to send a stop signal to implFirewallBackgroundMonitor() thread
+	stopMonitoringFirewallChanges = make(chan bool, 2) // used to send a stop signal to implFirewallBackgroundMonitor() thread
 	// implReregisterFirewallAtTopPriorityMutex sync.Mutex           // to ensure there's only one instance of implReregisterFirewallAtTopPriority function
 	implFirewallBackgroundMonitorMutex sync.Mutex // to ensure there's only one instance of implFirewallBackgroundMonitor function
 	implDeployPostConnectionRulesMutex sync.Mutex // to ensure there's only one instance of implDeployPostConnectionRules function
@@ -145,7 +145,7 @@ func implFirewallBackgroundMonitorAvailable() bool {
 }
 
 // implFirewallBackgroundMonitor runs as a background thread, listens for nftable change events.
-// If events are relevant - it checks whether we have top firewall priority. If not - recreates our firewall objects.
+// If events are relevant - it checks whether we have top firewall priority. If don't have top pri - it recreates our firewall objects.
 // To stop this thread - send to stopMonitoringFirewallChanges chan.
 func implFirewallBackgroundMonitor() (err error) {
 	implFirewallBackgroundMonitorMutex.Lock() // to ensure there's only one instance of implFirewallBackgroundMonitor
@@ -178,7 +178,7 @@ func implFirewallBackgroundMonitor() (err error) {
 		select {
 		case _ = <-stopMonitoringFirewallChanges:
 			log.Debug("implFirewallBackgroundMonitor exiting on stop signal")
-			// TODO FIXME: Vlad - plugin here DisableCoexistenceWithOtherVpns
+			go vpncoexistence.DisableCoexistenceWithOtherVpns() // nah, run asynchronously in the background after all - 8sec is way too long to wait in the UI
 			return nil
 		case event, ok := <-nftEvents:
 			if !ok {
@@ -1555,7 +1555,7 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 		return nil
 	}
 
-	// if the firewall is up - gotta add or remove drop rules to reflect new Total Shield setting
+	// if the firewall is up - gotta add or remove DROP rules to reflect new Total Shield setting
 
 	filter, _, _, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
 	vpnCoexistenceChainInRules, err := nftConn.GetRules(filter, vpnCoexistenceChainIn)
