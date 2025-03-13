@@ -22,7 +22,9 @@ type otherVpnUndoCompatCommand struct { // used by DisableCoexistenceWithOtherVp
 type otherVpnCommandsToUndoMap map[string]*otherVpnUndoCompatCommand
 
 var (
-	vpnCoexistenceLinuxMutex sync.Mutex // lock for Linux VPN coexistence functions called from firewall_linux
+	vpnCoexistenceLinuxMutex sync.Mutex // lock for Linux VPN coexistence functions called from firewall_linux.
+	// An additional mutex for disable tasks - it's exported, because launcher will wait for it on daemon shutdown, to ensure that disable steps finished before daemon exits.
+	DisableCoexistenceWithOtherVpnsMutex sync.Mutex
 
 	// NordVPN
 	nordVpnInterfaceName = "nordlynx"
@@ -139,6 +141,9 @@ func EnableCoexistenceWithOtherVpns(prefs preferences.Preferences) (retErr error
 func DisableCoexistenceWithOtherVpns() (retErr error) {
 	vpnCoexistenceLinuxMutex.Lock()
 	defer vpnCoexistenceLinuxMutex.Unlock()
+
+	DisableCoexistenceWithOtherVpnsMutex.Lock() // launcher waits for this mutex on daemon shutdown, to ensure all disable tasks have been completed
+	defer DisableCoexistenceWithOtherVpnsMutex.Unlock()
 
 	log.Debug("DisableCoexistenceWithOtherVpns entered")
 	defer log.Debug("DisableCoexistenceWithOtherVpns exited")

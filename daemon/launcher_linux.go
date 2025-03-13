@@ -31,6 +31,7 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
 )
 
 func doPrepareToRun() error {
@@ -58,6 +59,11 @@ func doPrepareToRun() error {
 	}
 
 	return nil
+}
+
+func doBeforeStop() {
+	vpncoexistence.DisableCoexistenceWithOtherVpnsMutex.Lock() // launcher waits for this mutex on daemon shutdown, to ensure all disable tasks have been completed
+	defer vpncoexistence.DisableCoexistenceWithOtherVpnsMutex.Unlock()
 }
 
 func doStopped() {

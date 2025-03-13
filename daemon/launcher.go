@@ -148,9 +148,9 @@ func Launch() {
 	}
 
 	defer func() {
+		doBeforeStop() // OS-specific steps required before shutdown
 		log.Info(helpers.ServiceName + " daemon stopped.")
-		// OS-specific service finalizer
-		doStopped()
+		doStopped() // OS-specific service finalizer
 	}()
 
 	tzName, tzOffsetSec := time.Now().Zone()
