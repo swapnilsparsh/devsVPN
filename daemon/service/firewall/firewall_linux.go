@@ -205,7 +205,7 @@ func implFirewallBackgroundMonitor() (err error) {
 					if firewallReconfigured, err = implReregisterFirewallAtTopPriority(false); err != nil {
 						log.ErrorFE("error in implReregisterFirewallAtTopPriority(): %w", err) // and continue
 					} else if firewallReconfigured {
-						runEnableCoexistenceWithOtherVpns = firewallReconfigured
+						runEnableCoexistenceWithOtherVpns = true
 					}
 
 				case nftables.MonitorEventTypeDelRule:
@@ -216,7 +216,7 @@ func implFirewallBackgroundMonitor() (err error) {
 						if firewallReconfigured, err = implReregisterFirewallAtTopPriority(false); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriority(): %w", err) // and continue
 						} else if firewallReconfigured {
-							runEnableCoexistenceWithOtherVpns = firewallReconfigured
+							runEnableCoexistenceWithOtherVpns = true
 						}
 					}
 
@@ -230,7 +230,7 @@ func implFirewallBackgroundMonitor() (err error) {
 						if firewallReconfigured, err = implReregisterFirewallAtTopPriority(false); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriority(): %w", err) // and continue
 						} else if firewallReconfigured {
-							runEnableCoexistenceWithOtherVpns = firewallReconfigured
+							runEnableCoexistenceWithOtherVpns = true
 						}
 					}
 
@@ -240,7 +240,7 @@ func implFirewallBackgroundMonitor() (err error) {
 						if firewallReconfigured, err = implReregisterFirewallAtTopPriority(false); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriority(): %w", err) // and continue
 						} else if firewallReconfigured {
-							runEnableCoexistenceWithOtherVpns = firewallReconfigured
+							runEnableCoexistenceWithOtherVpns = true
 						}
 					}
 				}
