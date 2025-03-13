@@ -58,7 +58,7 @@ var (
 	stopMonitoringFirewallChanges = make(chan bool, 2) // used to send a stop signal to implFirewallBackgroundMonitor() thread
 	// implReregisterFirewallAtTopPriorityMutex sync.Mutex           // to ensure there's only one instance of implReregisterFirewallAtTopPriority function
 	implFirewallBackgroundMonitorMutex sync.Mutex // to ensure there's only one instance of implFirewallBackgroundMonitor function
-	implDeployPostConnectionRulesMutex sync.Mutex // to ensure there's only one instance of implDeployPostConnectionRules function
+	// implDeployPostConnectionRulesMutex sync.Mutex // to ensure there's only one instance of implDeployPostConnectionRules function
 
 	nftMonitor *nftables.Monitor
 	nftEvents  chan *nftables.MonitorEvents
@@ -93,6 +93,86 @@ func init() {
 
 func implInitialize() error {
 	return nil
+}
+func createTableChainsObjects() (filter *nftables.Table,
+	input *nftables.Chain,
+	output *nftables.Chain,
+	vpnCoexistenceChainIn *nftables.Chain,
+	vpnCoexistenceChainOut *nftables.Chain) {
+
+	filter = &nftables.Table{Family: TABLE_TYPE, Name: TABLE}
+
+	return filter,
+		&nftables.Chain{Name: "INPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookInput, Priority: nftables.ChainPriorityFilter},
+		&nftables.Chain{Name: "OUTPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookOutput, Priority: nftables.ChainPriorityFilter},
+		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_IN, Table: filter, Type: nftables.ChainTypeFilter},
+		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_OUT, Table: filter, Type: nftables.ChainTypeFilter}
+}
+
+func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nftables.Chain, vpnCoexistenceChainOut *nftables.Chain, err error) {
+	filter, input, output, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
+
+	// Create filter table, if not present
+	filter = nftConn.AddTable(filter)
+
+	// create INPUT, OUTPUT chains, if not present
+	input = nftConn.AddChain(input)
+	output = nftConn.AddChain(output)
+
+	// Create VPN coexistence chains
+	vpnCoexistenceChainIn = nftConn.AddChain(vpnCoexistenceChainIn)
+	vpnCoexistenceChainOut = nftConn.AddChain(vpnCoexistenceChainOut)
+
+	// if err := nftConn.Flush(); err != nil { // Apply the above (commands are queued till a call to Flush())
+	// 	return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 1: %w", err)
+	// }
+
+	// // get INPUT, OUTPUT rulesets - to be able to insert our jump rules on top
+	// inputRules, err := nftConn.GetRules(filter, input)
+	// if err != nil {
+	// 	return nil, nil, nil, log.ErrorFE("error listing input rules: %w", err)
+	// }
+	// outputRules, err := nftConn.GetRules(filter, output)
+	// if err != nil {
+	// 	return nil, nil, nil, log.ErrorFE("error listing output rules: %w", err)
+	// }
+
+	// add rules to jump to our chains from the top of INPUT, OUTPUT
+	jumpInRule := nftables.Rule{
+		Table: filter,
+		Chain: input,
+		Exprs: []expr.Any{
+			&expr.Verdict{
+				Kind:  expr.VerdictJump,
+				Chain: VPN_COEXISTENCE_CHAIN_IN,
+			},
+		},
+	}
+	// if len(inputRules) >= 1 {
+	// 	jumpInRule.Position = inputRules[0].Handle
+	// }
+	nftConn.InsertRule(&jumpInRule)
+
+	jumpOutRule := nftables.Rule{
+		Table: filter,
+		Chain: output,
+		Exprs: []expr.Any{
+			&expr.Verdict{
+				Kind:  expr.VerdictJump,
+				Chain: VPN_COEXISTENCE_CHAIN_OUT,
+			},
+		},
+	}
+	// if len(outputRules) >= 1 {
+	// 	jumpOutRule.Position = outputRules[0].Handle
+	// }
+	nftConn.InsertRule(&jumpOutRule)
+
+	if err := nftConn.Flush(); err != nil { // Apply the above (commands are queued till a call to Flush())
+		return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 2: %w", err)
+	}
+
+	return filter, vpnCoexistenceChainIn, vpnCoexistenceChainOut, nil
 }
 
 func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
@@ -326,87 +406,6 @@ func implGetEnabled() (exists bool, retErr error) {
 	// }
 
 	return true, nil
-}
-
-func createTableChainsObjects() (filter *nftables.Table,
-	input *nftables.Chain,
-	output *nftables.Chain,
-	vpnCoexistenceChainIn *nftables.Chain,
-	vpnCoexistenceChainOut *nftables.Chain) {
-
-	filter = &nftables.Table{Family: TABLE_TYPE, Name: TABLE}
-
-	return filter,
-		&nftables.Chain{Name: "INPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookInput, Priority: nftables.ChainPriorityFilter},
-		&nftables.Chain{Name: "OUTPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookOutput, Priority: nftables.ChainPriorityFilter},
-		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_IN, Table: filter, Type: nftables.ChainTypeFilter},
-		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_OUT, Table: filter, Type: nftables.ChainTypeFilter}
-}
-
-func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nftables.Chain, vpnCoexistenceChainOut *nftables.Chain, err error) {
-	filter, input, output, vpnCoexistenceChainIn, vpnCoexistenceChainOut := createTableChainsObjects()
-
-	// Create filter table, if not present
-	filter = nftConn.AddTable(filter)
-
-	// create INPUT, OUTPUT chains, if not present
-	input = nftConn.AddChain(input)
-	output = nftConn.AddChain(output)
-
-	// Create VPN coexistence chains
-	vpnCoexistenceChainIn = nftConn.AddChain(vpnCoexistenceChainIn)
-	vpnCoexistenceChainOut = nftConn.AddChain(vpnCoexistenceChainOut)
-
-	// if err := nftConn.Flush(); err != nil { // Apply the above (commands are queued till a call to Flush())
-	// 	return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 1: %w", err)
-	// }
-
-	// // get INPUT, OUTPUT rulesets - to be able to insert our jump rules on top
-	// inputRules, err := nftConn.GetRules(filter, input)
-	// if err != nil {
-	// 	return nil, nil, nil, log.ErrorFE("error listing input rules: %w", err)
-	// }
-	// outputRules, err := nftConn.GetRules(filter, output)
-	// if err != nil {
-	// 	return nil, nil, nil, log.ErrorFE("error listing output rules: %w", err)
-	// }
-
-	// add rules to jump to our chains from the top of INPUT, OUTPUT
-	jumpInRule := nftables.Rule{
-		Table: filter,
-		Chain: input,
-		Exprs: []expr.Any{
-			&expr.Verdict{
-				Kind:  expr.VerdictJump,
-				Chain: VPN_COEXISTENCE_CHAIN_IN,
-			},
-		},
-	}
-	// if len(inputRules) >= 1 {
-	// 	jumpInRule.Position = inputRules[0].Handle
-	// }
-	nftConn.InsertRule(&jumpInRule)
-
-	jumpOutRule := nftables.Rule{
-		Table: filter,
-		Chain: output,
-		Exprs: []expr.Any{
-			&expr.Verdict{
-				Kind:  expr.VerdictJump,
-				Chain: VPN_COEXISTENCE_CHAIN_OUT,
-			},
-		},
-	}
-	// if len(outputRules) >= 1 {
-	// 	jumpOutRule.Position = outputRules[0].Handle
-	// }
-	nftConn.InsertRule(&jumpOutRule)
-
-	if err := nftConn.Flush(); err != nil { // Apply the above (commands are queued till a call to Flush())
-		return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 2: %w", err)
-	}
-
-	return filter, vpnCoexistenceChainIn, vpnCoexistenceChainOut, nil
 }
 
 func implReEnable(internalMutexGrabbed bool) (retErr error) {
