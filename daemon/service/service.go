@@ -2258,7 +2258,7 @@ func (s *Service) ProfileData() (
 	return apiCode, profileDataResponse, err
 }
 
-func (s *Service) DeviceList(Search string, Page number, Limit number) (
+func (s *Service) DeviceList(Search string, Page int, Limit int) (
 	apiCode int,
 	response *api_types.DeviceListResponse,
 	err error) {

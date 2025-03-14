@@ -102,6 +102,7 @@ export default {
       // Custom Table 
       searchQuery: "",
       currentPage: 1,
+      totalCount:0,
       itemsPerPage: 10,
       deviceListData: []
 
@@ -120,11 +121,11 @@ export default {
       return this.filteredData.slice(start, end);
     },
     totalPages() {
-      return Math.ceil(this.filteredData.length / this.itemsPerPage);
+      return Math.ceil( this.totalCount/ this.itemsPerPage);
     },
   },
   mounted() {
-    this.deviceList();
+    this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage);
     this.waitForSessionInfo();
   },
   methods: {
@@ -150,8 +151,9 @@ export default {
           throw Error("Device List API Time Out");
         }, 10 * 1000);
         const deviceListResp = await sender.DeviceList(search, page, limit);
-        console.log("Sandeep Device List :-", deviceListResp)
         this.deviceListData = deviceListResp.rows;
+        this.totalCount = deviceListResp?.count;
+        console.log(deviceListResp)
       } catch (err) {
         console.log({ err });
         sender.showMessageBoxSync({
@@ -193,9 +195,10 @@ export default {
     nextPage() {
       if (this.currentPage < this.totalPages) this.currentPage++;
     },
-    changePage(page) {
+    async changePage(page) {
       if (page >= 1 && page <= this.totalPages) {
         this.currentPage = page;
+        await this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage);
       }
     }
   }

@@ -1170,14 +1170,17 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p.notifyClients(p.createHelloResponse())
 
 	case "DeviceList":
-		var req types.ManageDeviceRequest
+		type ManageDeviceRequest struct {
+			Search string `json:"search,omitempty"`
+			Page   int    `json:"page,omitempty"`
+			Limit  int    `json:"limit,omitempty"`
+		}
+		var req ManageDeviceRequest
 		if err := json.Unmarshal(messageData, &req); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 			break
 		}
-
-		log.Debug("Sandeep device List:-", req);
-
+		
 		var resp types.DeviceListResp
 		apiCode, rawResponse, err := p._service.DeviceList(req.Search,req.Page,req.Limit)
 
