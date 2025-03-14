@@ -164,9 +164,7 @@
             </svg>
           </div>
         </div>
-      </div>
-
-      
+      </div>      
 
       <div style="margin-top:100px;">
         <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
