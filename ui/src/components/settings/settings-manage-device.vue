@@ -79,30 +79,30 @@
         <div>
           <div class="device-info">
             <div class="section">
-              <p><strong>Device ID:</strong> {{this.showDetails?.device_id}}</p>
-              <p><strong>Device Name:</strong> {{this.showDetails?.device_name}}</p>
+              <p><strong>Device ID:</strong> {{ this.showDetails?.device_id }}</p>
+              <p><strong>Device Name:</strong> {{ this.showDetails?.device_name }}</p>
               <!-- <p><strong>Type:</strong> {{this.showDetails?.type}}</p>
               <p><strong>Device IP:</strong> {{this.showDetails?.device_ip}}</p>
               <p><strong>Allocated IP:</strong> {{this.showDetails?.allocated_ip}}</p> -->
             </div>
             <div class="section">
               <p><strong>Public Key:</strong></p>
-              <p class="code">{{this.showDetails?.public_key}}</p>
+              <p class="code">{{ this.showDetails?.public_key }}</p>
               <p><strong>Interface Public Key:</strong></p>
-              <p class="code">{{this.showDetails?.interface_publickey}}</p>
+              <p class="code">{{ this.showDetails?.interface_publickey }}</p>
             </div>
             <div class="section">
-              <p><strong>DNS:</strong> {{this.showDetails?.DNS}}</p>
+              <p><strong>DNS:</strong> {{ this.showDetails?.DNS }}</p>
               <p><strong>Allowed IPs:</strong></p>
               <p class="small-text">
-                {{this.showDetails?.allowedIPs}}
+                {{ this.showDetails?.allowedIPs }}
               </p>
-              <p><strong>Endpoint:</strong> {{this.showDetails?.endpoint}}</p>
+              <p><strong>Endpoint:</strong> {{ this.showDetails?.endpoint }}</p>
             </div>
             <div class="section">
               <!-- <p><strong>Status:</strong> <span class="status active">{{this.showDetails?.status}}</span></p>
               <p><strong>Created At:</strong> {{this.showDetails?.createdAt}}</p> -->
-              <p><strong>Current Endpoint Address:</strong> {{this.showDetails?.current_endpoint_address}}</p>
+              <p><strong>Current Endpoint Address:</strong> {{ this.showDetails?.current_endpoint_address }}</p>
               <!-- <p><strong>Active Tunnel:</strong> {{this.showDetails?.keep_alive}}</p> -->
             </div>
             <!-- <div class="section">
@@ -142,7 +142,8 @@ export default {
       totalCount: 0,
       itemsPerPage: 10,
       deviceListData: [],
-      showDetails: {}
+      showDetails: {},
+      debounceTimeout: null,
     };
   },
   computed: {
@@ -236,16 +237,24 @@ export default {
     }
   },
   watch: {
-    searchQuery: {
-      handler(newQuery) {
+    searchQuery(newQuery) {
+      clearTimeout(this.debounceTimeout); // Clear previous timeout
+
+      this.debounceTimeout = setTimeout(() => {
         this.currentPage = 1; // Reset to first page on search
-        if ((newQuery.trim().length > 2)) {
-          this.deviceList(newQuery, this.currentPage, this.itemsPerPage);
+        const trimmedQuery = newQuery.trim();
+
+        if (trimmedQuery.length > 0) {
+          this.deviceList(trimmedQuery, this.currentPage, this.itemsPerPage, 0);
+        } else if (trimmedQuery.length == 0) {
+          this.deviceList('', this.currentPage, this.itemsPerPage, 0); // Reset the list
         }
-      },
-      immediate: true, // Ensure it runs immediately when the component is created
+      }, 300); // Adjust debounce time as needed
     },
-  }
+  },
+  beforeUnmount() {
+    clearTimeout(this.debounceTimeout); // Cleanup on component unmount
+  },
 };
 </script>
 
