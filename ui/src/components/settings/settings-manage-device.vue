@@ -4,6 +4,8 @@
       <div class="flexRow">
         <div class="settingsTitle">Manage Device</div>
       </div>
+
+      <!-- Device List Start -->
       <div class="device-limit-container">
         <!-- Search Input -->
         <div class="search-container">
@@ -57,24 +59,23 @@
         </div>
         <!-- Pagination Controls -->
         <div class="pagination">
-          <button @click="changePage(1)" :disabled="currentPage === 1">«</button>
-
-          <button v-if="currentPage > 2" @click="changePage(currentPage - 1)">{{ currentPage - 1 }}</button>
-
+          <button @click="changePage(1)" :disabled="currentPage === 1">First</button>
+          <button @click="changePage(currentPage - 1)" :disabled="currentPage === 1">«</button>
+          <button v-if="currentPage > 2" @click="changePage(1)">1</button>
+          <span v-if="currentPage > 3">...</span>
+          <button v-if="currentPage > 1" @click="changePage(currentPage - 1)">{{ currentPage - 1 }}</button>
           <button class="active">{{ currentPage }}</button>
-
-          <button v-if="currentPage < totalPages - 1" @click="changePage(currentPage + 1)">{{ currentPage + 1
-          }}</button>
-
+          <button v-if="currentPage < totalPages" @click="changePage(currentPage + 1)">{{ currentPage + 1 }}</button>
           <span v-if="currentPage < totalPages - 2">...</span>
-
-          <button v-if="currentPage < totalPages" @click="changePage(totalPages)">{{ totalPages }}</button>
-
+          <button v-if="currentPage < totalPages - 1" @click="changePage(totalPages)">{{ totalPages }}</button>
           <button @click="changePage(currentPage + 1)" :disabled="currentPage >= totalPages">»</button>
+          <button @click="changePage(totalPages)" :disabled="currentPage === totalPages">Last</button>
         </div>
-
         <!-- Table End  -->
       </div>
+      <!-- Device List END -->
+
+      <!-- View Details Popup Start -->
       <ComponentDialog ref="viewDeviceDetails" header="Device Details">
         <div>
           <div class="device-info">
@@ -118,6 +119,7 @@
           </div>
         </div>
       </ComponentDialog>
+      <!-- View Details Popup End -->
     </div>
   </div>
 </template>
