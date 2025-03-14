@@ -31,7 +31,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(device, index) in paginatedData" :key="device.device_id">
+              <tr v-for="(device, index) in devicePageList" :key="device.device_id">
                 <td style="width: 30px;">{{ index + 1 + (currentPage - 1) * itemsPerPage }}</td>
                 <td>
                   <span class="icon delete-icon" style="margin-right: 15px;">
@@ -55,7 +55,6 @@
             </tbody>
           </table>
         </div>
-
         <!-- Pagination Controls -->
         <div class="pagination">
           <button @click="changePage(1)" :disabled="currentPage === 1">«</button>
@@ -79,9 +78,8 @@
 </template>
 
 <script>
-import { dateDefaultFormat } from "@/helpers/helpers";
-import ShimmerEffect from "../Shimmer";
 
+import ShimmerEffect from "../Shimmer";
 const sender = window.ipcSender;
 
 export default {
@@ -90,66 +88,31 @@ export default {
   },
   data: function () {
     return {
-      apiProfileTimeout: null,
-      apiDeviceListTimeout: null,
-      apiSubscriptionTimeout: null,
       isProcessing: true,
-      isSubscriptionProcessing: true,
-      accountShimmerItems: Array(4).fill(null),
-      isAccountIDBlurred: true,
-      acctIdQRCodeSvg: "",
 
-      // Custom Table 
       searchQuery: "",
       currentPage: 1,
-      totalCount:0,
+      totalCount: 0,
       itemsPerPage: 10,
       deviceListData: []
-
     };
   },
   computed: {
-
-    filteredData() {
-      return this.deviceListData.filter(device =>
-        device.device_name.toLowerCase().includes(this.searchQuery.toLowerCase())
-      );
-    },
-    paginatedData() {
-      const start = (this.currentPage - 1) * this.itemsPerPage;
-      const end = start + this.itemsPerPage;
-      return this.filteredData.slice(start, end);
+    devicePageList() {
+      return this.deviceListData;
     },
     totalPages() {
-      return Math.ceil( this.totalCount/ this.itemsPerPage);
+      return Math.ceil(this.totalCount / this.itemsPerPage);
     },
   },
   mounted() {
     this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage);
-    this.waitForSessionInfo();
   },
   methods: {
-    async accountStatusRequest() {
-      await sender.SessionStatus();
-    },
-    async waitForSessionInfo() {
-      // wait for 10s for session information to come through
-      for (let i = 0; !this.IsSessionInfoReceived && i < 40; i++) {
-        await new Promise((r) => setTimeout(r, 250));
-      }
-
-      // if session info received - trigger rendering account ID QR code
-      if (this.IsSessionInfoReceived) this.computeAndSetAccIdQrCode();
-      else console.log("waitForSessionInfo() timed out");
-    },
-
     async deviceList(search = '', page = 1, limit = 10) {
       try {
         this.isProcessing = true;
 
-        this.apiDeviceListTimeout = setTimeout(() => {
-          throw Error("Device List API Time Out");
-        }, 10 * 1000);
         const deviceListResp = await sender.DeviceList(search, page, limit);
         this.deviceListData = deviceListResp.rows;
         this.totalCount = deviceListResp?.count;
@@ -164,8 +127,6 @@ export default {
         });
       } finally {
         this.isProcessing = false;
-        clearTimeout(this.apiDeviceListTimeout);
-        this.apiDeviceListTimeout = null;
       }
     },
 
@@ -201,6 +162,17 @@ export default {
         await this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage);
       }
     }
+  },
+  watch: {
+    searchQuery: {
+      handler(newQuery) {
+        this.currentPage = 1; // Reset to first page on search
+        if ((newQuery.trim().length > 2)) {
+          this.deviceList(newQuery, this.currentPage, this.itemsPerPage);
+        }
+      },
+      immediate: true, // Ensure it runs immediately when the component is created
+    },
   }
 };
 </script>
