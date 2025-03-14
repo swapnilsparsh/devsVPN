@@ -166,29 +166,9 @@
         </div>
       </div>
 
-      <div class="device-limit-container">
-        <div class="settingsTitle">Device List</div>
-        <div class="device-list">
-          <table>
-            <thead>
-              <tr>
-                <th>Device Name</th>
-                <th>Platform</th>
-                <th>Configured On</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="device in deviceListData" :key="device.device_name">
-                <td>{{ device.device_name }}</td>
-                <td>{{ device.type }}</td>
-                <td>{{ new Date(device.createdAt).toLocaleString() }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      
 
-      <div>
+      <div style="margin-top:100px;">
         <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
         <div
           v-if="$store.state.account.subscriptionData != null"
