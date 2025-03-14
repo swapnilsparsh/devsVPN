@@ -2258,7 +2258,7 @@ func (s *Service) ProfileData() (
 	return apiCode, profileDataResponse, err
 }
 
-func (s *Service) DeviceList(Search string, Page int, Limit int) (
+func (s *Service) DeviceList(Search string, Page int, Limit int, DeleteId int) (
 	apiCode int,
 	response *api_types.DeviceListResponse,
 	err error) {
@@ -2272,7 +2272,7 @@ func (s *Service) DeviceList(Search string, Page int, Limit int) (
 		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
 	}
 
-	deviceListResponse, err = s._api.DeviceList(s.Preferences().Session.Session, Search, Page, Limit)
+	deviceListResponse, err = s._api.DeviceList(s.Preferences().Session.Session, Search, Page, Limit, DeleteId)
 	return apiCode, deviceListResponse, err
 }
 

@@ -213,8 +213,8 @@ ipcMain.handle("renderer-request-ProfileData", async () => {
   return await client.ProfileData();
 });
 
-ipcMain.handle("renderer-request-DeviceList", async (event, Search, Page, Limit) => {
-  return await client.DeviceList(Search, Page, Limit);
+ipcMain.handle("renderer-request-DeviceList", async (event, Search, Page, Limit, DeleteId) => {
+  return await client.DeviceList(Search, Page, Limit, DeleteId);
 });
 
 ipcMain.handle("renderer-request-SubscriptionData", async () => {

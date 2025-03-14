@@ -246,8 +246,8 @@ export default {
     return await invoke("renderer-request-ProfileData");
   },
 
-  DeviceList: async (Search, Page, Limit) => {
-    return await invoke("renderer-request-DeviceList", Search, Page, Limit);
+  DeviceList: async (Search, Page, Limit, DeleteId) => {
+    return await invoke("renderer-request-DeviceList", Search, Page, Limit, DeleteId);
   },
 
   SubscriptionData: async () => {

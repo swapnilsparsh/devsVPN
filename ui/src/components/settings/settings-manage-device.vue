@@ -37,7 +37,7 @@
                   <span class="icon delete-icon" style="margin-right: 15px;">
                     <img style="vertical-align: middle" src="@/assets/eye-open.svg" />
                   </span>
-                  <span class="icon view-icon" style="display: inline-block;" @click="removeDevice(device.device_id)">
+                  <span class="icon view-icon" style="display: inline-block;" @click="removeDevice(device.id)">
                     <img style="vertical-align: middle" src="@/assets/delete.png" height="17" width="17" />
                   </span>
                 </td>
@@ -106,14 +106,14 @@ export default {
     },
   },
   mounted() {
-    this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage);
+    this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage, 0);
   },
   methods: {
-    async deviceList(search = '', page = 1, limit = 10) {
+    async deviceList(search = '', page = 1, limit = 10, deleteId = 0) {
       try {
         this.isProcessing = true;
 
-        const deviceListResp = await sender.DeviceList(search, page, limit);
+        const deviceListResp = await sender.DeviceList(search, page, limit, deleteId);
         this.deviceListData = deviceListResp.rows;
         this.totalCount = deviceListResp?.count;
         console.log(deviceListResp)
@@ -159,11 +159,10 @@ export default {
     async changePage(page) {
       if (page >= 1 && page <= this.totalPages) {
         this.currentPage = page;
-        await this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage);
+        await this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage, 0);
       }
     },
-    async removeDevice(deviceId) {
-      console.log(deviceId)
+    async removeDevice(deleteId) {
       let ret = await sender.showMessageBox(
         {
           type: "warning",
@@ -176,6 +175,9 @@ export default {
       if (ret.response == 1) return; // cancel
       if (ret.response == 0) {
         // Call action for delete
+        console.log("delete")
+        // deleteId
+        await this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage, deleteId);
 
       }
 

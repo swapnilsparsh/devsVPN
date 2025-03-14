@@ -1026,12 +1026,13 @@ async function ProfileData() {
   return profileData;
 }
 
-async function DeviceList(Search, Page, Limit) {
+async function DeviceList(Search, Page, Limit, DeleteId) {
   let resp = await sendRecv({
     Command: daemonRequests.DeviceList,
     Search: Search,
     Page: Page,
-    limit: Limit
+    Limit: Limit,
+    DeleteId: DeleteId,
   });
   const deviceList = resp.RawResponse.data;
   store.commit(`account/deviceList`, deviceList);

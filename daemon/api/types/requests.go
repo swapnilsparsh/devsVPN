@@ -64,6 +64,7 @@ type DeviceListRequest struct {
 	Search string `json:"search,omitempty"`
 	Page   int    `json:"page,omitempty"`
 	Limit  int    `json:"limit,omitempty"`
+	DeleteId  int    `json:"deleteId,omitempty"`
 }
 
 func (req DeviceListRequest) GetSessionToken() string {
