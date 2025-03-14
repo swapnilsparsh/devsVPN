@@ -119,12 +119,16 @@ func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nfta
 	input = nftConn.AddChain(input)
 	output = nftConn.AddChain(output)
 
+	// if err := nftConn.Flush(); err != nil { // creating INPUT, OUTPUT chains with non-default priority -99, so try on best-effort
+	// 	log.ErrorFE("createTableAndChains - error nft flush 1: %w", err) // and continue
+	// }
+
 	// Create VPN coexistence chains
 	vpnCoexistenceChainIn = nftConn.AddChain(vpnCoexistenceChainIn)
 	vpnCoexistenceChainOut = nftConn.AddChain(vpnCoexistenceChainOut)
 
 	// if err := nftConn.Flush(); err != nil { // Apply the above (commands are queued till a call to Flush())
-	// 	return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 1: %w", err)
+	// 	return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 2: %w", err)
 	// }
 
 	// // get INPUT, OUTPUT rulesets - to be able to insert our jump rules on top
@@ -169,7 +173,7 @@ func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nfta
 	nftConn.InsertRule(&jumpOutRule)
 
 	if err := nftConn.Flush(); err != nil { // Apply the above (commands are queued till a call to Flush())
-		return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 2: %w", err)
+		return nil, nil, nil, log.ErrorFE("createTableAndChains - error nft flush 3: %w", err)
 	}
 
 	return filter, vpnCoexistenceChainIn, vpnCoexistenceChainOut, nil

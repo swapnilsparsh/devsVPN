@@ -106,7 +106,7 @@ func EnableCoexistenceWithOtherVpns(prefs preferences.Preferences) (retErr error
 			for _, vpnEntryHost := range prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {
 				// so far we only know NordVPN, so add our Wireguard gateways to the other VPN's allowlist
 
-				plWgEntryHostIpCIDR := vpnEntryHost.EndpointIP + "/32" // add endpoint IP to allowlist
+				plWgEntryHostIpCIDR := vpnEntryHost.EndpointIP + "/32" // add Wireguard endpoint IP to allowlist
 				cmdAddOurWgEndpointToOtherVpnAllowlist := append(otherVpn.cliCmds.cmdAddAllowlistOption, plWgEntryHostIpCIDR)
 				if err = tryCmdLogOnError(otherVpnCliPath, cmdAddOurWgEndpointToOtherVpnAllowlist...); err != nil {
 					retErr = err
@@ -115,18 +115,19 @@ func EnableCoexistenceWithOtherVpns(prefs preferences.Preferences) (retErr error
 				otherVpnFullArgs := append(otherVpn.cliCmds.cmdRemoveAllowlistOption, plWgEntryHostIpCIDR) // ... and add a removal command to the undo list
 				otherVpnCommandsToUndo[plWgEntryHostIpCIDR] = &otherVpnUndoCompatCommand{cliPath: otherVpnCliPath, fullArgs: &otherVpnFullArgs}
 
-				// also add privateLINE private IP ranges to the other VPN's allowlist
-				for _, allowedIpRangeCIDR := range strings.Split(vpnEntryHost.AllowedIPs, ",") { // CIDR format like "10.0.0.3/24"
-					allowedIpRangeCIDR = strings.TrimSpace(allowedIpRangeCIDR)
-					cmdAddPLAllowedIPsToOtherVpnAllowlist := append(otherVpn.cliCmds.cmdAddAllowlistOption, allowedIpRangeCIDR)
-					if err = tryCmdLogOnError(otherVpnCliPath, cmdAddPLAllowedIPsToOtherVpnAllowlist...); err != nil {
-						retErr = err
-					}
+				// TODO: Vlad - apparently private IP ranges not needed, only WG endpoint needed
+				// // also add privateLINE private IP ranges to the other VPN's allowlist
+				// for _, allowedIpRangeCIDR := range strings.Split(vpnEntryHost.AllowedIPs, ",") { // CIDR format like "10.0.0.3/24"
+				// 	allowedIpRangeCIDR = strings.TrimSpace(allowedIpRangeCIDR)
+				// 	cmdAddPLAllowedIPsToOtherVpnAllowlist := append(otherVpn.cliCmds.cmdAddAllowlistOption, allowedIpRangeCIDR)
+				// 	if err = tryCmdLogOnError(otherVpnCliPath, cmdAddPLAllowedIPsToOtherVpnAllowlist...); err != nil {
+				// 		retErr = err
+				// 	}
 
-					otherVpnFullArgs := append(otherVpn.cliCmds.cmdRemoveAllowlistOption, allowedIpRangeCIDR) // ... and add a removal command to the undo list
-					otherVpnCommandsToUndo[allowedIpRangeCIDR] = &otherVpnUndoCompatCommand{cliPath: otherVpnCliPath, fullArgs: &otherVpnFullArgs}
+				// 	otherVpnFullArgs := append(otherVpn.cliCmds.cmdRemoveAllowlistOption, allowedIpRangeCIDR) // ... and add a removal command to the undo list
+				// 	otherVpnCommandsToUndo[allowedIpRangeCIDR] = &otherVpnUndoCompatCommand{cliPath: otherVpnCliPath, fullArgs: &otherVpnFullArgs}
 
-				}
+				// }
 
 				otherVpnsToUndo[otherVpn.name] = &otherVpnCommandsToUndo // add this VPN to undo list
 			}
