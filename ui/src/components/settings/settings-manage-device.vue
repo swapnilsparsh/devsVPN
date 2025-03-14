@@ -10,7 +10,7 @@
           <input type="text" v-model="searchQuery" placeholder="Search" class="search-input" />
         </div>
 
-        <!-- Table -->
+        <!-- Table Start-->
         <div class="device-list">
           <table>
             <thead>
@@ -34,10 +34,10 @@
               <tr v-for="(device, index) in devicePageList" :key="device.device_id">
                 <td style="width: 30px;">{{ index + 1 + (currentPage - 1) * itemsPerPage }}</td>
                 <td>
-                  <span class="icon delete-icon" style="margin-right: 15px;">
-                    <img style="vertical-align: middle" src="@/assets/eye-open.svg" />
+                  <span class="icon view-icon" style="margin-right: 15px;">
+                    <img style="vertical-align: middle" src="@/assets/eye-open.svg" @click="viewDetails(device)" />
                   </span>
-                  <span class="icon view-icon" style="display: inline-block;" @click="removeDevice(device.id)">
+                  <span class="icon delete-icon" style="display: inline-block;" @click="removeDevice(device.id)">
                     <img style="vertical-align: middle" src="@/assets/delete.png" height="17" width="17" />
                   </span>
                 </td>
@@ -72,7 +72,52 @@
 
           <button @click="changePage(currentPage + 1)" :disabled="currentPage >= totalPages">»</button>
         </div>
+
+        <!-- Table End  -->
       </div>
+      <ComponentDialog ref="viewDeviceDetails" header="Device Details">
+        <div>
+          <div class="device-info">
+            <div class="section">
+              <p><strong>Device ID:</strong> {{this.showDetails?.device_id}}</p>
+              <p><strong>Device Name:</strong> {{this.showDetails?.device_name}}</p>
+              <!-- <p><strong>Type:</strong> {{this.showDetails?.type}}</p>
+              <p><strong>Device IP:</strong> {{this.showDetails?.device_ip}}</p>
+              <p><strong>Allocated IP:</strong> {{this.showDetails?.allocated_ip}}</p> -->
+            </div>
+            <div class="section">
+              <p><strong>Public Key:</strong></p>
+              <p class="code">{{this.showDetails?.public_key}}</p>
+              <p><strong>Interface Public Key:</strong></p>
+              <p class="code">{{this.showDetails?.interface_publickey}}</p>
+            </div>
+            <div class="section">
+              <p><strong>DNS:</strong> {{this.showDetails?.DNS}}</p>
+              <p><strong>Allowed IPs:</strong></p>
+              <p class="small-text">
+                {{this.showDetails?.allowedIPs}}
+              </p>
+              <p><strong>Endpoint:</strong> {{this.showDetails?.endpoint}}</p>
+            </div>
+            <div class="section">
+              <!-- <p><strong>Status:</strong> <span class="status active">{{this.showDetails?.status}}</span></p>
+              <p><strong>Created At:</strong> {{this.showDetails?.createdAt}}</p> -->
+              <p><strong>Current Endpoint Address:</strong> {{this.showDetails?.current_endpoint_address}}</p>
+              <!-- <p><strong>Active Tunnel:</strong> {{this.showDetails?.keep_alive}}</p> -->
+            </div>
+            <!-- <div class="section">
+              <p><strong>RX:</strong> {{this.showDetails?.rx}}</p>
+              <p><strong>TX:</strong> {{this.showDetails?.tx}}</p>
+              <p><strong>Handshake:</strong> {{this.showDetails?.handshake}}</p>
+            </div> -->
+
+            <!-- <div class="status-indicator">
+              <span>Connected:</span>
+              <div class="dot disconnected"></div>
+            </div> -->
+          </div>
+        </div>
+      </ComponentDialog>
     </div>
   </div>
 </template>
@@ -80,11 +125,13 @@
 <script>
 
 import ShimmerEffect from "../Shimmer";
+import ComponentDialog from "@/components/component-dialog.vue";
 const sender = window.ipcSender;
 
 export default {
   components: {
     ShimmerEffect,
+    ComponentDialog
   },
   data: function () {
     return {
@@ -94,7 +141,8 @@ export default {
       currentPage: 1,
       totalCount: 0,
       itemsPerPage: 10,
-      deviceListData: []
+      deviceListData: [],
+      showDetails: {}
     };
   },
   computed: {
@@ -181,6 +229,10 @@ export default {
 
       }
 
+    },
+    viewDetails(device) {
+      this.$refs.viewDeviceDetails.showModal()
+      this.showDetails = device;
     }
   },
   watch: {
@@ -311,5 +363,81 @@ export default {
 
 .search-input:focus {
   border-color: #ccc;
+}
+
+// ========= device info card =======
+.device-info {
+  background: inherit;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  width: 400px;
+}
+
+h2 {
+  text-align: center;
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.section {
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.section p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.code {
+  font-size: 12px;
+  background-color: #eee;
+  color: #333;
+  padding: 5px;
+  border-radius: 5px;
+  word-break: break-all;
+}
+
+.small-text {
+  font-size: 12px;
+  color: #666;
+}
+
+.status {
+  font-weight: bold;
+  padding: 3px 7px;
+  border-radius: 5px;
+}
+
+.status.active {
+  background-color: #28a745;
+  color: white;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.status-indicator span {
+  margin-right: 10px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.dot.connected {
+  background-color: green;
+}
+
+.dot.disconnected {
+  background-color: red;
 }
 </style>
