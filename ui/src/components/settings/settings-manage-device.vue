@@ -33,7 +33,14 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(device, index) in devicePageList" :key="device.device_id">
+              <tr v-if="isLoading">
+                <td colspan="12">
+                  <div class="shimmer-wrapper">
+                    <ShimmerEffect v-for="i in 5" :key="i" :width="'100%'" :height="'20px'" />
+                  </div>
+                </td>
+              </tr>
+              <tr v-else v-for="(device, index) in devicePageList" :key="device.device_id">
                 <td style="width: 30px;">{{ index + 1 + (currentPage - 1) * itemsPerPage }}</td>
                 <td>
                   <span class="icon view-icon" style="margin-right: 15px;">
@@ -146,6 +153,7 @@ export default {
       deviceListData: [],
       showDetails: {},
       debounceTimeout: null,
+      isDeviceListLoading: true
     };
   },
   computed: {
@@ -155,6 +163,9 @@ export default {
     totalPages() {
       return Math.ceil(this.totalCount / this.itemsPerPage);
     },
+    isLoading() {
+      return this.isDeviceListLoading
+    }
   },
   mounted() {
     this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage, 0);
@@ -163,8 +174,10 @@ export default {
     async deviceList(search = '', page = 1, limit = 10, deleteId = 0) {
       try {
         this.isProcessing = true;
+        this.isDeviceListLoading = true;
 
         const deviceListResp = await sender.DeviceList(search, page, limit, deleteId);
+        this.isDeviceListLoading = false;
         this.deviceListData = deviceListResp.rows;
         this.totalCount = deviceListResp?.count;
         console.log(deviceListResp)
@@ -450,5 +463,11 @@ h2 {
 
 .dot.disconnected {
   background-color: red;
+}
+.shimmer-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
 }
 </style>
