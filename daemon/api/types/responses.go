@@ -202,26 +202,29 @@ type DeviceListResponse struct {
 	Data    struct {
 		Count int `json:"count"`
 		Rows  []struct {
-			InternalID         int    `json:"id"`
-			UserID             int    `json:"userID"`
-			DeviceID           string `json:"device_id"`
-			DeviceName         string `json:"device_name"`
-			Type               string `json:"type"`
-			DeviceIP           string `json:"device_ip"`
-			AllocatedIP        string `json:"allocated_ip"`
-			PublicKey          string `json:"public_key"`
-			InterfacePublicKey string `json:"interface_publickey"`
-			DNS                string `json:"DNS"`
-			AllowedIPs         string `json:"allowedIPs"`
-			Endpoint           string `json:"endpoint"`
-			IsDeleted          int    `json:"is_deleted"`
-			CreatedAt          string `json:"createdAt"`
-			ActiveTunnel       string `json:"active_tunnel"`
-			RX                 string `json:"rx"`
-			TX                 string `json:"tx"`
-			IsConnected        int    `json:"isConnected"`
-			//			KeepAlive          string `json:"keep_alive"`				// null
-			//			Handshake          string `json:"handshake"`				// null
+			InternalID            int    `json:"id"`
+			UserID                int    `json:"userID"`
+			DeviceID              string `json:"device_id"`
+			MicrotekID            int    `json:"microtek_id"`
+			DeviceName            string `json:"device_name"`
+			Type                  string `json:"type"`
+			DeviceIP              string `json:"device_ip"`
+			AllocatedIP           string `json:"allocated_ip"`
+			PublicKey             string `json:"public_key"`
+			InterfacePublicKey    string `json:"interface_publickey"`
+			DNS                   string `json:"DNS"`
+			AllowedIPs            string `json:"allowedIPs"`
+			Endpoint              string `json:"endpoint"`
+			IsDeleted             int    `json:"is_deleted"`
+			Status                int    `json:"status"`
+			KeepAlive             int    `json:"keep_alive"`
+			CreatedAt             string `json:"createdAt"`
+			CurrentEndpointAddr   string `json:"current_endpoint_address"`
+			ActiveTunnel          string `json:"active_tunnel"`
+			RX                    string `json:"rx"`
+			TX                    string `json:"tx"`
+			IsConnected           int    `json:"isConnected"`
+			Handshake             string `json:"handshake"`
 		} `json:"rows"`
 	} `json:"data"`
 

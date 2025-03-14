@@ -4,8 +4,6 @@
       <div class="flexRow">
         <div class="settingsTitle">Manage Device</div>
       </div>
-
-      <!-- =================== Manage device start =================== -->
       <div class="device-limit-container">
         <!-- Search Input -->
         <div class="search-container">
@@ -23,7 +21,7 @@
                 <th>Device ID</th>
                 <th>Platform</th>
                 <th>Allocated IP</th>
-                <th>Tunnel Status</th>
+                <th class="status-width">Tunnel Status</th>
                 <th>Device Status</th>
                 <th>Configured On</th>
                 <th>Handshake</th>
@@ -45,22 +43,14 @@
                 </td>
                 <td class="device-name">{{ device.device_name }}</td>
                 <td>{{ device.device_id }}</td>
-                <td>{{ device.platform }}</td>
+                <td>{{ device.type }}</td>
                 <td>{{ device.allocated_ip }}</td>
-                <td><span class="status-shield">Shield</span></td>
-                <td class="device-name">{{ device.device_status || '-' }}</td>
-                <td class="device-name">{{ formatDate(device.configured_on) }}</td>
+                <td class="status-width"><span class="status-shield">Shield</span></td>
+                <td class="device-name">{{ device.isConnected ? "Connected" : '-' }}</td>
+                <td class="device-name">{{ formatDate(device.createdAt) }}</td>
                 <td class="device-name">{{ device.handshake }}</td>
-                <td class="device-name">{{ device.received_data }}</td>
-                <td class="device-name">{{ device.transformed_data }}</td>
-                <!-- <td>
-                  <span class="icon delete-icon" style="margin-right: 5px;">
-                    <img style="vertical-align: middle" src="@/assets/eye-open.svg" />
-                  </span>
-                  <span class="icon view-icon" style="display: inline-block; ">
-                    <img style="vertical-align: middle" src="@/assets/delete.png" height="17" width="17" />
-                  </span>
-                </td> -->
+                <td class="device-name">{{ convertBitsToReadable(device.rx) }}</td>
+                <td class="device-name">{{ convertBitsToReadable(device.tx) }}</td>
               </tr>
             </tbody>
           </table>
@@ -84,22 +74,13 @@
           <button @click="changePage(currentPage + 1)" :disabled="currentPage >= totalPages">»</button>
         </div>
       </div>
-      <!-- =================== Manage device end =================== -->
-
     </div>
-
   </div>
 </template>
 
 <script>
 import { dateDefaultFormat } from "@/helpers/helpers";
-import {
-  getDateInShortMonthFormat,
-  getDaysDifference,
-} from "../../helpers/renderer";
 import ShimmerEffect from "../Shimmer";
-
-import qrcode from "qrcode-generator";
 
 const sender = window.ipcSender;
 
@@ -122,42 +103,11 @@ export default {
       searchQuery: "",
       currentPage: 1,
       itemsPerPage: 10,
-      deviceListData: [
-        { device_name: "PL Connect - 9be4ae22", device_id: "2781a0a5ed652eb6926f", platform: "Linux", allocated_ip: "172.16.0.10/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-03-12", handshake: "7h:35m:38s", received_data: "632KB", transformed_data: "7MB" },
-        { device_name: "PL Connect - d2b17ec8", device_id: "3b2934ab137b36f59f9c", platform: "Windows", allocated_ip: "172.16.0.107/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-03-11", handshake: "8h:44m", received_data: "31MB", transformed_data: "153MB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        { device_name: "PL Connect - ffb09758", device_id: "96734c190dad42b4422", platform: "Windows", allocated_ip: "172.16.0.53/32", tunnel_status: "Shield", device_status: "-", configured_on: "2025-02-22", handshake: "9h:28m:13s", received_data: "568MB", transformed_data: "4GB" },
-        // Add more data...
-      ],
+      deviceListData: []
 
     };
   },
   computed: {
-    profileImage() {
-      const profile = this.$store.state.account.userDetails.profile;
-      return profile ? `https://api.privateline.io/uploads/${profile}` : "";
-    },
-    deviceListData() {
-      return this.$store.state.account.deviceList.rows || [];
-    },
 
     IsAccIdLogin: function () {
       let value = false;
@@ -192,10 +142,7 @@ export default {
     },
   },
   mounted() {
-    //this.accountStatusRequest();
-    this.profileData();
     this.deviceList();
-    this.getSubscriptionData();
     this.waitForSessionInfo();
   },
   methods: {
@@ -220,7 +167,9 @@ export default {
         this.apiDeviceListTimeout = setTimeout(() => {
           throw Error("Device List API Time Out");
         }, 10 * 1000);
-        await sender.DeviceList();
+        const deviceListResp = await sender.DeviceList();
+        console.log("Sandeep Device List :-", deviceListResp)
+        this.deviceListData = deviceListResp.rows;
       } catch (err) {
         console.log({ err });
         sender.showMessageBoxSync({
@@ -234,6 +183,22 @@ export default {
         clearTimeout(this.apiDeviceListTimeout);
         this.apiDeviceListTimeout = null;
       }
+    },
+
+    convertBitsToReadable(bit) {
+      const parsedBit = typeof bit === "string" ? parseFloat(bit) : bit;
+      if (isNaN(parsedBit) || parsedBit < 0) return "-";
+
+      const units = ["bps", "Kb", "Mb", "Gb", "Tb", "Pb", "Eb"];
+      let size = parsedBit;
+      let unitIndex = 0;
+
+      while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+      }
+
+      return `${size.toFixed(size < 10 ? 2 : 1)} ${units[unitIndex]}`;
     },
 
     formatDate(date) {
@@ -300,17 +265,13 @@ export default {
 
 }
 
-// .device-list tr:nth-child(even) {
-//   background-color: #f9f9f9;
-// }
-
 .status-shield {
-  // background-color: #28a745;
   color: #28a745;
-  // padding: 3px 10px;
-  // border-radius: 4px;
   font-size: 12px;
   font-weight: bold;
+}
+.status-width {
+  min-width: 100px;
 }
 
 .action-icons {
