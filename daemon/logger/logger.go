@@ -234,7 +234,7 @@ func (l *Logger) ErrorE(err error, callerStackOffset int) error {
 
 // ErrorE - Log args in errorf format, and return the created error object
 func (l *Logger) ErrorFE(format string, a ...any) error {
-	return l.ErrorE(fmt.Errorf(format, a...), 0)
+	return l.ErrorE(fmt.Errorf(format, a...), 1)
 }
 
 // ErrorTrace - Log error with trace
