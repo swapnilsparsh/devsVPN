@@ -37,7 +37,7 @@
                   <span class="icon delete-icon" style="margin-right: 15px;">
                     <img style="vertical-align: middle" src="@/assets/eye-open.svg" />
                   </span>
-                  <span class="icon view-icon" style="display: inline-block; ">
+                  <span class="icon view-icon" style="display: inline-block;" @click="removeDevice(device.device_id)">
                     <img style="vertical-align: middle" src="@/assets/delete.png" height="17" width="17" />
                   </span>
                 </td>
@@ -161,6 +161,24 @@ export default {
         this.currentPage = page;
         await this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage);
       }
+    },
+    async removeDevice(deviceId) {
+      console.log(deviceId)
+      let ret = await sender.showMessageBox(
+        {
+          type: "warning",
+          buttons: ["OK", "Cancel"],
+          message: "Are you sure? You want to remove this device",
+          detail: ``,
+        },
+        true
+      );
+      if (ret.response == 1) return; // cancel
+      if (ret.response == 0) {
+        // Call action for delete
+
+      }
+
     }
   },
   watch: {

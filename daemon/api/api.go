@@ -93,6 +93,7 @@ const (
 	_sessionStatusPath          = "/session/status"
 	_sessionDeletePath          = "/user/remove-device"
 	_deviceListPath             = "/user/device-list"
+	_removeDevicePath             = "//user/remove-device"
 	_profileDataPath            = "/user/profile"
 	_subscriptionDataPath       = "/user/check-subscription"
 	_migrateSsoUserPath         = "/user/migrate-sso-user"
