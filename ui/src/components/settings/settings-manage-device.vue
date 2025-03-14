@@ -109,24 +109,6 @@ export default {
   },
   computed: {
 
-    IsAccIdLogin: function () {
-      let value = false;
-      if (
-        this.IsSessionInfoReceived &&
-        this.$store.state.account != null &&
-        this.$store.state.account.session != null &&
-        this.$store.state.account.session.AccountID != null &&
-        this.$store.state.account.session.AccountID !== ""
-      ) {
-        const accountId = this.$store.state.account.session.AccountID;
-        // Check if accountId matches the pattern XXXX-XXXX-XXXX. Characters '0', 'O', 'I' are forbidden.
-        const accountIdPattern =
-          /^(a-)?([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$/;
-        value = accountIdPattern.test(accountId);
-      }
-      return value;
-    },
-
     filteredData() {
       return this.deviceListData.filter(device =>
         device.device_name.toLowerCase().includes(this.searchQuery.toLowerCase())
@@ -160,14 +142,14 @@ export default {
       else console.log("waitForSessionInfo() timed out");
     },
 
-    async deviceList() {
+    async deviceList(search = '', page = 1, limit = 10) {
       try {
         this.isProcessing = true;
 
         this.apiDeviceListTimeout = setTimeout(() => {
           throw Error("Device List API Time Out");
         }, 10 * 1000);
-        const deviceListResp = await sender.DeviceList();
+        const deviceListResp = await sender.DeviceList(search, page, limit);
         console.log("Sandeep Device List :-", deviceListResp)
         this.deviceListData = deviceListResp.rows;
       } catch (err) {
@@ -270,6 +252,7 @@ export default {
   font-size: 12px;
   font-weight: bold;
 }
+
 .status-width {
   min-width: 100px;
 }

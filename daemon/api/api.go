@@ -34,6 +34,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"strconv"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
@@ -568,7 +569,7 @@ func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string
 
 // CheckDeviceID - TODO: temporary implementation by checking our WG public key against the list
 func (a *API) CheckDeviceID(session, deviceWGPublicKey string) (deviceFound bool, err error) {
-	deviceList, err := a.DeviceList(session)
+	deviceList, err := a.DeviceList(session,"",1,10)
 	if err != nil {
 		return false, log.ErrorE(fmt.Errorf("failed to fetch device list: %w", err), 0)
 	}
@@ -671,10 +672,10 @@ func (a *API) SessionStatus(session string) (
 	return nil, &apiErr, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
 
-func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, err error) {
+func (a *API) DeviceList(session string, Search string, Page int, Limit int) (deviceList *types.DeviceListResponse, err error) {
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 	resp := &types.DeviceListResponse{}
-	if err := a.request(a.getApiHost(), _deviceListPath+"?search=&page=1&limit=100", "GET", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost(), _deviceListPath+"?search="+Search+ "&page=" + strconv.Itoa(Page) + "&limit=" + strconv.Itoa(Limit), "GET", "application/json", request, resp); err != nil {
 		return nil, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
@@ -733,7 +734,7 @@ func (a *API) SessionDelete(session string, deviceWGPublicKey string) error {
 	// lookup internal device ID by the device Wireguard public key
 	var deviceList *types.DeviceListResponse
 	var err error
-	if deviceList, err = a.DeviceList(session); err != nil {
+	if deviceList, err = a.DeviceList(session,"",1,10); err != nil {
 		return fmt.Errorf("error fetching device list: %w", err)
 	}
 

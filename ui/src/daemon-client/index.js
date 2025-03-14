@@ -979,7 +979,7 @@ async function Login(
   if (resp.APIStatus === API_SUCCESS) {
     commitSession(resp.Session);
     ProfileData();
-    DeviceList();
+    DeviceList('', 1, 10);
     SubscriptionData();
   }
 
@@ -1026,9 +1026,12 @@ async function ProfileData() {
   return profileData;
 }
 
-async function DeviceList() {
+async function DeviceList(Search, Page, Limit) {
   let resp = await sendRecv({
     Command: daemonRequests.DeviceList,
+    Search: Search,
+    Page: Page,
+    limit: Limit
   });
   const deviceList = resp.RawResponse.data;
   store.commit(`account/deviceList`, deviceList);

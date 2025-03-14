@@ -61,6 +61,14 @@ func (req SessionNewRequest) GetSessionToken() string {
 // SessionDeleteRequest request to delete session
 type DeviceListRequest struct {
 	SessionTokenStruct
+	Search string `json:"search,omitempty"`
+	Page   int    `json:"page,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
+}
+type ManageDeviceRequest struct {
+	Search string `json:"search,omitempty"`
+	Page   int    `json:"page,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
 }
 
 func (req DeviceListRequest) GetSessionToken() string {

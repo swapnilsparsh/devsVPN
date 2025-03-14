@@ -191,7 +191,7 @@ type Service interface {
 		rawResponse *api_types.ProfileDataResponse,
 		err error)
 
-	DeviceList() (
+	DeviceList(Search string, Page int, Limit int) (
 		apiCode int,
 		rawResponse *api_types.DeviceListResponse,
 		err error)
@@ -1170,14 +1170,16 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p.notifyClients(p.createHelloResponse())
 
 	case "DeviceList":
-		var req types.DeviceListRequest
+		var req types.ManageDeviceRequest
 		if err := json.Unmarshal(messageData, &req); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 			break
 		}
 
+		log.Debug("Sandeep device List:-", req);
+
 		var resp types.DeviceListResp
-		apiCode, rawResponse, err := p._service.DeviceList()
+		apiCode, rawResponse, err := p._service.DeviceList(req.Search,req.Page,req.Limit)
 
 		if err != nil {
 			if apiCode == 0 {
