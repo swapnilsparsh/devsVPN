@@ -28,7 +28,6 @@
 package firewall
 
 import (
-	"net"
 	"os/exec"
 	"sync"
 
@@ -181,7 +180,7 @@ func doDisableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 	return nil
 }
 
-func implOnChangeDnsLegacy(addr net.IP) (err error) {
+func implOnChangeDnsLegacy() (err error) {
 	if ipt == nil { // if iptables-legacy not present
 		return
 	}

@@ -81,7 +81,7 @@ func implInitializeNft() error {
 }
 
 func printNftTableFilter() {
-	// TODO FIXME: /usr/sbin/nft list table ip filter
+	// /usr/sbin/nft list table ip filter
 	outText, outErrText, exitCode, isBufferTooSmall, err := shell.ExecAndGetOutput(log, 32768, "", "/usr/sbin/nft", "list", "table", "ip", "filter")
 	// trim trailing newlines
 	outText = strings.TrimSuffix(outText, "\n")
@@ -804,11 +804,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	// Here we should restore all exceptions (all hosts which are allowed)
 	// return reApplyExceptions() // TODO FIXME: Vlad - refactor
 
-	// Fork the task to check that we have top firewall priority and to keep on re-grabbing it as needed. Must be a single instance.
-	// By now we have a lock on implFirewallBackgroundMonitorNftMutex
-	//go implFirewallBackgroundMonitorNft() // TODO FIXME: Vlad - disabled here
-
-	go onKillSwitchStateChangedCallback() // signal firewall status to UI
+	go onKillSwitchStateChangedCallback() // signal firewall status to UI; TODO FIXME: Vlad - rework
 
 	return err
 }
@@ -1035,7 +1031,7 @@ func doDisableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	return nil
 }
 
-func implOnChangeDnsNft(addr net.IP) (err error) { // just add the new DNS srv to privateLINE_DNS set
+func implOnChangeDnsNft() (err error) { // just add the new DNS srv to privateLINE_DNS set
 	fwLinuxNftablesMutex.Lock()
 	defer fwLinuxNftablesMutex.Unlock()
 

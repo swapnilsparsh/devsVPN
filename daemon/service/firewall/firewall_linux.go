@@ -266,14 +266,14 @@ func implOnChangeDNS(addr net.IP) (err error) {
 	}
 
 	var (
-		implInitializeWaiter sync.WaitGroup
-		errNft, errLegacy    error
+		implOnChangeDNSWaiter sync.WaitGroup
+		errNft, errLegacy     error
 	)
 
-	implInitializeWaiter.Add(2) // launch legacy before nft, it's expected to be slower
-	go func() { errLegacy = implOnChangeDnsLegacy(addr); implInitializeWaiter.Done() }()
-	go func() { errNft = implOnChangeDnsNft(addr); implInitializeWaiter.Done() }()
-	implInitializeWaiter.Wait()
+	implOnChangeDNSWaiter.Add(2) // launch legacy before nft, it's expected to be slower
+	go func() { errLegacy = implOnChangeDnsLegacy(); implOnChangeDNSWaiter.Done() }()
+	go func() { errNft = implOnChangeDnsNft(); implOnChangeDNSWaiter.Done() }()
+	implOnChangeDNSWaiter.Wait()
 
 	if errNft != nil {
 		return log.ErrorFE("error: errNft='%w' errLegacy='%w'", errNft, errLegacy)
