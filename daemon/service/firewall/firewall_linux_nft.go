@@ -28,7 +28,6 @@
 package firewall
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -205,27 +204,27 @@ func implGetEnabledNft() (exists bool, retErr error) {
 		return false, nil
 	}
 
-	// Check that our chains exist
+	// // Check that our chains exist
 
-	var coexChainInFound, coexChainOutFound bool
-	chains, err := nftConn.ListChainsOfTableFamily(TABLE_TYPE)
-	if err != nil {
-		return false, log.ErrorFE("error listing chains: %w", err)
-	}
-	for _, chain := range chains {
-		if chain.Name == VPN_COEXISTENCE_CHAIN_IN {
-			coexChainInFound = true
-		} else if chain.Name == VPN_COEXISTENCE_CHAIN_OUT {
-			coexChainOutFound = true
-		}
-	}
+	// var coexChainInFound, coexChainOutFound bool
+	// chains, err := nftConn.ListChainsOfTableFamily(TABLE_TYPE)
+	// if err != nil {
+	// 	return false, log.ErrorFE("error listing chains: %w", err)
+	// }
+	// for _, chain := range chains {
+	// 	if chain.Name == VPN_COEXISTENCE_CHAIN_IN {
+	// 		coexChainInFound = true
+	// 	} else if chain.Name == VPN_COEXISTENCE_CHAIN_OUT {
+	// 		coexChainOutFound = true
+	// 	}
+	// }
 
-	if !coexChainInFound {
-		return false, log.ErrorE(errors.New("error - "+VPN_COEXISTENCE_CHAIN_IN+" chain not found in table "+filter.Name), 0)
-	}
-	if !coexChainOutFound {
-		return false, log.ErrorE(errors.New("error - "+VPN_COEXISTENCE_CHAIN_OUT+" chain not found in table "+filter.Name), 0)
-	}
+	// if !coexChainInFound {
+	// 	return false, log.ErrorE(errors.New("error - "+VPN_COEXISTENCE_CHAIN_IN+" chain not found in table "+filter.Name), 0)
+	// }
+	// if !coexChainOutFound {
+	// 	return false, log.ErrorE(errors.New("error - "+VPN_COEXISTENCE_CHAIN_OUT+" chain not found in table "+filter.Name), 0)
+	// }
 
 	// // TODO: Also check that helper script returns true - that cgroup exists, etc.
 	// if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "test"); err != nil {
