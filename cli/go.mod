@@ -25,6 +25,8 @@ require (
 	github.com/parsiya/golnk v0.0.0-20221103095132-740a4c27c4ff // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/singchia/go-hammer v0.0.2-0.20220516141917-9d83fc02d653 // indirect
+	github.com/singchia/go-xtables v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/vishvananda/netlink v1.3.0 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect

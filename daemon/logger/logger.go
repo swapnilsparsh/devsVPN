@@ -190,12 +190,20 @@ func (l *Logger) Info(v ...interface{}) {
 	_info(l.pref, v...)
 }
 
+func (l *Logger) Infof(format string, v ...interface{}) {
+	l.Info(fmt.Sprintf(format, v...))
+}
+
 // Debug - Log Debug message
 func (l *Logger) Debug(v ...interface{}) {
 	if l.isDisabled {
 		return
 	}
 	_debug(l.pref, v...)
+}
+
+func (l *Logger) Debugf(format string, v ...interface{}) {
+	l.Debug(fmt.Sprintf(format, v...))
 }
 
 // Warning - Log Warning message
@@ -206,6 +214,13 @@ func (l *Logger) Warning(v ...interface{}) {
 	_warning(l.pref, v...)
 }
 
+func (l *Logger) Warn(v ...interface{}) {
+	l.Warning(v...)
+}
+func (l *Logger) Warnf(format string, v ...interface{}) {
+	l.Warning(fmt.Sprintf(format, v...))
+}
+
 // Trace - Log Trace message
 func (l *Logger) Trace(v ...interface{}) {
 	if l.isDisabled {
@@ -214,12 +229,20 @@ func (l *Logger) Trace(v ...interface{}) {
 	_trace(l.pref, v...)
 }
 
+func (l *Logger) Tracef(format string, v ...interface{}) {
+	l.Trace(fmt.Sprintf(format, v...))
+}
+
 // Error - Log Error message
 func (l *Logger) Error(v ...interface{}) {
 	if l.isDisabled {
 		return
 	}
 	_error(l.pref, 0, v...)
+}
+
+func (l *Logger) Errorf(format string, v ...interface{}) {
+	l.Error(fmt.Errorf(format, v...))
 }
 
 // ErrorE - Log Error and return same error object

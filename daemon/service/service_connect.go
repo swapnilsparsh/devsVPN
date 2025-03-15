@@ -723,22 +723,28 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		destinationIpAddresses = append(destinationIpAddresses, v2RayRemoteHost)
 	}
 
-	// if firewall background monitor is available on the platform - start it
-	if firewall.FirewallBackgroundMonitorAvailable() {
+	// if firewall background monitors are available on the platform - start them all in the background
+	for _, firewallBackgroundMonitor := range firewall.GetFirewallBackgroundMonitors() {
 		connectRoutinesWaiter.Add(1)
-		go func() {
-			log.Info("Firewall background monitor started")
+		go func(fbm *firewall.FirewallBackgroundMonitor) {
+			fbmName := helpers.GetFunctionName(fbm.MonitorFunc)
+			log.Info("Firewall background monitor '", fbmName, "' started")
+
 			defer func() {
-				if firewallBackgroundMonitorMutex := firewall.StopFirewallBackgroundMonitor(); firewallBackgroundMonitorMutex != nil {
-					firewallBackgroundMonitorMutex.Unlock()
+				// must check whether the monitor func is still running (it could've exited due to an error), else don't send to EndChan
+				if !fbm.MonitorEndMutex.TryLock() {
+					fbm.MonitorEndChan <- true // send MonitorFunc a stop signal
+					fbm.MonitorEndMutex.Lock() // wait for it to stop
 				}
-				log.Info("Firewall background monitor stopped")
+				fbm.MonitorEndMutex.Unlock() // release its mutex, to allow it to be restarted later
+
+				log.Info("Firewall background monitor '", fbmName, "' stopped")
 				connectRoutinesWaiter.Done()
 			}()
 
-			go firewall.FirewallBackgroundMonitor()
+			go fbm.MonitorFunc()
 			<-stopChannel // triggered when the stopChannel is closed
-		}()
+		}(firewallBackgroundMonitor)
 	}
 
 	// goroutine: process + forward VPN state change

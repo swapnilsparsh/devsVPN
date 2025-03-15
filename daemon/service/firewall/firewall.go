@@ -157,7 +157,7 @@ func ReEnable() error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implReEnable(false)
+	return implReEnable()
 }
 
 // CleanupRegistration will completely clean up firewall registation, all of its objects. To be used only during uninstallation.
@@ -258,7 +258,7 @@ func deployPostConnectionRulesAsync() {
 	if enabled, err := implGetEnabled(); err != nil {
 		log.Error(fmt.Errorf("status check error: %w", err))
 	} else if enabled {
-		implDeployPostConnectionRules(false)
+		implDeployPostConnectionRules()
 	}
 }
 
@@ -272,7 +272,7 @@ func DeployPostConnectionRules(async bool) (retErr error) {
 		mutex.Lock()
 		defer mutex.Unlock()
 
-		return implDeployPostConnectionRules(false)
+		return implDeployPostConnectionRules()
 	}
 }
 
@@ -501,16 +501,26 @@ func TryReregisterFirewallAtTopPriority(canStopOtherVpn bool) (err error) {
 	return err
 }
 
-func FirewallBackgroundMonitorAvailable() bool {
-	return implFirewallBackgroundMonitorAvailable()
+// procedure to stop a running monitor is:
+//
+//	if !MonitorEndMutex.TryLock() {
+//		MonitorEndChan <- true
+//		MonitorEndMutex.Lock()
+//	}
+//	MonitorEndMutex.Unlock()
+type FirewallBackgroundMonitorFunc func()
+type FirewallBackgroundMonitor struct {
+	MonitorFunc     FirewallBackgroundMonitorFunc
+	MonitorEndChan  chan bool
+	MonitorEndMutex *sync.Mutex
 }
 
-// FirewallBackgroundMonitor - caller should run it in a forked thread
-func FirewallBackgroundMonitor() (err error) {
-	return implFirewallBackgroundMonitor()
+// GetFirewallBackgroundMonitors  - caller should them all in forked threads
+func GetFirewallBackgroundMonitors() (monitors []*FirewallBackgroundMonitor) {
+	return implGetFirewallBackgroundMonitors()
 }
 
-// StopFirewallBackgroundMonitor returns the locked mutex of the FirewallBackgroundMonitor, caller must unlock it. Returns nil on error.
-func StopFirewallBackgroundMonitor() (mutex *sync.Mutex) {
-	return implStopFirewallBackgroundMonitor()
-}
+// // StopFirewallBackgroundMonitor returns the locked mutex of the FirewallBackgroundMonitor, caller must unlock it. Returns nil on error.
+// func StopFirewallBackgroundMonitor() (mutex *sync.Mutex) {
+// 	return implStopFirewallBackgroundMonitor()
+// }
