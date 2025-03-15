@@ -39,8 +39,7 @@ import (
 const (
 	ENOENT_ERRMSG = "no such file or directory"
 
-	VPN_COEXISTENCE_CHAIN_IN  = "privateline-vpn-coexistence-in"
-	VPN_COEXISTENCE_CHAIN_OUT = "privateline-vpn-coexistence-out"
+	VPN_COEXISTENCE_CHAIN_PREFIX = "privateline-vpn-coexistence"
 )
 
 var (

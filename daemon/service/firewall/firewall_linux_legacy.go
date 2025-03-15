@@ -36,6 +36,9 @@ import (
 
 const (
 	IPTABLES_LEGACY = "iptables-legacy"
+
+	VPN_COEXISTENCE_CHAIN_LEGACY_IN  = VPN_COEXISTENCE_CHAIN_PREFIX + "-legacy-in"
+	VPN_COEXISTENCE_CHAIN_LEGACY_OUT = VPN_COEXISTENCE_CHAIN_PREFIX + "-legacy-out"
 )
 
 var (

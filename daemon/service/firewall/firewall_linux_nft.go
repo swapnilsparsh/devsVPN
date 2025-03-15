@@ -48,6 +48,9 @@ const (
 	TABLE_TYPE = nftables.TableFamilyIPv4
 
 	PL_DNS_SET = "privateLINE_DNS"
+
+	VPN_COEXISTENCE_CHAIN_NFT_IN  = VPN_COEXISTENCE_CHAIN_PREFIX + "-nft-in"
+	VPN_COEXISTENCE_CHAIN_NFT_OUT = VPN_COEXISTENCE_CHAIN_PREFIX + "-nft-out"
 )
 
 var (
@@ -88,8 +91,8 @@ func createTableChainsObjects() (filter *nftables.Table,
 	return filter,
 		&nftables.Chain{Name: "INPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookInput, Priority: nftables.ChainPriorityFilter},
 		&nftables.Chain{Name: "OUTPUT", Table: filter, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookOutput, Priority: nftables.ChainPriorityFilter},
-		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_IN, Table: filter, Type: nftables.ChainTypeFilter},
-		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_OUT, Table: filter, Type: nftables.ChainTypeFilter}
+		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_NFT_IN, Table: filter, Type: nftables.ChainTypeFilter},
+		&nftables.Chain{Name: VPN_COEXISTENCE_CHAIN_NFT_OUT, Table: filter, Type: nftables.ChainTypeFilter}
 }
 
 func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nftables.Chain, vpnCoexistenceChainOut *nftables.Chain, err error) {
@@ -131,7 +134,7 @@ func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nfta
 		Exprs: []expr.Any{
 			&expr.Verdict{
 				Kind:  expr.VerdictJump,
-				Chain: VPN_COEXISTENCE_CHAIN_IN,
+				Chain: VPN_COEXISTENCE_CHAIN_NFT_IN,
 			},
 		},
 	}
@@ -146,7 +149,7 @@ func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nfta
 		Exprs: []expr.Any{
 			&expr.Verdict{
 				Kind:  expr.VerdictJump,
-				Chain: VPN_COEXISTENCE_CHAIN_OUT,
+				Chain: VPN_COEXISTENCE_CHAIN_NFT_OUT,
 			},
 		},
 	}
@@ -184,8 +187,8 @@ func implGetEnabledNft() (exists bool, retErr error) {
 	// check that the 0th rules in INPUT, OUTPUT are jumps to our chains
 	if len(inputRules) >= 1 {
 		verdict, _ := inputRules[0].Exprs[0].(*expr.Verdict)
-		if reflect.TypeOf(inputRules[0].Exprs[0]) != reflect.TypeFor[*expr.Verdict]() || verdict.Kind != expr.VerdictJump || verdict.Chain != VPN_COEXISTENCE_CHAIN_IN {
-			log.Debug("jump to our table " + VPN_COEXISTENCE_CHAIN_IN + " is not a 0th rule in INPUT")
+		if reflect.TypeOf(inputRules[0].Exprs[0]) != reflect.TypeFor[*expr.Verdict]() || verdict.Kind != expr.VerdictJump || verdict.Chain != VPN_COEXISTENCE_CHAIN_NFT_IN {
+			log.Debug("jump to our table " + VPN_COEXISTENCE_CHAIN_NFT_IN + " is not a 0th rule in INPUT")
 			return false, nil
 		}
 	} else {
@@ -195,8 +198,8 @@ func implGetEnabledNft() (exists bool, retErr error) {
 
 	if len(outputRules) >= 1 {
 		verdict, _ := outputRules[0].Exprs[0].(*expr.Verdict)
-		if reflect.TypeOf(outputRules[0].Exprs[0]) != reflect.TypeFor[*expr.Verdict]() || verdict.Kind != expr.VerdictJump || verdict.Chain != VPN_COEXISTENCE_CHAIN_OUT {
-			log.Debug("jump to our table " + VPN_COEXISTENCE_CHAIN_OUT + " is not a 0th rule in OUTPUT")
+		if reflect.TypeOf(outputRules[0].Exprs[0]) != reflect.TypeFor[*expr.Verdict]() || verdict.Kind != expr.VerdictJump || verdict.Chain != VPN_COEXISTENCE_CHAIN_NFT_OUT {
+			log.Debug("jump to our table " + VPN_COEXISTENCE_CHAIN_NFT_OUT + " is not a 0th rule in OUTPUT")
 			return false, nil
 		}
 	} else {
@@ -351,7 +354,7 @@ func implFirewallBackgroundMonitorNft() {
 					gotRule := change.Data.(*nftables.Rule)
 					verdict, _ := gotRule.Exprs[0].(*expr.Verdict)
 					if reflect.TypeOf(gotRule.Exprs[0]) == reflect.TypeFor[*expr.Verdict]() && verdict.Kind == expr.VerdictJump &&
-						(verdict.Chain == VPN_COEXISTENCE_CHAIN_IN || verdict.Chain == VPN_COEXISTENCE_CHAIN_OUT) {
+						(verdict.Chain == VPN_COEXISTENCE_CHAIN_NFT_IN || verdict.Chain == VPN_COEXISTENCE_CHAIN_NFT_OUT) {
 						if firewallReconfigured, err = implReregisterFirewallAtTopPriorityNft(); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
 						} else if firewallReconfigured {
@@ -364,8 +367,8 @@ func implFirewallBackgroundMonitorNft() {
 					switch gotChain.Name {
 					case "INPUT":
 					case "OUTPUT":
-					case VPN_COEXISTENCE_CHAIN_IN:
-					case VPN_COEXISTENCE_CHAIN_OUT:
+					case VPN_COEXISTENCE_CHAIN_NFT_IN:
+					case VPN_COEXISTENCE_CHAIN_NFT_OUT:
 						if firewallReconfigured, err = implReregisterFirewallAtTopPriorityNft(); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
 						} else if firewallReconfigured {
@@ -961,7 +964,7 @@ func doDisableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 			continue
 		}
 		verdict, _ := inRule.Exprs[0].(*expr.Verdict)
-		if verdict.Kind == expr.VerdictJump && verdict.Chain == VPN_COEXISTENCE_CHAIN_IN {
+		if verdict.Kind == expr.VerdictJump && verdict.Chain == VPN_COEXISTENCE_CHAIN_NFT_IN {
 			if err = nftConn.DelRule(inRule); err != nil {
 				log.Debug(fmt.Errorf("error deleting jump rule in input: %w", err))
 			}
@@ -974,7 +977,7 @@ func doDisableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 			continue
 		}
 		verdict, _ := outRule.Exprs[0].(*expr.Verdict)
-		if verdict.Kind == expr.VerdictJump && verdict.Chain == VPN_COEXISTENCE_CHAIN_OUT {
+		if verdict.Kind == expr.VerdictJump && verdict.Chain == VPN_COEXISTENCE_CHAIN_NFT_OUT {
 			if err = nftConn.DelRule(outRule); err != nil {
 				log.Debug(fmt.Errorf("error deleting jump rule in output: %w", err))
 			}
