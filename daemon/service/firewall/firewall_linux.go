@@ -43,6 +43,19 @@ const (
 	VPN_COEXISTENCE_CHAIN_OUT = "privateline-vpn-coexistence-out"
 )
 
+var (
+	// key: is a string representation of allowed IP
+	// value: true - if exception rule is persistent (persistent, means will stay available even client is disconnected)
+	allowedHosts   = make(map[string]bool)
+	allowedForICMP map[string]struct{} // IP addresses allowed for ICMP
+
+	curAllowedLanIPs          []string // IP addresses allowed for LAN
+	curStateAllowLAN          bool     // Allow LAN is enabled
+	curStateAllowLanMulticast bool     // Allow Multicast is enabled
+	curStateEnabled           bool     // Firewall is enabled
+	isPersistent              bool     // Firewall is persistent
+)
+
 func implInitialize() (err error) {
 	var (
 		implInitializeWaiter sync.WaitGroup
