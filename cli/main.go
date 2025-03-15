@@ -99,7 +99,7 @@ func main() {
 	addCommand(&commands.CmdDisconnect{})
 	addCommand(&commands.CmdConnectionControl{})
 	addCommand(&commands.CmdServers{})
-	addCommand(&commands.CmdFirewall{})
+	// addCommand(&commands.CmdFirewall{}) // TODO FIXME: Vlad - disable firewall commands for now
 	if cliplatform.IsSplitTunSupported() {
 		// Split tunnel functionality is currently only available on Windows
 		addCommand(&commands.SplitTun{})
