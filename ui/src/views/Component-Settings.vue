@@ -88,7 +88,7 @@
                   style="width: 18px; height: 18px"
                   src="@/assets/settings-whitelist.svg"
                 />
-                Manage Device
+                Manage Devices
               </button>
               <!-- <button
                 v-if="isLoggedIn"
