@@ -365,7 +365,9 @@ export default {
 }
 
 .pagination button.active {
-  background-color: #662d91;
+  background-color: inherit;
+  color: white;
+  border: 1px solid #662d91;
 }
 
 // Search 
