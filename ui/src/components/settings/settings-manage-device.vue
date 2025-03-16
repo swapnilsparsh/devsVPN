@@ -28,7 +28,7 @@
                 <th>Configured On</th>
                 <th>Handshake</th>
                 <th>Received Data</th>
-                <th class="device-name">Transformed Data</th>
+                <th class="device-name">Sent Data</th>
                 <!-- <th>Action</th> -->
               </tr>
             </thead>
