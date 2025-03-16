@@ -2,7 +2,7 @@
   <div class="flexColumn" style="justify-content: space-between; width: 100%">
     <div class="flexColumn">
       <div class="flexRow">
-        <div class="settingsTitle">Manage Device</div>
+        <div class="settingsTitle">Manage Devices</div>
       </div>
 
       <!-- Device List Start -->
@@ -28,7 +28,7 @@
                 <th>Configured On</th>
                 <th>Handshake</th>
                 <th>Received Data</th>
-                <th class="device-name">Transformed Data</th>
+                <th class="device-name">Sent Data</th>
                 <!-- <th>Action</th> -->
               </tr>
             </thead>
