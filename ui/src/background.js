@@ -878,8 +878,6 @@ function createSettingsWindow(viewName) {
 
   settingsWindow = createBrowserWindow(windowConfig);
 
-  console.log("ELECTRON_RENDERER_URL: ", process.env['ELECTRON_RENDERER_URL'])
-
   // Load the remote URL for development or the local html file for production.
   if (process.env['ELECTRON_RENDERER_URL']) {
     settingsWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + `#settings/${viewName}`)
