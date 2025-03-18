@@ -48,7 +48,7 @@
               v-model="accountID"
               class="styledBig"
               style="text-align: left"
-              placeholder="Account ID XXXX-XXXX-XXXX"
+              placeholder="XXXX-XXXX-XXXX"
               :type="'text'"
               @keyup="keyup($event)"
             />
@@ -103,7 +103,6 @@
         >
           Login
         </button>
-        <div style="height: 18px" />
         <!--
         <button v-if="!isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Account ID</button>
         <button v-if="isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Email And
@@ -725,7 +724,6 @@ video {
 .column {
   @extend .leftright_margins;
   width: 100%;
-  margin-bottom: 70px;
 }
 
 .centered {
