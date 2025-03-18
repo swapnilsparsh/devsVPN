@@ -373,7 +373,7 @@ export default {
   mounted() {
     //this.accountStatusRequest();
     this.profileData();
-    this.deviceList();
+    // this.deviceList();
     this.getSubscriptionData();
     this.waitForSessionInfo();
   },
@@ -487,28 +487,28 @@ export default {
       }
     },
 
-    async deviceList() {
-      try {
-        this.isProcessing = true;
+    // async deviceList() {
+    //   try {
+    //     this.isProcessing = true;
 
-        this.apiDeviceListTimeout = setTimeout(() => {
-          throw Error("Device List API Time Out");
-        }, 10 * 1000);
-        await sender.DeviceList();
-      } catch (err) {
-        console.log({ err });
-        sender.showMessageBoxSync({
-          type: "error",
-          buttons: ["OK"],
-          message: "API Error",
-          detail: `Device list couldn't be fetched at this moment, please check your internet connection!`,
-        });
-      } finally {
-        this.isProcessing = false;
-        clearTimeout(this.apiDeviceListTimeout);
-        this.apiDeviceListTimeout = null;
-      }
-    },
+    //     this.apiDeviceListTimeout = setTimeout(() => {
+    //       throw Error("Device List API Time Out");
+    //     }, 10 * 1000);
+    //     await sender.DeviceList();
+    //   } catch (err) {
+    //     console.log({ err });
+    //     sender.showMessageBoxSync({
+    //       type: "error",
+    //       buttons: ["OK"],
+    //       message: "API Error",
+    //       detail: `Device list couldn't be fetched at this moment, please check your internet connection!`,
+    //     });
+    //   } finally {
+    //     this.isProcessing = false;
+    //     clearTimeout(this.apiDeviceListTimeout);
+    //     this.apiDeviceListTimeout = null;
+    //   }
+    // },
 
     async getSubscriptionData() {
       try {

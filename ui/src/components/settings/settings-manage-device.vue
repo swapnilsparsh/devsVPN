@@ -177,18 +177,21 @@ export default {
         this.isDeviceListLoading = true;
 
         const deviceListResp = await sender.DeviceList(search, page, limit, deleteId);
+        console.log("Log UI:- ", deviceListResp)
         this.isDeviceListLoading = false;
         this.deviceListData = deviceListResp.rows;
         this.totalCount = deviceListResp?.count;
         console.log(deviceListResp)
       } catch (err) {
         console.log({ err });
-        sender.showMessageBoxSync({
+        sender.showMessageBox({
           type: "error",
           buttons: ["OK"],
           message: "API Error",
-          detail: `Device list couldn't be fetched at this moment, please check your internet connection!`,
+          detail: err?.split("=")[1].trim(),
         });
+        // Refresh list after
+        await this.deviceList(search, page, limit);
       } finally {
         this.isProcessing = false;
       }
