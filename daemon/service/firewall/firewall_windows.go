@@ -947,6 +947,16 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			}
 		}
 
+		// Also allow inbound UDP for PL internal hosts. Weight 15.
+		// If VPN is not yet connected - we may not know their current IPs yet, so here we are registering default cached IPs.
+		for _, plInternalHost := range *platform.PLInternalHostsToAcceptIncomingUdpFrom() {
+			filterDesc := fmt.Sprintf("IPv4 UDP: allow cached IP %s for internal remote hostname %s", plInternalHost.DefaultIpString, plInternalHost.Hostname)
+			if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPProto(providerKey, ipv4LayerIn, ourSublayerKey, filterDName, filterDesc,
+				plInternalHost.DefaultIP.To4(), net.IPv4bcast, windows.IPPROTO_UDP, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
+				return log.ErrorFE("failed to add filter '%s': %w", filterDesc, err)
+			}
+		}
+
 		// Block inbound forbidden ports: Microsoft, etc. Weight 14.
 		for _, portToBlock := range microsoftPortsToBlock {
 			filterDesc := fmt.Sprintf("IPv4: block local port %d", portToBlock)
@@ -1064,26 +1074,35 @@ func implDeployPostConnectionRules(_ bool) (retErr error) {
 	}()
 
 	// Allow our hosts (meet.privateline.network, etc.) in: UDP
-	for _, plHostname := range platform.PLInternalHostnamesToAcceptIncomingUdpFrom() {
+	for _, plInternalHost := range *platform.PLInternalHostsToAcceptIncomingUdpFrom() {
 		var (
 			IPs        []net.IP
 			filterDesc string
 			layersIn   []syscall.GUID
 		)
 
-		if IPs, retErr = net.LookupIP(plHostname); retErr != nil {
-			retErr = log.ErrorFE("could not lookup IPs for '%s': %w", plHostname, retErr)
+		if IPs, retErr = net.LookupIP(plInternalHost.Hostname); retErr != nil {
+			retErr = log.ErrorFE("could not lookup IPs for '%s': %w", plInternalHost.Hostname, retErr)
 			continue
 		}
 
 		for _, IP := range IPs {
 			if IP.To4() == nil { // IPv6
-				filterDesc = fmt.Sprintf("IPv6 UDP: allow remote hostname %s", plHostname)
+				if net.IPv6zero.Equal(IP) {
+					continue
+				}
+				filterDesc = fmt.Sprintf("IPv6 UDP: allow remote hostname %s", plInternalHost.Hostname)
 				layersIn = v6LayersIn
-			} else { // IPv4
-				filterDesc = fmt.Sprintf("IPv4 UDP: allow remote hostname %s", plHostname)
+			} else if !plInternalHost.DefaultIP.Equal(IP) { // IPv4, and it's a new IP, not the known cached one
+				if net.IPv4zero.Equal(IP) {
+					continue
+				}
+				filterDesc = fmt.Sprintf("IPv4 UDP: allow remote hostname %s", plInternalHost.Hostname)
 				layersIn = v4LayersIn
+			} else { // IP already registered, skip it
+				continue
 			}
+
 			log.Debug(fmt.Sprintf("post-connection: added filter '%s' with IP=%s", filterDesc, IP))
 			for _, layer := range layersIn {
 				if _, retErr = manager.AddFilter(winlib.NewFilterAllowRemoteIPProto(providerKey, layer, ourSublayerKey, filterDName, filterDesc,
@@ -1465,14 +1484,6 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 	return implHaveTopFirewallPriority(recursionDepth + 1)
 }
 
-func implFirewallBackgroundMonitorAvailable() bool {
-	return false
-}
-
-func implFirewallBackgroundMonitor() error {
-	return nil
-}
-
-func implStopFirewallBackgroundMonitor() *sync.Mutex {
-	return nil
+func implGetFirewallBackgroundMonitors() []*FirewallBackgroundMonitor {
+	return []*FirewallBackgroundMonitor{}
 }

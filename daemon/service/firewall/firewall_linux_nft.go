@@ -666,7 +666,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 
 	// Allow our hosts (meet.privateline.network, etc.) in: UDP
 	// Since we may not be connected to our VPN yet, use default cached IPs here
-	for _, plInternalHost := range platform.PLInternalHostsToAcceptIncomingUdpFrom() {
+	for _, plInternalHost := range *platform.PLInternalHostsToAcceptIncomingUdpFrom() {
 		plInternalHostIPv4 := &nftables.Set{
 			Name:    PL_INTERNAL_HOSTS_SET_PREFIX + plInternalHost.Hostname,
 			Table:   filter,
@@ -887,7 +887,7 @@ func implDeployPostConnectionRulesNft(fwLinuxNftablesMutexGrabbed bool) (retErr 
 	toFlush := false
 
 	// Allow our hosts (meet.privateline.network, etc.) in: UDP
-	for _, plInternalHost := range platform.PLInternalHostsToAcceptIncomingUdpFrom() {
+	for _, plInternalHost := range *platform.PLInternalHostsToAcceptIncomingUdpFrom() {
 		var (
 			IPs                   []net.IP
 			plInternalHostIPsIPv4 = &nftables.Set{
@@ -933,7 +933,7 @@ func implDeployPostConnectionRulesNft(fwLinuxNftablesMutexGrabbed bool) (retErr 
 		// ourSets = append(ourSets, ourHostIPsIPv6)
 
 		for _, IP := range IPs { // add newly found IPs for this hostname to set, unless they match the default known IP
-			if !plInternalHost.DefaultIP.Equal(IP) && IP.To4() != nil { // IPv4
+			if !plInternalHost.DefaultIP.Equal(IP) && IP.To4() != nil && !net.IPv4zero.Equal(IP) { // IPv4
 				log.Info("IPv4 UDP: allow remote hostname ", plInternalHost, " at ", IP.String())
 				if err := nftConn.SetAddElements(plInternalHostIPsIPv4, []nftables.SetElement{{Key: IP.To4()}}); err != nil {
 					return log.ErrorFE("enable - error adding IPv4 addr %s for '%s' to set: %w", IP.String(), plInternalHost, err)

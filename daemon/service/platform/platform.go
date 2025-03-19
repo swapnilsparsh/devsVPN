@@ -77,6 +77,10 @@ var (
 	dnscryptproxyConfigTemplate string
 	dnscryptproxyConfig         string
 	dnscryptproxyLog            string
+
+	plInternalHosts = []*helpers.HostnameAndIP{
+		{Hostname: "meet.privateline.network", DefaultIP: net.IPv4(10, 0, 5, 20), DefaultIpString: "10.0.5.20"},
+	}
 )
 
 func init() {
@@ -377,10 +381,8 @@ func PLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) 
 	return implPLOtherAppsToAcceptIncomingConnections()
 }
 
-func PLInternalHostsToAcceptIncomingUdpFrom() []*helpers.HostnameAndIP {
-	return []*helpers.HostnameAndIP{
-		{Hostname: "meet.privateline.network", DefaultIP: net.IPv4(10, 0, 5, 20), DefaultIpString: "10.0.5.20"},
-	}
+func PLInternalHostsToAcceptIncomingUdpFrom() *[]*helpers.HostnameAndIP {
+	return &plInternalHosts
 }
 
 func OsVersion() string {

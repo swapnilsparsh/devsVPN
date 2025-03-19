@@ -283,7 +283,7 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 
 	// Allow our hosts (meet.privateline.network, etc.) in: UDP
 	// Since we may not be connected to our VPN yet, use default cached IPs here
-	for _, plInternalHost := range platform.PLInternalHostsToAcceptIncomingUdpFrom() {
+	for _, plInternalHost := range *platform.PLInternalHostsToAcceptIncomingUdpFrom() {
 		if err = vpnCoexLegacyIn.MatchSource(false, plInternalHost.DefaultIpString).MatchProtocol(false, network.ProtocolUDP).TargetAccept().Append(); err != nil {
 			return log.ErrorFE("error add in UDP for internal host '%s' IP %s: %w", plInternalHost.Hostname, plInternalHost.DefaultIpString, err)
 		}
@@ -357,7 +357,7 @@ func implDeployPostConnectionRulesLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr
 
 	// Allow our hosts (meet.privateline.network, etc.) in: UDP
 	vpnCoexLegacyIn := filterLegacy.Chain(vpnCoexLegacyInDef)
-	for _, plInternalHost := range platform.PLInternalHostsToAcceptIncomingUdpFrom() {
+	for _, plInternalHost := range *platform.PLInternalHostsToAcceptIncomingUdpFrom() {
 		var IPs []net.IP
 		if IPs, retErr = net.LookupIP(plInternalHost.Hostname); retErr != nil {
 			retErr = log.ErrorFE("could not lookup IPs for '%s': %w", plInternalHost, retErr)
@@ -368,7 +368,7 @@ func implDeployPostConnectionRulesLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr
 		}
 
 		for _, IP := range IPs { // add newly found IPs for this hostname to set, unless they match the default known IP
-			if !plInternalHost.DefaultIP.Equal(IP) && IP.To4() != nil { // IPv4
+			if !plInternalHost.DefaultIP.Equal(IP) && IP.To4() != nil && !net.IPv4zero.Equal(IP) { // IPv4
 				if retErr = vpnCoexLegacyIn.MatchSource(false, IP).MatchProtocol(false, network.ProtocolUDP).TargetAccept().Append(); retErr != nil {
 					return log.ErrorFE("error add in UDP for internal host '%s' IP %s: %w", plInternalHost.Hostname, plInternalHost.DefaultIP, retErr)
 				}
