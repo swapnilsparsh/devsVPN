@@ -163,7 +163,7 @@ func ReEnable() error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implReEnable(false)
+	return implReEnable()
 }
 
 // CleanupRegistration will completely clean up firewall registation, all of its objects. To be used only during uninstallation.
@@ -264,7 +264,7 @@ func deployPostConnectionRulesAsync() {
 	if enabled, err := implGetEnabled(); err != nil {
 		log.Error(fmt.Errorf("status check error: %w", err))
 	} else if enabled {
-		implDeployPostConnectionRules(false)
+		implDeployPostConnectionRules()
 	}
 }
 
@@ -278,7 +278,7 @@ func DeployPostConnectionRules(async bool) (retErr error) {
 		mutex.Lock()
 		defer mutex.Unlock()
 
-		return implDeployPostConnectionRules(false)
+		return implDeployPostConnectionRules()
 	}
 }
 
