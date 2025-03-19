@@ -25,6 +25,7 @@ package platform
 import (
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -376,8 +377,10 @@ func PLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) 
 	return implPLOtherAppsToAcceptIncomingConnections()
 }
 
-func PLInternalHostnamesToAcceptIncomingUdpFrom() []string {
-	return []string{"meet.privateline.network"}
+func PLInternalHostsToAcceptIncomingUdpFrom() []*helpers.HostnameAndIP {
+	return []*helpers.HostnameAndIP{
+		{Hostname: "meet.privateline.network", DefaultIP: net.IPv4(10, 0, 5, 20), DefaultIpString: "10.0.5.20"},
+	}
 }
 
 func OsVersion() string {

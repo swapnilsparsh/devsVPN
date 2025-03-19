@@ -47,7 +47,8 @@ const (
 	TABLE      = "filter" // type IPv4
 	TABLE_TYPE = nftables.TableFamilyIPv4
 
-	PL_DNS_SET = "privateLINE_DNS"
+	PL_DNS_SET                   = "privateLINE_DNS"
+	PL_INTERNAL_HOSTS_SET_PREFIX = "privateLINE_allow_incoming_IPv4_UDP_for_"
 
 	VPN_COEXISTENCE_CHAIN_NFT_IN  = VPN_COEXISTENCE_CHAIN_PREFIX + "-nft-in"
 	VPN_COEXISTENCE_CHAIN_NFT_OUT = VPN_COEXISTENCE_CHAIN_PREFIX + "-nft-out"
@@ -170,7 +171,8 @@ func implHaveTopFirewallPriorityNft() (weHaveTopFirewallPriority bool, otherVpnI
 	return weHaveTopFirewallPriority, "", "", "", retErr
 }
 
-// implGetEnabledNft needs to be fast, as it's called for every nft firewall change event
+// implGetEnabledLegacy checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains.
+// It needs to be fast, as it's called for every nft firewall change event
 func implGetEnabledNft() (exists bool, retErr error) {
 	filter, input, output, _, _ := createTableChainsObjects()
 
@@ -410,7 +412,7 @@ func implReEnableNft(fwLinuxNftablesMutexGrabbed bool) (retErr error) {
 	log.Debug("implReEnableNftNft")
 
 	if err := doDisableNft(true); err != nil {
-		return log.ErrorFE("failed to disable nft firewall: %w", err)
+		log.ErrorFE("failed to disable nft firewall: %w", err) // and continue
 	}
 
 	if err := doEnableNft(true); err != nil {
@@ -449,9 +451,12 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 		return log.ErrorFE("error createTableAndChains: %w", err)
 	}
 
-	// create a set of Wireguard endpoint IPs, and a set of our DNS servers, incl. custom DNS
+	// create these sets:
+	// 	- a set of Wireguard endpoint IPs
+	//	- a set of external IPs for our REST API servers
+	// 	- a set of our DNS servers, incl. custom DNS
 	wgEndpointAddrsIPv4 := &nftables.Set{
-		Name:    "Wireguard_endpoint_IPv4_addrs",
+		Name:    "privateLINE_Wireguard_endpoint_IPv4_addrs",
 		Table:   filter,
 		KeyType: nftables.TypeIPAddr, // our keys are IPv4 addresses
 	}
@@ -459,6 +464,16 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 		return log.ErrorFE("enable - error creating nft set: %w", err)
 	}
 	ourSets = append(ourSets, wgEndpointAddrsIPv4)
+
+	// defaultRestApiAddrsIPv4 := &nftables.Set{
+	// 	Name:    "privateLINE_default_REST_API_IPv4_addrs",
+	// 	Table:   filter,
+	// 	KeyType: nftables.TypeIPAddr, // our keys are IPv4 addresses
+	// }
+	// if err := nftConn.AddSet(defaultRestApiAddrsIPv4, []nftables.SetElement{}); err != nil {
+	// 	return log.ErrorFE("enable - error creating nft set: %w", err)
+	// }
+	// ourSets = append(ourSets, defaultRestApiAddrsIPv4)
 
 	privatelineDnsAddrsIPv4 := &nftables.Set{
 		Name:    PL_DNS_SET,
@@ -483,8 +498,16 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	}
 
 	if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
-		nftConn.SetAddElements(privatelineDnsAddrsIPv4, []nftables.SetElement{{Key: customDNS.To4()}})
+		if err = nftConn.SetAddElements(privatelineDnsAddrsIPv4, []nftables.SetElement{{Key: customDNS.To4()}}); err != nil {
+			return log.ErrorFE("enable - error adding customDNS %s to set: %w", customDNS.String(), err)
+		}
 	}
+
+	// for _, restApiHost := range getRestApiHostsCallback() {
+	// 	if err = nftConn.SetAddElements(defaultRestApiAddrsIPv4, []nftables.SetElement{{Key: restApiHost.DefaultIP}}); err != nil {
+	// 		log.ErrorFE("enable - error adding restApiHost.DefaultIP to set: %w", err) // and continue
+	// 	}
+	// }
 
 	// create a set of TCP & UDP protocols
 	tcpAndUdp := &nftables.Set{
@@ -604,7 +627,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 		},
 	})
 
-	// TODO: Vlad - permit all apps in UDP, out TCP+UDP (any proto) with PL IP ranges by default, until we re-implement App Whitelist
+	// TODO: Vlad - permit all PL apps in UDP, out TCP+UDP (any proto) with PL IP ranges by default, until we re-implement App Whitelist
 	//	"related, established" will take care of TCP inbound packets
 	for _, vpnEntryHostParsed := range prefs.VpnEntryHostsParsed {
 		for _, allowedNet := range vpnEntryHostParsed.AllowedIPs {
@@ -641,6 +664,40 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 		}
 	}
 
+	// Allow our hosts (meet.privateline.network, etc.) in: UDP
+	// Since we may not be connected to our VPN yet, use default cached IPs here
+	for _, plInternalHost := range platform.PLInternalHostsToAcceptIncomingUdpFrom() {
+		plInternalHostIPv4 := &nftables.Set{
+			Name:    PL_INTERNAL_HOSTS_SET_PREFIX + plInternalHost.Hostname,
+			Table:   filter,
+			KeyType: nftables.TypeIPAddr, // set for IPv4 addresses
+			Dynamic: true,                // allow additions-deletions
+		}
+
+		if err := nftConn.AddSet(plInternalHostIPv4, []nftables.SetElement{{Key: plInternalHost.DefaultIP.To4()}}); err != nil {
+			return log.ErrorFE("implDeployPostConnectionRulesNft - error creating nft set: %w", err)
+		}
+		ourSets = append(ourSets, plInternalHostIPv4)
+
+		nftConn.AddRule(&nftables.Rule{ // allow IPv4 in UDP
+			Table: filter,
+			Chain: vpnCoexistenceChainIn,
+			Exprs: []expr.Any{
+				// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
+				&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4},
+				// [ lookup reg 1, ourHostIPsIPv4 set ]
+				&expr.Lookup{SourceRegister: 1, SetName: plInternalHostIPv4.Name, SetID: plInternalHostIPv4.ID},
+				// [ meta load l4proto => reg 2 ]
+				&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
+				// [ cmp eq reg 2 UDP ]
+				&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
+				&expr.Counter{},
+				//[ immediate reg 0 accept ]
+				&expr.Verdict{Kind: expr.VerdictAccept},
+			},
+		})
+	}
+
 	// allow PL service binaries in-out. Then we don't need to explicitly create allow rules for REST API servers, etc.
 	// also allow in-out for our other default allowed apps (PL Comms, etc.)
 	// 	TODO: permit PL Comms etc. only inbound UDP
@@ -673,7 +730,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	// }
 
 	// create rules for wgprivateline interface - even if it doesn't exist yet
-	wgprivateline := []byte("wgprivateline\x00")
+	wgprivateline := []byte(PL_WG_INTERFACE + "\x00")
 
 	// vpnCoexistenceChainInRules, err := nftConn.GetRules(filter, vpnCoexistenceChainIn)
 	// if err != nil {
@@ -825,14 +882,16 @@ func implDeployPostConnectionRulesNft(fwLinuxNftablesMutexGrabbed bool) (retErr 
 		return nil // our tables not up or VPN not connected/connecting, so skipping
 	}
 
-	filter, _, _, vpnCoexistenceChainIn, _ := createTableChainsObjects()
+	// filter, _, _, vpnCoexistenceChainIn, _ := createTableChainsObjects()
+	filter, _, _, _, _ := createTableChainsObjects()
+	toFlush := false
 
 	// Allow our hosts (meet.privateline.network, etc.) in: UDP
-	for _, plInternalHostname := range platform.PLInternalHostnamesToAcceptIncomingUdpFrom() {
+	for _, plInternalHost := range platform.PLInternalHostsToAcceptIncomingUdpFrom() {
 		var (
-			IPs            []net.IP
-			ourHostIPsIPv4 = &nftables.Set{
-				Name:    "privateLINE_allow_incoming_IPv4_UDP_for_" + plInternalHostname,
+			IPs                   []net.IP
+			plInternalHostIPsIPv4 = &nftables.Set{
+				Name:    PL_INTERNAL_HOSTS_SET_PREFIX + plInternalHost.Hostname,
 				Table:   filter,
 				KeyType: nftables.TypeIPAddr, // set for IPv4 addresses
 				Dynamic: true,                // allow additions-deletions
@@ -845,65 +904,68 @@ func implDeployPostConnectionRulesNft(fwLinuxNftablesMutexGrabbed bool) (retErr 
 			// }
 		)
 
-		// Check whether the set for a given hostname already exists - if so, assume the rules exist also
-		if existingSet, err := nftConn.GetSetByName(filter, ourHostIPsIPv4.Name); err != nil {
-			if !strings.Contains(err.Error(), ENOENT_ERRMSG) {
-				return log.ErrorFE("error nftConn.GetSetByName(filter, %s): %w", ourHostIPsIPv4.Name, err)
-			}
-		} else if existingSet != nil {
-			// log.Debug("set ", ourHostIPsIPv4.Name, " already exists, not adding new entries or rules")
-			continue
-		}
+		// TODO: Vlad - disabled this check, as we create the set in doEnableNft()
+		// // Check whether the set for a given hostname already exists - if so, assume the rules exist also
+		// if existingSet, err := nftConn.GetSetByName(filter, ourHostIPsIPv4.Name); err != nil {
+		// 	if !strings.Contains(err.Error(), ENOENT_ERRMSG) {
+		// 		return log.ErrorFE("error nftConn.GetSetByName(filter, %s): %w", ourHostIPsIPv4.Name, err)
+		// 	}
+		// } else if existingSet != nil {
+		// 	// log.Debug("set ", ourHostIPsIPv4.Name, " already exists, not adding new entries or rules")
+		// 	continue
+		// }
 
-		if IPs, retErr = net.LookupIP(plInternalHostname); retErr != nil {
-			retErr = log.ErrorFE("could not lookup IPs for '%s': %w", plInternalHostname, retErr)
+		if IPs, retErr = net.LookupIP(plInternalHost.Hostname); retErr != nil {
+			retErr = log.ErrorFE("could not lookup IPs for '%s': %w", plInternalHost, retErr)
 			continue
 		} else if len(IPs) == 0 {
-			retErr = log.ErrorFE("no IPs returned for '%s'", plInternalHostname)
+			retErr = log.ErrorFE("no IPs returned for '%s'", plInternalHost)
 			continue
 		}
 
-		if err := nftConn.AddSet(ourHostIPsIPv4, []nftables.SetElement{}); err != nil {
-			return log.ErrorFE("implDeployPostConnectionRulesNft - error creating nft set: %w", err)
+		if err := nftConn.AddSet(plInternalHostIPsIPv4, []nftables.SetElement{}); err != nil {
+			log.ErrorFE("implDeployPostConnectionRulesNft - error creating nft set: %w", err) // and continue
 		}
-		ourSets = append(ourSets, ourHostIPsIPv4)
+		// ourSets = append(ourSets, plInternalHostIPsIPv4)
 		// if err := nftConn.AddSet(ourHostIPsIPv6, []nftables.SetElement{}); err != nil {
 		// 	return log.ErrorFE("implDeployPostConnectionRulesNft - error creating nft set: %w", err)
 		// }
 		// ourSets = append(ourSets, ourHostIPsIPv6)
 
-		for _, IP := range IPs { // add IPs for this hostname to set
-			if IP.To4() != nil { // IPv4
-				log.Info("IPv4 UDP: allow remote hostname ", plInternalHostname, " at ", IP.String())
-				if err := nftConn.SetAddElements(ourHostIPsIPv4, []nftables.SetElement{{Key: IP.To4()}}); err != nil {
-					return log.ErrorFE("enable - error adding IPv4 addr %s for '%s' to set: %w", IP.String(), plInternalHostname, err)
+		for _, IP := range IPs { // add newly found IPs for this hostname to set, unless they match the default known IP
+			if !plInternalHost.DefaultIP.Equal(IP) && IP.To4() != nil { // IPv4
+				log.Info("IPv4 UDP: allow remote hostname ", plInternalHost, " at ", IP.String())
+				if err := nftConn.SetAddElements(plInternalHostIPsIPv4, []nftables.SetElement{{Key: IP.To4()}}); err != nil {
+					return log.ErrorFE("enable - error adding IPv4 addr %s for '%s' to set: %w", IP.String(), plInternalHost, err)
 				}
 				// } else { // IPv6
 				// log.Info("IPv6 UDP: allow remote hostname ", plInternalHostname, " at ", IP.String())
 				// 	if err := nftConn.SetAddElements(ourHostIPsIPv6, []nftables.SetElement{{Key: IP}}); err != nil {
 				//		return log.ErrorFE("enable - error adding IPv6 addr %s for '%s' to set: %w", IP.String(), plInternalHostname, err)
 				// 	}
+				toFlush = true
 			}
 		}
 
-		// in UDP
-		nftConn.InsertRule(&nftables.Rule{ // IPv4
-			Table: filter,
-			Chain: vpnCoexistenceChainIn,
-			Exprs: []expr.Any{
-				// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
-				&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4},
-				// [ lookup reg 1, ourHostIPsIPv4 set ]
-				&expr.Lookup{SourceRegister: 1, SetName: ourHostIPsIPv4.Name, SetID: ourHostIPsIPv4.ID},
-				// [ meta load l4proto => reg 2 ]
-				&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
-				// [ cmp eq reg 2 UDP ]
-				&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
-				&expr.Counter{},
-				//[ immediate reg 0 accept ]
-				&expr.Verdict{Kind: expr.VerdictAccept},
-			},
-		})
+		// TODO: Vlad - no need to create rules here, we already created accept rule(s) in doEnableNft()
+		// // in UDP
+		// nftConn.InsertRule(&nftables.Rule{ // IPv4
+		// 	Table: filter,
+		// 	Chain: vpnCoexistenceChainIn,
+		// 	Exprs: []expr.Any{
+		// 		// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
+		// 		&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4},
+		// 		// [ lookup reg 1, ourHostIPsIPv4 set ]
+		// 		&expr.Lookup{SourceRegister: 1, SetName: plInternalHostIPsIPv4.Name, SetID: plInternalHostIPsIPv4.ID},
+		// 		// [ meta load l4proto => reg 2 ]
+		// 		&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
+		// 		// [ cmp eq reg 2 UDP ]
+		// 		&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
+		// 		&expr.Counter{},
+		// 		//[ immediate reg 0 accept ]
+		// 		&expr.Verdict{Kind: expr.VerdictAccept},
+		// 	},
+		// })
 		// nftConn.InsertRule(&nftables.Rule{ // IPv6
 		// 	Table: filter,
 		// 	Chain: vpnCoexistenceChainIn,
@@ -923,8 +985,10 @@ func implDeployPostConnectionRulesNft(fwLinuxNftablesMutexGrabbed bool) (retErr 
 		// })
 	}
 
-	if err := nftConn.Flush(); err != nil {
-		return log.ErrorFE("implDeployPostConnectionRulesNft - error: %w", err)
+	if toFlush {
+		if err := nftConn.Flush(); err != nil {
+			return log.ErrorFE("implDeployPostConnectionRulesNft - error: %w", err)
+		}
 	}
 
 	return retErr
@@ -1022,7 +1086,7 @@ func doDisableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	return nil
 }
 
-func implOnChangeDnsNft() (err error) { // just add the new DNS srv to privateLINE_DNS set
+func implOnChangeDnsNft() (err error) { // by now we know customDNS is non-null; just add it to privateLINE_DNS set
 	fwLinuxNftablesMutex.Lock()
 	defer fwLinuxNftablesMutex.Unlock()
 

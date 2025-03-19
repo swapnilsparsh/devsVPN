@@ -246,7 +246,7 @@ func (s *Service) init() error {
 	}
 
 	// initialize firewall functionality
-	if err := firewall.Initialize(s.Preferences, s._evtReceiver.OnKillSwitchStateChanged, s.Connected); err != nil {
+	if err := firewall.Initialize(s.Preferences, s._evtReceiver.OnKillSwitchStateChanged, s.Connected, s._api.GetRestApiHosts); err != nil {
 		return fmt.Errorf("firewall initialization error : %w", err)
 	}
 

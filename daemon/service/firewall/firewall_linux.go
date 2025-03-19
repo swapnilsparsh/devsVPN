@@ -40,6 +40,8 @@ const (
 	ENOENT_ERRMSG = "no such file or directory"
 
 	VPN_COEXISTENCE_CHAIN_PREFIX = "privateline-vpn-coexistence"
+
+	PL_WG_INTERFACE = "wgprivateline"
 )
 
 var (

@@ -30,6 +30,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
@@ -40,6 +41,7 @@ var log *logger.Logger
 type GetPrefsCallback func() preferences.Preferences
 type OnKillSwitchStateChangedCallback func()
 type VpnConnectedCallback func() bool
+type GetRestApiHostsCallback func() (restApiHosts []*helpers.HostnameAndIP)
 
 func init() {
 	log = logger.NewLogger("frwl")
@@ -69,6 +71,7 @@ var (
 	getPrefsCallback                 GetPrefsCallback
 	onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback
 	vpnConnectedCallback             VpnConnectedCallback
+	getRestApiHostsCallback          GetRestApiHostsCallback
 )
 
 type FirewallError struct {
@@ -101,14 +104,17 @@ func (fe *FirewallError) OtherVpnUnknownToUs() bool {
 
 // Initialize is doing initialization stuff
 // Must be called on application start
-func Initialize(prefsCallback GetPrefsCallback, killSwitchStateChangedCallback OnKillSwitchStateChangedCallback, _vpnConnectedCallback VpnConnectedCallback) error {
+func Initialize(_getPrefsCallback GetPrefsCallback,
+	_onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback,
+	_vpnConnectedCallback VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	onKillSwitchStateChangedCallback = killSwitchStateChangedCallback
-	getPrefsCallback = prefsCallback
+	onKillSwitchStateChangedCallback = _onKillSwitchStateChangedCallback
+	getPrefsCallback = _getPrefsCallback
 	totalShieldEnabled = !getPrefsCallback().IsSplitTunnel
 	vpnConnectedCallback = _vpnConnectedCallback
+	getRestApiHostsCallback = _getRestApiHostsCallback
 
 	return implInitialize()
 }
