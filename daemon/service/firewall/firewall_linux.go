@@ -39,7 +39,7 @@ import (
 const (
 	ENOENT_ERRMSG = "no such file or directory"
 
-	VPN_COEXISTENCE_CHAIN_PREFIX = "privateline-vpn-coexistence"
+	VPN_COEXISTENCE_CHAIN_PREFIX = "privateline-vpnco" // full chain name has to be under 29 chars w/ iptables-legacy
 
 	PL_WG_INTERFACE = "wgprivateline"
 )
@@ -55,6 +55,8 @@ var (
 	curStateAllowLanMulticast bool     // Allow Multicast is enabled
 	curStateEnabled           bool     // Firewall is enabled
 	isPersistent              bool     // Firewall is persistent
+
+	waitForTopFirewallPriAfterWeLostItMutex sync.Mutex
 )
 
 func implInitialize() (err error) {
@@ -149,7 +151,7 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfig
 		return false, log.ErrorFE("error: errLegacy='%w'", errLegacy)
 	}
 
-	return firewallReconfiguredNft && firewallReconfiguredLegacy, nil
+	return firewallReconfiguredNft || firewallReconfiguredLegacy, nil
 }
 
 func implGetFirewallBackgroundMonitors() (monitors []*FirewallBackgroundMonitor) {
@@ -164,6 +166,31 @@ func implGetFirewallBackgroundMonitors() (monitors []*FirewallBackgroundMonitor)
 	}
 
 	return monitors
+}
+
+// waitForTopFirewallPriAfterWeLostIt is called after we lost top firewall pri. It'll notify clients about the loss, and will keep on checking top-pri every 5s
+// - until we either regain top-pri, or VPN connection gets stopped.
+func waitForTopFirewallPriAfterWeLostIt() {
+	waitForTopFirewallPriAfterWeLostItMutex.Lock() // single instance
+	defer waitForTopFirewallPriAfterWeLostItMutex.Unlock()
+
+	log.Debug("waitForTopFirewallPriAfterWeLostIt entered")
+	defer log.Debug("waitForTopFirewallPriAfterWeLostIt exited")
+
+	go onKillSwitchStateChangedCallback() // initial notification out
+
+	for vpnConnectedCallback() { // if VPN is no longer connected - terminate this waiting loop
+		time.Sleep(time.Second * 5)
+
+		if weHaveTopFirewallPriority, err := implGetEnabled(); err != nil {
+			log.ErrorFE("error in implGetEnabled(): %w", err)
+			break
+		} else if weHaveTopFirewallPriority {
+			break
+		}
+	}
+
+	go onKillSwitchStateChangedCallback() // final notification out
 }
 
 func implReEnable() (retErr error) {
@@ -272,6 +299,11 @@ func implOnChangeDNS(addr net.IP) (err error) {
 	}
 
 	customDNS = addr
+
+	// if the customDNS matches one of stock DNS servers for our Wireguard config(s), no need to add new firewall rules or nft set entries
+	if getPrefsCallback().AllDnsServersIPv4Set.Contains(customDNS.String()) {
+		return nil
+	}
 
 	if enabled, err := implGetEnabled(); err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)

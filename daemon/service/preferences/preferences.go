@@ -35,6 +35,7 @@ import (
 
 	"os"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/obfsproxy"
@@ -133,6 +134,7 @@ type Preferences struct {
 
 	LastConnectionParams service_types.ConnectionParams
 	VpnEntryHostsParsed  []*VpnEntryHostParsed
+	AllDnsServersIPv4Set mapset.Set[string]
 
 	WiFiControl WiFiParams
 }
@@ -156,6 +158,7 @@ func Create() *Preferences {
 // ParseVpnEntryHosts - parse endpoint(s) information once per change, to be reused many times in firewall_windows.go
 func (p *Preferences) ParseVpnEntryHosts() {
 	p.VpnEntryHostsParsed = make([]*VpnEntryHostParsed, len(p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts))
+	p.AllDnsServersIPv4Set = mapset.NewSet[string]()
 
 	for idx, vpnEntryHost := range p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {
 		var vpnEntryHostParsed VpnEntryHostParsed
@@ -164,7 +167,9 @@ func (p *Preferences) ParseVpnEntryHosts() {
 
 		vpnEntryHostParsed.DnsServersIPv4 = make([]net.IP, 0, 2)
 		for _, dnsSrv := range strings.Split(vpnEntryHost.DnsServers, ",") {
-			vpnEntryHostParsed.DnsServersIPv4 = append(vpnEntryHostParsed.DnsServersIPv4, net.ParseIP(strings.TrimSpace(dnsSrv)).To4())
+			trimmedDnsSrv := strings.TrimSpace(dnsSrv)
+			vpnEntryHostParsed.DnsServersIPv4 = append(vpnEntryHostParsed.DnsServersIPv4, net.ParseIP(trimmedDnsSrv).To4())
+			p.AllDnsServersIPv4Set.Add(trimmedDnsSrv)
 		}
 
 		vpnEntryHostParsed.AllowedIPs = make([]IPAndNetmask, 0, 6)

@@ -1762,6 +1762,15 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	// 	}
 	// }
 
+	// enable the firewall, need VPN coexistence logic up - otherwise, if another VPN is already running, our REST API request may not go through
+	if firewallEnabled, err := s.FirewallEnabled(); err != nil {
+		return 0, "", preferences.AccountStatus{}, "", log.ErrorFE("error FirewallEnabled: %w", err)
+	} else if !firewallEnabled {
+		if err := s.ReEnableKillSwitch(); err != nil {
+			return 0, "", preferences.AccountStatus{}, "", log.ErrorFE("error ReEnableKillSwitch: %w", err)
+		}
+	}
+
 	log.Info("Logging in...")
 	defer func() {
 		if err != nil {

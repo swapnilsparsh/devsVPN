@@ -171,7 +171,7 @@ func implHaveTopFirewallPriorityNft() (weHaveTopFirewallPriority bool, otherVpnI
 	return weHaveTopFirewallPriority, "", "", "", retErr
 }
 
-// implGetEnabledLegacy checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains.
+// implGetEnabledNft checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains.
 // It needs to be fast, as it's called for every nft firewall change event
 func implGetEnabledNft() (exists bool, retErr error) {
 	filter, input, output, _, _ := createTableChainsObjects()
@@ -268,7 +268,7 @@ func implReregisterFirewallAtTopPriorityNft() (firewallReconfigured bool, retErr
 	}
 
 	// signal loss of top firewall priority to UI
-	go onKillSwitchStateChangedCallback()
+	go waitForTopFirewallPriAfterWeLostIt()
 
 	log.Debug("implReregisterFirewallAtTopPriorityNft - don't have top pri, need to reenable firewall")
 
@@ -276,6 +276,7 @@ func implReregisterFirewallAtTopPriorityNft() (firewallReconfigured bool, retErr
 		return true, log.ErrorFE("error in implReEnableNft: %w", err)
 	}
 
+	go onKillSwitchStateChangedCallback()      // send notification out in case state went from FAIL to GOOD
 	go implDeployPostConnectionRulesNft(false) // forking in the background, as otherwise DNS timeouts are up to ~15 sec, they freeze UI changes
 
 	return true, nil
@@ -314,7 +315,7 @@ func implFirewallBackgroundMonitorNft() {
 			}
 			runEnableCoexistenceWithOtherVpns = false
 
-			go onKillSwitchStateChangedCallback() // signal firewall status to UI
+			// go onKillSwitchStateChangedCallback() // signal firewall status to UI
 		}
 
 		select {
@@ -409,7 +410,7 @@ func implReEnableNft(fwLinuxNftablesMutexGrabbed bool) (retErr error) {
 		defer fwLinuxNftablesMutex.Unlock()
 	}
 
-	log.Debug("implReEnableNftNft")
+	log.Debug("implReEnableNft")
 
 	if err := doDisableNft(true); err != nil {
 		log.ErrorFE("failed to disable nft firewall: %w", err) // and continue
@@ -852,7 +853,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	// Here we should restore all exceptions (all hosts which are allowed)
 	// return reApplyExceptions() // TODO FIXME: Vlad - refactor
 
-	go onKillSwitchStateChangedCallback() // signal firewall status to UI; TODO FIXME: Vlad - rework
+	// go onKillSwitchStateChangedCallback() // signal firewall status to UI
 
 	return err
 }

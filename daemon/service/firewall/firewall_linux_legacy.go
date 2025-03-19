@@ -33,6 +33,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/singchia/go-xtables/iptables"
 	"github.com/singchia/go-xtables/pkg/network"
@@ -90,11 +91,11 @@ func implHaveTopFirewallPriorityLegacy() (weHaveTopFirewallPriority bool, otherV
 // implGetEnabledLegacy checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains
 func implGetEnabledLegacy() (exists bool, retErr error) {
 	if ipt == nil { // if iptables-legacy not present
-		return false, nil
+		return true, nil
 	}
 
-	log.Debug("implGetEnabledLegacy entered")
-	defer log.Debug("implGetEnabledLegacy exited")
+	// log.Debug("implGetEnabledLegacy entered")
+	// defer log.Debug("implGetEnabledLegacy exited")
 
 	// TODO: ? implement check-reenable logic? if the 1st rule in INPUT, OUTPUT not a jump to our chains - just add
 
@@ -130,8 +131,8 @@ func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, ret
 	fwLinuxLegacyMutex.Lock()
 	defer fwLinuxLegacyMutex.Unlock()
 
-	log.Debug("implReregisterFirewallAtTopPriorityLegacy entered")
-	defer log.Debug("implReregisterFirewallAtTopPriorityLegacy exited")
+	// log.Debug("implReregisterFirewallAtTopPriorityLegacy entered")
+	// defer log.Debug("implReregisterFirewallAtTopPriorityLegacy exited")
 
 	if weHaveTopFirewallPriority, err := implGetEnabledLegacy(); err != nil {
 		return false, log.ErrorFE("error in implGetEnabledLegacy(): %w", err)
@@ -140,7 +141,7 @@ func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, ret
 	}
 
 	// signal loss of top firewall priority to UI
-	go onKillSwitchStateChangedCallback()
+	go waitForTopFirewallPriAfterWeLostIt()
 
 	log.Debug("implReregisterFirewallAtTopPriorityLegacy - don't have top pri, need to reenable firewall")
 
@@ -148,13 +149,15 @@ func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, ret
 		return true, log.ErrorFE("error in implReEnableLegacy: %w", err)
 	}
 
+	go onKillSwitchStateChangedCallback()         // send notification out in case state went from FAIL to GOOD
 	go implDeployPostConnectionRulesLegacy(false) // forking in the background, as otherwise DNS timeouts are up to ~15 sec, they freeze UI changes
 
 	return true, nil
 }
 
-// implFirewallBackgroundMonitorLegacy runs as a background thread, monitors (polls) iptables-legacy tables for changes
-// It checks whether we have top firewall priority. If don't have top pri - it recreates our firewall objects.
+// implFirewallBackgroundMonitorLegacy runs asynchronously as a forked thread.
+// It polls regularly whether we have top firewall priority. If don't have top pri - it recreates our firewall objects.
+// To stop this thread - send to stopMonitoringFirewallChangesLegacy chan.
 func implFirewallBackgroundMonitorLegacy() {
 	if ipt == nil { // if iptables-legacy not present
 		return
@@ -166,7 +169,18 @@ func implFirewallBackgroundMonitorLegacy() {
 	log.Debug("implFirewallBackgroundMonitorLegacy entered")
 	defer log.Debug("implFirewallBackgroundMonitorLegacy exited")
 
-	// TODO FIXME: Vlad - flesh out ...
+	for {
+		time.Sleep(time.Second * 5)
+		select {
+		case _ = <-stopMonitoringFirewallChangesLegacy:
+			log.Debug("implFirewallBackgroundMonitorLegacy exiting on stop signal")
+			return
+		default: // no message received
+			if _, err := implReregisterFirewallAtTopPriorityLegacy(); err != nil {
+				log.ErrorFE("error in implReregisterFirewallAtTopPriorityLegacy(): %w", err) // and continue
+			}
+		}
+	}
 }
 
 func implReEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
@@ -212,15 +226,15 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 	}
 
 	// create PL chains, and insert jumps to them on top of INPUT, OUTPUT
-	if err = ipt.NewChain(VPN_COEXISTENCE_CHAIN_LEGACY_IN); err != nil {
-		return log.ErrorFE("error ipt.NewChain(%s): %w", VPN_COEXISTENCE_CHAIN_LEGACY_IN, err)
+	if err = filterLegacy.NewChain(VPN_COEXISTENCE_CHAIN_LEGACY_IN); err != nil {
+		return log.ErrorFE("error filterLegacy.NewChain(%s): %w", VPN_COEXISTENCE_CHAIN_LEGACY_IN, err)
 	}
 	if err = filterLegacy.Chain(iptables.ChainTypeINPUT).TargetJumpChain(VPN_COEXISTENCE_CHAIN_LEGACY_IN).Insert(); err != nil {
 		return log.ErrorFE("error filterLegacy.Chain(iptables.ChainTypeINPUT).TargetJumpChain(%s).Insert(): %w", VPN_COEXISTENCE_CHAIN_LEGACY_IN, err)
 	}
 
-	if err = ipt.NewChain(VPN_COEXISTENCE_CHAIN_LEGACY_OUT); err != nil {
-		return log.ErrorFE("error ipt.NewChain(%s): %w", VPN_COEXISTENCE_CHAIN_LEGACY_OUT, err)
+	if err = filterLegacy.NewChain(VPN_COEXISTENCE_CHAIN_LEGACY_OUT); err != nil {
+		return log.ErrorFE("error filterLegacy.NewChain(%s): %w", VPN_COEXISTENCE_CHAIN_LEGACY_OUT, err)
 	}
 	if err = filterLegacy.Chain(iptables.ChainTypeOUTPUT).TargetJumpChain(VPN_COEXISTENCE_CHAIN_LEGACY_OUT).Insert(); err != nil {
 		return log.ErrorFE("error filterLegacy.Chain(iptables.ChainTypeINPUT).TargetJumpChain(%s).Insert(): %w", VPN_COEXISTENCE_CHAIN_LEGACY_OUT, err)
@@ -252,7 +266,7 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 
 		// Allow UDP src port 53 from our DNS servers and UDP dst port 53 to our DNS servers, incl. custom DNS
 		dnsSrvList := vpnEntryHost.DnsServers
-		if customDNS != nil && !net.IPv4zero.Equal(customDNS) { // append custom DNS, if configured
+		if customDNS != nil && !prefs.AllDnsServersIPv4Set.Contains(customDNS.String()) && !net.IPv4zero.Equal(customDNS) { // append custom DNS, if configured
 			dnsSrvList += "," + customDNS.To4().String()
 		}
 		for _, dnsSrv := range strings.Split(dnsSrvList, ",") {
@@ -453,11 +467,11 @@ func doDisableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 	}
 
 	// delete our chains
-	if err := vpnCoexLegacyIn.Delete(); err != nil {
-		log.ErrorFE("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_IN, err) // and continue
+	if err := vpnCoexLegacyIn.DeleteChain(); err != nil {
+		log.Warn(fmt.Errorf("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_IN, err)) // and continue
 	}
-	if err := vpnCoexLegacyOut.Delete(); err != nil {
-		log.ErrorFE("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_OUT, err) // and continue
+	if err := vpnCoexLegacyOut.DeleteChain(); err != nil {
+		log.Warn(fmt.Errorf("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_OUT, err)) // and continue
 	}
 
 	return nil
@@ -534,15 +548,15 @@ func implTotalShieldApplyLegacy(_totalShieldEnabled bool) (err error) {
 				return log.ErrorFE("error vpnCoexLegacyIn.TargetDrop().Append(): %w", err)
 			}
 		}
-	} else { // Disable Total Shield in the firewall. If the last rules are DROP rules - delete them.
+	} else { // Disable Total Shield in the firewall. If the last rules are DROP rules - delete them. Rule numbering in iptables is 1-based.
 		if lastInRuleIsDrop {
-			if err = vpnCoexLegacyIn.Delete(iptables.WithCommandDeleteRuleNumber(len(vpnCoexistenceChainInRules) - 1)); err != nil {
-				return log.ErrorFE("error vpnCoexLegacyIn.Delete(iptables.WithCommandDeleteRuleNumber(%d)): %w", len(vpnCoexistenceChainInRules)-1, err)
+			if err = vpnCoexLegacyIn.Delete(iptables.WithCommandDeleteRuleNumber(len(vpnCoexistenceChainInRules))); err != nil {
+				return log.ErrorFE("error vpnCoexLegacyIn.Delete(iptables.WithCommandDeleteRuleNumber(%d)): %w", len(vpnCoexistenceChainInRules), err)
 			}
 		}
 		if lastOutRuleIsDrop {
-			if err = vpnCoexLegacyOut.Delete(iptables.WithCommandDeleteRuleNumber(len(vpnCoexistenceChainOutRules) - 1)); err != nil {
-				return log.ErrorFE("error vpnCoexLegacyOut.Delete(iptables.WithCommandDeleteRuleNumber(%d)): %w", len(vpnCoexistenceChainOutRules)-1, err)
+			if err = vpnCoexLegacyOut.Delete(iptables.WithCommandDeleteRuleNumber(len(vpnCoexistenceChainOutRules))); err != nil {
+				return log.ErrorFE("error vpnCoexLegacyOut.Delete(iptables.WithCommandDeleteRuleNumber(%d)): %w", len(vpnCoexistenceChainOutRules), err)
 			}
 		}
 	}

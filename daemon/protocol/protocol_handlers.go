@@ -55,7 +55,7 @@ var OnKillSwitchStateChangedMutex sync.Mutex
 
 // OnKillSwitchStateChanged - Firewall change handler. Single-instance.
 func (p *Protocol) OnKillSwitchStateChanged() {
-	OnKillSwitchStateChangedMutex.Lock()
+	OnKillSwitchStateChangedMutex.Lock() // single instance.
 	defer OnKillSwitchStateChangedMutex.Unlock()
 
 	if p._service == nil {
@@ -64,7 +64,7 @@ func (p *Protocol) OnKillSwitchStateChanged() {
 
 	// notify all clients about KillSwitch status
 	if status, err := p._service.KillSwitchState(); err != nil {
-		log.Error(err)
+		log.ErrorFE("error in p._service.KillSwitchState(): %w", err)
 	} else {
 		p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
 	}

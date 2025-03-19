@@ -781,6 +781,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 					defer s._evtReceiver.OnVpnStateChanged(state)
 
 					log.Info(fmt.Sprintf("State: %v", state))
+					go s._evtReceiver.OnKillSwitchStateChanged() // re-notify clients abt VPN coexistence status on state change
 
 					// internally process VPN state change
 					switch state.State {
@@ -800,7 +801,6 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						}
 
 					case vpn.INITIALISED:
-						log.Debug("(s *Service) connect(): case vpn.INITIALISED:")
 						// start routing change detection
 						// if netInterface, err := netinfo.InterfaceByIPAddr(state.ClientIP); err != nil {
 						// 	log.Error(fmt.Sprintf("Unable to initialize routing change detection. Failed to get interface '%s'", state.ClientIP.String()))
