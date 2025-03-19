@@ -503,11 +503,11 @@ func implTotalShieldApplyLegacy(_totalShieldEnabled bool) (err error) {
 	)
 
 	if vpnCoexistenceChainInRules, err = vpnCoexLegacyIn.ListRules(); err != nil {
-		return log.ErrorFE("error listing INPUT rules: %w", err)
+		return log.ErrorFE("error listing rules in chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_IN, err)
 	}
 
 	if vpnCoexistenceChainOutRules, err = vpnCoexLegacyOut.ListRules(); err != nil {
-		return log.ErrorFE("error listing OUTPUT rules: %w", err)
+		return log.ErrorFE("error listing rules in chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_OUT, err)
 	}
 
 	if len(vpnCoexistenceChainInRules) >= 1 {
@@ -524,11 +524,15 @@ func implTotalShieldApplyLegacy(_totalShieldEnabled bool) (err error) {
 	toEnableTotalShield := _totalShieldEnabled && vpnConnectedCallback() // Enable Total Shield DROP rules only if VPN is connected or connecting
 	log.Debug("implTotalShieldApplyLegacy: setting TotalShield=", toEnableTotalShield, " in firewall")
 	if toEnableTotalShield {
-		if err = vpnCoexLegacyOut.TargetDrop().Append(); err != nil {
-			return log.ErrorFE("error vpnCoexLegacyOut.TargetDrop().Append(): %w", err)
+		if !lastOutRuleIsDrop { // if last rules are not DROP rules already - append DROP rules to the end
+			if err = vpnCoexLegacyOut.TargetDrop().Append(); err != nil {
+				return log.ErrorFE("error vpnCoexLegacyOut.TargetDrop().Append(): %w", err)
+			}
 		}
-		if err = vpnCoexLegacyIn.TargetDrop().Append(); err != nil {
-			return log.ErrorFE("error vpnCoexLegacyIn.TargetDrop().Append(): %w", err)
+		if !lastInRuleIsDrop {
+			if err = vpnCoexLegacyIn.TargetDrop().Append(); err != nil {
+				return log.ErrorFE("error vpnCoexLegacyIn.TargetDrop().Append(): %w", err)
+			}
 		}
 	} else { // Disable Total Shield in the firewall. If the last rules are DROP rules - delete them.
 		if lastInRuleIsDrop {
