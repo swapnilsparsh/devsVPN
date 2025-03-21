@@ -36,7 +36,7 @@
           <div class="flexRow">
             <button
               class="master"
-              style="height: 28px; min-width: 100px; margin-left: 12px"
+              style="height: 28px; min-width: 100px; margin-left: 12px; border-radius: 6px;"
             >
               Close
             </button>

@@ -9,7 +9,12 @@
       <div class="device-limit-container">
         <!-- Search Input -->
         <div class="search-container">
-          <input type="text" v-model="searchQuery" placeholder="Search" class="search-input" />
+          <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="Search"
+            class="search-input"
+          />
         </div>
 
         <!-- Table Start-->
@@ -17,66 +22,131 @@
           <table>
             <thead>
               <tr>
-                <th style="width: 30px;">Sr. No.</th>
+                <th style="min-width: 32px">Sr. No.</th>
                 <th>Action</th>
-                <th class="device-name">Device Name</th>
-                <th>Device ID</th>
+                <th>Device Name</th>
                 <th>Platform</th>
-                <th>Allocated IP</th>
-                <th class="status-width">Tunnel Status</th>
                 <th>Device Status</th>
                 <th>Configured On</th>
                 <th>Handshake</th>
-                <th>Received Data</th>
-                <th class="device-name">Sent Data</th>
-                <!-- <th>Action</th> -->
               </tr>
             </thead>
             <tbody>
               <tr v-if="isLoading">
                 <td colspan="12">
                   <div class="shimmer-wrapper">
-                    <ShimmerEffect v-for="i in 5" :key="i" :width="'100%'" :height="'20px'" />
+                    <ShimmerEffect
+                      v-for="i in 5"
+                      :key="i"
+                      :width="'100%'"
+                      :height="'20px'"
+                    />
                   </div>
                 </td>
               </tr>
-              <tr v-else v-for="(device, index) in devicePageList" :key="device.device_id">
-                <td style="width: 30px;">{{ index + 1 + (currentPage - 1) * itemsPerPage }}</td>
+              <tr v-else-if="devicePageList.length === 0">
+                <td colspan="12">
+                  <div class="no-results">
+                    <p>No devices found</p>
+                    <p class="no-results-detail" v-if="searchQuery">
+                      Try adjusting your search criteria
+                    </p>
+                  </div>
+                </td>
+              </tr>
+              <tr
+                v-else
+                v-for="(device, index) in devicePageList"
+                :key="device.device_id"
+              >
                 <td>
-                  <span class="icon view-icon" style="margin-right: 15px;">
-                    <img style="vertical-align: middle" src="@/assets/eye-open.svg" @click="viewDetails(device)" />
+                  {{ index + 1 + (currentPage - 1) * itemsPerPage }}
+                </td>
+                <td>
+                  <span class="icon view-icon" style="margin-right: 15px">
+                    <img
+                      style="vertical-align: middle"
+                      src="@/assets/eye-open.svg"
+                      @click="viewDetails(device)"
+                      title="View Details"
+                      role="button"
+                      aria-label="View device details"
+                    />
                   </span>
-                  <span class="icon delete-icon" style="display: inline-block;" @click="removeDevice(device.id)">
-                    <img style="vertical-align: middle" src="@/assets/delete.png" height="17" width="17" />
+                  <span
+                    class="icon delete-icon"
+                    style="display: inline-block"
+                    @click="removeDevice(device.id)"
+                    title="Delete"
+                    role="button"
+                    aria-label="Delete device"
+                  >
+                    <img
+                      style="vertical-align: middle"
+                      src="@/assets/delete.png"
+                      height="17"
+                      width="17"
+                    />
                   </span>
                 </td>
-                <td class="device-name">{{ device.device_name }}</td>
-                <td>{{ device.device_id }}</td>
+                <td>{{ device.device_name }}</td>
                 <td>{{ device.type }}</td>
-                <td>{{ formatIP(device.allocated_ip) }}</td>
-                <td class="status-width"><span class="status-shield">Shield</span></td>
-                <td class="device-name">{{ device.isConnected ? "Connected" : '-' }}</td>
-                <td class="device-name">{{ formatDate(device.createdAt) }}</td>
-                <td class="device-name">{{ device.handshake }}</td>
-                <td class="device-name">{{ convertBitsToReadable(device.rx) }}</td>
-                <td class="device-name">{{ convertBitsToReadable(device.tx) }}</td>
+                <td>{{ device.isConnected ? "Connected" : "-" }}</td>
+                <td>{{ formatDate(device.createdAt) }}</td>
+                <td>{{ device.handshake }}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <!-- Pagination Controls -->
         <div class="pagination">
-          <button @click="changePage(1)" :disabled="currentPage === 1">First</button>
-          <button @click="changePage(currentPage - 1)" :disabled="currentPage === 1">«</button>
+          <button
+            @click="changePage(1)"
+            :disabled="currentPage === 1"
+            title="First Page"
+          >
+            First
+          </button>
+          <button
+            @click="changePage(currentPage - 1)"
+            :disabled="currentPage === 1"
+            title="Previous Page"
+          >
+            «
+          </button>
           <button v-if="currentPage > 2" @click="changePage(1)">1</button>
           <span v-if="currentPage > 3">...</span>
-          <button v-if="currentPage > 1" @click="changePage(currentPage - 1)">{{ currentPage - 1 }}</button>
-          <button class="active">{{ currentPage }}</button>
-          <button v-if="currentPage < totalPages" @click="changePage(currentPage + 1)">{{ currentPage + 1 }}</button>
+          <button v-if="currentPage > 1" @click="changePage(currentPage - 1)">
+            {{ currentPage - 1 }}
+          </button>
+          <button class="active" title="Current Page">{{ currentPage }}</button>
+          <button
+            v-if="currentPage < totalPages"
+            @click="changePage(currentPage + 1)"
+          >
+            {{ currentPage + 1 }}
+          </button>
           <span v-if="currentPage < totalPages - 2">...</span>
-          <button v-if="currentPage < totalPages - 1" @click="changePage(totalPages)">{{ totalPages }}</button>
-          <button @click="changePage(currentPage + 1)" :disabled="currentPage >= totalPages">»</button>
-          <button @click="changePage(totalPages)" :disabled="currentPage === totalPages">Last</button>
+          <button
+            v-if="currentPage < totalPages - 1"
+            @click="changePage(totalPages)"
+          >
+            {{ totalPages }}
+          </button>
+          <button
+            @click="changePage(currentPage + 1)"
+            :disabled="currentPage >= totalPages"
+            title="Next Page"
+          >
+            »
+          </button>
+          <button
+            @click="changePage(totalPages)"
+            :disabled="currentPage === totalPages"
+            title="Last Page"
+          >
+            Last
+          </button>
         </div>
         <!-- Table End  -->
       </div>
@@ -87,11 +157,13 @@
         <div>
           <div class="device-info">
             <div class="section">
-              <p><strong>Device ID:</strong> {{ this.showDetails?.device_id }}</p>
-              <p><strong>Device Name:</strong> {{ this.showDetails?.device_name }}</p>
-              <!-- <p><strong>Type:</strong> {{this.showDetails?.type}}</p>
-              <p><strong>Device IP:</strong> {{this.showDetails?.device_ip}}</p>
-              <p><strong>Allocated IP:</strong> {{this.showDetails?.allocated_ip}}</p> -->
+              <p>
+                <strong>Device ID:</strong> {{ this.showDetails?.device_id }}
+              </p>
+              <p>
+                <strong>Device Name:</strong>
+                {{ this.showDetails?.device_name }}
+              </p>
             </div>
             <div class="section">
               <p><strong>Public Key:</strong></p>
@@ -102,27 +174,25 @@
             <div class="section">
               <p><strong>DNS:</strong> {{ this.showDetails?.DNS }}</p>
               <p><strong>Allowed IPs:</strong></p>
-              <p class="small-text">
+              <p>
                 {{ this.showDetails?.allowedIPs }}
               </p>
               <p><strong>Endpoint:</strong> {{ this.showDetails?.endpoint }}</p>
+              <p>
+                <strong>Allocated IP</strong>
+                {{
+                  this.showDetails?.allocated_ip
+                    ? formatIP(this.showDetails.allocated_ip)
+                    : "-"
+                }}
+              </p>
             </div>
             <div class="section">
-              <!-- <p><strong>Status:</strong> <span class="status active">{{this.showDetails?.status}}</span></p>
-              <p><strong>Created At:</strong> {{this.showDetails?.createdAt}}</p> -->
-              <p><strong>Current Endpoint Address:</strong> {{ this.showDetails?.current_endpoint_address }}</p>
-              <!-- <p><strong>Active Tunnel:</strong> {{this.showDetails?.keep_alive}}</p> -->
+              <p>
+                <strong>Current Endpoint Address:</strong>
+                {{ this.showDetails?.current_endpoint_address }}
+              </p>
             </div>
-            <!-- <div class="section">
-              <p><strong>RX:</strong> {{this.showDetails?.rx}}</p>
-              <p><strong>TX:</strong> {{this.showDetails?.tx}}</p>
-              <p><strong>Handshake:</strong> {{this.showDetails?.handshake}}</p>
-            </div> -->
-
-            <!-- <div class="status-indicator">
-              <span>Connected:</span>
-              <div class="dot disconnected"></div>
-            </div> -->
           </div>
         </div>
       </ComponentDialog>
@@ -132,7 +202,6 @@
 </template>
 
 <script>
-
 import ShimmerEffect from "../Shimmer";
 import ComponentDialog from "@/components/component-dialog.vue";
 const sender = window.ipcSender;
@@ -140,12 +209,11 @@ const sender = window.ipcSender;
 export default {
   components: {
     ShimmerEffect,
-    ComponentDialog
+    ComponentDialog,
   },
   data: function () {
     return {
       isProcessing: true,
-
       searchQuery: "",
       currentPage: 1,
       totalCount: 0,
@@ -153,7 +221,7 @@ export default {
       deviceListData: [],
       showDetails: {},
       debounceTimeout: null,
-      isDeviceListLoading: true
+      isDeviceListLoading: true,
     };
   },
   computed: {
@@ -164,34 +232,40 @@ export default {
       return Math.ceil(this.totalCount / this.itemsPerPage);
     },
     isLoading() {
-      return this.isDeviceListLoading
-    }
+      return this.isDeviceListLoading;
+    },
   },
   mounted() {
     this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage, 0);
   },
   methods: {
-    async deviceList(search = '', page = 1, limit = 10, deleteId = 0) {
+    async deviceList(search = "", page = 1, limit = 10, deleteId = 0) {
       try {
         this.isProcessing = true;
         this.isDeviceListLoading = true;
 
-        const deviceListResp = await sender.DeviceList(search, page, limit, deleteId);
-        console.log("Log UI:- ", deviceListResp)
+        const deviceListResp = await sender.DeviceList(
+          search,
+          page,
+          limit,
+          deleteId
+        );
         this.isDeviceListLoading = false;
         this.deviceListData = deviceListResp.rows;
         this.totalCount = deviceListResp?.count;
-        console.log(deviceListResp)
       } catch (err) {
-        console.log({ err });
+        const errorMessage =
+          err?.split("=")[1]?.trim() || "An unexpected error occurred";
         sender.showMessageBox({
           type: "error",
           buttons: ["OK"],
           message: "API Error",
-          detail: err?.split("=")[1].trim(),
+          detail: errorMessage,
         });
         // Refresh list after
-        await this.deviceList(search, page, limit);
+        // Reset data on error
+        this.deviceListData = [];
+        this.totalCount = 0;
       } finally {
         this.isProcessing = false;
       }
@@ -218,8 +292,8 @@ export default {
       return new Date(date).toLocaleDateString(undefined, options);
     },
     formatIP(ip) {
-      if (!ip) return '-';
-      return ip.replace('/32', '');
+      if (!ip) return "-";
+      return ip.replace("/32", "");
     },
     prevPage() {
       if (this.currentPage > 1) this.currentPage--;
@@ -230,7 +304,12 @@ export default {
     async changePage(page) {
       if (page >= 1 && page <= this.totalPages) {
         this.currentPage = page;
-        await this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage, 0);
+        await this.deviceList(
+          this.searchQuery,
+          this.currentPage,
+          this.itemsPerPage,
+          0
+        );
       }
     },
     async removeDevice(deleteId) {
@@ -245,18 +324,18 @@ export default {
       );
       if (ret.response == 1) return; // cancel
       if (ret.response == 0) {
-        // Call action for delete
-        console.log("delete")
-        // deleteId
-        await this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage, deleteId);
-
+        await this.deviceList(
+          this.searchQuery,
+          this.currentPage,
+          this.itemsPerPage,
+          deleteId
+        );
       }
-
     },
     viewDetails(device) {
-      this.$refs.viewDeviceDetails.showModal()
+      this.$refs.viewDeviceDetails.showModal();
       this.showDetails = device;
-    }
+    },
   },
   watch: {
     searchQuery(newQuery) {
@@ -269,7 +348,7 @@ export default {
         if (trimmedQuery.length > 0) {
           this.deviceList(trimmedQuery, this.currentPage, this.itemsPerPage, 0);
         } else if (trimmedQuery.length == 0) {
-          this.deviceList('', this.currentPage, this.itemsPerPage, 0); // Reset the list
+          this.deviceList("", this.currentPage, this.itemsPerPage, 0); // Reset the list
         }
       }, 300); // Adjust debounce time as needed
     },
@@ -288,9 +367,10 @@ export default {
 }
 
 .device-list {
-  width: 500px;
-  height: 400px;
-  overflow-x: auto;
+  width: 100%;
+  // width: calc(100% - 150px);
+  height: auto;
+  overflow: auto;
 }
 
 .device-list table {
@@ -303,7 +383,7 @@ export default {
 
 .device-list th {
   min-width: 50px;
-  background-color: grey;
+  background-color: #662d91;
   color: white;
   padding: 8px;
   text-align: left;
@@ -314,25 +394,10 @@ export default {
   font-size: 10px;
 }
 
-.device-name {
-  min-width: 150px;
-}
-
 .device-list td {
   font-size: 12px;
   padding: 5px;
   border-bottom: 1px solid #a0a0a0;
-
-}
-
-.status-shield {
-  color: #28a745;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.status-width {
-  min-width: 100px;
 }
 
 .action-icons {
@@ -358,26 +423,39 @@ export default {
 
 .pagination button {
   padding: 8px 12px;
-  border: none;
-  background-color: #662d91;
-  color: white;
+  border: 1px solid #662d91;
+  background-color: transparent;
+  color: #662d91;
   cursor: pointer;
   border-radius: 4px;
   transition: background 0.2s;
 }
 
+.pagination button:hover {
+  background-color: #662d91;
+  color: white;
+}
+
 .pagination button:disabled {
-  background-color: #aaa;
+  background-color: #a0a0a0;
+  border: none;
   cursor: not-allowed;
+  color: white;
+}
+
+.pagination button:disabled:hover {
+  background-color: #a0a0a0;
+  color: white;
 }
 
 .pagination button.active {
   background-color: inherit;
   color: white;
+  background-color: #662d91;
   border: 1px solid #662d91;
 }
 
-// Search 
+// Search
 .search-container {
   display: flex;
   align-items: center;
@@ -388,14 +466,20 @@ export default {
   width: 200px;
   padding: 8px;
   font-size: 14px;
-  border: 1px solid #ccc;
+  border: 1px solid #662d91;
+  background-color: #a0a0a0;
+  color: white;
   border-radius: 4px;
   outline: none;
   transition: border-color 0.3s;
 }
 
 .search-input:focus {
-  border-color: #ccc;
+  border-color: #662d91;
+}
+
+.search-input::placeholder {
+  color: white;
 }
 
 // ========= device info card =======
@@ -422,7 +506,7 @@ h2 {
 
 .section p {
   margin: 5px 0;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .code {
@@ -434,49 +518,30 @@ h2 {
   word-break: break-all;
 }
 
-.small-text {
-  font-size: 12px;
-  color: #666;
-}
-
-.status {
-  font-weight: bold;
-  padding: 3px 7px;
-  border-radius: 5px;
-}
-
-.status.active {
-  background-color: #28a745;
-  color: white;
-}
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  margin-top: 10px;
-}
-
-.status-indicator span {
-  margin-right: 10px;
-}
-
-.dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.dot.connected {
-  background-color: green;
-}
-
-.dot.disconnected {
-  background-color: red;
-}
 .shimmer-wrapper {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 10px;
+}
+
+.no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 0;
+  width: 100%;
+  text-align: center;
+}
+
+.no-results p {
+  font-size: 16px;
+  color: var(--text-color-details);
+  margin: 5px 0;
+}
+
+.no-results-detail {
+  font-size: 14px;
 }
 </style>
