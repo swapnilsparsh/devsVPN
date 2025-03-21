@@ -53,7 +53,7 @@
                 <td class="device-name">{{ device.device_name }}</td>
                 <td>{{ device.device_id }}</td>
                 <td>{{ device.type }}</td>
-                <td>{{ device.allocated_ip }}</td>
+                <td>{{ formatIP(device.allocated_ip) }}</td>
                 <td class="status-width"><span class="status-shield">Shield</span></td>
                 <td class="device-name">{{ device.isConnected ? "Connected" : '-' }}</td>
                 <td class="device-name">{{ formatDate(device.createdAt) }}</td>
@@ -216,6 +216,10 @@ export default {
     formatDate(date) {
       const options = { year: "numeric", month: "long", day: "numeric" };
       return new Date(date).toLocaleDateString(undefined, options);
+    },
+    formatIP(ip) {
+      if (!ip) return '-';
+      return ip.replace('/32', '');
     },
     prevPage() {
       if (this.currentPage > 1) this.currentPage--;
