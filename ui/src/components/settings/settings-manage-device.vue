@@ -58,6 +58,12 @@
                 v-else
                 v-for="(device, index) in devicePageList"
                 :key="device.device_id"
+                :class="{ 'current-device-row': isCurrentDevice(device.id) }"
+                :title="
+                  isCurrentDevice(device.id)
+                    ? 'This is your current device'
+                    : ''
+                "
               >
                 <td>
                   {{ index + 1 + (currentPage - 1) * itemsPerPage }}
@@ -89,7 +95,16 @@
                     />
                   </span>
                 </td>
-                <td>{{ device.device_name }}</td>
+                <!-- Update the device name column to include a visual indicator -->
+                <td>
+                  {{ device.device_name }}
+                  <span
+                    v-if="isCurrentDevice(device.id)"
+                    class="current-device-indicator"
+                  >
+                    (Current)
+                  </span>
+                </td>
                 <td>{{ device.type }}</td>
                 <td>{{ device.isConnected ? "Connected" : "-" }}</td>
                 <td>{{ formatDate(device.createdAt) }}</td>
@@ -156,6 +171,12 @@
       <ComponentDialog ref="viewDeviceDetails" header="Device Details">
         <div>
           <div class="device-info">
+            <div
+              v-if="isCurrentDevice(showDetails?.id)"
+              class="current-device-tag"
+            >
+              Current Device
+            </div>
             <div class="section">
               <p>
                 <strong>Device ID:</strong> {{ this.showDetails?.device_id }}
@@ -222,6 +243,7 @@ export default {
       showDetails: {},
       debounceTimeout: null,
       isDeviceListLoading: true,
+      currentDeviceId: null,
     };
   },
   computed: {
@@ -236,9 +258,87 @@ export default {
     },
   },
   mounted() {
-    this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage, 0);
+    this.deviceList(
+      this.searchQuery,
+      this.currentPage,
+      this.itemsPerPage,
+      0
+    ).then(() => {
+      this.getCurrentDeviceId(); // Call this after initial device list is loaded
+    });
   },
   methods: {
+    // Add to settings-manage-device.vue methods
+    async getCurrentDeviceId() {
+      try {
+        // Get WireGuard public key from store
+        const wgPublicKey = this.$store.state.account.session.WgPublicKey;
+
+        if (!wgPublicKey) {
+          this.currentDeviceId = null;
+          return;
+        }
+
+        // Check current page first
+        let currentDevice = this.deviceListData.find(
+          (device) =>
+            device.public_key === wgPublicKey ||
+            device.interface_publickey === wgPublicKey
+        );
+
+        if (currentDevice) {
+          this.currentDeviceId = currentDevice.id;
+          return;
+        }
+
+        // If not found in current page, search all devices
+        if (this.totalCount > this.itemsPerPage) {
+          try {
+            const allDevicesResp = await sender.DeviceList(
+              "",
+              1,
+              this.totalCount,
+              0
+            );
+
+            if (allDevicesResp && allDevicesResp.rows) {
+              currentDevice = allDevicesResp.rows.find(
+                (device) =>
+                  device.public_key === wgPublicKey ||
+                  device.interface_publickey === wgPublicKey
+              );
+
+              if (currentDevice) {
+                this.currentDeviceId = currentDevice.id;
+
+                // Navigate to the page containing the current device
+                const deviceIndex = allDevicesResp.rows.findIndex(
+                  (device) => device.id === currentDevice.id
+                );
+
+                if (deviceIndex !== -1) {
+                  const devicePage =
+                    Math.floor(deviceIndex / this.itemsPerPage) + 1;
+
+                  if (devicePage !== this.currentPage) {
+                    await this.changePage(devicePage);
+                  }
+                }
+              } else {
+              }
+            }
+          } catch (error) {
+            console.error("Error finding current device:", error);
+          }
+        }
+      } catch (error) {
+        console.error("Error identifying current device:", error);
+        this.currentDeviceId = null;
+      }
+    },
+    isCurrentDevice(deviceId) {
+      return deviceId === this.currentDeviceId;
+    },
     async deviceList(search = "", page = 1, limit = 10, deleteId = 0) {
       try {
         this.isProcessing = true;
@@ -250,9 +350,24 @@ export default {
           limit,
           deleteId
         );
+        this.deviceListData = deviceListResp.rows || [];
+        this.totalCount = deviceListResp?.count || 0;
+
+        // Check if current device is in the loaded devices
+        const wgPublicKey = this.$store.state.account.session.WgPublicKey;
+        if (wgPublicKey) {
+          const currentDevice = this.deviceListData.find(
+            (device) =>
+              device.public_key === wgPublicKey ||
+              device.interface_publickey === wgPublicKey
+          );
+
+          if (currentDevice) {
+            this.currentDeviceId = currentDevice.id;
+          }
+        }
+
         this.isDeviceListLoading = false;
-        this.deviceListData = deviceListResp.rows;
-        this.totalCount = deviceListResp?.count;
       } catch (err) {
         const errorMessage =
           err?.split("=")[1]?.trim() || "An unexpected error occurred";
@@ -269,22 +384,6 @@ export default {
       } finally {
         this.isProcessing = false;
       }
-    },
-
-    convertBitsToReadable(bit) {
-      const parsedBit = typeof bit === "string" ? parseFloat(bit) : bit;
-      if (isNaN(parsedBit) || parsedBit < 0) return "-";
-
-      const units = ["bps", "Kb", "Mb", "Gb", "Tb", "Pb", "Eb"];
-      let size = parsedBit;
-      let unitIndex = 0;
-
-      while (size >= 1024 && unitIndex < units.length - 1) {
-        size /= 1024;
-        unitIndex++;
-      }
-
-      return `${size.toFixed(size < 10 ? 2 : 1)} ${units[unitIndex]}`;
     },
 
     formatDate(date) {
@@ -383,7 +482,7 @@ export default {
 
 .device-list th {
   min-width: 50px;
-  background-color: #662d91;
+  background-color: grey;
   color: white;
   padding: 8px;
   text-align: left;
@@ -398,6 +497,43 @@ export default {
   font-size: 12px;
   padding: 5px;
   border-bottom: 1px solid #a0a0a0;
+}
+
+// Add these new styles to your <style> section
+.current-device-row {
+  background-color: rgba(
+    102,
+    45,
+    145,
+    0.2
+  ) !important; // Making this more visible against dark theme
+  border-left: 3px solid #662d91;
+  position: relative;
+}
+
+.current-device-row:hover {
+  background-color: rgba(102, 45, 145, 0.3) !important;
+}
+
+.current-device-indicator {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 10px;
+  background-color: #662d91;
+  color: white;
+  padding: 1px 4px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.current-device-tag {
+  display: inline-block;
+  background-color: #662d91;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 10px;
 }
 
 .action-icons {
