@@ -164,31 +164,9 @@
             </svg>
           </div>
         </div>
-      </div>
+      </div>      
 
-      <div class="device-limit-container">
-        <div class="settingsTitle">Device List</div>
-        <div class="device-list">
-          <table>
-            <thead>
-              <tr>
-                <th>Device Name</th>
-                <th>Platform</th>
-                <th>Configured On</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="device in deviceListData" :key="device.device_name">
-                <td>{{ device.device_name }}</td>
-                <td>{{ device.type }}</td>
-                <td>{{ new Date(device.createdAt).toLocaleString() }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div>
+      <div style="margin-top:100px;">
         <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
         <div
           v-if="$store.state.account.subscriptionData != null"
@@ -395,7 +373,7 @@ export default {
   mounted() {
     //this.accountStatusRequest();
     this.profileData();
-    this.deviceList();
+    // this.deviceList();
     this.getSubscriptionData();
     this.waitForSessionInfo();
   },
@@ -509,28 +487,28 @@ export default {
       }
     },
 
-    async deviceList() {
-      try {
-        this.isProcessing = true;
+    // async deviceList() {
+    //   try {
+    //     this.isProcessing = true;
 
-        this.apiDeviceListTimeout = setTimeout(() => {
-          throw Error("Device List API Time Out");
-        }, 10 * 1000);
-        await sender.DeviceList();
-      } catch (err) {
-        console.log({ err });
-        sender.showMessageBoxSync({
-          type: "error",
-          buttons: ["OK"],
-          message: "API Error",
-          detail: `Device list couldn't be fetched at this moment, please check your internet connection!`,
-        });
-      } finally {
-        this.isProcessing = false;
-        clearTimeout(this.apiDeviceListTimeout);
-        this.apiDeviceListTimeout = null;
-      }
-    },
+    //     this.apiDeviceListTimeout = setTimeout(() => {
+    //       throw Error("Device List API Time Out");
+    //     }, 10 * 1000);
+    //     await sender.DeviceList();
+    //   } catch (err) {
+    //     console.log({ err });
+    //     sender.showMessageBoxSync({
+    //       type: "error",
+    //       buttons: ["OK"],
+    //       message: "API Error",
+    //       detail: `Device list couldn't be fetched at this moment, please check your internet connection!`,
+    //     });
+    //   } finally {
+    //     this.isProcessing = false;
+    //     clearTimeout(this.apiDeviceListTimeout);
+    //     this.apiDeviceListTimeout = null;
+    //   }
+    // },
 
     async getSubscriptionData() {
       try {

@@ -191,7 +191,7 @@ type Service interface {
 		rawResponse *api_types.ProfileDataResponse,
 		err error)
 
-	DeviceList() (
+	DeviceList(Search string, Page int, Limit int, DeleteId int) (
 		apiCode int,
 		rawResponse *api_types.DeviceListResponse,
 		err error)
@@ -1170,14 +1170,20 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p.notifyClients(p.createHelloResponse())
 
 	case "DeviceList":
-		var req types.DeviceListRequest
+		type ManageDeviceRequest struct {
+			Search   string `json:"search,omitempty"`
+			Page     int    `json:"page,omitempty"`
+			Limit    int    `json:"limit,omitempty"`
+			DeleteId int    `json:"deleteId,omitempty"`
+		}
+		var req ManageDeviceRequest
 		if err := json.Unmarshal(messageData, &req); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 			break
 		}
 
 		var resp types.DeviceListResp
-		apiCode, rawResponse, err := p._service.DeviceList()
+		apiCode, rawResponse, err := p._service.DeviceList(req.Search, req.Page, req.Limit, req.DeleteId)
 
 		if err != nil {
 			if apiCode == 0 {
