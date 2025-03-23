@@ -9,12 +9,7 @@
       <div class="device-limit-container">
         <!-- Search Input -->
         <div class="search-container">
-          <input
-            type="text"
-            v-model="searchQuery"
-            placeholder="Search"
-            class="search-input"
-          />
+          <input type="text" v-model="searchQuery" placeholder="Search" class="search-input" />
         </div>
 
         <!-- Table Start-->
@@ -35,12 +30,7 @@
               <tr v-if="isLoading">
                 <td colspan="12">
                   <div class="shimmer-wrapper">
-                    <ShimmerEffect
-                      v-for="i in 5"
-                      :key="i"
-                      :width="'100%'"
-                      :height="'20px'"
-                    />
+                    <ShimmerEffect v-for="i in 5" :key="i" :width="'100%'" :height="'20px'" />
                   </div>
                 </td>
               </tr>
@@ -54,54 +44,28 @@
                   </div>
                 </td>
               </tr>
-              <tr
-                v-else
-                v-for="(device, index) in devicePageList"
-                :key="device.device_id"
-                :class="{ 'current-device-row': isCurrentDevice(device.id) }"
-                :title="
-                  isCurrentDevice(device.id)
+              <tr v-else v-for="(device, index) in devicePageList" :key="device.device_id"
+                :class="{ 'current-device-row': isCurrentDevice(device.id) }" :title="isCurrentDevice(device.id)
                     ? 'This is your current device'
                     : ''
-                "
-              >
+                  ">
                 <td>
                   {{ index + 1 + (currentPage - 1) * itemsPerPage }}
                 </td>
                 <td>
                   <span class="icon view-icon" style="margin-right: 15px">
-                    <img
-                      style="vertical-align: middle"
-                      src="@/assets/eye-open.svg"
-                      @click="viewDetails(device)"
-                      title="View Details"
-                      role="button"
-                      aria-label="View device details"
-                    />
+                    <img style="vertical-align: middle" src="@/assets/eye-open.svg" @click="viewDetails(device)"
+                      title="View Details" role="button" aria-label="View device details" />
                   </span>
-                  <span
-                    class="icon delete-icon"
-                    style="display: inline-block"
-                    @click="removeDevice(device.id)"
-                    title="Delete"
-                    role="button"
-                    aria-label="Delete device"
-                  >
-                    <img
-                      style="vertical-align: middle"
-                      src="@/assets/delete.png"
-                      height="17"
-                      width="17"
-                    />
+                  <span class="icon delete-icon" style="display: inline-block" @click="removeDevice(device.id)"
+                    title="Delete" role="button" aria-label="Delete device">
+                    <img style="vertical-align: middle" src="@/assets/delete.png" height="17" width="17" />
                   </span>
                 </td>
                 <!-- Update the device name column to include a visual indicator -->
                 <td>
                   {{ device.device_name }}
-                  <span
-                    v-if="isCurrentDevice(device.id)"
-                    class="current-device-indicator"
-                  >
+                  <span v-if="isCurrentDevice(device.id)" class="current-device-indicator">
                     (Current)
                   </span>
                 </td>
@@ -115,18 +79,10 @@
         </div>
         <!-- Pagination Controls -->
         <div class="pagination">
-          <button
-            @click="changePage(1)"
-            :disabled="currentPage === 1"
-            title="First Page"
-          >
+          <button @click="changePage(1)" :disabled="currentPage === 1" title="First Page">
             First
           </button>
-          <button
-            @click="changePage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            title="Previous Page"
-          >
+          <button @click="changePage(currentPage - 1)" :disabled="currentPage === 1" title="Previous Page">
             «
           </button>
           <button v-if="currentPage > 2" @click="changePage(1)">1</button>
@@ -135,31 +91,17 @@
             {{ currentPage - 1 }}
           </button>
           <button class="active" title="Current Page">{{ currentPage }}</button>
-          <button
-            v-if="currentPage < totalPages"
-            @click="changePage(currentPage + 1)"
-          >
+          <button v-if="currentPage < totalPages" @click="changePage(currentPage + 1)">
             {{ currentPage + 1 }}
           </button>
           <span v-if="currentPage < totalPages - 2">...</span>
-          <button
-            v-if="currentPage < totalPages - 1"
-            @click="changePage(totalPages)"
-          >
+          <button v-if="currentPage < totalPages - 1" @click="changePage(totalPages)">
             {{ totalPages }}
           </button>
-          <button
-            @click="changePage(currentPage + 1)"
-            :disabled="currentPage >= totalPages"
-            title="Next Page"
-          >
+          <button @click="changePage(currentPage + 1)" :disabled="currentPage >= totalPages" title="Next Page">
             »
           </button>
-          <button
-            @click="changePage(totalPages)"
-            :disabled="currentPage === totalPages"
-            title="Last Page"
-          >
+          <button @click="changePage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
             Last
           </button>
         </div>
@@ -171,10 +113,7 @@
       <ComponentDialog ref="viewDeviceDetails" header="Device Details">
         <div>
           <div class="device-info">
-            <div
-              v-if="isCurrentDevice(showDetails?.id)"
-              class="current-device-tag"
-            >
+            <div v-if="isCurrentDevice(showDetails?.id)" class="current-device-tag">
               Current Device
             </div>
             <div class="section">
@@ -291,46 +230,47 @@ export default {
           return;
         }
 
+        // TODO: This logic needs to corrected. 
         // If not found in current page, search all devices
-        if (this.totalCount > this.itemsPerPage) {
-          try {
-            const allDevicesResp = await sender.DeviceList(
-              "",
-              1,
-              this.totalCount,
-              0
-            );
+        // if (this.totalCount > this.itemsPerPage) {
+        //   try {
+        //     const allDevicesResp = await sender.DeviceList(
+        //       "",
+        //       1,
+        //       this.totalCount,
+        //       0
+        //     );
 
-            if (allDevicesResp && allDevicesResp.rows) {
-              currentDevice = allDevicesResp.rows.find(
-                (device) =>
-                  device.public_key === wgPublicKey ||
-                  device.interface_publickey === wgPublicKey
-              );
+        //     if (allDevicesResp && allDevicesResp.rows) {
+        //       currentDevice = allDevicesResp.rows.find(
+        //         (device) =>
+        //           device.public_key === wgPublicKey ||
+        //           device.interface_publickey === wgPublicKey
+        //       );
 
-              if (currentDevice) {
-                this.currentDeviceId = currentDevice.id;
+        //       if (currentDevice) {
+        //         this.currentDeviceId = currentDevice.id;
 
-                // Navigate to the page containing the current device
-                const deviceIndex = allDevicesResp.rows.findIndex(
-                  (device) => device.id === currentDevice.id
-                );
+        //         // Navigate to the page containing the current device
+        //         const deviceIndex = allDevicesResp.rows.findIndex(
+        //           (device) => device.id === currentDevice.id
+        //         );
 
-                if (deviceIndex !== -1) {
-                  const devicePage =
-                    Math.floor(deviceIndex / this.itemsPerPage) + 1;
+        //         if (deviceIndex !== -1) {
+        //           const devicePage =
+        //             Math.floor(deviceIndex / this.itemsPerPage) + 1;
 
-                  if (devicePage !== this.currentPage) {
-                    await this.changePage(devicePage);
-                  }
-                }
-              } else {
-              }
-            }
-          } catch (error) {
-            console.error("Error finding current device:", error);
-          }
-        }
+        //           if (devicePage !== this.currentPage) {
+        //             await this.changePage(devicePage);
+        //           }
+        //         }
+        //       } else {
+        //       }
+        //     }
+        //   } catch (error) {
+        //     console.error("Error finding current device:", error);
+        //   }
+        // }
       } catch (error) {
         console.error("Error identifying current device:", error);
         this.currentDeviceId = null;
@@ -381,6 +321,7 @@ export default {
         // Reset data on error
         this.deviceListData = [];
         this.totalCount = 0;
+        this.deviceList();
       } finally {
         this.isProcessing = false;
       }
@@ -501,12 +442,10 @@ export default {
 
 // Add these new styles to your <style> section
 .current-device-row {
-  background-color: rgba(
-    102,
-    45,
-    145,
-    0.2
-  ) !important; // Making this more visible against dark theme
+  background-color: rgba(102,
+      45,
+      145,
+      0.2) !important; // Making this more visible against dark theme
   border-left: 3px solid #662d91;
   position: relative;
 }
