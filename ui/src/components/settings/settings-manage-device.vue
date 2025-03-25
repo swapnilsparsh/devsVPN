@@ -9,7 +9,12 @@
       <div class="device-limit-container">
         <!-- Search Input -->
         <div class="search-container">
-          <input type="text" v-model="searchQuery" placeholder="Search" class="search-input" />
+          <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="Search"
+            class="search-input"
+          />
         </div>
 
         <!-- Table Start-->
@@ -30,7 +35,12 @@
               <tr v-if="isLoading">
                 <td colspan="12">
                   <div class="shimmer-wrapper">
-                    <ShimmerEffect v-for="i in 5" :key="i" :width="'100%'" :height="'20px'" />
+                    <ShimmerEffect
+                      v-for="i in 5"
+                      :key="i"
+                      :width="'100%'"
+                      :height="'20px'"
+                    />
                   </div>
                 </td>
               </tr>
@@ -44,28 +54,68 @@
                   </div>
                 </td>
               </tr>
-              <tr v-else v-for="(device, index) in devicePageList" :key="device.device_id"
-                :class="{ 'current-device-row': isCurrentDevice(device.id) }" :title="isCurrentDevice(device.id)
+              <tr
+                v-else
+                v-for="(device, index) in devicePageList"
+                :key="device.device_id"
+                :class="{ 'current-device-row': isCurrentDevice(device.id) }"
+                :title="
+                  isCurrentDevice(device.id)
                     ? 'This is your current device'
                     : ''
-                  ">
+                "
+              >
                 <td>
                   {{ index + 1 + (currentPage - 1) * itemsPerPage }}
                 </td>
                 <td>
                   <span class="icon view-icon" style="margin-right: 15px">
-                    <img style="vertical-align: middle" src="@/assets/eye-open.svg" @click="viewDetails(device)"
-                      title="View Details" role="button" aria-label="View device details" />
+                    <img
+                      style="vertical-align: middle"
+                      src="@/assets/eye-open.svg"
+                      @click="viewDetails(device)"
+                      title="View Details"
+                      role="button"
+                      aria-label="View device details"
+                    />
                   </span>
-                  <span class="icon delete-icon" style="display: inline-block" @click="removeDevice(device.id)"
-                    title="Delete" role="button" aria-label="Delete device">
-                    <img style="vertical-align: middle" src="@/assets/delete.png" height="17" width="17" />
+                  <span
+                    v-if="!isCurrentDevice(device.id)"
+                    class="icon delete-icon"
+                    style="display: inline-block"
+                    @click="removeDevice(device.id)"
+                    title="Delete"
+                    role="button"
+                    aria-label="Delete device"
+                  >
+                    <img
+                      style="vertical-align: middle"
+                      src="@/assets/delete.png"
+                      height="17"
+                      width="17"
+                    />
+                  </span>
+                  <span
+                    v-else
+                    class="icon delete-icon-disabled"
+                    style="display: inline-block"
+                    title="Cannot delete current device"
+                  >
+                    <img
+                      style="vertical-align: middle; opacity: 0.3"
+                      src="@/assets/delete.png"
+                      height="17"
+                      width="17"
+                    />
                   </span>
                 </td>
                 <!-- Update the device name column to include a visual indicator -->
                 <td>
                   {{ device.device_name }}
-                  <span v-if="isCurrentDevice(device.id)" class="current-device-indicator">
+                  <span
+                    v-if="isCurrentDevice(device.id)"
+                    class="current-device-indicator"
+                  >
                     (Current)
                   </span>
                 </td>
@@ -79,10 +129,18 @@
         </div>
         <!-- Pagination Controls -->
         <div class="pagination">
-          <button @click="changePage(1)" :disabled="currentPage === 1" title="First Page">
+          <button
+            @click="changePage(1)"
+            :disabled="currentPage === 1"
+            title="First Page"
+          >
             First
           </button>
-          <button @click="changePage(currentPage - 1)" :disabled="currentPage === 1" title="Previous Page">
+          <button
+            @click="changePage(currentPage - 1)"
+            :disabled="currentPage === 1"
+            title="Previous Page"
+          >
             «
           </button>
           <button v-if="currentPage > 2" @click="changePage(1)">1</button>
@@ -91,17 +149,31 @@
             {{ currentPage - 1 }}
           </button>
           <button class="active" title="Current Page">{{ currentPage }}</button>
-          <button v-if="currentPage < totalPages" @click="changePage(currentPage + 1)">
+          <button
+            v-if="currentPage < totalPages"
+            @click="changePage(currentPage + 1)"
+          >
             {{ currentPage + 1 }}
           </button>
           <span v-if="currentPage < totalPages - 2">...</span>
-          <button v-if="currentPage < totalPages - 1" @click="changePage(totalPages)">
+          <button
+            v-if="currentPage < totalPages - 1"
+            @click="changePage(totalPages)"
+          >
             {{ totalPages }}
           </button>
-          <button @click="changePage(currentPage + 1)" :disabled="currentPage >= totalPages" title="Next Page">
+          <button
+            @click="changePage(currentPage + 1)"
+            :disabled="currentPage >= totalPages"
+            title="Next Page"
+          >
             »
           </button>
-          <button @click="changePage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
+          <button
+            @click="changePage(totalPages)"
+            :disabled="currentPage === totalPages"
+            title="Last Page"
+          >
             Last
           </button>
         </div>
@@ -113,7 +185,10 @@
       <ComponentDialog ref="viewDeviceDetails" header="Device Details">
         <div>
           <div class="device-info">
-            <div v-if="isCurrentDevice(showDetails?.id)" class="current-device-tag">
+            <div
+              v-if="isCurrentDevice(showDetails?.id)"
+              class="current-device-tag"
+            >
               Current Device
             </div>
             <div class="section">
@@ -183,6 +258,7 @@ export default {
       debounceTimeout: null,
       isDeviceListLoading: true,
       currentDeviceId: null,
+      isDeleteDialogOpen: false,
     };
   },
   computed: {
@@ -230,7 +306,7 @@ export default {
           return;
         }
 
-        // TODO: This logic needs to corrected. 
+        // TODO: This logic needs to corrected.
         // If not found in current page, search all devices
         // if (this.totalCount > this.itemsPerPage) {
         //   try {
@@ -353,23 +429,35 @@ export default {
       }
     },
     async removeDevice(deleteId) {
-      let ret = await sender.showMessageBox(
-        {
-          type: "warning",
-          buttons: ["OK", "Cancel"],
-          message: "Are you sure? You want to remove this device",
-          detail: ``,
-        },
-        true
-      );
-      if (ret.response == 1) return; // cancel
-      if (ret.response == 0) {
-        await this.deviceList(
-          this.searchQuery,
-          this.currentPage,
-          this.itemsPerPage,
-          deleteId
+      if (this.isDeleteDialogOpen) return;
+
+      try {
+        this.isDeleteDialogOpen = true;
+
+        let ret = await sender.showMessageBox(
+          {
+            type: "warning",
+            buttons: ["OK", "Cancel"],
+            message: "Are you sure? You want to delete this device",
+            detail: ``,
+          },
+          true
         );
+
+        if (ret.response == 0) {
+          // OK was clicked
+          await this.deviceList(
+            this.searchQuery,
+            this.currentPage,
+            this.itemsPerPage,
+            deleteId
+          );
+        }
+        // Cancel was clicked (or dialog was closed) - do nothing
+      } catch (error) {
+        console.error("Error showing delete confirmation:", error);
+      } finally {
+        this.isDeleteDialogOpen = false;
       }
     },
     viewDetails(device) {
@@ -442,10 +530,12 @@ export default {
 
 // Add these new styles to your <style> section
 .current-device-row {
-  background-color: rgba(102,
-      45,
-      145,
-      0.2) !important; // Making this more visible against dark theme
+  background-color: rgba(
+    102,
+    45,
+    145,
+    0.2
+  ) !important; // Making this more visible against dark theme
   border-left: 3px solid #662d91;
   position: relative;
 }
