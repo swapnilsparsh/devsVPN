@@ -1,14 +1,18 @@
 <template>
-  <div class="left_panel_block" style="margin-top: 26px">
+  <div
+    :style="{
+      backgroundColor: statusBgColor,
+    }"
+    class="banner"
+  >
+    Your Status:
+    <span style="color: #fff">{{ statusText }}</span>
+  </div>
+  <div class="left_panel_block" style="padding: 10px 0px 0px 0px">
     <div style="display: flex; justify-content: space-between">
-      <div align="left">
-        <!-- ======== TODOC2: Your Status is ========== -->
-        <div class="small_text">Your status is</div>
-        <div>
-          <div class="large_text">
-            {{ protectedText }}
-          </div>
-        </div>
+      <!-- ======== TODOC2: Your Status is ========== -->
+      <div class="deviceName">
+        {{ this.$store.state.account.session.DeviceName }}
       </div>
 
       <div class="buttons">
@@ -164,7 +168,7 @@
         </div>
       </div>
       <!-- PAUSE BUTTON end-->
-       
+
       <!-- Vlad: don't show inverse split tunnel mode -->
       <!--
       <transition name="fade">
@@ -181,14 +185,10 @@
       -->
 
       <transition name="fade">
-        <div
-          v-if="AppWhitelistAndConnected"
-          class="small_text_warning"
-        >
+        <div v-if="AppWhitelistAndConnected" class="small_text_warning">
           App Whitelist is active
         </div>
       </transition>
-
     </div>
     <!-- SECIND LINE end-->
   </div>
@@ -229,6 +229,13 @@ export default {
       if (this.isChecked !== true || this.isCanResume) return "Disconnected";
       return "Connected";
     },
+    statusColor() {
+      return this.protectedText === "Connected"
+        ? "#4eaf51"
+        : this.protectedText === "Paused"
+          ? "yellow"
+          : "#ff6258";
+    },
     isConnected: function () {
       return this.$store.getters["vpnState/isConnected"];
     },
@@ -263,7 +270,27 @@ export default {
       return this.isCanPause && this.isPauseMenuAllowed;
     },
     AppWhitelistAndConnected: function () {
-      return this.$store.state.vpnState.splitTunnelling?.IsAppWhitelistEnabled && this.isConnected;
+      return (
+        this.$store.state.vpnState.splitTunnelling?.IsAppWhitelistEnabled &&
+        this.isConnected
+      );
+    },
+    statusText() {
+      if (this.protectedText === "Disconnected") {
+        return " Disconnected";
+      }
+      if (this.$store.state.vpnState.splitTunnelling?.IsEnabled) {
+        return " Partially Protected";
+      }
+      return " Fully Protected";
+    },
+    statusBgColor() {
+      if (this.protectedText === "Disconnected") {
+        return "#ff6258";
+      }
+      return this.$store.state.vpnState.splitTunnelling?.IsEnabled
+        ? "#4eaf51"
+        : "#0766ff";
     },
   },
   watch: {
@@ -322,6 +349,20 @@ $shadow:
 .main {
   @extend .left_panel_block;
   margin-top: 26px;
+}
+
+div.banner {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  padding: 3px;
+}
+
+div.deviceName {
+  // font-size: 16px;
+  font-weight: 500;
+  color: var(--text-color);
 }
 
 .buttons {

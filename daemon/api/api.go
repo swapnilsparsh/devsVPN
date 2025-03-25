@@ -98,6 +98,7 @@ const (
 	_profileDataPath            = "/user/profile"
 	_subscriptionDataPath       = "/user/check-subscription"
 	_submitLogsPath             = "/api/submit"
+	_migrateSsoUserPath         = "/user/migrate-sso-user"
 	_wgKeySetPath               = _apiPathPrefix + "/session/wg/set"
 	_geoLookupPath              = _apiPathPrefix + "/geo-lookup"
 )
@@ -676,9 +677,8 @@ func (a *API) SessionStatus(session string) (
 
 func (a *API) DeviceList(session string) (deviceList *types.DeviceListResponse, err error) {
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
-	device := runtime.GOOS
 	resp := &types.DeviceListResponse{}
-	if err := a.request(a.getApiHost(), _deviceListPath+"?search="+device+"&page=1&limit=100", "GET", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost(), _deviceListPath+"?search=&page=1&limit=100", "GET", "application/json", request, resp); err != nil {
 		return nil, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
@@ -762,6 +762,22 @@ func (a *API) SessionDelete(session string, deviceWGPublicKey string) error {
 		return types.CreateAPIError(resp.HttpStatusCode, resp.Message)
 	}
 	return nil
+}
+
+// MigrateSsoUser - PLCON-61: SSO user migration to account ID
+func (a *API) MigrateSsoUser(session string) (
+	resp *types.MigrateSsoUserResponse,
+	httpStatusCode int,
+	err error) {
+
+	request := &types.MigrateSsoUserRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
+	resp = &types.MigrateSsoUserResponse{}
+	if err := a.request(a.getApiHost(), _migrateSsoUserPath, "POST", "application/json", request, resp); err != nil {
+		return nil, 0, err
+	} else if resp.HttpStatusCode != types.CodeSuccess {
+		return nil, resp.HttpStatusCode, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
+	}
+	return resp, resp.HttpStatusCode, nil
 }
 
 // WireGuardKeySet - update WG key

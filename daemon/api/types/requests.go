@@ -109,3 +109,11 @@ type SessionWireGuardKeySetRequest struct {
 func (req SessionWireGuardKeySetRequest) GetSessionToken() string {
 	return req.Session
 }
+
+type MigrateSsoUserRequest struct {
+	SessionTokenStruct
+}
+
+func (req MigrateSsoUserRequest) GetSessionToken() string {
+	return req.SessionToken
+}

@@ -1,5 +1,8 @@
 #! /bin/bash
 
+# dump nftables ruleset via 'nft -s list ruleset'
+# dump iptables via iptables-save, ip6tables-save
+
 for i in /proc/sys/net/ipv6/conf/{default,all}/disable_ipv6 ; do
 	echo "$i = "`cat $i`
 done

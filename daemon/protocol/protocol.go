@@ -181,10 +181,19 @@ type Service interface {
 		apiErrorMsg string,
 		rawResponse *api_types.SsoLoginResponse,
 		err error)
+	MigrateSsoUser() (
+		apiCode int,
+		migrateSsoUserResp *api_types.MigrateSsoUserResponse,
+		err error)
 
 	ProfileData() (
 		apiCode int,
 		rawResponse *api_types.ProfileDataResponse,
+		err error)
+
+	DeviceList() (
+		apiCode int,
+		rawResponse *api_types.DeviceListResponse,
 		err error)
 
 	SubscriptionData() (
@@ -1160,6 +1169,43 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		// notify all clients about changed session status
 		p.notifyClients(p.createHelloResponse())
 
+	case "DeviceList":
+		var req types.DeviceListRequest
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		var resp types.DeviceListResp
+		apiCode, rawResponse, err := p._service.DeviceList()
+
+		if err != nil {
+			if apiCode == 0 {
+				// if apiCode == 0 - it is not API error. Sending error response
+				err := fmt.Errorf("apiErrorMsg= %w", err)
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			// sending API error info
+			resp = types.DeviceListResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+			}
+		} else {
+			// Success. Sending session info
+			resp = types.DeviceListResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+				Session:         types.CreateSessionResp(p._service.Preferences().Session),
+				RawResponse:     rawResponse}
+		}
+
+		// send response
+		p.sendResponse(conn, &resp, reqCmd.Idx)
+
+		// notify all clients about changed session status
+		p.notifyClients(p.createHelloResponse())
+
 	case "SubscriptionData":
 		var req types.SubscriptionDataRequest
 		if err := json.Unmarshal(messageData, &req); err != nil {
@@ -1304,6 +1350,33 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			DeviceName:      sessionData.DeviceName}
 
 		// send response
+		p.sendResponse(conn, &resp, reqCmd.Idx)
+
+	case "MigrateSsoUser":
+		var resp types.MigrateSsoUserResp
+		apiCode, apiResp, err := p._service.MigrateSsoUser()
+
+		if err != nil {
+			if apiCode == 0 {
+				// if apiCode == 0 - it is not API error. Sending error response
+				err := fmt.Errorf("apiErrorMsg=: %w", err)
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			// sending API error info
+			resp = types.MigrateSsoUserResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+			}
+		} else {
+			resp = types.MigrateSsoUserResp{
+				APIStatus:       apiCode,
+				APIErrorMessage: err,
+				AccountID:       apiResp.Data.Username,
+			}
+			p.notifyClients(p.createHelloResponse())
+		}
+
 		p.sendResponse(conn, &resp, reqCmd.Idx)
 
 	case "WireGuardGenerateNewKeys":

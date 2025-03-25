@@ -120,6 +120,10 @@ export default {
     );
   },
 
+  MigrateSsoUser: async () => {
+    return await invoke("renderer-request-MigrateSsoUser");
+  },
+
   AccountInfo: async () => {
     return await invoke("renderer-request-AccountInfo");
   },
@@ -240,6 +244,10 @@ export default {
 
   ProfileData: async () => {
     return await invoke("renderer-request-ProfileData");
+  },
+
+  DeviceList: async () => {
+    return await invoke("renderer-request-DeviceList");
   },
 
   SubscriptionData: async () => {
@@ -416,6 +424,9 @@ export default {
   },
 
   // OS
+  osVersionRelease: () => {
+    return ipcRenderer.sendSync("renderer-request-os-version-release");
+  },
   osRelease: () => {
     return ipcRenderer.sendSync("renderer-request-os-release");
   },

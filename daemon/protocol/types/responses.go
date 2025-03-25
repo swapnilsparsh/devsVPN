@@ -149,6 +149,7 @@ type HelloResp struct {
 	CommandBase
 	Version           string
 	ProcessorArch     string
+	OsVersion         string
 	Session           SessionResp
 	DevRestApiBackend bool
 	Account           preferences.AccountStatus
@@ -206,6 +207,14 @@ type ProfileDataResp struct {
 	RawResponse     *api_types.ProfileDataResponse
 }
 
+type DeviceListResp struct {
+	CommandBase
+	APIStatus       int
+	APIErrorMessage error
+	Session         SessionResp
+	RawResponse     *api_types.DeviceListResponse
+}
+
 type SubscriptionDataResp struct {
 	CommandBase
 	APIStatus       int
@@ -229,6 +238,13 @@ type SsoLoginResp struct {
 	APIErrorMessage string
 	Session         SessionResp
 	RawResponse     *api_types.SsoLoginResponse
+}
+
+type MigrateSsoUserResp struct {
+	CommandBase
+	APIStatus       int
+	APIErrorMessage error
+	AccountID       string
 }
 
 type AccountInfo struct {

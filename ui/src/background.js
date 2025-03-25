@@ -339,6 +339,10 @@ if (gotTheLock && isAllowedToStart) {
     // https://www.electronjs.org/docs/latest/tutorial/security#5-handle-session-permission-requests-from-remote-content
     session.defaultSession.setPermissionRequestHandler(
       (webContents, permission, callback) => {
+        if (permission === "media") {
+          callback(true);
+          return;
+        }
         console.log("Permission request blocked: ", permission);
         callback(false);
       }

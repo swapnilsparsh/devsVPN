@@ -282,3 +282,18 @@ type SubscriptionDataResponse struct {
 func (resp *SubscriptionDataResponse) SetHttpStatusCode(newHttpStatusCode int) {
 	resp.HttpStatusCode = newHttpStatusCode
 }
+
+type MigrateSsoUserResponse struct {
+	Status  bool   `json:"status"`
+	Message string `json:"message"`
+	Data    struct {
+		// returned username will contained account ID in format XXXX-XXXX-XXXX
+		Username string `json:"username"`
+		Token    string `json:"token"`
+	} `json:"data"`
+	HttpStatusCode int // manually set by parsers
+}
+
+func (resp *MigrateSsoUserResponse) SetHttpStatusCode(newHttpStatusCode int) {
+	resp.HttpStatusCode = newHttpStatusCode
+}

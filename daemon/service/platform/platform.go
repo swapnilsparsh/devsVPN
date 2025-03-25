@@ -40,6 +40,8 @@ var (
 	// This file should be accessible to read only for 'privilaged' user
 	paranoidModeSecretFile string
 
+	osVersion string
+
 	settingsFile    string
 	servicePortFile string
 	serversFile     string
@@ -376,4 +378,8 @@ func PLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) 
 
 func PLInternalHostnamesToAcceptIncomingUdpFrom() []string {
 	return []string{"meet.privateline.network"}
+}
+
+func OsVersion() string {
+	return osVersion
 }

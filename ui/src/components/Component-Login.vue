@@ -3,16 +3,16 @@
     <div class="flexRow flexRowRestSpace">
       <spinner :loading="isProcessing" />
 
-      <div class="column">
-        <div class="centered" style="margin-top: -50px; margin-bottom: 50px">
-          <img width=" 70%" src="@/assets/logo.svg" />
-        </div>
+      <!-- <div class="column"> -->
+      <div class="centered">
+        <img width=" 70%" src="@/assets/logo.svg" />
+      </div>
 
+      <div class="column">
         <div>
           <!-- ACCOUNT ID -->
           <div class="centered">
-            <div class="large_text">Login</div>
-            <div class="medium_text">to privateLINE Connect</div>
+            <div class="large_text">Log In</div>
             <div style="height: 12px" />
           </div>
 
@@ -37,9 +37,29 @@
 
           </div> -->
           <!-- ============ account ID formatting feature start ============= -->
-          <div v-if="isAccountIdLogin" style="position: relative; display: flex; align-items: center">
-            <input ref="accountid" v-model="accountID" class="styledBig" style="text-align: left"
-              placeholder="Account ID XXXX-XXXX-XXXX" :type="'text'" @keyup="keyup($event)" />
+          <div class="medium_text" style="font-weight: 600">Account ID:</div>
+          <div style="height: 12px" />
+          <div
+            v-if="isAccountIdLogin"
+            style="position: relative; display: flex; align-items: center"
+          >
+            <input
+              ref="accountid"
+              v-model="accountID"
+              class="styledBig"
+              style="text-align: left"
+              placeholder="Account ID XXXX-XXXX-XXXX"
+              :type="'text'"
+              @keyup="keyup($event)"
+            />
+            <span class="input-button">
+              <img
+                @click="startScanning"
+                style="cursor: pointer"
+                title="QR Code Scanner"
+                src="@/assets/qr-scan.svg"
+              />
+            </span>
           </div>
           <!-- ============ account ID formatting feature end ============= -->
 
@@ -75,19 +95,70 @@
         </div>
         -->
 
-        <div style="height: 24px" />
-        <button class="master" @click="Login">Log In With Account ID</button>
-        <div style="height: 12px" />
+        <div style="height: 18px" />
+        <button
+          class="master"
+          style="height: 45px; border-radius: 10px; font-weight: 600"
+          @click="Login"
+        >
+          Login
+        </button>
+        <div style="height: 18px" />
         <!--
         <button v-if="!isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Account ID</button>
         <button v-if="isAccountIdLogin" class="slave" v-on:click="onLoginWithAccountId">Login With Email And
           Password</button>
         <div style="height: 12px" />
         -->
-        <button class="slave" v-on:click="openSSO">SSO Login</button>
-        <div style="height: 12px" />
-        <button class="slave" @click="CreateAccount">Create an account</button>
+        
+        <!-- SSO login disabled per PLCON-89 Remove SSO login option from main screen from Desktop apps
+        <button
+          class="slave"
+          style="
+            height: 45px;
+            border-radius: 10px;
+            background: transparent;
+            border: 2px solid #6f329d;
+            color: var(--login-text-color);
+            font-weight: 600;
+          "
+          v-on:click="openSSO"
+        >
+          SSO Log In
+        </button>
+        -->
+
+        <div style="height: 18px" />
+        <button
+          class="slave"
+          style="
+            height: 45px;
+            border-radius: 10px;
+            background: transparent;
+            border: 2px solid #6f329d;
+            color: var(--login-text-color);
+            font-weight: 600;
+          "
+          @click="CreateAccount"
+        >
+          Create an Account
+        </button>
+        <div style="height: 18px" />
+        <video v-show="stream" ref="videoRef" autoplay></video>
       </div>
+      <!-- </div> -->
+    </div>
+    <div v-if="versionSingle" class="version" style="margin-bottom: 10px">
+      <!-- single version -->
+      {{ versionSingle }}
+    </div>
+
+    <div v-else style="margin-bottom: 12px">
+      <!-- daemon and UI versions different-->
+      <div class="version">
+        {{ versionUI }}
+      </div>
+      <div class="version">daemon {{ versionDaemon }}</div>
     </div>
 
     <!-- <div class="flexRow leftright_margins" style="margin-bottom: 20px">
@@ -105,7 +176,7 @@
       />
     </div> -->
 
-    <FooterBlock/>
+    <FooterBlock />
   </div>
 </template>
 
@@ -128,6 +199,7 @@ import {
   API_2FA_REQUIRED,
   API_2FA_TOKEN_NOT_VALID,
 } from "@/api/statuscode";
+import jsQR from "jsqr";
 
 function processError(e) {
   console.error(e);
@@ -157,7 +229,7 @@ export default {
       password: "",
       isProcessing: false,
       isAccountIdLogin: true,
-      accountID: '',
+      accountID: "",
 
       rawResponse: null,
       apiResponseStatus: 0,
@@ -168,6 +240,9 @@ export default {
       captcha: "",
       confirmation2FA: "",
       showPassword: false,
+      stream: null,
+      scanning: false,
+      errorMessage: null,
     };
   },
   computed: {
@@ -204,6 +279,28 @@ export default {
       if (this.$store.state.vpnState.firewallState.IsEnabled)
         return "Firewall enabled and blocking all traffic";
       return "Firewall disabled";
+    },
+    versionSingle: function () {
+      if (this.versionDaemon === this.versionUI) return this.versionDaemon;
+      return null;
+    },
+    versionDaemon: function () {
+      try {
+        let v = this.$store.state.daemonVersion;
+        if (!v) return "version unknown";
+        return `v${v}`;
+      } catch (e) {
+        return "version unknown";
+      }
+    },
+    versionUI: function () {
+      try {
+        let v = sender.appGetVersion().Version;
+        if (!v) return "version unknown";
+        return `v${v}`;
+      } catch (e) {
+        return "version unknown";
+      }
     },
   },
   watch: {
@@ -262,6 +359,59 @@ export default {
     }
   },
   methods: {
+    async startScanning() {
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        this.$nextTick(() => {
+          this.$refs.videoRef.srcObject = this.stream;
+        });
+        this.scanning = true;
+        this.scanQRCode();
+      } catch (error) {
+        this.errorMessage = "Error accessing camera: " + error.message;
+      }
+    },
+    stopCamera() {
+      if (this.stream) {
+        this.stream.getTracks().forEach((track) => track.stop());
+        this.scanning = false;
+        this.stream = null;
+      }
+      this.errorMessage = null;
+    },
+    scanQRCode() {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      const video = this.$refs.videoRef;
+
+      const scan = () => {
+        if (!this.scanning) return;
+
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.height = video.videoHeight;
+          canvas.width = video.videoWidth;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = context.getImageData(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+          if (code) {
+            this.stopCamera();
+            this.accountID = code.data;
+            this.Login();
+            return;
+          }
+        }
+        requestAnimationFrame(scan);
+      };
+      scan();
+    },
     toggleEye() {
       // Toggle the state
       this.showPassword = !this.showPassword;
@@ -290,7 +440,10 @@ export default {
 
         this.isProcessing = true;
         if (this.isAccountIdLogin) {
-          const pattern = new RegExp("^([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$");
+          // const pattern = new RegExp("^([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$");
+          const pattern = new RegExp(
+            "^(a-)?([1-9A-HJ-NP-Z]{4}-){2}[1-9A-HJ-NP-Z]{4}$"
+          ); // Allowing both XXXX-XXXX-XXXX Or a-XXXX-XXXX-XXXX
           if (this.accountID) this.accountID = this.accountID.trim();
           if (!pattern.test(this.accountID)) {
             throw new Error(
@@ -327,8 +480,11 @@ export default {
           }
         }
 
+        // Only send account ID to the daemon in XXXX-XXXX-XXXX format irrespective of whether the user entered account ID as XXXX-XXXX-XXXX, or as a-XXXX-XXXX-XXXX
         const resp = await sender.Login(
-          this.isAccountIdLogin ? this.accountID : this.email,
+          this.isAccountIdLogin ? 
+            (this.accountID.startsWith("a-") ? this.accountID.substring(2, 16) : this.accountID)
+            : this.email,
           this.isAccountIdLogin ? "" : this.password
           // isForceLogout === true || this.isForceLogoutRequested === true,
           // this.captchaID,
@@ -339,7 +495,8 @@ export default {
         //console.log("resp", resp);
         //const accountInfoResponse = await sender.AccountInfo();
         //console.log("accountInfoResponse", accountInfoResponse);
-        if (resp.APIStatus === 429) { // API error: [429] Too many requests from this IP or email, please try again later
+        if (resp.APIStatus === 429) {
+          // API error: [429] Too many requests from this IP or email, please try again later
           sender.showMessageBoxSync({
             type: "error",
             buttons: ["OK"],
@@ -445,7 +602,8 @@ export default {
     },
     openSSO() {
       sender.shellOpenExternal(
-        `https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`);
+        `https://sso.privateline.io/realms/privateLINE/protocol/openid-connect/auth?client_id=pl-connect-desktop&response_type=code&redirect_uri=privateline://auth`
+      );
     },
     onLoginWithAccountId() {
       this.isAccountIdLogin = !this.isAccountIdLogin;
@@ -462,32 +620,36 @@ export default {
       this.confirmation2FA = "";
       this.isForceLogoutRequested = false;
     },
-    // keyup(event) {
-    //   if (event.keyCode === 13) {
-    //     // Cancel the default action, if needed
-    //     event.preventDefault();
-    //     this.Login();
-    //   }
-
-    // },
     keyup(event) {
-      // Sanitize input
-      let input = this.accountID || '';
+      let input = this.accountID || "";
+      const sanitized = input.toUpperCase().replace(/[^A-HJ-NP-Z0-9-]/gi, "");
 
-      // Sanitize - leave only allowed characters. Characters '0', 'O', 'I' are forbidden.
-      const sanitized = input.toUpperCase().replace(/[^1-9A-HJ-NP-Z]/gi, '');
+      if (sanitized.startsWith("A-")) {
+        // Limit to the format a-XXXX-XXXX-XXXX
+        const trimmed = sanitized.replace(/-/g, "").substring(0, 13); // Exclude 'A-'
+        this.accountID = `a-${
+          trimmed
+            .substring(1)
+            .match(/.{1,4}/g)
+            ?.join("-") || ""
+        }`;
+      } else {
+        // Default to the format XXXX-XXXX-XXXX
+        const trimmed = sanitized.replace(/-/g, "").substring(0, 12);
+        this.accountID = trimmed.match(/.{1,4}/g)?.join("-") || "";
+      }
 
-      // Limit to 12 characters and format as XXXX-XXXX-XXXX
-      this.accountID = sanitized.substring(0, 12).match(/.{1,4}/g)?.join('-') || '';
-
-      // Enter key pressed
-      if (event.key === 'Enter' && !this.isProcessing && !this.$store.getters["account/isLoggedIn"]) {
-        // Cancel the default action, if needed
+      // Handle the Enter key
+      if (
+        event.key === "Enter" &&
+        !this.isProcessing &&
+        !this.$store.getters["account/isLoggedIn"]
+      ) {
         event.preventDefault();
         this.Login();
       }
     },
-    
+
     updateColorScheme() {
       let isDarkTheme = false;
       let scheme = sender.ColorScheme();
@@ -532,12 +694,28 @@ export default {
       }
     },
   },
+  beforeDestroy() {
+    this.stopCamera();
+  },
 };
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
 @import "@/components/scss/constants";
+
+.input-button {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  margin: 7px;
+  padding: 0;
+}
+
+video {
+  width: 60%;
+  height: auto;
+}
 
 .leftright_margins {
   margin-left: 20px;
@@ -547,6 +725,7 @@ export default {
 .column {
   @extend .leftright_margins;
   width: 100%;
+  margin-bottom: 70px;
 }
 
 .centered {
@@ -557,8 +736,9 @@ export default {
 
 .large_text {
   font-weight: 600;
-  font-size: 18px;
+  font-size: 22px;
   line-height: 120%;
+  text-align: left;
 }
 
 .small_text {
@@ -572,5 +752,10 @@ export default {
   font-size: 11px;
   line-height: 13px;
   color: var(--text-color-details);
+}
+
+div.version {
+  text-align: center;
+  font-weight: 600;
 }
 </style>

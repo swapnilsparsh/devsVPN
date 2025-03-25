@@ -85,6 +85,10 @@ ipcMain.handle("renderer-request-AccountInfo", async () => {
   return await client.AccountInfo();
 });
 
+ipcMain.handle("renderer-request-MigrateSsoUser", async () => {
+  return await client.MigrateSsoUser();
+});
+
 ipcMain.handle(
   "renderer-request-logout",
   async (
@@ -207,6 +211,10 @@ ipcMain.handle(
 
 ipcMain.handle("renderer-request-ProfileData", async () => {
   return await client.ProfileData();
+});
+
+ipcMain.handle("renderer-request-DeviceList", async () => {
+  return await client.DeviceList();
 });
 
 ipcMain.handle("renderer-request-SubscriptionData", async () => {
@@ -488,6 +496,9 @@ ipcMain.handle("renderer-request-shell-open-external", async (event, uri) => {
 });
 
 // OS
+ipcMain.on("renderer-request-os-version-release", (event) => {
+  event.returnValue = os.version() + " " + os.release();
+});
 ipcMain.on("renderer-request-os-release", (event) => {
   event.returnValue = os.release();
 });

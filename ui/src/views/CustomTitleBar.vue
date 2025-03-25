@@ -7,7 +7,7 @@
       v-on:click="onMinimize()"
     >
       <svg width="11" height="1" viewBox="0 0 11 1">
-        <path d="m11 0v1h-11v-1z" stroke-width=".26208" fill="#888888" />
+        <path d="m11 0v1h-11v-1z" stroke-width=".26208" fill="#fff" />
       </svg>
     </button>
 
@@ -21,7 +21,7 @@
         <path
           d="m6.8496 6 5.1504 5.1504-0.84961 0.84961-5.1504-5.1504-5.1504 5.1504-0.84961-0.84961 5.1504-5.1504-5.1504-5.1504 0.84961-0.84961 5.1504 5.1504 5.1504-5.1504 0.84961 0.84961z"
           stroke-width=".3"
-          fill="#888888"
+          fill="#fff"
         />
       </svg>
     </button>
@@ -94,7 +94,7 @@ export default {
 }
 
 .winBtnMinimize:hover {
-  background: #e5e5e5;
+  background: #404040;
   @media (prefers-color-scheme: dark) {
     background: #404040;
   }
