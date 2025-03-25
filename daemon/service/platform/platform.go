@@ -64,9 +64,13 @@ var (
 
 	routeCommand string // Example: "/sbin/route" - for macOS, "/sbin/ip route" - for Linux, "C:\\Windows\\System32\\ROUTE.EXE" - for Windows
 
+	resolvectlCommand string
+
 	wgBinaryPath     string
 	wgToolBinaryPath string
 	wgConfigFilePath string
+	wgInterfaceName  string
+	wgDefaultMtu     int
 
 	// other PL apps, which need firewall rules to accept incoming connections
 	plCommsBinaryPath string
@@ -362,6 +366,14 @@ func WgToolBinaryPath() string {
 // WGConfigFilePath path to WireGuard configuration file
 func WGConfigFilePath() string {
 	return wgConfigFilePath
+}
+
+func WGInterfaceName() string {
+	return wgInterfaceName
+}
+
+func WGDefaultMTU() int {
+	return wgDefaultMtu
 }
 
 func DnsCryptProxyInfo() (binPath, configPathTemplate, configPathMutable, logPath string) {

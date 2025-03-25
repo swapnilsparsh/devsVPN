@@ -27,11 +27,13 @@ package firewall
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
@@ -40,8 +42,6 @@ const (
 	ENOENT_ERRMSG = "no such file or directory"
 
 	VPN_COEXISTENCE_CHAIN_PREFIX = "privateline-vpnco" // full chain name has to be under 29 chars w/ iptables-legacy
-
-	PL_WG_INTERFACE = "wgprivateline"
 )
 
 var (
@@ -54,7 +54,6 @@ var (
 	curStateAllowLAN          bool     // Allow LAN is enabled
 	curStateAllowLanMulticast bool     // Allow Multicast is enabled
 	curStateEnabled           bool     // Firewall is enabled
-	isPersistent              bool     // Firewall is persistent
 
 	waitForTopFirewallPriAfterWeLostItMutex sync.Mutex
 )
@@ -179,7 +178,7 @@ func waitForTopFirewallPriAfterWeLostIt() {
 
 	go onKillSwitchStateChangedCallback() // initial notification out
 
-	for vpnConnectedCallback() { // if VPN is no longer connected - terminate this waiting loop
+	for vpnConnectedOrConnectingCallback() { // if VPN is no longer connected - terminate this waiting loop
 		time.Sleep(time.Second * 5)
 
 		if weHaveTopFirewallPriority, err := implGetEnabled(); err != nil {
@@ -219,6 +218,11 @@ func implDeployPostConnectionRules() (retErr error) {
 		errNft, errLegacy                   error
 	)
 
+	// re-run VPN coexistence rules, since presumably now we're CONNECTED
+	if err := vpncoexistence.EnableCoexistenceWithOtherVpns(getPrefsCallback(), vpnConnectedOrConnectingCallback); err != nil {
+		retErr = log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
+	}
+
 	implDeployPostConnectionRulesWaiter.Add(2)
 	go func() {
 		errLegacy = implDeployPostConnectionRulesLegacy(false)
@@ -233,11 +237,11 @@ func implDeployPostConnectionRules() (retErr error) {
 		return log.ErrorFE("error: errLegacy='%w'", errLegacy)
 	}
 
-	return nil
+	return retErr
 }
 
 func implSetEnabled(isEnabled, _ bool) error {
-	log.Debug("implSetEnabled: ", isEnabled)
+	log.Debug("implSetEnabled=", isEnabled)
 
 	var (
 		implSetEnabledWaiter sync.WaitGroup
@@ -272,16 +276,17 @@ func implSetPersistent(persistent bool) error {
 		// 	- daemon is starting as on system boot
 		// 	- SetPersistent() called by service object on daemon start
 		// This means we just have to ensure that firewall enabled.
-
-		// Just ensure that firewall is enabled
-		ret := implSetEnabled(true, false)
+		if isEnabled, err := implGetEnabled(); err != nil {
+			return log.ErrorFE("Status check error: %w", err)
+		} else if !isEnabled {
+			return implSetEnabled(true, false)
+		}
 
 		// Some Linux distributions erasing IVPN rules during system boot
 		// During some period of time (60 seconds should be enough)
 		// check if FW rules still exist (if not - re-apply them)
 		// go ensurePersistent(60)
-
-		return ret
+		// return ret
 	}
 	return nil
 }
@@ -292,22 +297,29 @@ func implCleanupRegistration() (err error) {
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
 // If addr is not nil, non-zero, and different from previous customDNS - just add the new DNS to privateLINE_DNS set
-func implOnChangeDNS(addr net.IP) (err error) {
-	log.Info("implOnChangeDNS addr=" + addr.String())
-	if addr == nil || addr.Equal(customDNS) || net.IPv4zero.Equal(addr) {
+func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
+	log.Info("implOnChangeDNS")
+	if dnsServers == nil || reflect.DeepEqual(*dnsServers, customDnsServers) || net.IPv4zero.Equal((*dnsServers)[0]) {
 		return nil
 	}
 
-	customDNS = addr
-
-	// if the customDNS matches one of stock DNS servers for our Wireguard config(s), no need to add new firewall rules or nft set entries
-	if getPrefsCallback().AllDnsServersIPv4Set.Contains(customDNS.String()) {
-		return nil
-	}
+	customDnsServers = *dnsServers
 
 	if enabled, err := implGetEnabled(); err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	} else if !enabled {
+		return nil
+	}
+
+	// for those new servers that match one of stock DNS servers for our Wireguard config(s), no need to add new firewall rules or nft set entries for them
+	prefs := getPrefsCallback()
+	var _newDnsServers []net.IP
+	for _, dnsSrv := range customDnsServers {
+		if !prefs.AllDnsServersIPv4Set.Contains(dnsSrv.String()) && !net.IPv4zero.Equal(dnsSrv) {
+			_newDnsServers = append(_newDnsServers, dnsSrv)
+		}
+	}
+	if len(_newDnsServers) < 1 {
 		return nil
 	}
 
@@ -317,8 +329,8 @@ func implOnChangeDNS(addr net.IP) (err error) {
 	)
 
 	implOnChangeDNSWaiter.Add(2) // launch legacy before nft, it's expected to be slower
-	go func() { errLegacy = implOnChangeDnsLegacy(); implOnChangeDNSWaiter.Done() }()
-	go func() { errNft = implOnChangeDnsNft(); implOnChangeDNSWaiter.Done() }()
+	go func() { errLegacy = implOnChangeDnsLegacy(&_newDnsServers); implOnChangeDNSWaiter.Done() }()
+	go func() { errNft = implOnChangeDnsNft(&_newDnsServers); implOnChangeDNSWaiter.Done() }()
 	implOnChangeDNSWaiter.Wait()
 
 	if errNft != nil {
@@ -381,7 +393,7 @@ func ensurePersistent(secondsToWait int) {
 		if !isPersistent {
 			break
 		}
-		enabled, err := implGetEnabledNft()
+		enabled, err := implGetEnabled()
 		if err != nil {
 			log.Error("[ensurePersistent] ", err)
 			continue
@@ -799,7 +811,7 @@ func reApplyExceptions() error {
 	const onlyIcmpFALSE = false
 
 	// define DNS rules
-	err := implOnChangeDNS(getDnsIP())
+	err := implOnChangeDNS(getDnsIPs())
 	if err != nil {
 		log.Error(err)
 	}

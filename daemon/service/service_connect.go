@@ -683,15 +683,15 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 			log.Error("(stopping) error resetting manual DNS: ", err)
 		}
 
+		// Need to wait for all connectRoutinesWaiter routines to end before disabling firewall, because implFirewallBackgroundMonitor() can reenable it.
 		connectRoutinesWaiter.Wait()
 
 		// when we were requested to enable firewall for this connection
 		// And initial FW state was disabled - we have to disable it back
-		// Need to wait for all connectRoutinesWaiter routines to end before disabling firewall, because implFirewallBackgroundMonitor() can reenable it.
 		// if firewallDuringConnection && !fwInitState {
 		if !firewallOn && firewallDuringConnection { // per firewallOn, firewallDuringConnection description
 			if err = s.SetKillSwitchState(false); err != nil {
-				log.Error("(stopping) failed to disable firewall:", err)
+				log.ErrorFE("(stopping) failed to disable firewall: %w", err)
 			}
 		}
 

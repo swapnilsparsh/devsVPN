@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -47,6 +48,10 @@ var (
 
 	// path to the readonly servers.json file bundled into the package
 	serversFileBundled string
+
+	resolvectlPlInternalDomains = []string{"~privateline.io", "~privateline.network", "~privateline.dev"}
+
+	PrivatelineInternalDomainsResolvectlRegex = regexp.MustCompile(`(?i)[\s]+DNS Domain:[\s]+~privateline.io[\s]+~privateline.network[\s]+~privateline.dev`)
 )
 
 const (
@@ -149,6 +154,8 @@ func doInitConstants() {
 	logFile = path.Join(logDir, helpers.ServiceName+".log")
 
 	openvpnUserParamsFile = path.Join(tmpDir, "ovpn_extra_params.txt")
+
+	wgDefaultMtu = 1380 // reasonable default for MTU on Linux
 }
 
 func doOsInit() (warnings []string, errors []error, logInfo []string) {
@@ -250,6 +257,10 @@ func SplitTunScript() string {
 	return splitTunScript
 }
 
+func ResolvectlDetected() bool {
+	return resolvectlBinPath != ""
+}
+
 func ResolvectlBinPath() string {
 	return resolvectlBinPath
 }
@@ -278,4 +289,9 @@ func parseOsVersion() (err error) {
 		osVersion = runtime.GOOS
 		return nil
 	}
+}
+
+// to be used on Linux by command: resolvectl domain wgprivateline \~domain1 \~domain2 ...
+func PrivatelineInternalDomains() *[]string {
+	return &resolvectlPlInternalDomains
 }

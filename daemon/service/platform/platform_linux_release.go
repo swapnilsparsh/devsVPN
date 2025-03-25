@@ -27,6 +27,7 @@ package platform
 
 import (
 	"path"
+	"path/filepath"
 )
 
 func doOsInitForBuild() (warnings []string, errors []error, logInfo []string) {
@@ -68,6 +69,7 @@ func doOsInitForBuild() (warnings []string, errors []error, logInfo []string) {
 	openvpnConfigFile = path.Join(tmpDir, "openvpn.cfg")
 	openvpnProxyAuthFile = path.Join(tmpDir, "proxyauth.txt")
 	wgConfigFilePath = path.Join(tmpDir, "wgprivateline.conf")
+	wgInterfaceName = filepath.Base(wgConfigFilePath)
 
 	return nil, nil, logInfo
 }

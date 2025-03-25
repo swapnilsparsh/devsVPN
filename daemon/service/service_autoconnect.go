@@ -200,7 +200,7 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 	// Check "Auto-connect on APP/daemon launch" action
 	// (skip when we are connected to a trusted network with "Disconnect VPN" action)
 	if prefs.IsAutoconnectOnLaunch && !isVpnOffRequired {
-		if !s.Connected() && action.Vpn != VPN_On {
+		if !s.ConnectedOrConnecting() && action.Vpn != VPN_On {
 			if (reason == OnDaemonStarted || reason == OnSessionLogon) && prefs.IsAutoconnectOnLaunchDaemon {
 				log.Info(fmt.Sprintf("Automatic connection manager: applying Auto-Connect action on '%s' ...", reason.ToString()))
 				action.Vpn = VPN_On
@@ -269,14 +269,14 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 	// Vpn
 	switch action.Vpn {
 	case VPN_Off:
-		if s.Connected() {
+		if s.ConnectedOrConnecting() {
 			log.Info("Automatic connection manager: disconnecting VPN")
 			if retErr = s.Disconnect(); retErr != nil {
 				log.Error("Auto connection: disconnecting: ", retErr)
 			}
 		}
 	case VPN_On:
-		if !s.Connected() {
+		if !s.ConnectedOrConnecting() {
 			log.Info("Automatic connection manager: connecting VPN")
 
 			connParams, retErr = s.updateParamsAccordingToMetadata(connParams)

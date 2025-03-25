@@ -52,7 +52,7 @@ type IWgKeysChangeReceiver interface {
 	WireGuardSaveNewKeys(wgPublicKey string, wgPrivateKey string, wgLocalIP string, wgPreSharedKey string)
 	WireGuardGetKeys() (session, wgPublicKey, wgPrivateKey, wgLocalIP string, generatedTime time.Time, updateInterval time.Duration)
 	FirewallEnabled() (bool, error)
-	Connected() bool
+	ConnectedOrConnecting() bool
 	ConnectedType() (isConnected bool, connectedVpnType vpn.Type)
 	IsConnectivityBlocked() (err error) // IsConnectivityBlocked - returns nil if connectivity NOT blocked
 	OnSessionNotFound()

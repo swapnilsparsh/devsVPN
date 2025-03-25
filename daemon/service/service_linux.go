@@ -42,7 +42,7 @@ import (
 )
 
 func (s *Service) implIsCanApplyUserPreferences(userPrefs preferences.UserPreferences) error {
-	if s.Connected() {
+	if s.ConnectedOrConnecting() {
 		return fmt.Errorf("unable to change settings in the connected state")
 	}
 	if userPrefs.Linux.IsDnsMgmtOldStyle {

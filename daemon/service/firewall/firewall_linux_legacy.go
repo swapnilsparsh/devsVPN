@@ -102,7 +102,7 @@ func implGetEnabledLegacy() (exists bool, retErr error) {
 	if inputRules, err := inputLegacy.ListRules(); err != nil {
 		return false, log.ErrorFE("error listing INPUT rules: %w", err)
 	} else if len(inputRules) < 1 {
-		log.Debug("INPUT chain empty")
+		//log.Debug("INPUT chain empty")
 		return false, nil
 	} else if inputRules[0].Target().Short() != ("-j " + VPN_COEXISTENCE_CHAIN_LEGACY_IN) {
 		log.Debug("unexpected 1st rule in INPUT chain: " + inputRules[0].Target().Short())
@@ -112,7 +112,7 @@ func implGetEnabledLegacy() (exists bool, retErr error) {
 	if outputRules, err := outputLegacy.ListRules(); err != nil {
 		return false, log.ErrorFE("error listing OUTPUT rules: %w", err)
 	} else if len(outputRules) < 1 {
-		log.Debug("OUTPUT chain empty")
+		//log.Debug("OUTPUT chain empty")
 		return false, nil
 	} else if outputRules[0].Target().Short() != ("-j " + VPN_COEXISTENCE_CHAIN_LEGACY_OUT) {
 		log.Debug("unexpected 1st rule in OUTPUT chain: " + outputRules[0].Target().Short())
@@ -266,8 +266,12 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 
 		// Allow UDP src port 53 from our DNS servers and UDP dst port 53 to our DNS servers, incl. custom DNS
 		dnsSrvList := vpnEntryHost.DnsServers
-		if customDNS != nil && !prefs.AllDnsServersIPv4Set.Contains(customDNS.String()) && !net.IPv4zero.Equal(customDNS) { // append custom DNS, if configured
-			dnsSrvList += "," + customDNS.To4().String()
+		if len(customDnsServers) >= 1 { // append custom DNS, if configured
+			for _, customDnsSrv := range customDnsServers {
+				if !prefs.AllDnsServersIPv4Set.Contains(customDnsSrv.String()) && !net.IPv4zero.Equal(customDnsSrv) {
+					dnsSrvList += "," + customDnsSrv.To4().String()
+				}
+			}
 		}
 		for _, dnsSrv := range strings.Split(dnsSrvList, ",") {
 			dnsSrv = strings.TrimSpace(dnsSrv)
@@ -317,15 +321,15 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 	// create rules for wgprivateline interface - even if it doesn't exist yet
 
 	// conntrack state established,related accept on input on interface wgprivateline
-	if err = vpnCoexLegacyIn.MatchInInterface(false, PL_WG_INTERFACE).MatchState(iptables.ESTABLISHED | iptables.RELATED).TargetAccept().Insert(); err != nil {
+	if err = vpnCoexLegacyIn.MatchInInterface(false, platform.WGInterfaceName()).MatchState(iptables.ESTABLISHED | iptables.RELATED).TargetAccept().Insert(); err != nil {
 		return log.ErrorFE("error ...: %w", err)
 	}
 	// conttrack state invalid drop on input on interface wgprivateline
-	if err = vpnCoexLegacyIn.MatchInInterface(false, PL_WG_INTERFACE).MatchState(iptables.INVALID).TargetDrop().Insert(); err != nil {
+	if err = vpnCoexLegacyIn.MatchInInterface(false, platform.WGInterfaceName()).MatchState(iptables.INVALID).TargetDrop().Insert(); err != nil {
 		return log.ErrorFE("error ...: %w", err)
 	}
 	// conntrack state established accept on output on interface wgprivateline
-	if err = vpnCoexLegacyOut.MatchOutInterface(false, PL_WG_INTERFACE).MatchState(iptables.ESTABLISHED).TargetAccept().Insert(); err != nil {
+	if err = vpnCoexLegacyOut.MatchOutInterface(false, platform.WGInterfaceName()).MatchState(iptables.ESTABLISHED).TargetAccept().Insert(); err != nil {
 		return log.ErrorFE("error ...: %w", err)
 	}
 
@@ -337,7 +341,54 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 		return log.ErrorFE("error filterLegacy.Chain(vpnCoexLegacyOut).MatchOutInterface(false, \"lo\").TargetAccept().Insert(): %w", err)
 	}
 
-	if totalShieldEnabled && vpnConnectedCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
+	// TODO FIXME: Vlad ---------------- Surfshark testing START ----------------
+
+	// allow all DNS before login (SessionNew)
+	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPDstPort(false, 53)).TargetAccept().Insert(); err != nil {
+		return log.ErrorFE("error add all DNS dst UDP port 53: %w", err)
+	}
+	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolTCP).MatchTCP(iptables.WithMatchTCPDstPort(false, 53)).TargetAccept().Insert(); err != nil {
+		return log.ErrorFE("error add all DNS dst TCP port 53: %w", err)
+	}
+	if err = vpnCoexLegacyIn.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPSrcPort(false, 53)).TargetAccept().Insert(); err != nil {
+		return log.ErrorFE("error add all DNS src UDP port 53: %w", err)
+	}
+
+	// try marking our outbound packets w/ mark 0x493e0, as SSKS_ALLOW_WG (used only for outbound) allows them
+	surfsharkMark := 0x493e0
+
+	// - outbound packets by our binaries (to allow login to deskapi)
+	if err = vpnCoexLegacyOut.MatchCGroup(matchOurCgroup).TargetMark(iptables.WithTargetMarkOr(surfsharkMark)).Insert(); err != nil {
+		return log.ErrorFE("error matching our cgroup out - OR mark 0x493e0: %w", err)
+	}
+
+	//	- all outbound DNS packets
+	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPDstPort(false, 53)).TargetMark(iptables.WithTargetMarkOr(surfsharkMark)).Insert(); err != nil {
+		return log.ErrorFE("error add all DNS dst UDP port 53 OR mark 0x493e0: %w", err)
+	}
+	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolTCP).MatchTCP(iptables.WithMatchTCPDstPort(false, 53)).TargetMark(iptables.WithTargetMarkOr(surfsharkMark)).Insert(); err != nil {
+		return log.ErrorFE("error add all DNS dst TCP port 53 OR mark 0x493e0: %w", err)
+	}
+
+	for _, vpnEntryHost := range prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {
+		//	- outbound packets to our WG endpoints
+		wgEndpointIP := strings.TrimSpace(vpnEntryHost.EndpointIP) // Allow our Wireguard gateways: in UDP and established+related, out TCP+UDP (any proto)
+		if err = vpnCoexLegacyOut.MatchDestination(false, wgEndpointIP).TargetMark(iptables.WithTargetMarkOr(surfsharkMark)).Insert(); err != nil {
+			return log.ErrorFE("error out wgEndpointIP OR mark 0x493e0: %w", err)
+		}
+
+		//	- outbound packets to our allowedIPs (internal PL IPs)
+		for _, allowedIpCIDR := range strings.Split(vpnEntryHost.AllowedIPs, ",") { // allowedIPs, internal PL IP ranges ; CIDR format like "10.0.0.3/24"
+			allowedIpCIDR = strings.TrimSpace(allowedIpCIDR)
+			if err = vpnCoexLegacyOut.MatchDestination(false, allowedIpCIDR).TargetMark(iptables.WithTargetMarkOr(surfsharkMark)).Insert(); err != nil {
+				return log.ErrorFE("error add out on allowed PL IP range %s - OR mark 0x493e0: %w", allowedIpCIDR, err)
+			}
+		}
+	}
+
+	// TODO FIXME: Vlad ---------------- Surfshark testing END ----------------
+
+	if totalShieldEnabled && vpnConnectedOrConnectingCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
 		log.Debug("doEnableLegacy: enabling TotalShield")
 		if err = vpnCoexLegacyOut.TargetDrop().Append(); err != nil {
 			return log.ErrorFE("error filterLegacy.Chain(vpnCoexLegacyOut).TargetDrop().Append(): %w", err)
@@ -365,7 +416,7 @@ func implDeployPostConnectionRulesLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr
 
 	if firewallEnabled, err := implGetEnabledLegacy(); err != nil {
 		return log.ErrorFE("status check error: %w", err)
-	} else if !firewallEnabled || !vpnConnectedCallback() {
+	} else if !firewallEnabled || !vpnConnectedOrConnectingCallback() {
 		return nil // our tables not up or VPN not connected/connecting, so skipping
 	}
 
@@ -477,7 +528,7 @@ func doDisableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 	return nil
 }
 
-func implOnChangeDnsLegacy() (err error) { // by now we know customDNS is non-null; just add accept rules for it
+func implOnChangeDnsLegacy(newDnsServers *[]net.IP) (err error) {
 	if ipt == nil { // if iptables-legacy not present
 		return
 	}
@@ -488,11 +539,13 @@ func implOnChangeDnsLegacy() (err error) { // by now we know customDNS is non-nu
 	vpnCoexLegacyIn := filterLegacy.Chain(vpnCoexLegacyInDef)
 	vpnCoexLegacyOut := filterLegacy.Chain(vpnCoexLegacyOutDef)
 
-	if err = vpnCoexLegacyIn.MatchSource(false, customDNS.To4()).MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPSrcPort(false, 53)).TargetAccept().Append(); err != nil {
-		return log.ErrorFE("error add DNS src UDP port 53: %w", err)
-	}
-	if err = vpnCoexLegacyOut.MatchDestination(false, customDNS.To4()).MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPDstPort(false, 53)).TargetAccept().Append(); err != nil {
-		return log.ErrorFE("error add DNS dst UDP port 53: %w", err)
+	for _, newDnsSrv := range *newDnsServers {
+		if err = vpnCoexLegacyIn.MatchSource(false, newDnsSrv.To4()).MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPSrcPort(false, 53)).TargetAccept().Append(); err != nil {
+			return log.ErrorFE("error add DNS src UDP port 53: %w", err)
+		}
+		if err = vpnCoexLegacyOut.MatchDestination(false, newDnsSrv.To4()).MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPDstPort(false, 53)).TargetAccept().Append(); err != nil {
+			return log.ErrorFE("error add DNS dst UDP port 53: %w", err)
+		}
 	}
 
 	return nil
@@ -535,7 +588,7 @@ func implTotalShieldApplyLegacy(_totalShieldEnabled bool) (err error) {
 		}
 	}
 
-	toEnableTotalShield := _totalShieldEnabled && vpnConnectedCallback() // Enable Total Shield DROP rules only if VPN is connected or connecting
+	toEnableTotalShield := _totalShieldEnabled && vpnConnectedOrConnectingCallback() // Enable Total Shield DROP rules only if VPN is connected or connecting
 	log.Debug("implTotalShieldApplyLegacy: setting TotalShield=", toEnableTotalShield, " in firewall")
 	if toEnableTotalShield {
 		if !lastOutRuleIsDrop { // if last rules are not DROP rules already - append DROP rules to the end

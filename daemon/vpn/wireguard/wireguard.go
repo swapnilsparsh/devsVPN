@@ -148,12 +148,12 @@ func (wg *WireGuard) GetTunnelName() string {
 func (wg *WireGuard) DestinationIP() net.IP {
 	return wg.connectParams.hostIP
 }
-func (wg *WireGuard) DefaultDNS() net.IP {
+func (wg *WireGuard) DefaultDNS() *[]net.IP {
 	if wg.isDisconnected {
 		return nil
 	}
 
-	return wg.internals.manualDNS.Ip()
+	return &wg.internals.manualDNS.DnsServers
 }
 
 // Type just returns VPN type

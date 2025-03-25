@@ -37,6 +37,7 @@ import (
 	"github.com/google/nftables"
 	"github.com/google/nftables/binaryutil"
 	"github.com/google/nftables/expr"
+
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
@@ -194,7 +195,7 @@ func implGetEnabledNft() (exists bool, retErr error) {
 			return false, nil
 		}
 	} else {
-		log.Debug("INPUT chain empty or not found")
+		//log.Debug("INPUT chain empty or not found")
 		return false, nil
 	}
 
@@ -205,7 +206,7 @@ func implGetEnabledNft() (exists bool, retErr error) {
 			return false, nil
 		}
 	} else {
-		log.Debug("OUTPUT chain empty or not found")
+		//log.Debug("OUTPUT chain empty or not found")
 		return false, nil
 	}
 
@@ -310,7 +311,7 @@ func implFirewallBackgroundMonitorNft() {
 		//	- Run VPN coexistence logic first
 		//	- Process buffered nft events later - and, if needed, run implReEnableNft() hopefully only once
 		if runEnableCoexistenceWithOtherVpns {
-			if err := vpncoexistence.EnableCoexistenceWithOtherVpns(getPrefsCallback()); err != nil {
+			if err := vpncoexistence.EnableCoexistenceWithOtherVpns(getPrefsCallback(), vpnConnectedOrConnectingCallback); err != nil {
 				log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
 			}
 			runEnableCoexistenceWithOtherVpns = false
@@ -498,9 +499,18 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 		}
 	}
 
-	if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
-		if err = nftConn.SetAddElements(privatelineDnsAddrsIPv4, []nftables.SetElement{{Key: customDNS.To4()}}); err != nil {
-			return log.ErrorFE("enable - error adding customDNS %s to set: %w", customDNS.String(), err)
+	if len(customDnsServers) >= 1 { // append custom DNS servers, if configured
+		newDnsEntries := []nftables.SetElement{}
+		for _, customDnsSrv := range customDnsServers {
+			if !prefs.AllDnsServersIPv4Set.Contains(customDnsSrv.String()) && !net.IPv4zero.Equal(customDnsSrv) {
+				newDnsEntries = append(newDnsEntries, nftables.SetElement{Key: customDnsSrv.To4()})
+			}
+		}
+
+		if len(newDnsEntries) >= 1 {
+			if err = nftConn.SetAddElements(privatelineDnsAddrsIPv4, newDnsEntries); err != nil {
+				return log.ErrorFE("enable - error adding new DNS entries to set: %w", err)
+			}
 		}
 	}
 
@@ -730,8 +740,8 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	// 	return log.ErrorFE("doEnableNft - error nft flush 1: %w", err)
 	// }
 
-	// create rules for wgprivateline interface - even if it doesn't exist yet
-	wgprivateline := []byte(PL_WG_INTERFACE + "\x00")
+	// create rules for wgInterfaceName interface - even if it doesn't exist yet
+	wgInterfaceName := []byte(platform.WGInterfaceName() + "\x00")
 
 	// vpnCoexistenceChainInRules, err := nftConn.GetRules(filter, vpnCoexistenceChainIn)
 	// if err != nil {
@@ -750,7 +760,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 		Exprs: []expr.Any{
 			// [ meta load iifname => reg 1 ]
 			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
-			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: wgprivateline},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: wgInterfaceName},
 			&expr.Ct{Register: 1, SourceRegister: false, Key: expr.CtKeySTATE},
 			&expr.Bitwise{
 				SourceRegister: 1,
@@ -773,7 +783,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 		Exprs: []expr.Any{
 			// [ meta load iifname => reg 1 ]
 			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
-			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: wgprivateline},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: wgInterfaceName},
 			&expr.Ct{Register: 1, SourceRegister: false, Key: expr.CtKeySTATE},
 			&expr.Bitwise{
 				SourceRegister: 1,
@@ -796,7 +806,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 		Exprs: []expr.Any{
 			// [ meta load iifname => reg 1 ]
 			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
-			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: wgprivateline},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: wgInterfaceName},
 			&expr.Ct{Register: 1, SourceRegister: false, Key: expr.CtKeySTATE},
 			&expr.Bitwise{
 				SourceRegister: 1,
@@ -834,7 +844,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 
-	if totalShieldEnabled && vpnConnectedCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
+	if totalShieldEnabled && vpnConnectedOrConnectingCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
 		log.Debug("doEnableNft: enabling TotalShield")
 		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainIn, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
 		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainOut, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
@@ -879,7 +889,7 @@ func implDeployPostConnectionRulesNft(fwLinuxNftablesMutexGrabbed bool) (retErr 
 
 	if firewallEnabled, err := implGetEnabledNft(); err != nil {
 		return log.ErrorFE("status check error: %w", err)
-	} else if !firewallEnabled || !vpnConnectedCallback() {
+	} else if !firewallEnabled || !vpnConnectedOrConnectingCallback() {
 		return nil // our tables not up or VPN not connected/connecting, so skipping
 	}
 
@@ -1087,7 +1097,7 @@ func doDisableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	return nil
 }
 
-func implOnChangeDnsNft() (err error) { // by now we know customDNS is non-null; just add it to privateLINE_DNS set
+func implOnChangeDnsNft(newDnsServers *[]net.IP) (err error) { // by now we know customDNS is non-null; just add it to privateLINE_DNS set
 	fwLinuxNftablesMutex.Lock()
 	defer fwLinuxNftablesMutex.Unlock()
 
@@ -1097,8 +1107,14 @@ func implOnChangeDnsNft() (err error) { // by now we know customDNS is non-null;
 	if err != nil || privatelineDnsAddrsIPv4 == nil {
 		return log.ErrorFE("error GetSetByName(filter, %s): %w", PL_DNS_SET, err)
 	}
-	nftConn.SetAddElements(privatelineDnsAddrsIPv4, []nftables.SetElement{{Key: customDNS.To4()}})
 
+	newDnsEntries := []nftables.SetElement{}
+	for _, newDnsSrv := range *newDnsServers { // append new DNS servers
+		newDnsEntries = append(newDnsEntries, nftables.SetElement{Key: newDnsSrv.To4()})
+	}
+	if err = nftConn.SetAddElements(privatelineDnsAddrsIPv4, newDnsEntries); err != nil {
+		return log.ErrorFE("enable - error adding new DNS entries to set: %w", err)
+	}
 	if err := nftConn.Flush(); err != nil {
 		return log.ErrorFE("implOnChangeDnsNft - error nft flush: %w", err)
 	}
@@ -1147,7 +1163,7 @@ func implTotalShieldApplyNft(_totalShieldEnabled bool) (err error) {
 		}
 	}
 
-	toEnableTotalShield := _totalShieldEnabled && vpnConnectedCallback() // Enable Total Shield DROP rules only if VPN is connected or connecting
+	toEnableTotalShield := _totalShieldEnabled && vpnConnectedOrConnectingCallback() // Enable Total Shield DROP rules only if VPN is connected or connecting
 	if toEnableTotalShield {
 		if !lastInRuleIsDrop { // if last rules are not DROP rules already - append DROP rules to the end
 			nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainIn, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})

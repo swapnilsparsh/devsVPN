@@ -82,7 +82,6 @@ var (
 	clientLocalIPFilterIDs []uint64
 
 	_isEnabled          bool
-	isPersistent        bool = true
 	isAllowLAN          bool
 	isAllowLANMulticast bool
 

@@ -48,7 +48,7 @@ var log *logger.Logger
 var mutexRW sync.RWMutex
 
 func init() {
-	log = logger.NewLogger("sprefs")
+	log = logger.NewLogger("prefs")
 }
 
 const (
@@ -116,7 +116,7 @@ type Preferences struct {
 	IsAutoconnectOnLaunchDaemon bool
 
 	// split-tunnelling
-	IsSplitTunnel             bool // Split Tunnel on/off (Total Shield is the opposite of Split Tunnel)
+	IsTotalShieldOn           bool // note privateLINE definition of Total Shield is the opposite of the IVPN definition of Split Tunnel
 	SplitTunnelApps           []string
 	SplitTunnelInversed       bool // Inverse Split Tunnel: only 'splitted' apps use VPN tunnel (applicable only when IsSplitTunnel=true). For App Whitelist feature must be always true.
 	EnableAppWhitelist        bool // Whether only whitelisted apps are allowed into the enclave (VPN). If false (default), then all apps are allowed into the enclave (VPN tunnel).
@@ -158,7 +158,7 @@ func Create() *Preferences {
 // ParseVpnEntryHosts - parse endpoint(s) information once per change, to be reused many times in firewall_windows.go
 func (p *Preferences) ParseVpnEntryHosts() {
 	p.VpnEntryHostsParsed = make([]*VpnEntryHostParsed, len(p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts))
-	p.AllDnsServersIPv4Set = mapset.NewSet[string]()
+	p.AllDnsServersIPv4Set = mapset.NewThreadUnsafeSetWithSize[string](2)
 
 	for idx, vpnEntryHost := range p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {
 		var vpnEntryHostParsed VpnEntryHostParsed
@@ -193,7 +193,7 @@ func (p *Preferences) ParseVpnEntryHosts() {
 // 'true' (default behavior) - when the VPN connection should be configured as the default route on a system,
 // 'false' - when the default route should remain unchanged	(e.g., for inverse split-tunneling,	when the VPN tunnel is used only by 'split' apps).
 func (p *Preferences) IsInverseSplitTunneling() bool {
-	if !p.IsSplitTunnel {
+	if p.IsTotalShieldOn {
 		return false
 	}
 
@@ -287,24 +287,23 @@ func (p *Preferences) LoadPreferences() error {
 	funcReadPreferences := func(filePath string) (data []byte, err error) {
 		data, err = os.ReadFile(filePath)
 		if err != nil {
-			return data, fmt.Errorf("failed to read preferences file: %w", err)
+			return data, log.ErrorFE("failed to read preferences file: %w", err)
 		}
 
 		// Parse json into preferences object
-		err = json.Unmarshal(data, p)
-		if err != nil {
-			return data, err
+		p.AllDnsServersIPv4Set = mapset.NewThreadUnsafeSetWithSize[string](2) // to fix unmarshaling errors
+		if err = json.Unmarshal(data, p); err != nil {
+			return data, log.ErrorFE("error unmarshaling preferences file: %w", err)
 		}
 		return data, nil
 	}
 
 	data, err := funcReadPreferences(platform.SettingsFile())
 	if err != nil {
-		log.Error(fmt.Sprintf("failed to read preferences file: %v", err))
+		log.ErrorFE("failed to read preferences file: %w", err)
 		// Try to read from temp file, if exists (this is necessary to prevent data loss in case of a power failure)
 		var errTmp error
-		data, errTmp = funcReadPreferences(p.getTempFilePath())
-		if errTmp != nil {
+		if data, errTmp = funcReadPreferences(p.getTempFilePath()); errTmp != nil {
 			return err // return original error
 		}
 		log.Info("Preferences file was restored from temporary file")

@@ -138,7 +138,8 @@ type Service struct {
 	_tmpParams      types.ConnectionParams
 	_tmpParamsMutex sync.Mutex
 
-	_statsCallbacks protocol.StatsCallbacks
+	_statsCallbacks       protocol.StatsCallbacks
+	_vpnConnectedCallback protocolTypes.VpnConnectedCallback
 }
 
 // SetRestApiBackend - send true for development REST API backend, false for production one
@@ -175,14 +176,15 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 	}
 
 	serv := &Service{
-		_preferences:       *preferences.Create(),
-		_evtReceiver:       evtReceiver,
-		_api:               api,
-		_serversUpdater:    updater,
-		_netChangeDetector: netChDetector,
-		_wgKeysMgr:         wgKeysMgr,
-		_globalEvents:      globalEvents,
-		_systemLog:         systemLog,
+		_preferences:          *preferences.Create(),
+		_evtReceiver:          evtReceiver,
+		_api:                  api,
+		_serversUpdater:       updater,
+		_netChangeDetector:    netChDetector,
+		_wgKeysMgr:            wgKeysMgr,
+		_globalEvents:         globalEvents,
+		_systemLog:            systemLog,
+		_vpnConnectedCallback: evtReceiver.LastVpnStateIsConnected,
 	}
 
 	// register the current service as a 'Connectivity checker' for API object
@@ -239,14 +241,15 @@ func (s *Service) init() error {
 	}()
 
 	if err := s._preferences.LoadPreferences(); err != nil {
-		log.Error("Failed to load service preferences: ", err)
+		log.ErrorFE("Failed to load service preferences: %w", err)
 
 		log.Warning("Saving default values for preferences")
 		s._preferences.SavePreferences()
 	}
 
 	// initialize firewall functionality
-	if err := firewall.Initialize(s.Preferences, s._evtReceiver.OnKillSwitchStateChanged, s.Connected, s._api.GetRestApiHosts); err != nil {
+	if err := firewall.Initialize(s.Preferences, s._evtReceiver.OnKillSwitchStateChanged, s.ConnectedOrConnecting,
+		s._vpnConnectedCallback, s._api.GetRestApiHosts); err != nil {
 		return fmt.Errorf("firewall initialization error : %w", err)
 	}
 
@@ -381,21 +384,23 @@ func (s *Service) unInitialise(isLogout bool) error {
 		updateRetErr(err)
 	}
 
-	// Disable firewall
-	if err := firewall.SetEnabled(false); err != nil {
-		log.Error(err)
-		updateRetErr(err)
+	// If not logging out - disable firewall. If logging out - parent callers will conditionally disable it.
+	if !isLogout {
+		if err := firewall.SetEnabled(false); err != nil {
+			log.ErrorFE("error disabling firewall: %w", err)
+			updateRetErr(err)
+		}
 	}
 
 	// Disable Split Tunnel
 	if err := splittun.Reset(); err != nil {
-		log.Error(err)
+		err = log.ErrorFE("error splittun.Reset(): %w", err)
 		updateRetErr(err)
 	}
 	// Split tunnel enabled by default, out of the box
 	log.Debug("service.go unInitialise() calling splittun.ApplyConfig() with empty splittun.ConfigAddresses")
 	if err := splittun.ApplyConfig(true, true, false, false, false, splittun.ConfigAddresses{}, []string{}); err != nil {
-		log.Error(err)
+		err = log.ErrorFE("error splittun.ApplyConfig(): %w", err)
 		updateRetErr(err)
 	}
 
@@ -407,7 +412,7 @@ func (s *Service) IsConnectivityBlocked() error {
 	preferences := s._preferences
 	if !preferences.IsFwAllowApiServers &&
 		preferences.Session.IsLoggedIn() &&
-		(!s.Connected() || s.IsPaused()) {
+		(!s.ConnectedOrConnecting() || s.IsPaused()) {
 		enabled, err := s.FirewallEnabled()
 		if err != nil {
 			return fmt.Errorf("access to privateLINE servers is blocked: %w", err)
@@ -624,8 +629,8 @@ func (s *Service) disconnect() error {
 	return nil
 }
 
-// Connected returns 'true' if VPN connected
-func (s *Service) Connected() bool {
+// ConnectedOrConnecting returns 'true' if VPN is connected or connecting (if VPN process exists)
+func (s *Service) ConnectedOrConnecting() bool {
 	// TODO: It seems this needs to be reworked.
 	// The 's._vpn' can be temporarily nil during reconnection (see keepConnection() function).
 	return s._vpn != nil
@@ -687,7 +692,7 @@ func (s *Service) Pause(durationSeconds uint32) error {
 
 	// Update SplitTunnel state (if enabled)
 	prefs := s.Preferences()
-	if prefs.IsSplitTunnel {
+	if !prefs.IsTotalShieldOn {
 		if err := s.splitTunnelling_ApplyConfig(); err != nil {
 			log.Error(err)
 		}
@@ -752,7 +757,7 @@ func (s *Service) Resume() error {
 
 	// Update SplitTunnel state (if enabled)
 	prefs := s.Preferences()
-	if prefs.IsSplitTunnel {
+	if !prefs.IsTotalShieldOn {
 		if err := s.splitTunnelling_ApplyConfig(); err != nil {
 			log.Error(err)
 			return err
@@ -858,9 +863,9 @@ func (s *Service) GetDefaultManualDnsParams() (manualDnsCfg dns.DnsSettings, ant
 	realDnsValue = defaultParams.ManualDNS
 	antiTrackerCfg = defaultParams.Metadata.AntiTracker
 
-	if antiTrackerCfg.Enabled {
-		realDnsValue, err = s.getAntiTrackerDns(antiTrackerCfg.Hardcore, antiTrackerCfg.AntiTrackerBlockListName)
-	}
+	// if antiTrackerCfg.Enabled {
+	// 	realDnsValue, err = s.getAntiTrackerDns(antiTrackerCfg.Hardcore, antiTrackerCfg.AntiTrackerBlockListName)
+	// }
 
 	return manualDnsCfg, antiTrackerCfg, realDnsValue, err
 }
@@ -892,27 +897,27 @@ func (s *Service) SetManualDNS(dnsCfg dns.DnsSettings, antiTracker types.AntiTra
 		defaultParams.ManualDNS = dnsCfg
 		isChanged = true
 	}
-	if !defaultParams.Metadata.AntiTracker.Equal(antiTracker) {
-		at, err := s.normalizeAntiTrackerBlockListName(antiTracker)
-		if err != nil {
-			return changedDns, err
-		}
-		defaultParams.Metadata.AntiTracker = at
-		isChanged = true
-	}
+	// if !defaultParams.Metadata.AntiTracker.Equal(antiTracker) {
+	// 	at, err := s.normalizeAntiTrackerBlockListName(antiTracker)
+	// 	if err != nil {
+	// 		return changedDns, err
+	// 	}
+	// 	defaultParams.Metadata.AntiTracker = at
+	// 	isChanged = true
+	// }
 	if isChanged {
 		s.setConnectionParams(defaultParams)
 	}
 
 	// Get anti-tracker DNS settings
 	changedDns = dnsCfg
-	if antiTracker.Enabled {
-		atDns, err := s.getAntiTrackerDns(antiTracker.Hardcore, antiTracker.AntiTrackerBlockListName)
-		if err != err {
-			return dns.DnsSettings{}, err
-		}
-		changedDns = atDns
-	}
+	// if antiTracker.Enabled {
+	// 	atDns, err := s.getAntiTrackerDns(antiTracker.Hardcore, antiTracker.AntiTrackerBlockListName)
+	// 	if err != err {
+	// 		return dns.DnsSettings{}, err
+	// 	}
+	// 	changedDns = atDns
+	// }
 
 	vpn := s._vpn
 	if vpn == nil {
@@ -929,6 +934,9 @@ func (s *Service) SetManualDNS(dnsCfg dns.DnsSettings, antiTracker types.AntiTra
 func (s *Service) GetManualDNSStatus() dns.DnsSettings {
 	return s.GetConnectionParams().ManualDNS
 }
+
+// TODO: Vlad - disabling AntiTracker functionality for now
+/*
 
 func (s *Service) GetAntiTrackerStatus() types.AntiTrackerMetadata {
 	// Get AntiTracker DNS settings. If error - use default date and ignore error
@@ -995,18 +1003,18 @@ func (s *Service) getAntiTrackerDns(isHardcore bool, antiTrackerPlusList string)
 		for _, atp_svr := range servers.Config.AntiTrackerPlus.DnsServers {
 			if strings.ToLower(strings.TrimSpace(atp_svr.Name)) == atListName {
 				if isHardcore {
-					return dns.DnsSettings{DnsHost: atp_svr.Hardcore}, nil
+					return dns.DnsSettings{DnsServers: []net.IP{net.ParseIP(atp_svr.Hardcore)}}, nil
 				}
-				return dns.DnsSettings{DnsHost: atp_svr.Normal}, nil
+				return dns.DnsSettings{DnsServers: []net.IP{net.ParseIP(atp_svr.Normal)}}, nil
 			}
 		}
 	}
 
 	// If AntiTracker Plus block list not found - ignore 'antiTrackerPlusList' and use old-style AntiTracker DNS
 	if isHardcore {
-		return dns.DnsSettings{DnsHost: servers.Config.Antitracker.Hardcore.IP}, nil
+		return dns.DnsSettings{DnsServers: []net.IP{net.ParseIP(servers.Config.Antitracker.Hardcore.IP)}}, nil
 	}
-	return dns.DnsSettings{DnsHost: servers.Config.Antitracker.Default.IP}, nil
+	return dns.DnsSettings{DnsServers: []net.IP{net.ParseIP(servers.Config.Antitracker.Default.IP)}}, nil
 }
 
 // Get AntiTracker info according to DNS settings
@@ -1020,7 +1028,7 @@ func (s *Service) getAntiTrackerInfo(dnsVal dns.DnsSettings) (types.AntiTrackerM
 		return types.AntiTrackerMetadata{}, fmt.Errorf("failed to determine AntiTracker parameters: %w", err)
 	}
 
-	dnsHost := strings.ToLower(strings.TrimSpace(dnsVal.DnsHost))
+	dnsHost := strings.ToLower(strings.TrimSpace(dnsVal.DnsHosts))
 	if dnsHost == "" {
 		return types.AntiTrackerMetadata{}, nil
 	}
@@ -1045,6 +1053,7 @@ func (s *Service) getAntiTrackerInfo(dnsVal dns.DnsSettings) (types.AntiTrackerM
 
 	return types.AntiTrackerMetadata{}, nil
 }
+*/
 
 // ////////////////////////////////////////////////////////
 // KillSwitch
@@ -1315,7 +1324,7 @@ func (s *Service) GetConnectionParams() types.ConnectionParams {
 }
 
 func (s *Service) SetConnectionParams(params types.ConnectionParams) error {
-	if s.Connected() {
+	if s.ConnectedOrConnecting() {
 		s._tmpParamsMutex.Lock()
 		s._tmpParams = params
 		s._tmpParamsMutex.Unlock()
@@ -1405,7 +1414,7 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 	}
 
 	stErr, stInverseErr := splittun.GetFuncNotAvailableError()
-	isEnabled := prefs.IsSplitTunnel
+	isEnabled := !prefs.IsTotalShieldOn
 	if stErr != nil {
 		isEnabled = false
 	}
@@ -1502,7 +1511,7 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhit
 
 	prefsOld := s._preferences
 	prefs := prefsOld
-	prefs.IsSplitTunnel = isEnabled
+	prefs.IsTotalShieldOn = !isEnabled
 	prefs.SplitTunnelInversed = isInversed
 	prefs.EnableAppWhitelist = enableAppWhitelist
 	prefs.SplitTunnelAnyDns = isAnyDns
@@ -1528,7 +1537,7 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhit
 }
 func (s *Service) splitTunnelling_Reset() error {
 	prefs := s._preferences
-	prefs.IsSplitTunnel = true // Split tunnel enabled by default, out of the box
+	prefs.IsTotalShieldOn = false
 	prefs.SplitTunnelInversed = true
 	prefs.EnableAppWhitelist = false
 	prefs.SplitTunnelAnyDns = false
@@ -1580,7 +1589,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	} else {
 		defer func() {
 			// If inverse SplitTunneling is disabled - start detection of network changes (if it is not already started)
-			if s.Connected() {
+			if s.ConnectedOrConnecting() {
 				if err := s._netChangeDetector.Start(); err != nil {
 					log.Error(fmt.Sprintf("Unable to start network changes detection: %v", err.Error()))
 				}
@@ -1630,7 +1639,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	if err := firewall.SingleDnsRuleOff(); err != nil { // disable custom DNS rule (if exists)
 		log.Error(err)
 	}
-	isVpnConnected := s.Connected() && !s.IsPaused()
+	isVpnConnected := s.ConnectedOrConnecting() && !s.IsPaused()
 	if isVpnConnected && prefs.IsInverseSplitTunneling() && !prefs.SplitTunnelAnyDns {
 		dnsCfg, err := s.GetActiveDNS() // returns nil when VPN not connected
 		if err != nil {
@@ -1638,7 +1647,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 		}
 		if !dnsCfg.IsEmpty() {
 			log.Debug("isVpnConnected && prefs.IsInverseSplitTunneling() && !prefs.SplitTunnelAnyDns - so applying SingleDnsRuleOn()")
-			if err := firewall.SingleDnsRuleOn(dnsCfg.Ip()); err != nil {
+			if err := firewall.SingleDnsRuleOn(dnsCfg.DnsServers[0]); err != nil {
 				return fmt.Errorf("failed to apply the firewall rule to allow DNS requests only to the IVPN server: %w", err)
 			}
 		}
@@ -1646,7 +1655,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 
 	// Apply Split-Tun config
 	// if runtime.GOOS == "windows" {
-	return firewall.TotalShieldApply(!prefs.IsSplitTunnel)
+	return firewall.TotalShieldApply(prefs.IsTotalShieldOn)
 	// } else {
 	// 	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
 	// }
@@ -1720,30 +1729,45 @@ func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountI
 }
 
 // SessionNew creates new session
-func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID bool, notifyClientsOnSessionDelete bool) (
+func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID, notifyClientsOnSessionDelete, disableFirewallOnExit, disableFirewallOnErrorOnly bool) (
 	apiCode int,
 	apiErrorMsg string,
 	accountInfo preferences.AccountStatus,
 	rawResponse string,
 	err error) {
 
-	// Temporary allow API server access (If Firewall is enabled)
-	// Otherwise, there will not be any possibility to Login (because all connectivity is blocked)
-	fwStatus, _ := s.KillSwitchState()
-	if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
-		s.SetKillSwitchAllowAPIServers(true)
+	if disableFirewallOnExit || disableFirewallOnErrorOnly {
+		defer func() {
+			if disableFirewallOnExit || (disableFirewallOnErrorOnly && err != nil) {
+				s.SetKillSwitchState(false)
+			}
+		}()
 	}
-	defer func() {
-		if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
-			// restore state for 'AllowAPIServers' configuration (previously, was enabled)
-			s.SetKillSwitchAllowAPIServers(false)
-		}
-	}()
+
+	// 	try to enable the firewall, need VPN coexistence logic up - otherwise our API calls may not go through
+	if err := firewall.EnableIfNeeded(); err != nil {
+		return 0, "", preferences.AccountStatus{}, "", log.ErrorFE("error in firewall.EnableIfNeeded: %w", err)
+	}
+	// TODO: Vlad - disabling old IVPN logic that deals with API servers as exceptions
+	// // Temporary allow API server access (If Firewall is enabled)
+	// // Otherwise, there will not be any possibility to Login (because all connectivity is blocked)
+	// fwStatus, _ := s.KillSwitchState()
+	// if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
+	// 	s.SetKillSwitchAllowAPIServers(true)
+	// }
+	// defer func() {
+	// 	if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
+	// 		// restore state for 'AllowAPIServers' configuration (previously, was enabled)
+	// 		s.SetKillSwitchAllowAPIServers(false)
+	// 	}
+	// }()
 
 	// delete current session (if exists)
-	isCanDeleteSessionLocally := true
-	if err := s.SessionDelete(isCanDeleteSessionLocally, notifyClientsOnSessionDelete); err != nil {
-		log.Error("Creating new session -> Failed to delete active session: ", err)
+	if helpers.IsAValidAccountID(s.Preferences().Session.AccountID) { // if we have stored an account ID - try to logout
+		isCanDeleteSessionLocally := true
+		if err := s.SessionDelete(isCanDeleteSessionLocally, notifyClientsOnSessionDelete, false); err != nil {
+			log.Error("Creating new session -> Failed to delete active session: ", err)
+		}
 	}
 
 	// Generate keys for Key Encapsulation Mechanism using post-quantum cryptographic algorithms
@@ -1761,15 +1785,6 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	// 		log.Error(err)
 	// 	}
 	// }
-
-	// enable the firewall, need VPN coexistence logic up - otherwise, if another VPN is already running, our REST API request may not go through
-	if firewallEnabled, err := s.FirewallEnabled(); err != nil {
-		return 0, "", preferences.AccountStatus{}, "", log.ErrorFE("error FirewallEnabled: %w", err)
-	} else if !firewallEnabled {
-		if err := s.ReEnableKillSwitch(); err != nil {
-			return 0, "", preferences.AccountStatus{}, "", log.ErrorFE("error ReEnableKillSwitch: %w", err)
-		}
-	}
 
 	log.Info("Logging in...")
 	defer func() {
@@ -1924,7 +1939,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 
 	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
 	if strings.HasSuffix(localIP, ".0") || strings.HasSuffix(localIP, ".0.1") {
-		s.SessionDelete(true, true) // logout
+		s.SessionDelete(true, true, true) // logout
 		return 0, "", preferences.AccountStatus{}, "", log.ErrorFE("Error - got assigned an invalid IP address '%s' when registering a device. Please try "+
 			"logging in again later. Please email support@privateline.io about this problem.", localIP)
 	}
@@ -1970,14 +1985,11 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
 	if runtime.GOOS == "linux" { // Manual DNS setting still needed on Linux. Cannot pass "DNS = ..." in wg.conf, because of https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491
-		// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
-		firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
-		if firstDnsSrv != "" {
-			prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
-		} else {
-			log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
-			return apiCode, "", accountInfo, "", err
+		var dnsServers []net.IP
+		for _, dnsSrvString := range strings.Split(hostValue.DnsServers, ",") {
+			dnsServers = append(dnsServers, net.ParseIP(strings.TrimSpace(dnsSrvString)))
 		}
+		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsServers: dnsServers}
 	} else { // Windows works fine with "DNS = ..." in wgprivateline.conf
 		// if err = dns.DeleteManual(nil, nil); err != nil {
 		// 	log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
@@ -1987,8 +1999,8 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
-	// init to split tunnel by default
-	prefs.IsSplitTunnel = true
+	// init to Total Shield off by default
+	prefs.IsTotalShieldOn = false
 	// // and allow all apps into enclave by default
 	// prefs.EnableAppWhitelist = false
 
@@ -2007,29 +2019,44 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 }
 
 // TODO FIXME: Vlad - merge with SessionNew() into a single login pipeline, there's a lot of shared code that was copy-pasted
-func (s *Service) SsoLogin(code string, sessionCode string) (
+func (s *Service) SsoLogin(code string, sessionCode string, disableFirewallOnExit, disableFirewallOnErrorOnly bool) (
 	apiCode int,
 	apiErrorMsg string,
 	rawResponse *api_types.SsoLoginResponse,
 	err error) {
 
-	// Temporary allow API server access (If Firewall is enabled)
-	// Otherwise, there will not be any possibility to Login (because all connectivity is blocked)
-	fwStatus, _ := s.KillSwitchState()
-	if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
-		s.SetKillSwitchAllowAPIServers(true)
+	if disableFirewallOnExit || disableFirewallOnErrorOnly {
+		defer func() {
+			if disableFirewallOnExit || (disableFirewallOnErrorOnly && err != nil) {
+				s.SetKillSwitchState(false)
+			}
+		}()
 	}
-	defer func() {
-		if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
-			// restore state for 'AllowAPIServers' configuration (previously, was enabled)
-			s.SetKillSwitchAllowAPIServers(false)
-		}
-	}()
+
+	// 	try to enable the firewall, need VPN coexistence logic up - otherwise our API calls may not go through
+	if err := firewall.EnableIfNeeded(); err != nil {
+		return 0, "", nil, log.ErrorFE("error in firewall.EnableIfNeeded: %w", err)
+	}
+	// TODO: Vlad - disabling old IVPN logic that deals with API servers as exceptions
+	// // Temporary allow API server access (If Firewall is enabled)
+	// // Otherwise, there will not be any possibility to Login (because all connectivity is blocked)
+	// fwStatus, _ := s.KillSwitchState()
+	// if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
+	// 	s.SetKillSwitchAllowAPIServers(true)
+	// }
+	// defer func() {
+	// 	if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
+	// 		// restore state for 'AllowAPIServers' configuration (previously, was enabled)
+	// 		s.SetKillSwitchAllowAPIServers(false)
+	// 	}
+	// }()
 
 	// delete current session (if exists)
-	isCanDeleteSessionLocally := true
-	if err := s.SessionDelete(isCanDeleteSessionLocally, true); err != nil {
-		log.Error("Creating new session -> Failed to delete active session: ", err)
+	if helpers.IsAValidAccountID(s.Preferences().Session.AccountID) { // if we have stored an account ID - try to logout
+		isCanDeleteSessionLocally := true
+		if err := s.SessionDelete(isCanDeleteSessionLocally, true, false); err != nil {
+			log.Error("Creating new session -> Failed to delete active session: ", err)
+		}
 	}
 
 	defer func() {
@@ -2122,7 +2149,7 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 
 	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
 	if strings.HasSuffix(localIP, ".0.0") || strings.HasSuffix(localIP, ".0.1") {
-		s.SessionDelete(true, true) // logout
+		s.SessionDelete(true, true, true) // logout
 		return 0, "", nil, log.ErrorFE("Error - got assigned an invalid IP address '%s' when registering a device. Please try "+
 			"logging in again later. Please email support@privateline.io about this problem.", localIP)
 	}
@@ -2170,14 +2197,11 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 	prefs.LastConnectionParams.WireGuardParameters.Port.Port = endpointPort
 
 	if runtime.GOOS == "linux" { // Manual DNS setting still needed on Linux. Cannot pass "DNS = ..." in wg.conf, because of https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491
-		// TODO: FIXME: For now configuring the DNS by setting manual DNS to the 1st returned DNS server, extend to support multiple DNS servers
-		firstDnsSrv := helpers.IPv4AddrRegex.FindString(hostValue.DnsServers)
-		if firstDnsSrv != "" {
-			prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsHost: firstDnsSrv}
-		} else {
-			log.Error("Error - received DNS servers '" + hostValue.DnsServers + "' do not include an IP address")
-			return apiCode, "", rawResponse, err
+		var dnsServers []net.IP
+		for _, dnsSrvString := range strings.Split(hostValue.DnsServers, ",") {
+			dnsServers = append(dnsServers, net.ParseIP(strings.TrimSpace(dnsSrvString)))
 		}
+		prefs.LastConnectionParams.ManualDNS = dns.DnsSettings{DnsServers: dnsServers}
 	} else { // Windows works fine with "DNS = ..." in wgprivateline.conf
 		// if err = dns.DeleteManual(nil, nil); err != nil {
 		// 	log.Error(fmt.Errorf("error dns.DeleteManual(): %w", err))
@@ -2187,8 +2211,8 @@ func (s *Service) SsoLogin(code string, sessionCode string) (
 
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
-	// init to split tunnel by default
-	prefs.IsSplitTunnel = true
+	// init to Total Shield off by default
+	prefs.IsTotalShieldOn = false
 
 	// propagate our prefs changes to Preferences and to settings.json
 	s.setPreferences(prefs)
@@ -2305,10 +2329,9 @@ func (s *Service) SubscriptionData() (
 	return apiCode, subscriptionDataResponse, err
 }
 
-// SessionDelete removes session info
-func (s *Service) SessionDelete(isCanDeleteSessionLocally, notifyClientsOnSessionChange bool) error {
-	sessionNeedToDeleteOnBackend := true
-	return s.logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally, notifyClientsOnSessionChange)
+// SessionDelete removes session info and
+func (s *Service) SessionDelete(isCanDeleteSessionLocally, notifyClientsOnSessionChange, disableFirewallOnExit bool) error {
+	return s.logOut(true, isCanDeleteSessionLocally, notifyClientsOnSessionChange, disableFirewallOnExit) // send sessionNeedToDeleteOnBackend=true
 }
 
 // logOut performs log out from current session
@@ -2320,7 +2343,7 @@ func (s *Service) SessionDelete(isCanDeleteSessionLocally, notifyClientsOnSessio
 // 3) if 'isCanDeleteSessionLocally' == true (and 'sessionNeedToDeleteOnBackend' == true): app is trying to make API request to logout correctly
 //	  in case if API request failed we just erasing session info locally (no errors returned)
 
-func (s *Service) logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally, notifyClientsOnSessionChange bool) error {
+func (s *Service) logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally, notifyClientsOnSessionChange, disableFirewallOnExit bool) (retErr error) {
 	// Stop service:
 	// - disconnect VPN (if connected)
 	// - disable Split Tunnel mode
@@ -2330,6 +2353,11 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally
 	}
 
 	defer func() {
+		if disableFirewallOnExit { // conditionally disable firewall on exit
+			if err := firewall.SetEnabled(false); err != nil {
+				retErr = log.ErrorFE("error disabling firewall in logOut: %w", err)
+			}
+		}
 		s._evtReceiver.OnSplitTunnelStatusChanged()
 	}()
 
@@ -2340,19 +2368,22 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally
 	s._wgKeysMgr.StopKeysRotation()
 
 	if sessionNeedToDeleteOnBackend {
-
+		// 	try to enable the firewall, need VPN coexistence logic up - otherwise our API calls may not go through
+		if err := firewall.EnableIfNeeded(); err != nil {
+			log.ErrorFE("error in firewall.EnableIfNeeded: %w", err)
+		}
+		// TODO: Vlad - disabling old IVPN logic that deals with API servers as exceptions
 		// Temporary allow API server access (If Firewall is enabled)
 		// Otherwise, there will not be any possibility to Login (because all connectivity is blocked)
-		fwStatus, _ := s.KillSwitchState()
-		if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
-			s.SetKillSwitchAllowAPIServers(true)
-		}
-		defer func() {
-			if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
-				// restore state for 'AllowAPIServers' configuration (previously, was enabled)
-				s.SetKillSwitchAllowAPIServers(false)
-			}
-		}()
+		// if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
+		// 	s.SetKillSwitchAllowAPIServers(true)
+		// }
+		// defer func() {
+		// 	if fwStatus.IsEnabled && !fwStatus.IsAllowApiServers {
+		// 		// restore state for 'AllowAPIServers' configuration (previously, was enabled)
+		// 		s.SetKillSwitchAllowAPIServers(false)
+		// 	}
+		// }()
 
 		session := s.Preferences().Session
 		if session.IsLoggedIn() {
@@ -2385,7 +2416,9 @@ func (s *Service) OnSessionNotFound() {
 	log.Info("Session not found. Logging out.")
 	needToDeleteOnBackend := false
 	canLogoutOnlyLocally := true
-	s.logOut(needToDeleteOnBackend, canLogoutOnlyLocally, true)
+	notifyClientsOnSessionChange := true
+	disableFirewallOnExit := true
+	s.logOut(needToDeleteOnBackend, canLogoutOnlyLocally, notifyClientsOnSessionChange, disableFirewallOnExit)
 }
 
 func (s *Service) OnSessionStatus(sessionToken string, sessionData preferences.SessionMutableData) {
@@ -2550,7 +2583,7 @@ func (s *Service) WireGuardSaveNewKeys(wgPublicKey string, wgPrivateKey string, 
 		if vpnObj.Type() != vpn.WireGuard {
 			return
 		}
-		if !s.Connected() || (s.Connected() && s.IsPaused()) {
+		if !s.ConnectedOrConnecting() || (s.ConnectedOrConnecting() && s.IsPaused()) {
 			// IMPORTANT! : WireGuard 'pause/resume' state is based on complete VPN disconnection and connection back (on all platforms)
 			// If this will be changed (e.g. just changing routing) - it will be necessary to implement reconnection even in 'pause' state
 			return

@@ -27,11 +27,11 @@ import (
 	"net"
 	"strings"
 	"sync"
-	"time"
 	"unicode"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 )
@@ -40,7 +40,6 @@ var log *logger.Logger
 
 type GetPrefsCallback func() preferences.Preferences
 type OnKillSwitchStateChangedCallback func()
-type VpnConnectedCallback func() bool
 type GetRestApiHostsCallback func() (restApiHosts []*helpers.HostnameAndIP)
 
 func init() {
@@ -58,8 +57,9 @@ var (
 	isClientPaused               bool
 	dnsConfig                    *dns.DnsSettings
 
-	customDNS net.IP
+	customDnsServers []net.IP
 
+	isPersistent       bool // Firewall is persistent
 	totalShieldEnabled bool
 
 	// List of IP masks that are allowed for any communication
@@ -70,7 +70,8 @@ var (
 
 	getPrefsCallback                 GetPrefsCallback
 	onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback
-	vpnConnectedCallback             VpnConnectedCallback
+	vpnConnectedOrConnectingCallback types.VpnConnectedCallback // whether VPN is connected or connecting
+	vpnConnectedCallback             types.VpnConnectedCallback // whether VPN is in CONNECTED state
 	getRestApiHostsCallback          GetRestApiHostsCallback
 )
 
@@ -106,13 +107,14 @@ func (fe *FirewallError) OtherVpnUnknownToUs() bool {
 // Must be called on application start
 func Initialize(_getPrefsCallback GetPrefsCallback,
 	_onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback,
-	_vpnConnectedCallback VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
+	_vpnConnectedOrConnectingCallback, _vpnConnectedCallback types.VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	onKillSwitchStateChangedCallback = _onKillSwitchStateChangedCallback
 	getPrefsCallback = _getPrefsCallback
-	totalShieldEnabled = !getPrefsCallback().IsSplitTunnel
+	totalShieldEnabled = getPrefsCallback().IsTotalShieldOn
+	vpnConnectedOrConnectingCallback = _vpnConnectedOrConnectingCallback
 	vpnConnectedCallback = _vpnConnectedCallback
 	getRestApiHostsCallback = _getRestApiHostsCallback
 
@@ -131,8 +133,7 @@ func SetEnabled(enable bool) (err error) {
 	}
 
 	if err = implSetEnabled(enable, false); err != nil {
-		log.Error(err)
-		return fmt.Errorf("failed to change firewall state : %w", err)
+		return log.ErrorFE("failed to change firewall state : %w", err)
 	}
 
 	if enable {
@@ -150,6 +151,15 @@ func SetEnabled(enable bool) (err error) {
 	}
 
 	return err
+}
+
+// DisableUnlessConnectedConnecting will disable firewall logic unless the VPN is connected or connecting
+func DisableUnlessConnectedConnecting() (err error) {
+	if !vpnConnectedOrConnectingCallback() {
+		return SetEnabled(false)
+	} else {
+		return nil
+	}
 }
 
 func ReEnable() error {
@@ -187,9 +197,9 @@ func SetPersistent(persistent bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info(fmt.Sprintf("Persistent:%t", persistent))
+	log.Info(fmt.Sprintf("Persistent: %t", persistent))
 
-	if err = implSetPersistent(persistent); err != nil {
+	if err = implSetPersistent(persistent); err != nil { // this will enable firewall, if it's down
 		log.Error(err)
 	}
 	return err
@@ -202,7 +212,7 @@ func GetEnabled() (bool, error) {
 
 	ret, err := implGetEnabled()
 	if err != nil {
-		log.Error("Status check error: ", err)
+		log.ErrorFE("Status check error: %w", err)
 	}
 	log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t totalShieldEnabled:%t", ret, stateAllowLan, stateAllowLanMulticast, totalShieldEnabled))
 
@@ -226,11 +236,28 @@ func GetState() (isEnabled, isLanAllowed, isMulticatsAllowed bool, weHaveTopFire
 	return ret, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err
 }
 
+// EnableIfNeeded - atomic operation on firewall.mutex. Will check firewall status and, if disabled, will enable it.
+func EnableIfNeeded() error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if isEnabled, err := implGetEnabled(); err != nil {
+		return log.ErrorFE("Status check error: %w", err)
+	} else if !isEnabled {
+		return implSetEnabled(true, false)
+	}
+
+	return nil
+}
+
 // SingleDnsRuleOn - add rule to allow DNS communication with specified IP only
 // (usefull for Inverse Split Tunneling feature)
 // Returns error if IVPN firewall is enabled.
 // As soon as IVPN firewall enables - this rule will be removed
 func SingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
+	// TODO: Vlad - disabled
+	return nil
+
 	mutex.Lock()
 	defer mutex.Unlock()
 	return implSingleDnsRuleOn(dnsAddr)
@@ -255,7 +282,10 @@ func ClientResumed() {
 }
 
 func deployPostConnectionRulesAsync() {
-	time.Sleep(time.Second * 5)
+	// Now that we're deploying VPN coexistence resolvectl fix after CONNECTED, and also presetting rules for default IPs for meet.privateline.network -
+	// probably don't need to wait anymore. If facing problems - try 1-2s sleep.
+	//
+	// time.Sleep(time.Second * 5)
 
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -403,14 +433,12 @@ func GetDnsInfo() (dns.DnsSettings, bool) {
 	return *dnsConfig, true
 }
 
-func getDnsIP() net.IP {
+func getDnsIPs() (dnsIPs *[]net.IP) {
 	cfg := dnsConfig
-
-	var dnsIP net.IP
 	if cfg != nil && cfg.Encryption == dns.EncryptionNone {
-		dnsIP = cfg.Ip()
+		dnsIPs = &cfg.DnsServers
 	}
-	return dnsIP
+	return dnsIPs
 }
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
@@ -428,13 +456,13 @@ func OnChangeDNS(newDnsCfg *dns.DnsSettings) error {
 		return nil
 	}
 
-	var addr net.IP = nil
+	var dnsServers *[]net.IP = nil
 	if newDnsCfg != nil && newDnsCfg.Encryption == dns.EncryptionNone {
 		// for DoH/DoT - no sense to allow DNS port (53)
-		addr = net.ParseIP(newDnsCfg.DnsHost)
+		dnsServers = &newDnsCfg.DnsServers
 	}
 
-	err := implOnChangeDNS(addr)
+	err := implOnChangeDNS(dnsServers)
 	if err != nil {
 		log.Error(err)
 	} else {

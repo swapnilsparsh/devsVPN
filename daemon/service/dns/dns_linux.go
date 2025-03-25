@@ -165,7 +165,7 @@ func implSetManual(dnsCfg DnsSettings, localInterfaceIP net.IP) (dnsInfoForFirew
 			return DnsSettings{}, err
 		}
 		// the local DNS must be configured to the dnscrypt-proxy (localhost)
-		dnsCfg = DnsSettings{DnsHost: "127.0.0.1"}
+		dnsCfg = DnsSettings{DnsServers: []net.IP{net.ParseIP("127.0.0.1")}}
 	}
 
 	return f_implSetManual(dnsCfg, localInterfaceIP)

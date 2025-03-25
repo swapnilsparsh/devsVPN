@@ -34,6 +34,7 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 
@@ -335,9 +336,8 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 	var MTU int
 	if wg.connectParams.mtu > 0 {
 		MTU = wg.connectParams.mtu
-	} else { // If MTU not specified explicitly, set 1280 - minimum value allowed on Windows
-		// // According to Windows specification: "... For IPv4 the minimum value is 576 bytes. For IPv6 the minimum value is 1280 bytes... "
-		MTU = 1280
+	} else {
+		MTU = platform.WireguardDefaultMTU()
 	}
 	interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", MTU))
 

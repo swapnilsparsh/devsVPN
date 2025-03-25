@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
@@ -370,24 +371,30 @@ func (wg *WireGuard) resetManualDNS() error {
 }
 
 func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg []string, err error) {
-	if wg.connectParams.mtu > 0 {
-		interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", wg.connectParams.mtu))
-	}
-
 	var MTU int
-	if wg.connectParams.mtu > 0 {
-		MTU = wg.connectParams.mtu
-	} else { // If MTU not specified explicitly, set 1340 = 1420 (NordVPN default) - 80 (IPv6 header overhead)
-		MTU = 1340
-	}
+	// if wg.connectParams.mtu > 0 {
+	// 	MTU = wg.connectParams.mtu
+	// } else {
+	MTU = vpncoexistence.BestWireguardMtuForConditions()
+	// }
 	interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", MTU))
 
-	// TODO FIXME: Vlad - do we need to append "/32" here?
 	interfaceCfg = append(interfaceCfg, "Address = "+wg.connectParams.clientLocalIP.String()+"/32")
 	interfaceCfg = append(interfaceCfg, "SaveConfig = true")
 
 	// Vlad: disabling per https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491
-	// interfaceCfg = append(interfaceCfg, "DNS = " + wg.connectParams.dnsServers)
+	// interfaceCfg = append(interfaceCfg, "DNS = "+wg.connectParams.dnsServers)
+	// // And per comment #9 there: https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491/comments/9
+	// // 	PostUp = resolvectl dns %i <ip1> <ip2> ...; resolvectl domain %i \~domain1 \~domain2 ...
+	// postUpCmd := "PostUp = resolvectl dns %i"
+	// for _, dnsSrv := range strings.Split(wg.connectParams.dnsServers, ",") {
+	// 	postUpCmd += " " + strings.TrimSpace(dnsSrv)
+	// }
+	// postUpCmd += "; resolvectl domain %i"
+	// for _, plInternalDomain := range helpers.PrivatelineInternalDomains {
+	// 	postUpCmd += " \\~" + plInternalDomain
+	// }
+	// interfaceCfg = append(interfaceCfg, postUpCmd)
 
 	peerCfg = append(peerCfg, "AllowedIPs = "+wg.connectParams.allowedIPs)
 	return interfaceCfg, peerCfg, nil

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 )
 
 const (
@@ -41,10 +43,24 @@ type otherVpnCliCmds struct {
 type OtherVpnInfo struct {
 	name       string // display name of another VPN
 	namePrefix string // name prefix used to match sublayer, provider names, and Windows service names
-	cliPath    string // full or relative path to CLI of that VPN, used to start connection and add our binaries to their split-tunnel whitelist
-	cliCmds    otherVpnCliCmds
+
+	hasCLI  bool
+	cliPath string // full or relative path to CLI of that VPN, used to start connection and add our binaries to their split-tunnel whitelist
+	cliCmds otherVpnCliCmds
+
+	needsResolvectlDnsConfig bool
+
+	ourMTU int // MTU we set on our wgprivateline interface if other VPN is present
 }
 
 func init() {
 	log = logger.NewLogger("vpncoe")
+}
+
+func EnableCoexistenceWithOtherVpns(prefs preferences.Preferences, vpnConnectedOrConnectingCallback types.VpnConnectedCallback) (retErr error) {
+	return implEnableCoexistenceWithOtherVpns(prefs, vpnConnectedOrConnectingCallback)
+}
+
+func BestWireguardMtuForConditions() int {
+	return implBestWireguardMtuForConditions()
 }

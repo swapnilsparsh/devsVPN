@@ -544,6 +544,21 @@ function clean()
 #    ${_bin_sed} -i "/${_routing_table_name}\s*$/d" /etc/iproute2/rt_tables   
 }
 
+function uninstall()
+{
+    removeAllPids
+
+    ##############################################
+    # Remove cgroup
+    ##############################################
+    # check is cgroup exists
+    if [ -d ${_cgroup_folder} ]; then
+        # Note: the cgroup folder will be removed only in case
+        # when no active process are in that cgroup
+        rmdir ${_cgroup_folder}
+    fi
+}
+
 function getBackupFolderPath()
 {
     # default location
@@ -817,6 +832,9 @@ elif [[ $1 = "stop" ]] ; then
 elif [[ $1 = "reset" ]] ; then 
     removeAllPids
     addDefaultWhitelistedApps
+
+elif [[ $1 = "uninstall" ]] ; then 
+    uninstall
 
 elif [[ $1 = "addpid" ]] ; then
     shift 

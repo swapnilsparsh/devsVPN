@@ -89,4 +89,6 @@ type IServiceEventsReceiver interface {
 	IsClientConnected(checkOnlyUiClients bool) bool
 	// IsCanDoBackgroundAction returns 'false' when no background action allowed (e.g. EAA enabled but no authenticated clients connected)
 	IsCanDoBackgroundAction() bool
+
+	LastVpnStateIsConnected() bool
 }

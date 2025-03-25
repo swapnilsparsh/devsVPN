@@ -28,6 +28,7 @@ import (
 	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier"
 )
 
@@ -122,4 +123,8 @@ func (p *Protocol) OnSplitTunnelStatusChanged() {
 		return
 	}
 	p.notifyClients(&status)
+}
+
+func (p *Protocol) LastVpnStateIsConnected() bool {
+	return p._lastVPNState.State == vpn.CONNECTED
 }
