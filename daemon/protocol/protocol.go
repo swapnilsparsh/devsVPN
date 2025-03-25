@@ -1693,6 +1693,9 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 				if apiCode, apiErrMsg, _, _, err := p._service.SessionNew(prefs.Session.AccountID, "", prefs.Session.DeviceName, false, false); err != nil {
 					return log.ErrorFE("error logging in after logout: '%w'. apiCode=%d, apiErrMsg='%s'", err, apiCode, apiErrMsg)
 				}
+				// notify all clients about changed session status
+				p.notifyClients(p.createHelloResponse())
+
 				log.Info("Attempt to logout-login successful, now trying to connect to VPN again")
 
 				// reflect new Wireguard parameters in connection request

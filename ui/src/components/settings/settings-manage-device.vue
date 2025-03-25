@@ -80,6 +80,7 @@
                     />
                   </span>
                   <span
+                    v-if="!isCurrentDevice(device.id)"
                     class="icon delete-icon"
                     style="display: inline-block"
                     @click="removeDevice(device.id)"
@@ -89,6 +90,19 @@
                   >
                     <img
                       style="vertical-align: middle"
+                      src="@/assets/delete.png"
+                      height="17"
+                      width="17"
+                    />
+                  </span>
+                  <span
+                    v-else
+                    class="icon delete-icon-disabled"
+                    style="display: inline-block"
+                    title="Cannot delete current device"
+                  >
+                    <img
+                      style="vertical-align: middle; opacity: 0.3"
                       src="@/assets/delete.png"
                       height="17"
                       width="17"
@@ -244,6 +258,7 @@ export default {
       debounceTimeout: null,
       isDeviceListLoading: true,
       currentDeviceId: null,
+      isDeleteDialogOpen: false,
     };
   },
   computed: {
@@ -291,46 +306,47 @@ export default {
           return;
         }
 
+        // TODO: This logic needs to corrected.
         // If not found in current page, search all devices
-        if (this.totalCount > this.itemsPerPage) {
-          try {
-            const allDevicesResp = await sender.DeviceList(
-              "",
-              1,
-              this.totalCount,
-              0
-            );
+        // if (this.totalCount > this.itemsPerPage) {
+        //   try {
+        //     const allDevicesResp = await sender.DeviceList(
+        //       "",
+        //       1,
+        //       this.totalCount,
+        //       0
+        //     );
 
-            if (allDevicesResp && allDevicesResp.rows) {
-              currentDevice = allDevicesResp.rows.find(
-                (device) =>
-                  device.public_key === wgPublicKey ||
-                  device.interface_publickey === wgPublicKey
-              );
+        //     if (allDevicesResp && allDevicesResp.rows) {
+        //       currentDevice = allDevicesResp.rows.find(
+        //         (device) =>
+        //           device.public_key === wgPublicKey ||
+        //           device.interface_publickey === wgPublicKey
+        //       );
 
-              if (currentDevice) {
-                this.currentDeviceId = currentDevice.id;
+        //       if (currentDevice) {
+        //         this.currentDeviceId = currentDevice.id;
 
-                // Navigate to the page containing the current device
-                const deviceIndex = allDevicesResp.rows.findIndex(
-                  (device) => device.id === currentDevice.id
-                );
+        //         // Navigate to the page containing the current device
+        //         const deviceIndex = allDevicesResp.rows.findIndex(
+        //           (device) => device.id === currentDevice.id
+        //         );
 
-                if (deviceIndex !== -1) {
-                  const devicePage =
-                    Math.floor(deviceIndex / this.itemsPerPage) + 1;
+        //         if (deviceIndex !== -1) {
+        //           const devicePage =
+        //             Math.floor(deviceIndex / this.itemsPerPage) + 1;
 
-                  if (devicePage !== this.currentPage) {
-                    await this.changePage(devicePage);
-                  }
-                }
-              } else {
-              }
-            }
-          } catch (error) {
-            console.error("Error finding current device:", error);
-          }
-        }
+        //           if (devicePage !== this.currentPage) {
+        //             await this.changePage(devicePage);
+        //           }
+        //         }
+        //       } else {
+        //       }
+        //     }
+        //   } catch (error) {
+        //     console.error("Error finding current device:", error);
+        //   }
+        // }
       } catch (error) {
         console.error("Error identifying current device:", error);
         this.currentDeviceId = null;
@@ -381,6 +397,7 @@ export default {
         // Reset data on error
         this.deviceListData = [];
         this.totalCount = 0;
+        this.deviceList();
       } finally {
         this.isProcessing = false;
       }
@@ -412,23 +429,35 @@ export default {
       }
     },
     async removeDevice(deleteId) {
-      let ret = await sender.showMessageBox(
-        {
-          type: "warning",
-          buttons: ["OK", "Cancel"],
-          message: "Are you sure? You want to remove this device",
-          detail: ``,
-        },
-        true
-      );
-      if (ret.response == 1) return; // cancel
-      if (ret.response == 0) {
-        await this.deviceList(
-          this.searchQuery,
-          this.currentPage,
-          this.itemsPerPage,
-          deleteId
+      if (this.isDeleteDialogOpen) return;
+
+      try {
+        this.isDeleteDialogOpen = true;
+
+        let ret = await sender.showMessageBox(
+          {
+            type: "warning",
+            buttons: ["OK", "Cancel"],
+            message: "Are you sure? You want to delete this device",
+            detail: ``,
+          },
+          true
         );
+
+        if (ret.response == 0) {
+          // OK was clicked
+          await this.deviceList(
+            this.searchQuery,
+            this.currentPage,
+            this.itemsPerPage,
+            deleteId
+          );
+        }
+        // Cancel was clicked (or dialog was closed) - do nothing
+      } catch (error) {
+        console.error("Error showing delete confirmation:", error);
+      } finally {
+        this.isDeleteDialogOpen = false;
       }
     },
     viewDetails(device) {
