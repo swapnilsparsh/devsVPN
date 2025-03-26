@@ -1,15 +1,11 @@
 // TODO FIXME: prepend license
 // Copyright (c) 2024 privateLINE, LLC.
 
-package vpncoexistence
+package firewall
 
 import (
 	"regexp"
 	"time"
-
-	"github.com/swapnilsparsh/devsVPN/daemon/logger"
-	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
-	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 )
 
 const (
@@ -21,8 +17,6 @@ const (
 
 var (
 	FirstWordRE *regexp.Regexp = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+") // regexp for the 1st word: "^[^[:space:]_\.-]+"
-
-	log *logger.Logger
 )
 
 type otherVpnCliCmds struct {
@@ -39,28 +33,25 @@ type otherVpnCliCmds struct {
 	cmdDisconnect                      string
 }
 
+type otherVpnCoexistenceLegacyHelper func() (err error)
+
 // Contains all the information about another VPN that we need to configure interoperability
 type OtherVpnInfo struct {
 	name       string // display name of another VPN
 	namePrefix string // name prefix used to match sublayer, provider names, and Windows service names
 
-	hasCLI  bool
-	cliPath string // full or relative path to CLI of that VPN, used to start connection and add our binaries to their split-tunnel whitelist
-	cliCmds otherVpnCliCmds
+	cli             string // CLI command of that VPN, used to add our binaries & IP ranges to their exception list. If left blank - that means this VPN doesn't have a useful CLI.
+	cliPathResolved string // resolved at runtime
+	cliCmds         otherVpnCliCmds
 
-	needsResolvectlDnsConfig bool
+	changesNftables       bool
+	changesIptablesLegacy bool
+	iptablesLegacyChain   string
+	iptablesLegacyHelper  otherVpnCoexistenceLegacyHelper // if changesIptablesLegacy=true, then iptablesLegacyHelper must be set to some func ptr
 
-	ourMTU int // MTU we set on our wgprivateline interface if other VPN is present
+	recommendedOurMTU int // MTU we set on our wgprivateline interface if other VPN is present
 }
 
-func init() {
-	log = logger.NewLogger("vpncoe")
-}
-
-func EnableCoexistenceWithOtherVpns(prefs preferences.Preferences, vpnConnectedOrConnectingCallback types.VpnConnectedCallback) (retErr error) {
-	return implEnableCoexistenceWithOtherVpns(prefs, vpnConnectedOrConnectingCallback)
-}
-
-func BestWireguardMtuForConditions() int {
+func BestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 	return implBestWireguardMtuForConditions()
 }

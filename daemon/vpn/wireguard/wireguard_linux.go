@@ -34,7 +34,8 @@ import (
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
-	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
@@ -375,7 +376,11 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 	// if wg.connectParams.mtu > 0 {
 	// 	MTU = wg.connectParams.mtu
 	// } else {
-	MTU = vpncoexistence.BestWireguardMtuForConditions()
+
+	if MTU, err = firewall.BestWireguardMtuForConditions(); err != nil {
+		err = log.ErrorFE("error firewall.BestWireguardMtuForConditions(): %w", err)
+		MTU = platform.WGDefaultMTU()
+	}
 	// }
 	interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", MTU))
 
@@ -397,7 +402,7 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 	// interfaceCfg = append(interfaceCfg, postUpCmd)
 
 	peerCfg = append(peerCfg, "AllowedIPs = "+wg.connectParams.allowedIPs)
-	return interfaceCfg, peerCfg, nil
+	return interfaceCfg, peerCfg, err
 }
 
 // TODO: Vlad - this was original IVPN version

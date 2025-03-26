@@ -24,6 +24,7 @@ package commands
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"runtime"
 	"strings"
@@ -165,7 +166,7 @@ func (c *CmdDns) Run() error {
 		if c.reset {
 			defManualDns = dns.DnsSettings{}
 		} else {
-			defManualDns.DnsHost = c.dns
+			defManualDns.DnsServers = []net.IP{net.ParseIP(c.dns)}
 			if len(c.dohTemplate) > 0 {
 				defManualDns.Encryption = dns.EncryptionDnsOverHttps
 				defManualDns.DohTemplate = c.dohTemplate

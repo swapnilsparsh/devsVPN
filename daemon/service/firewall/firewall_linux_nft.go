@@ -38,7 +38,6 @@ import (
 	"github.com/google/nftables/binaryutil"
 	"github.com/google/nftables/expr"
 
-	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"golang.org/x/sys/unix"
@@ -311,7 +310,7 @@ func implFirewallBackgroundMonitorNft() {
 		//	- Run VPN coexistence logic first
 		//	- Process buffered nft events later - and, if needed, run implReEnableNft() hopefully only once
 		if runEnableCoexistenceWithOtherVpns {
-			if err := vpncoexistence.EnableCoexistenceWithOtherVpns(getPrefsCallback(), vpnConnectedOrConnectingCallback); err != nil {
+			if err := enableVpnCoexistenceLinuxNft(); err != nil {
 				log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
 			}
 			runEnableCoexistenceWithOtherVpns = false
@@ -322,7 +321,7 @@ func implFirewallBackgroundMonitorNft() {
 		select {
 		case _ = <-stopMonitoringFirewallChangesNft:
 			log.Debug("implFirewallBackgroundMonitorNft exiting on stop signal")
-			go vpncoexistence.DisableCoexistenceWithOtherVpns() // nah, run asynchronously in the background after all - 8sec is way too long to wait in the UI
+			go DisableCoexistenceWithOtherVpns() // nah, run asynchronously in the background after all - 8sec is way too long to wait in the UI
 			return
 		case event, ok := <-nftEvents:
 			if !ok {

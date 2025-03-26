@@ -54,8 +54,8 @@ var (
 	implFirewallBackgroundMonitorLegacyMutex sync.Mutex           // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy function
 
 	iptablesLegacyPath  string                   // empty if iptables-legacy not found in path
-	ipt                 *iptables.IPTables = nil // nil if iptables-legacy not found
-	filterLegacy        *iptables.IPTables = nil // nil if iptables-legacy not found
+	ipt                 *iptables.IPTables = nil // nil if iptables-legacy not found. Used r/o in vpnCoexistence_linux.go
+	filterLegacy        *iptables.IPTables = nil // nil if iptables-legacy not found. Used r/o in vpnCoexistence_linux.go
 	inputLegacy         *iptables.IPTables = nil
 	outputLegacy        *iptables.IPTables = nil
 	vpnCoexLegacyInDef                     = iptables.ChainTypeUserDefined
@@ -216,14 +216,16 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 	log.Debug("doEnableLegacy entered")
 	defer log.Debug("doEnableLegacy exited")
 
-	prefs := getPrefsCallback()
-
 	if enabled, err := implGetEnabledLegacy(); err != nil {
 		return log.ErrorFE("error implGetEnabledLegacy(): %w", err)
 	} else if enabled {
 		log.Debug("iptables-legacy already enabled, not enabling again")
 		return nil
 	}
+
+	go reDetectOtherVpnsLinux(false, true) // start re-detecting other VPNs early, and let it adjust our MTU if necessary
+
+	prefs := getPrefsCallback()
 
 	// create PL chains, and insert jumps to them on top of INPUT, OUTPUT
 	if err = filterLegacy.NewChain(VPN_COEXISTENCE_CHAIN_LEGACY_IN); err != nil {
@@ -310,7 +312,7 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 	// allow PL service binaries in-out. Then we don't need to explicitly create allow rules for REST API servers, etc.
 	// also allow in-out for our other default allowed apps (PL Comms, etc.)
 	// 	TODO: permit PL Comms etc. only inbound UDP
-	matchOurCgroup := iptables.WithMatchCGroupClassID(false, 0x70561e1d)
+	matchOurCgroup := iptables.WithMatchCGroupClassID(false, PL_CGROUP_ID)
 	if err = vpnCoexLegacyIn.MatchCGroup(matchOurCgroup).TargetAccept().Append(); err != nil {
 		return log.ErrorFE("error matching our cgroup in: %w", err)
 	}
@@ -341,53 +343,6 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 		return log.ErrorFE("error filterLegacy.Chain(vpnCoexLegacyOut).MatchOutInterface(false, \"lo\").TargetAccept().Insert(): %w", err)
 	}
 
-	// TODO FIXME: Vlad ---------------- Surfshark testing START ----------------
-
-	// allow all DNS before login (SessionNew)
-	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPDstPort(false, 53)).TargetAccept().Insert(); err != nil {
-		return log.ErrorFE("error add all DNS dst UDP port 53: %w", err)
-	}
-	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolTCP).MatchTCP(iptables.WithMatchTCPDstPort(false, 53)).TargetAccept().Insert(); err != nil {
-		return log.ErrorFE("error add all DNS dst TCP port 53: %w", err)
-	}
-	if err = vpnCoexLegacyIn.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPSrcPort(false, 53)).TargetAccept().Insert(); err != nil {
-		return log.ErrorFE("error add all DNS src UDP port 53: %w", err)
-	}
-
-	// try marking our outbound packets w/ mark 0x493e0, as SSKS_ALLOW_WG (used only for outbound) allows them
-	surfsharkMark := 0x493e0
-
-	// - outbound packets by our binaries (to allow login to deskapi)
-	if err = vpnCoexLegacyOut.MatchCGroup(matchOurCgroup).TargetMark(iptables.WithTargetMarkOr(surfsharkMark)).Insert(); err != nil {
-		return log.ErrorFE("error matching our cgroup out - OR mark 0x493e0: %w", err)
-	}
-
-	//	- all outbound DNS packets
-	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPDstPort(false, 53)).TargetMark(iptables.WithTargetMarkOr(surfsharkMark)).Insert(); err != nil {
-		return log.ErrorFE("error add all DNS dst UDP port 53 OR mark 0x493e0: %w", err)
-	}
-	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolTCP).MatchTCP(iptables.WithMatchTCPDstPort(false, 53)).TargetMark(iptables.WithTargetMarkOr(surfsharkMark)).Insert(); err != nil {
-		return log.ErrorFE("error add all DNS dst TCP port 53 OR mark 0x493e0: %w", err)
-	}
-
-	for _, vpnEntryHost := range prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {
-		//	- outbound packets to our WG endpoints
-		wgEndpointIP := strings.TrimSpace(vpnEntryHost.EndpointIP) // Allow our Wireguard gateways: in UDP and established+related, out TCP+UDP (any proto)
-		if err = vpnCoexLegacyOut.MatchDestination(false, wgEndpointIP).TargetMark(iptables.WithTargetMarkOr(surfsharkMark)).Insert(); err != nil {
-			return log.ErrorFE("error out wgEndpointIP OR mark 0x493e0: %w", err)
-		}
-
-		//	- outbound packets to our allowedIPs (internal PL IPs)
-		for _, allowedIpCIDR := range strings.Split(vpnEntryHost.AllowedIPs, ",") { // allowedIPs, internal PL IP ranges ; CIDR format like "10.0.0.3/24"
-			allowedIpCIDR = strings.TrimSpace(allowedIpCIDR)
-			if err = vpnCoexLegacyOut.MatchDestination(false, allowedIpCIDR).TargetMark(iptables.WithTargetMarkOr(surfsharkMark)).Insert(); err != nil {
-				return log.ErrorFE("error add out on allowed PL IP range %s - OR mark 0x493e0: %w", allowedIpCIDR, err)
-			}
-		}
-	}
-
-	// TODO FIXME: Vlad ---------------- Surfshark testing END ----------------
-
 	if totalShieldEnabled && vpnConnectedOrConnectingCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
 		log.Debug("doEnableLegacy: enabling TotalShield")
 		if err = vpnCoexLegacyOut.TargetDrop().Append(); err != nil {
@@ -398,7 +353,23 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 		}
 	}
 
-	return nil
+	// now run VPN coexistence logic - process the other detected VPNs that are relevant for iptables-legacy
+	// TODO: if processing VPN coexistence for multiple VPNs - run their helpers in parallel
+	vpnCoexistenceLinuxMutex.Lock() // to ensure other threads aren't in process of re-detection, else they may empty OtherVpnsDetectedRelevantForIptablesLegacy
+	defer vpnCoexistenceLinuxMutex.Unlock()
+
+	for otherVpnRelevantForLegacyName := range OtherVpnsDetectedRelevantForIptablesLegacy.Iterator().C {
+		if otherVpnLegacy, ok := otherVpnsByName[otherVpnRelevantForLegacyName]; !ok {
+			log.ErrorFE("error looking up detected other VPN '%s', skipping", otherVpnRelevantForLegacyName)
+			continue
+		} else if otherVpnLegacy.iptablesLegacyHelper == nil {
+			err = log.ErrorFE("error: iptablesLegacyHelper=nil for other VPN '%s', it's unexpected", otherVpnRelevantForLegacyName)
+		} else if err = otherVpnLegacy.iptablesLegacyHelper(); err != nil {
+			err = log.ErrorFE("error running iptablesLegacyHelper for other VPN '%s': %w", otherVpnRelevantForLegacyName, err)
+		}
+	}
+
+	return err
 }
 
 func implDeployPostConnectionRulesLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {

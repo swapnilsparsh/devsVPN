@@ -1,7 +1,7 @@
 // TODO FIXME: prepend license
 // Copyright (c) 2024 privateLINE, LLC.
 
-package vpncoexistence
+package firewall
 
 import (
 	"errors"
@@ -16,10 +16,8 @@ import (
 	"unsafe"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
-	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
@@ -545,10 +543,6 @@ func StartService(s *mgr.Service) error {
 	return s.Start()
 }
 
-func implEnableCoexistenceWithOtherVpns(prefs preferences.Preferences, vpnConnectedCallback types.VpnConnectedCallback) (retErr error) {
-	return nil // not implemented
-}
-
-func implBestWireguardMtuForConditions() int {
-	return platform.WireguardDefaultMTU()
+func implBestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
+	return platform.WireguardDefaultMTU(), nil
 }

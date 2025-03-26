@@ -705,7 +705,7 @@ func (c *CmdConnect) Run() (retError error) {
 			if dnsIp == nil {
 				return flags.BadParameter{}
 			}
-			req.Params.ManualDNS = dns.DnsSettings{DnsHost: dnsIp.String(), Encryption: dns.EncryptionNone}
+			req.Params.ManualDNS = dns.DnsSettings{DnsServers: []net.IP{dnsIp}, Encryption: dns.EncryptionNone}
 		} else {
 			// Taking default configuration parameters
 			req.Params.ManualDNS = defaultConnSettings.Params.ManualDNS

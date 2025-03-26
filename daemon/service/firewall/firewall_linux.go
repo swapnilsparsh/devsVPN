@@ -33,7 +33,6 @@ import (
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
-	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
@@ -42,6 +41,8 @@ const (
 	ENOENT_ERRMSG = "no such file or directory"
 
 	VPN_COEXISTENCE_CHAIN_PREFIX = "privateline-vpnco" // full chain name has to be under 29 chars w/ iptables-legacy
+
+	PL_CGROUP_ID = 0x70561e1d
 )
 
 var (
@@ -218,8 +219,9 @@ func implDeployPostConnectionRules() (retErr error) {
 		errNft, errLegacy                   error
 	)
 
+	// TODO FIXME: Vlad - do we still need to run them from here?
 	// re-run VPN coexistence rules, since presumably now we're CONNECTED
-	if err := vpncoexistence.EnableCoexistenceWithOtherVpns(getPrefsCallback(), vpnConnectedOrConnectingCallback); err != nil {
+	if err := enableVpnCoexistenceLinuxNft(); err != nil {
 		retErr = log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
 	}
 
