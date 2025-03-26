@@ -892,7 +892,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 					go func() {
 						defer func() {
 							if r := recover(); r != nil {
-								log.Error("PANIC: ", r)
+								log.Error("PANIC Route change receiver: ", r)
 							}
 						}()
 

@@ -208,6 +208,9 @@ func implReset() error {
 }
 
 func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseAllowWhenNoVpn, isVpnEnabled bool, addrConfig ConfigAddresses, splitTunnelApps []string) error {
+	log.Debug("implApplyConfig entered")
+	defer log.Debug("implApplyConfig exited")
+
 	// Check if functionality available
 	splitTunErr, splitTunInversedErr := GetFuncNotAvailableError()
 	isFunctionalityNotAvailable := splitTunErr != nil || (isStInversed && splitTunInversedErr != nil)

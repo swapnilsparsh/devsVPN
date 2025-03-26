@@ -1188,7 +1188,7 @@ func implTotalShieldApply(deployTotalShieldBlockRules bool) (err error) {
 		}
 	}()
 
-	var filterDesc = "Total Shield block-all rules"
+	var filterDesc = "Total Shield block-all"
 	if deployTotalShieldBlockRules {
 		log.Debug(filterDesc + ": enabling")
 	} else {
@@ -1302,7 +1302,7 @@ func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
 
 func implSingleDnsRuleOff() (retErr error) {
 	// TODO FIXME: Vlad - disabled
-	log.Debug("implSingleDnsRuleOn - disabled (providerKeySingleDns not installed), exiting")
+	// log.Debug("implSingleDnsRuleOn - disabled (providerKeySingleDns not installed), exiting")
 	return nil
 
 	/*
