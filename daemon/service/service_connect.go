@@ -657,6 +657,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("Panic on VPN connection: ", r)
+			log.Error(string(debug.Stack()))
 			if err, ok := r.(error); ok {
 				log.ErrorTrace(err)
 			}
@@ -892,6 +893,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						defer func() {
 							if r := recover(); r != nil {
 								log.Error("PANIC Route change receiver: ", r)
+								log.Error(string(debug.Stack()))
 							}
 						}()
 

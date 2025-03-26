@@ -1025,6 +1025,10 @@ func doDisable(wfpTransactionAlreadyInProgress bool) (err error) {
 		}
 	}
 
+	for _, totalShieldLayer := range totalShieldLayers { // clean out the Total Shield filter IDs, since we erased the filters
+		totalShieldLayer.blockAllFilterID = 0
+	}
+
 	clientLocalIPFilterIDs = nil
 
 	_isEnabled = false

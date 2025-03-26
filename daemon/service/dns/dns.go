@@ -99,7 +99,7 @@ type DnsSettings struct {
 
 // create  DnsSettings object with no encryption
 func DnsSettingsCreate(dnsSrvIps *[]net.IP) DnsSettings {
-	if len(*dnsSrvIps) < 1 {
+	if dnsSrvIps == nil || len(*dnsSrvIps) < 1 {
 		return DnsSettings{}
 	}
 	return DnsSettings{DnsServers: *dnsSrvIps}
