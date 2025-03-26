@@ -26,8 +26,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path"
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -35,6 +38,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"golang.org/x/sys/windows"
 )
 
@@ -88,6 +92,9 @@ var (
 	otherSublayerMutex sync.Mutex
 	ourSublayerWeight  uint16       = 0
 	otherSublayerGUID  syscall.GUID // If we could not register our sublayer with max weight (0xFFFF) yet, this will hold the GUID of another sublayer, who has max weight.
+
+	powershellBinaryPath   string     = "powershell"
+	enableDisableIPv6Mutex sync.Mutex // used to ensure that enableDisableIPv6() is single-instance
 )
 
 const (
@@ -331,6 +338,14 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 func implInitialize() (retErr error) {
 	if retErr = winlib.Initialize(platform.WindowsWFPDllPath()); retErr != nil {
 		return retErr
+	}
+
+	// get path to 'powershell' binary
+	envVarSystemroot := strings.ToLower(os.Getenv("SYSTEMROOT"))
+	if len(envVarSystemroot) == 0 {
+		log.Error("!!! ERROR !!! Unable to determine 'SYSTEMROOT' environment variable!")
+	} else {
+		powershellBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "WindowsPowerShell", "v1.0", "powershell.exe"), "/", "\\")
 	}
 
 	return checkCreateProviderAndSublayer(false, false)
@@ -1128,6 +1143,30 @@ func implDeployPostConnectionRules() (retErr error) {
 	return retErr
 }
 
+// We either disable IPv6 on all network interfaces for Total Shield on, or enable it back when Total Shield off.
+// Running the PowerShell asynchronously (fork and forget) - flipping to Enable or Disable on cmdline takes 6.8-6.9 seconds on my laptop
+func enableDisableIPv6(enable bool /*, responseChan chan error*/) {
+	enableDisableIPv6Mutex.Lock() // since this func runs async, must lock it to ensure it's single-instance
+	defer enableDisableIPv6Mutex.Unlock()
+
+	// don't leave PrintStack calls enabled in production builds beyond the MVP
+	// logger.PrintStackToStderr()
+
+	cmd := []string{"-NoProfile", "", "-Name", "\"*\"", "-ComponentID", "ms_tcpip6"}
+	if enable {
+		cmd[1] = "Enable-NetAdapterBinding"
+	} else {
+		cmd[1] = "Disable-NetAdapterBinding"
+	}
+
+	if err := shell.Exec(log, powershellBinaryPath, cmd...); err != nil {
+		// responseChan <- log.ErrorE(fmt.Errorf("failed to change IPv6 bindings (isStEnabled=%v): %w", enable, err), 0)
+		log.ErrorFE("failed to change IPv6 bindings (enable=%t): %w", enable, err)
+	} /* else {
+		responseChan <- nil
+	}*/
+}
+
 func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 	if totalShieldEnabled == _totalShieldEnabled {
 		return nil
@@ -1162,14 +1201,15 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 	}()
 
 	var filterDesc = "Total Shield block all"
-	if _totalShieldEnabled {
+	toEnableTotalShield := _totalShieldEnabled && vpnConnectedOrConnectingCallback() // Enable Total Shield block rules only if VPN is connected or connecting
+	if toEnableTotalShield {
 		log.Debug("enabling " + filterDesc)
 	} else {
 		log.Debug("disabling " + filterDesc)
 	}
 
 	for _, totalShieldLayer := range totalShieldLayers {
-		if _totalShieldEnabled {
+		if toEnableTotalShield {
 			if totalShieldLayer.blockAllFilterID == 0 {
 				if totalShieldLayer.blockAllFilterID, err = manager.AddFilter(winlib.NewFilterBlockAll(providerKey, totalShieldLayer.layerGUID, ourSublayerKey,
 					filterDName, filterDesc, totalShieldLayer.isIPv6, isPersistent, false)); err != nil {
@@ -1186,6 +1226,8 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 			totalShieldLayer.blockAllFilterID = 0
 		}
 	}
+
+	go enableDisableIPv6(!toEnableTotalShield) // fork it in the background, as it takes ~7 seconds
 
 	return err
 }

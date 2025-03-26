@@ -75,8 +75,8 @@ var (
 	// map from INET type (IPv4 or IPv6) to default routes (all zeroes)
 	defaultRoutesByIpFamily = map[uint16]winipcfg.IPAddressPrefix{}
 
-	routeBinaryPath      string = "route"
-	powershellBinaryPath string = "powershell"
+	routeBinaryPath string = "route"
+	// powershellBinaryPath string = "powershell"
 )
 
 type ConfigApps struct {
@@ -96,7 +96,7 @@ func implInitialize() error {
 		log.Error("!!! ERROR !!! Unable to determine 'SYSTEMROOT' environment variable!")
 	} else {
 		routeBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "route.exe"), "/", "\\")
-		powershellBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "WindowsPowerShell", "v1.0", "powershell.exe"), "/", "\\")
+		// powershellBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "WindowsPowerShell", "v1.0", "powershell.exe"), "/", "\\")
 	}
 
 	var err error
@@ -539,30 +539,6 @@ func doApplySplitFullTunnelRoutes(ipFamily uint16, isStEnabled bool, isVpnEnable
 	}
 
 	return nil
-}
-
-// We either disable IPv6 on all network interfaces for full tunnel (total shield), or enable it back for split tunnel.
-// Running the PowerShell asynchronously (fork and forget) - flipping to Enable or Disable on cmdline takes 6.8-6.9 seconds on my laptop
-func enableDisableIPv6(enable bool /*, responseChan chan error*/) {
-	mutexIPv6PowerShell.Lock() // since this func runs async, must lock it
-	defer mutexIPv6PowerShell.Unlock()
-
-	// don't leave PrintStack calls enabled in production builds beyond the MVP
-	// logger.PrintStackToStderr()
-
-	cmd := []string{"-NoProfile", "", "-Name", "\"*\"", "-ComponentID", "ms_tcpip6"}
-	if enable {
-		cmd[1] = "Enable-NetAdapterBinding"
-	} else {
-		cmd[1] = "Disable-NetAdapterBinding"
-	}
-
-	if err := shell.Exec(log, powershellBinaryPath, cmd...); err != nil {
-		// responseChan <- log.ErrorE(fmt.Errorf("failed to change IPv6 bindings (isStEnabled=%v): %w", enable, err), 0)
-		log.Error(fmt.Errorf("failed to change IPv6 bindings (isStEnabled=%v): %w", enable, err), 0)
-	} /* else {
-		responseChan <- nil
-	}*/
 }
 
 func catchPanic(err *error) {
