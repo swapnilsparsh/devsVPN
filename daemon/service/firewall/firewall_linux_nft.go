@@ -843,7 +843,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 
-	if totalShieldDeployedState && vpnConnectedCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is CONNECTED
+	if TotalShieldDeployedState() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is CONNECTED
 		log.Debug("doEnableNft: enabling TotalShield")
 		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainIn, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
 		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainOut, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
@@ -1119,7 +1119,7 @@ func implOnChangeDnsNft(newDnsServers *[]net.IP) (err error) { // by now we know
 	return nil
 }
 
-func implTotalShieldApplyNft(deployTotalShieldBlockRules bool) (err error) {
+func implTotalShieldApplyNft(totalShieldNewState bool) (err error) {
 	fwLinuxNftablesMutex.Lock()
 	defer fwLinuxNftablesMutex.Unlock()
 
@@ -1160,7 +1160,7 @@ func implTotalShieldApplyNft(deployTotalShieldBlockRules bool) (err error) {
 		}
 	}
 
-	if deployTotalShieldBlockRules {
+	if totalShieldNewState {
 		if !lastInRuleIsDrop { // if last rules are not DROP rules already - append DROP rules to the end
 			nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainIn, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
 			doFlush = true
@@ -1181,7 +1181,7 @@ func implTotalShieldApplyNft(deployTotalShieldBlockRules bool) (err error) {
 	}
 
 	if doFlush {
-		log.Debug("implTotalShieldApplyNft: setting TotalShield=", deployTotalShieldBlockRules, " in firewall")
+		log.Debug("implTotalShieldApplyNft: setting TotalShield=", totalShieldNewState, " in firewall")
 		if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
 			return log.ErrorFE("nft flush error in implTotalShieldApplyNft: %w", err)
 		}

@@ -343,7 +343,7 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 		return log.ErrorFE("error filterLegacy.Chain(vpnCoexLegacyOut).MatchOutInterface(false, \"lo\").TargetAccept().Insert(): %w", err)
 	}
 
-	if totalShieldDeployedState && vpnConnectedCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is CONNECTED
+	if TotalShieldDeployedState() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is CONNECTED
 		log.Debug("doEnableLegacy: enabling TotalShield")
 		if err = vpnCoexLegacyOut.TargetDrop().Append(); err != nil {
 			return log.ErrorFE("error filterLegacy.Chain(vpnCoexLegacyOut).TargetDrop().Append(): %w", err)
@@ -522,7 +522,7 @@ func implOnChangeDnsLegacy(newDnsServers *[]net.IP) (err error) {
 	return nil
 }
 
-func implTotalShieldApplyLegacy(deployTotalShieldBlockRules bool) (err error) {
+func implTotalShieldApplyLegacy(totalShieldNewState bool) (err error) {
 	if ipt == nil { // if iptables-legacy not present
 		return
 	}
@@ -559,8 +559,8 @@ func implTotalShieldApplyLegacy(deployTotalShieldBlockRules bool) (err error) {
 		}
 	}
 
-	log.Debug("implTotalShieldApplyLegacy: setting TotalShield=", deployTotalShieldBlockRules, " in firewall")
-	if deployTotalShieldBlockRules {
+	log.Debug("implTotalShieldApplyLegacy: setting TotalShield=", totalShieldNewState, " in firewall")
+	if totalShieldNewState {
 		if !lastOutRuleIsDrop { // if last rules are not DROP rules already - append DROP rules to the end
 			if err = vpnCoexLegacyOut.TargetDrop().Append(); err != nil {
 				return log.ErrorFE("error vpnCoexLegacyOut.TargetDrop().Append(): %w", err)

@@ -344,7 +344,7 @@ func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
 	return nil
 }
 
-func implTotalShieldApply(deployTotalShieldBlockRules bool) (err error) {
+func implTotalShieldApply(totalShieldNewState bool) (err error) {
 	var (
 		implTotalShieldApplyWaiter sync.WaitGroup
 		errNft, errLegacy          error
@@ -352,11 +352,11 @@ func implTotalShieldApply(deployTotalShieldBlockRules bool) (err error) {
 
 	implTotalShieldApplyWaiter.Add(2) // launch legacy before nft, it's expected to be slower
 	go func() {
-		errLegacy = implTotalShieldApplyLegacy(deployTotalShieldBlockRules)
+		errLegacy = implTotalShieldApplyLegacy(totalShieldNewState)
 		implTotalShieldApplyWaiter.Done()
 	}()
 	go func() {
-		errNft = implTotalShieldApplyNft(deployTotalShieldBlockRules)
+		errNft = implTotalShieldApplyNft(totalShieldNewState)
 		implTotalShieldApplyWaiter.Done()
 	}()
 	implTotalShieldApplyWaiter.Wait()

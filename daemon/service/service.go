@@ -1453,7 +1453,7 @@ func (s *Service) splitTunnelCheckConditions(splitTunIsEnabled, splitTunIsInvers
 	return s.implSplitTunnelling_CheckConditions(splitTunIsEnabled, splitTunIsInversed)
 }
 
-func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhitelist, isAnyDns, isAllowWhenNoVpn, reset bool) error {
+func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhitelist, isAnyDns, isAllowWhenNoVpn, reset bool) (ret error) {
 	// Vlad: for App Whitelist feature we keep inversed mode always on
 	isInversed = true
 
@@ -1492,19 +1492,19 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhit
 	// requirements to enable Split Tunnel differ by platform
 	if isEnabled && isInversed {
 		if splitTunConditionsGood, err := s.splitTunnelCheckConditions(isEnabled, isInversed); err != nil {
-			return fmt.Errorf("error checking conditions for Split tunnel: isEnabled=%t isInversed=%t: %w", isEnabled, isInversed, err)
+			return log.ErrorFE("error checking conditions for Split tunnel: isEnabled=%t isInversed=%t: %w", isEnabled, isInversed, err)
 		} else if !splitTunConditionsGood {
-			return fmt.Errorf("error - conditions not met for Split tunnel: isEnabled=%t isInversed=%t", isEnabled, isInversed)
+			return log.ErrorFE("error - conditions not met for Split tunnel: isEnabled=%t isInversed=%t", isEnabled, isInversed)
 		}
 
 		// if we are going to allow any DNS in INVERSE SplitTunneling mode - ensure that custom DNS and AntiTracker is disabled
 		if isAnyDns {
 			defaultParams := s.GetConnectionParams()
 			if defaultParams.Metadata.AntiTracker.Enabled {
-				return fmt.Errorf("unable to disable the non-privateLINE DNS blocking feature for Inverse Split Tunnel mode: AntiTracker is currently enabled; please disable both AntiTracker and manually configured DNS settings first")
+				return log.ErrorFE("unable to disable the non-privateLINE DNS blocking feature for Inverse Split Tunnel mode: AntiTracker is currently enabled; please disable both AntiTracker and manually configured DNS settings first")
 			}
 			if !defaultParams.ManualDNS.IsEmpty() {
-				return fmt.Errorf("unable to disable the non-privateLINE DNS blocking feature for Inverse Split Tunnel mode: manual DNS is currently enabled; please disable manually configured DNS settings first")
+				return log.ErrorFE("unable to disable the non-privateLINE DNS blocking feature for Inverse Split Tunnel mode: manual DNS is currently enabled; please disable manually configured DNS settings first")
 			}
 		}
 	}
@@ -1524,17 +1524,18 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhit
 	fmt.Print("\n========================Split Tunnel Service value As Passed from Frontend END===============================\n")
 	// ======================== Split Tunnel Service value As Passed from Frontend END ==============================
 
-	ret := s.splitTunnelling_ApplyConfig()
-	if ret != nil {
+	if ret = s.splitTunnelling_ApplyConfig(); ret != nil {
+		ret = log.ErrorFE("failed to apply SplitTunnel configuration, error in s.splitTunnelling_ApplyConfig(): %w", ret)
 		// if error - restore old preferences and apply configuration
 		s.setPreferences(prefsOld)
 		if err := s.splitTunnelling_ApplyConfig(); err != nil {
-			log.Error(fmt.Errorf("failed to restore SplitTunnel configuration: %w", err))
+			log.ErrorFE("failed to restore SplitTunnel configuration: %w", err)
 		}
 	}
 
 	return ret
 }
+
 func (s *Service) splitTunnelling_Reset() error {
 	prefs := s._preferences
 	prefs.IsTotalShieldOn = false
@@ -1658,8 +1659,8 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 
 	// Apply Split-Tun config
 	// if runtime.GOOS == "windows" {
-	log.Debug("splitTunnelling_ApplyConfig calling firewall.TotalShieldApply = ", prefs.IsTotalShieldOn)
-	return firewall.TotalShieldApply(prefs.IsTotalShieldOn)
+	log.Debug("splitTunnelling_ApplyConfig calling firewall.TotalShieldApply() with prefs.IsTotalShieldOn=", prefs.IsTotalShieldOn)
+	return firewall.TotalShieldApply()
 	// } else {
 	// 	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
 	// }
