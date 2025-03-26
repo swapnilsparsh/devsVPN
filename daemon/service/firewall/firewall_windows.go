@@ -130,7 +130,7 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
 	// Can't delete the sublayer if there are rules registered under it. So if VPN is connected - disable firewall, reregister sublayer, enable firewall.
 
 	// if err := manager.TransactionStart(); err != nil { // start WFP transaction
-	// 	return fmt.Errorf("failed to start transaction: %w", err)
+	// 	return log.ErrorFE("failed to start transaction: %w", err)
 	// }
 	// defer func() { // do not forget to stop WFP transaction
 	// 	var r any = recover()
@@ -232,19 +232,19 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 	// add provider
 	found, pInfo, err = manager.GetProviderInfo(providerKey)
 	if err != nil {
-		return fmt.Errorf("failed to get provider info: %w", err)
+		return log.ErrorFE("failed to get provider info: %w", err)
 	}
 	if !found || !pInfo.IsInstalled {
 		provider := winlib.CreateProvider(providerKey, providerDName, "", providerSublayerPersistence)
 		if err = manager.AddProvider(provider); err != nil {
-			return fmt.Errorf("failed to add provider : %w", err)
+			return log.ErrorFE("failed to add provider : %w", err)
 		}
 	}
 
 	// add sublayer
 	installed, err = checkSublayerInstalled()
 	if err != nil {
-		return fmt.Errorf("failed to check sublayer is installed: %w", err)
+		return log.ErrorFE("failed to check sublayer is installed: %w", err)
 	}
 	if !installed {
 		return createAddSublayer()
@@ -253,7 +253,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 	if ourSublayerWeight < winlib.SUBLAYER_MAX_WEIGHT { // our sublayer installed, check if it has max weight
 		maxWeightSublayerFound, _otherSublayerGUID, err = findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
 		if err != nil {
-			return fmt.Errorf("failed to check for sublayer with max weight: %w", err)
+			return log.ErrorFE("failed to check for sublayer with max weight: %w", err)
 		}
 		if maxWeightSublayerFound {
 			otherVpnUnknownErr.otherVpnGUID = windows.GUID(_otherSublayerGUID).String()
@@ -318,7 +318,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 			log.Debug("called createAddSublayer()")
 			installed, err = checkSublayerInstalled()
 			if err != nil {
-				return fmt.Errorf("failed to check sublayer is installed: %w", err)
+				return log.ErrorFE("failed to check sublayer is installed: %w", err)
 			}
 			if installed && ourSublayerWeight == winlib.SUBLAYER_MAX_WEIGHT {
 				log.Info(reregisterMsg + ": SUCCESS")
@@ -385,7 +385,7 @@ func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress bool) (retErr err
 
 func implSetPersistent(persistent bool) (retErr error) {
 	// if persistent {
-	// 	return fmt.Errorf("error - WFP (Windows Filtering Platform) persistence not supported")
+	// 	return log.ErrorFE("error - WFP (Windows Filtering Platform) persistence not supported")
 	// }
 
 	// save persistent state
@@ -393,7 +393,7 @@ func implSetPersistent(persistent bool) (retErr error) {
 
 	found, pinfo, err := manager.GetProviderInfo(providerKey)
 	if err != nil {
-		return fmt.Errorf("failed to get provider info: %w", err)
+		return log.ErrorFE("failed to get provider info: %w", err)
 	}
 
 	if found && pinfo.IsInstalled {
@@ -413,7 +413,7 @@ func implSetPersistent(persistent bool) (retErr error) {
 func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net.IP, clientPort int, serverIP net.IP, serverPort int, isTCP bool) (retErr error) {
 	// TODO FIXME: Vlad - do we need this?
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
-		return fmt.Errorf("failed to start transaction: %w", err)
+		return log.ErrorFE("failed to start transaction: %w", err)
 	}
 	defer func() { // do not forget to stop WFP transaction
 		var r any = recover()
@@ -444,7 +444,7 @@ func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net
 func implClientDisconnected() (retErr error) {
 	// TODO FIXME: Vlad - do we need this?
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
-		return fmt.Errorf("failed to start transaction: %w", err)
+		return log.ErrorFE("failed to start transaction: %w", err)
 	}
 	defer func() { // do not forget to stop WFP transaction
 		var r any = recover()
@@ -489,7 +489,7 @@ func implAllowLAN(allowLan bool, allowLanMulticast bool) error {
 
 	enabled, err := implGetEnabled()
 	if err != nil {
-		return fmt.Errorf("failed to get info if firewall is on: %w", err)
+		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
 	if !enabled {
 		return nil
@@ -522,7 +522,7 @@ func implOnChangeDNS(addr net.IP) error {
 func implOnUserExceptionsUpdated() error {
 	enabled, err := implGetEnabled()
 	if err != nil {
-		return fmt.Errorf("failed to get info if firewall is on: %w", err)
+		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
 	if !enabled {
 		return nil
@@ -535,7 +535,7 @@ func implOnUserExceptionsUpdated() error {
 func implReEnable() (retErr error) {
 	log.Info("implReEnable")
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
-		return fmt.Errorf("failed to start transaction: %w", err)
+		return log.ErrorFE("failed to start transaction: %w", err)
 	}
 	defer func() { // do not forget to stop WFP transaction
 		var r any = recover()
@@ -612,7 +612,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 	implSingleDnsRuleOff()
 
 	if enabled, err := implGetEnabled(); err != nil {
-		return fmt.Errorf("failed to get info if firewall is on: %w", err)
+		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	} else if enabled {
 		return nil
 	}
@@ -630,7 +630,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 	}
 
 	if err = checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, false); err != nil {
-		return fmt.Errorf("failed to check/create provider or sublayer: %w", err)
+		return log.ErrorFE("failed to check/create provider or sublayer: %w", err)
 	}
 
 	vpnEntryHostsParsed := getPrefsCallback().UserPrefs.Windows.VpnEntryHostsParsed
@@ -643,11 +643,11 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		// TODO FIXME: Vlad - do we need to whitelist IPv6 loopback?
 		if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, ipv6Layer, ourSublayerKey, filterDName,
 			"IPv6: loopback", ipv6loopback, 128, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-			return fmt.Errorf("failed to add filter 'allow remote IP' for ipv6loopback: %w", err)
+			return log.ErrorFE("failed to add filter 'allow remote IP' for ipv6loopback: %w", err)
 		}
 		if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, ipv6Layer, ourSublayerKey, filterDName,
 			"IPv6: local", ipv6llocal, 10, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-			return fmt.Errorf("failed to add filter 'allow remote IP' for ipv6llocal: %w", err)
+			return log.ErrorFE("failed to add filter 'allow remote IP' for ipv6llocal: %w", err)
 		}
 
 		// TODO FIXME: Vlad - do we really need to enable these LAN rules?
@@ -656,7 +656,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 				prefixLen, _ := ip.Mask.Size()
 				if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, ipv6Layer, ourSublayerKey, filterDName,
 					"IPv6: allow lan", ip.IP, byte(prefixLen), isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-					return fmt.Errorf("failed to add filter 'allow lan IPv6': %w", err)
+					return log.ErrorFE("failed to add filter 'allow lan IPv6': %w", err)
 				}
 			}
 
@@ -665,7 +665,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 					prefixLen, _ := ip.Mask.Size()
 					if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, ipv6Layer, ourSublayerKey, filterDName,
 						"IPv6: allow LAN multicast", ip.IP, byte(prefixLen), isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-						return fmt.Errorf("failed to add filter 'allow LAN multicast IPv6': %w", err)
+						return log.ErrorFE("failed to add filter 'allow LAN multicast IPv6': %w", err)
 					}
 				}
 			}
@@ -677,7 +677,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			prefixLen, _ := n.Mask.Size()
 			if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, ipv6Layer, ourSublayerKey, filterDName,
 				"IPv6: user exception"+n.IP.String(), n.IP, byte(prefixLen), isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-				return fmt.Errorf("failed to add filter 'user exception': %w", err)
+				return log.ErrorFE("failed to add filter 'user exception': %w", err)
 			}
 		}
 	}
@@ -687,21 +687,21 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 	// 	// // block all
 	// 	// _, err := manager.AddFilter(winlib.NewFilterBlockAll(providerKey, layer, sublayerKey, filterDName, "Block all", true, isPersistent, false, winlib.FILTER_MAX_WEIGHT))
 	// 	// if err != nil {
-	// 	// 	return fmt.Errorf("failed to add filter 'block all IPv6': %w", err)
+	// 	// 	return log.ErrorFE("failed to add filter 'block all IPv6': %w", err)
 	// 	// }
 	// 	// if isPersistent {
 	// 	// 	// For 'persistent' state we have to add boot-time blocking rule
 	// 	// 	bootTime := true
 	// 	// 	_, err = manager.AddFilter(winlib.NewFilterBlockAll(providerKey, layer, sublayerKey, filterDName, "Block all (boot time)", true, false, bootTime, winlib.FILTER_MAX_WEIGHT))
 	// 	// 	if err != nil {
-	// 	// 		return fmt.Errorf("failed to add boot-time filter 'block all IPv6': %w", err)
+	// 	// 		return log.ErrorFE("failed to add boot-time filter 'block all IPv6': %w", err)
 	// 	// 	}
 	// 	// }
 
 	// 	// // block DNS
 	// 	// _, err = manager.AddFilter(winlib.NewFilterBlockDNS(providerKey, layer, sublayerKey, filterDName, "Block DNS", nil, isPersistent, winlib.FILTER_MAX_WEIGHT))
 	// 	// if err != nil {
-	// 	// 	return fmt.Errorf("failed to add filter 'block dns': %w", err)
+	// 	// 	return log.ErrorFE("failed to add filter 'block dns': %w", err)
 	// 	// }
 
 	// 	// TODO: Vlad - allow our IPv6 DNS servers when we have them
@@ -714,7 +714,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			filterDesc := fmt.Sprintf("IPv6: block local port %d", portToBlock)
 			if _, err = manager.AddFilter(winlib.NewFilterBlockLocalPort(providerKey, ipv6LayerIn, ourSublayerKey, filterDName, filterDesc,
 				portToBlock, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-				return fmt.Errorf("failed to add filter '%s': %w", filterDesc, err)
+				return log.ErrorFE("failed to add filter '%s': %w", filterDesc, err)
 			}
 		}
 	}
@@ -752,7 +752,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		// TODO: Vlad - do we need AllowRemoteIP for 127.0.0.1?
 		if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, ipv4Layer, ourSublayerKey, filterDName,
 			"allow remote IP 127.0.0.1", net.ParseIP("127.0.0.1"), net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-			return fmt.Errorf("failed to add filter 'allow remote IP 127.0.0.1': %w", err)
+			return log.ErrorFE("failed to add filter 'allow remote IP 127.0.0.1': %w", err)
 		}
 
 		// Allow our Wireguard gateway(s) in+out: UDP
@@ -760,7 +760,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			vpnEntryHostIP := vpnEntryHostParsed.VpnEntryHostIP
 			if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPProto(providerKey, ipv4Layer, ourSublayerKey, filterDName, "IPv4: allow remote IP - WG gateway "+vpnEntryHostIP.String(),
 				vpnEntryHostIP, net.IPv4bcast, windows.IPPROTO_UDP, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-				return fmt.Errorf("failed to add filter 'IPv4: allow remote IP - WG gateway': '%s': %w", vpnEntryHostIP, err)
+				return log.ErrorFE("failed to add filter 'IPv4: allow remote IP - WG gateway': '%s': %w", vpnEntryHostIP, err)
 			}
 		}
 
@@ -768,7 +768,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		for _, svcExe := range platform.PLServiceBinariesForFirewallToUnblock() {
 			if _, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, ipv4Layer, ourSublayerKey, filterDName,
 				"IPv4: "+svcExe, svcExe, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-				return fmt.Errorf("failed to add filter 'IPv4: allow application': \"%s\": %w", svcExe, err)
+				return log.ErrorFE("failed to add filter 'IPv4: allow application': \"%s\": %w", svcExe, err)
 			}
 		}
 	}
@@ -778,21 +778,21 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		// // block all
 		// _, err := manager.AddFilter(winlib.NewFilterBlockAll(providerKey, layer, sublayerKey, filterDName, "Block all", false, isPersistent, false, winlib.FILTER_MAX_WEIGHT))
 		// if err != nil {
-		// 	return fmt.Errorf("failed to add filter 'block all': %w", err)
+		// 	return log.ErrorFE("failed to add filter 'block all': %w", err)
 		// }
 		// if isPersistent {
 		// 	// For 'persistent' state we have to add boot-time blocking rule
 		// 	bootTime := true
 		// 	_, err = manager.AddFilter(winlib.NewFilterBlockAll(providerKey, layer, sublayerKey, filterDName, "Block all (boot time)", false, false, bootTime, winlib.FILTER_MAX_WEIGHT))
 		// 	if err != nil {
-		// 		return fmt.Errorf("failed to add boot-time filter 'block all': %w", err)
+		// 		return log.ErrorFE("failed to add boot-time filter 'block all': %w", err)
 		// 	}
 		// }
 
 		// // block DNS
 		// _, err = manager.AddFilter(winlib.NewFilterBlockDNS(providerKey, layer, sublayerKey, filterDName, "Block DNS", customDNS, isPersistent, winlib.FILTER_MAX_WEIGHT))
 		// if err != nil {
-		// 	return fmt.Errorf("failed to add filter 'block dns': %w", err)
+		// 	return log.ErrorFE("failed to add filter 'block dns': %w", err)
 		// }
 
 		// allow outbound TCP+UDP to port 53 to our DNS servers, weight 15
@@ -800,7 +800,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			for _, dnsSrv := range vpnEntryHostParsed.DnsServersIPv4 {
 				if _, err = manager.AddFilter(winlib.NewFilterAllowDnsIPv4(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
 					"Allow PL DNS "+dnsSrv.String(), dnsSrv, net.IPv4bcast, isPersistent)); err != nil {
-					return fmt.Errorf("failed to add filter 'Allow PL DNS %s': %w", dnsSrv, err)
+					return log.ErrorFE("failed to add filter 'Allow PL DNS %s': %w", dnsSrv, err)
 				}
 			}
 		}
@@ -809,7 +809,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
 			if _, err = manager.AddFilter(winlib.NewFilterAllowDnsIPv4(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
 				"Allow PL customDNS "+customDNS.String(), customDNS, net.IPv4bcast, isPersistent)); err != nil {
-				return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDNS, err)
+				return log.ErrorFE("failed to add filter 'Allow PL customDNS %s': %w", customDNS, err)
 			}
 		}
 
@@ -818,7 +818,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			vpnEntryHostIP := vpnEntryHostParsed.VpnEntryHostIP
 			if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
 				"IPv4: allow remote IP - WG gateway "+vpnEntryHostIP.String(), vpnEntryHostIP, net.IPv4bcast, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-				return fmt.Errorf("failed to add filter 'IPv4: allow remote IP - WG gateway': '%s': %w", vpnEntryHostIP, err)
+				return log.ErrorFE("failed to add filter 'IPv4: allow remote IP - WG gateway': '%s': %w", vpnEntryHostIP, err)
 			}
 		}
 
@@ -845,35 +845,35 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		// // allow DNS requests to 127.0.0.1:53
 		// _, err = manager.AddFilter(winlib.AllowRemoteLocalhostDNS(providerKey, layer, sublayerKey, filterDName, "", isPersistent, winlib.FILTER_MAX_WEIGHT))
 		// if err != nil {
-		// 	return fmt.Errorf("failed to add filter 'allow localhost dns': %w", err)
+		// 	return log.ErrorFE("failed to add filter 'allow localhost dns': %w", err)
 		// }
 
 		// // allow DHCP port
 		// _, err = manager.AddFilter(winlib.NewFilterAllowLocalPort(providerKey, layer, sublayerKey, filterDName, "", 68, isPersistent, winlib.FILTER_MAX_WEIGHT))
 		// if err != nil {
-		// 	return fmt.Errorf("failed to add filter 'allow dhcp': %w", err)
+		// 	return log.ErrorFE("failed to add filter 'allow dhcp': %w", err)
 		// }
 
 		// // allow OpenVPN executable
 		// _, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, sublayerKey, filterDName, "", platform.OpenVpnBinaryPath(), isPersistent, winlib.FILTER_MAX_WEIGHT))
 		// if err != nil {
-		// 	return fmt.Errorf("failed to add filter 'allow application - openvpn': %w", err)
+		// 	return log.ErrorFE("failed to add filter 'allow application - openvpn': %w", err)
 		// }
 		// // allow obfsproxy
 		// _, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, sublayerKey, filterDName, "", platform.ObfsproxyStartScript(), isPersistent, winlib.FILTER_MAX_WEIGHT))
 		// if err != nil {
-		// 	return fmt.Errorf("failed to add filter 'allow application - obfsproxy': %w", err)
+		// 	return log.ErrorFE("failed to add filter 'allow application - obfsproxy': %w", err)
 		// }
 		// // allow V2Ray
 		// _, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, sublayerKey, filterDName, "", platform.V2RayBinaryPath(), isPersistent, winlib.FILTER_MAX_WEIGHT))
 		// if err != nil {
-		// 	return fmt.Errorf("failed to add filter 'allow application - V2Ray': %w", err)
+		// 	return log.ErrorFE("failed to add filter 'allow application - V2Ray': %w", err)
 		// }
 		// // allow dnscrypt-proxy
 		// dnscryptProxyBin, _, _, _ := platform.DnsCryptProxyInfo()
 		// _, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, sublayerKey, filterDName, "", dnscryptProxyBin, isPersistent, winlib.FILTER_MAX_WEIGHT))
 		// if err != nil {
-		// 	return fmt.Errorf("failed to add filter 'allow application - dnscrypt-proxy': %w", err)
+		// 	return log.ErrorFE("failed to add filter 'allow application - dnscrypt-proxy': %w", err)
 		// }
 
 		// Permit all apps outbound access to privateLINE private IP ranges
@@ -882,7 +882,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			for _, allowedIP := range vpnEntryHostParsed.AllowedIPs { // default out (TCP+UDP)
 				if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
 					"IPv4: allow remote IP - allowedIPs entry", allowedIP.IP, allowedIP.Netmask, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-					return fmt.Errorf("failed to add filter 'IPv4: allow remote IP - allowedIPs entry': '%s/%s': %w", allowedIP.IP, allowedIP.Netmask, err)
+					return log.ErrorFE("failed to add filter 'IPv4: allow remote IP - allowedIPs entry': '%s/%s': %w", allowedIP.IP, allowedIP.Netmask, err)
 				}
 			}
 		}
@@ -892,7 +892,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			for _, ip := range localAddressesV4 {
 				if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
 					"IPv4: allow LAN", ip.IP, net.IP(ip.Mask), isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-					return fmt.Errorf("failed to add filter 'IPv4: allow LAN': %w", err)
+					return log.ErrorFE("failed to add filter 'IPv4: allow LAN': %w", err)
 				}
 			}
 
@@ -901,7 +901,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 				for _, ip := range multicastAddressesV4 {
 					if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
 						"IPv4: allow LAN multicast", ip.IP, net.IP(ip.Mask), isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-						return fmt.Errorf("failed to add filter 'IPv4: allow LAN multicast': %w", err)
+						return log.ErrorFE("failed to add filter 'IPv4: allow LAN multicast': %w", err)
 					}
 				}
 			}
@@ -912,7 +912,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 		for _, n := range userExpsNets {
 			if _, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
 				"IPv4: user exception", n.IP, net.IP(n.Mask), isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-				return fmt.Errorf("failed to add filter IPv4: 'user exception': %w", err)
+				return log.ErrorFE("failed to add filter IPv4: 'user exception': %w", err)
 			}
 		}
 	}
@@ -924,16 +924,18 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			for _, dnsSrv := range vpnEntryHostParsed.DnsServersIPv4 {
 				if _, err = manager.AddFilter(winlib.NewFilterAllowDnsUdpIPv4(providerKey, ipv4LayerIn, ourSublayerKey, filterDName,
 					"Allow PL DNS "+dnsSrv.String(), dnsSrv, net.IPv4bcast, isPersistent)); err != nil {
-					return fmt.Errorf("failed to add filter 'Allow PL DNS %s': %w", dnsSrv, err)
+					return log.ErrorFE("failed to add filter 'Allow PL DNS %s': %w", dnsSrv, err)
 				}
 			}
 		}
 
-		// Also custom DNS
-		if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
-			if _, err = manager.AddFilter(winlib.NewFilterAllowDnsUdpIPv4(providerKey, ipv4LayerIn, ourSublayerKey, filterDName,
-				"Allow PL customDNS "+customDNS.String(), customDNS, net.IPv4bcast, isPersistent)); err != nil {
-				return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDNS, err)
+		// Also allow custom DNS servers, if any
+		for _, customDnsSrv := range customDnsServers {
+			if !net.IPv4zero.Equal(customDnsSrv) {
+				if _, err = manager.AddFilter(winlib.NewFilterAllowDnsUdpIPv4(providerKey, ipv4LayerIn, ourSublayerKey, filterDName,
+					"Allow PL customDNS "+customDnsSrv.String(), customDnsSrv, net.IPv4bcast, isPersistent)); err != nil {
+					return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDnsSrv, err)
+				}
 			}
 		}
 
@@ -945,7 +947,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 				filterDesc := fmt.Sprintf("IPv4 UDP: allow %s", plOtherApp)
 				if _, err = manager.AddFilter(winlib.NewFilterAllowApplicationProto(providerKey, ipv4LayerIn, ourSublayerKey, filterDName,
 					filterDesc, plOtherApp, windows.IPPROTO_UDP, isPersistent, winlib.FILTER_MAX_WEIGHT)); err != nil {
-					return fmt.Errorf("failed to add filter '%s': %w", filterDesc, err)
+					return log.ErrorFE("failed to add filter '%s': %w", filterDesc, err)
 				}
 			}
 		}
@@ -1173,7 +1175,7 @@ func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr 
 
 	enabled, err := implGetEnabled()
 	if err != nil {
-		return fmt.Errorf("failed to get info if firewall is on: %w", err)
+		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
 	if !enabled {
 		return nil
@@ -1184,7 +1186,7 @@ func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr 
 		f := winlib.NewFilterAllowLocalIP(providerKey, layer, ourSublayerKey, filterDName, "clientLocalIP", clientLocalIP, net.IPv4bcast, false)
 		id, err := manager.AddFilter(f)
 		if err != nil {
-			return fmt.Errorf("failed to add filter 'clientLocalIP' : %w", err)
+			return log.ErrorFE("failed to add filter 'clientLocalIP' : %w", err)
 		}
 		filters = append(filters, id)
 	}
@@ -1195,7 +1197,7 @@ func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr 
 			f := winlib.NewFilterAllowLocalIPV6(providerKey, layer, ourSublayerKey, filterDName, "clientLocalIPv6", clientLocalIPv6, byte(128), false)
 			id, err := manager.AddFilter(f)
 			if err != nil {
-				return fmt.Errorf("failed to add filter 'clientLocalIPv6' : %w", err)
+				return log.ErrorFE("failed to add filter 'clientLocalIPv6' : %w", err)
 			}
 			filters = append(filters, id)
 		}
@@ -1213,7 +1215,7 @@ func doRemoveClientIPFilters() (retErr error) {
 
 	enabled, err := implGetEnabled()
 	if err != nil {
-		return fmt.Errorf("failed to get info if firewall is on: %w", err)
+		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
 	if !enabled {
 		return nil
@@ -1222,7 +1224,7 @@ func doRemoveClientIPFilters() (retErr error) {
 	for _, filterID := range clientLocalIPFilterIDs {
 		err := manager.DeleteFilterByID(filterID)
 		if err != nil {
-			return fmt.Errorf("failed to delete filter : %w", err)
+			return log.ErrorFE("failed to delete filter : %w", err)
 		}
 	}
 
@@ -1255,7 +1257,7 @@ func implSingleDnsRuleOff() (retErr error) {
 
 		pInfo, err := manager.GetProviderInfo(providerKeySingleDns)
 		if err != nil {
-			return fmt.Errorf("failed to get provider info: %w", err)
+			return log.ErrorFE("failed to get provider info: %w", err)
 		}
 		if !pInfo.IsInstalled {
 			log.Debug("providerKeySingleDns not installed, returning from implSingleDnsRuleOff early")
@@ -1266,26 +1268,26 @@ func implSingleDnsRuleOff() (retErr error) {
 		for _, l := range v6LayersAll {
 			// delete filters and callouts registered for the provider+layer
 			if err := manager.DeleteFilterByProviderKey(providerKeySingleDns, l); err != nil {
-				return fmt.Errorf("failed to delete filter : %w", err)
+				return log.ErrorFE("failed to delete filter : %w", err)
 			}
 		}
 
 		for _, l := range v4LayersAll {
 			// delete filters and callouts registered for the provider+layer
 			if err := manager.DeleteFilterByProviderKey(providerKeySingleDns, l); err != nil {
-				return fmt.Errorf("failed to delete filter : %w", err)
+				return log.ErrorFE("failed to delete filter : %w", err)
 			}
 		}
 
 		// delete sublayer
 		installed, _, err := manager.GetSubLayerByKey(sublayerKeySingleDns)
 		if err != nil {
-			return fmt.Errorf("failed to check whether sublayer is installed: %w", err)
+			return log.ErrorFE("failed to check whether sublayer is installed: %w", err)
 		}
 		if installed {
 			var notFound bool
 			if notFound, err = manager.DeleteSubLayer(sublayerKeySingleDns); err != nil {
-				return fmt.Errorf("failed to delete sublayer : %w", err)
+				return log.ErrorFE("failed to delete sublayer : %w", err)
 			}
 			if notFound {
 				log.Info("sublayer sublayerKeySingleDns='" + windows.GUID(sublayerKeySingleDns).String() + "' not found, so couldn't delete")
@@ -1294,7 +1296,7 @@ func implSingleDnsRuleOff() (retErr error) {
 
 		// delete provider
 		if err := manager.DeleteProvider(providerKeySingleDns); err != nil {
-			return fmt.Errorf("failed to delete provider : %w", err)
+			return log.ErrorFE("failed to delete provider : %w", err)
 		}
 		return nil
 	*/
@@ -1310,15 +1312,15 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 		if err != nil {
 			return err
 		} else if enabled {
-			return fmt.Errorf("failed to apply specific DNS rule: Firewall already enabled")
+			return log.ErrorFE("failed to apply specific DNS rule: Firewall already enabled")
 		}
 
 		if dnsAddr == nil {
-			return fmt.Errorf("DNS address not defined")
+			return log.ErrorFE("DNS address not defined")
 		}
 
 		if err := manager.TransactionStart(); err != nil {
-			return fmt.Errorf("failed to start transaction: %w", err)
+			return log.ErrorFE("failed to start transaction: %w", err)
 		}
 		// do not forget to stop WFP transaction
 		defer func() {
@@ -1337,7 +1339,7 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 		}()
 
 		if err = checkCreateProviderAndSublayer(true, false); err != nil {
-			return fmt.Errorf("failed to check/create provider or sublayer: %w", err)
+			return log.ErrorFE("failed to check/create provider or sublayer: %w", err)
 		}
 
 		var ipv6DnsIpException net.IP = nil
@@ -1353,7 +1355,7 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 			// block DNS
 			_, err = manager.AddFilter(winlib.NewFilterBlockDNS(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "Block DNS", ipv6DnsIpException, false, winlib.FILTER_MAX_WEIGHT))
 			if err != nil {
-				return fmt.Errorf("failed to add filter 'block dns': %w", err)
+				return log.ErrorFE("failed to add filter 'block dns': %w", err)
 			}
 		}
 
@@ -1362,17 +1364,17 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 			// block DNS
 			_, err = manager.AddFilter(winlib.NewFilterBlockDNS(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "Block DNS", ipv4DnsIpException, false, winlib.FILTER_MAX_WEIGHT))
 			if err != nil {
-				return fmt.Errorf("failed to add filter 'block dns': %w", err)
+				return log.ErrorFE("failed to add filter 'block dns': %w", err)
 			}
 			// allow DNS requests to 127.0.0.1:53
 			_, err = manager.AddFilter(winlib.AllowRemoteLocalhostDNS(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "", false, winlib.FILTER_MAX_WEIGHT))
 			if err != nil {
-				return fmt.Errorf("failed to add filter 'allow localhost dns': %w", err)
+				return log.ErrorFE("failed to add filter 'allow localhost dns': %w", err)
 			}
 			// allow V2Ray: to avoid blocking connections to V2Ray port 53
 			_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKeySingleDns, layer, sublayerKeySingleDns, filterDNameSingleDns, "", platform.V2RayBinaryPath(), false, winlib.FILTER_MAX_WEIGHT))
 			if err != nil {
-				return fmt.Errorf("failed to add filter 'allow application - V2Ray': %w", err)
+				return log.ErrorFE("failed to add filter 'allow application - V2Ray': %w", err)
 			}
 		}
 		return nil
