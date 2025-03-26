@@ -335,7 +335,7 @@ func TotalShieldApply() (err error) {
 		return nil
 	}
 
-	return implTotalShieldApply(TotalShieldDeployedState())
+	return implTotalShieldApply(false, TotalShieldDeployedState())
 }
 
 // ClientConnected - allow communication for local vpn/client IP address

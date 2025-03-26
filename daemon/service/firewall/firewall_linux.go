@@ -344,7 +344,7 @@ func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
 	return nil
 }
 
-func implTotalShieldApply(totalShieldNewState bool) (err error) {
+func implTotalShieldApply(wfpTransactionAlreadyInProgress, totalShieldNewState bool) (retErr error) {
 	var (
 		implTotalShieldApplyWaiter sync.WaitGroup
 		errNft, errLegacy          error

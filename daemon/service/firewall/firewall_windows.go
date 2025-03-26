@@ -26,11 +26,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"path"
 	"reflect"
 	"slices"
-	"strings"
 	"sync"
 	"syscall"
 
@@ -38,7 +35,6 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
-	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"golang.org/x/sys/windows"
 )
 
@@ -93,8 +89,8 @@ var (
 	ourSublayerWeight  uint16       = 0
 	otherSublayerGUID  syscall.GUID // If we could not register our sublayer with max weight (0xFFFF) yet, this will hold the GUID of another sublayer, who has max weight.
 
-	powershellBinaryPath   string     = "powershell"
-	enableDisableIPv6Mutex sync.Mutex // used to ensure that enableDisableIPv6() is single-instance
+	// powershellBinaryPath   string     = "powershell"
+	// enableDisableIPv6Mutex sync.Mutex // used to ensure that enableDisableIPv6() is single-instance
 )
 
 const (
@@ -340,52 +336,50 @@ func implInitialize() (retErr error) {
 		return retErr
 	}
 
-	// get path to 'powershell' binary
-	envVarSystemroot := strings.ToLower(os.Getenv("SYSTEMROOT"))
-	if len(envVarSystemroot) == 0 {
-		log.Error("!!! ERROR !!! Unable to determine 'SYSTEMROOT' environment variable!")
-	} else {
-		powershellBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "WindowsPowerShell", "v1.0", "powershell.exe"), "/", "\\")
-	}
+	// // get path to 'powershell' binary
+	// envVarSystemroot := strings.ToLower(os.Getenv("SYSTEMROOT"))
+	// if len(envVarSystemroot) == 0 {
+	// 	log.Error("!!! ERROR !!! Unable to determine 'SYSTEMROOT' environment variable!")
+	// } else {
+	// 	powershellBinaryPath = strings.ReplaceAll(path.Join(envVarSystemroot, "system32", "WindowsPowerShell", "v1.0", "powershell.exe"), "/", "\\")
+	// }
 
 	return checkCreateProviderAndSublayer(false, false)
 }
 
-func implGetEnabled() (bool, error) {
-	found, pInfo, err := manager.GetProviderInfo(providerKey)
-	if err != nil {
+func implGetEnabled() (isEnabled bool, err error) {
+	if found, pInfo, err := manager.GetProviderInfo(providerKey); err != nil {
 		_isEnabled = false
-		return false, fmt.Errorf("failed to get provider info: %w", err)
+		return false, log.ErrorFE("failed to get provider info: %w", err)
+	} else {
+		return found && pInfo.IsInstalled && _isEnabled, nil
 	}
-	return found && pInfo.IsInstalled && _isEnabled, nil
 }
 
 func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress bool) (retErr error) {
 	if !wfpTransactionAlreadyInProgress {
 		if retErr = manager.TransactionStart(); retErr != nil { // start WFP transaction
-			return fmt.Errorf("failed to start transaction: %w", retErr)
+			return log.ErrorFE("failed to start transaction: %w", retErr)
 		}
-	}
-	defer func() { // do not forget to stop WFP transaction
-		if wfpTransactionAlreadyInProgress {
-			return
-		}
-		var r any = recover()
-		if retErr == nil && r == nil {
-			manager.TransactionCommit() // commit WFP transaction
-		} else {
-			manager.TransactionAbort() // abort WFP transaction
 
-			if r != nil {
-				log.Error("PANIC (recovered): ", r)
-				if e, ok := r.(error); ok {
-					retErr = e
-				} else {
-					retErr = errors.New(fmt.Sprint(r))
+		defer func() { // do not forget to stop WFP transaction
+			var r any = recover()
+			if retErr == nil && r == nil {
+				manager.TransactionCommit() // commit WFP transaction
+			} else {
+				manager.TransactionAbort() // abort WFP transaction
+
+				if r != nil {
+					log.Error("PANIC (recovered): ", r)
+					if e, ok := r.(error); ok {
+						retErr = e
+					} else {
+						retErr = errors.New(fmt.Sprint(r))
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	if isEnabled {
 		return doEnable(true)
@@ -576,11 +570,11 @@ func implReEnable() (retErr error) {
 	}()
 
 	if err := doDisable(true); err != nil {
-		return fmt.Errorf("failed to disable firewall: %w", err)
+		return log.ErrorFE("failed to disable firewall: %w", err)
 	}
 
 	if err := doEnable(true); err != nil {
-		return fmt.Errorf("failed to enable firewall: %w", err)
+		return log.ErrorFE("failed to enable firewall: %w", err)
 	}
 
 	return doAddClientIPFilters(connectedClientInterfaceIP, connectedClientInterfaceIPv6)
@@ -989,23 +983,32 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			filterDesc := fmt.Sprintf("IPv4: block local port %d", portToBlock)
 			if _, err = manager.AddFilter(winlib.NewFilterBlockLocalPort(providerKey, ipv4LayerIn, ourSublayerKey, filterDName, filterDesc,
 				portToBlock, isPersistent, winlib.FILTER_MAX_WEIGHT-1)); err != nil {
-				return fmt.Errorf("failed to add filter '%s': %w", filterDesc, err)
+				return log.ErrorFE("failed to add filter '%s': %w", filterDesc, err)
 			}
 		}
+	}
+
+	if err = implTotalShieldApply(wfpTransactionAlreadyInProgress, TotalShieldDeployedState()); err != nil { // deploy Total Shield state
+		return log.ErrorFE("error implTotalShieldApply: %w", err)
 	}
 
 	_isEnabled = true
 	return nil
 }
 
-func doDisable(wfpTransactionAlreadyInProgress bool) error {
+func doDisable(wfpTransactionAlreadyInProgress bool) (err error) {
 	log.Info("doDisable")
+
+	// if totalShieldDeployedState {
+	// 	go enableDisableIPv6(true) // re-enable IPv6 via bindings on firewall cleanup
+	// }
+
 	implSingleDnsRuleOff()
 
-	var err error
-	enabled, err := implGetEnabled()
-	if err != nil {
-		return fmt.Errorf("failed to get info if firewall is on: %w", err)
+	if fwEnabled, err2 := implGetEnabled(); err2 != nil {
+		return log.ErrorFE("failed to get info if firewall is on: %w", err2) // and continue
+	} else if !fwEnabled { // Vlad - doDisable() is essentially cleaning out old rules, may need to run this even if firewall was disabled to begin with
+		log.Info("firewall was already disabled, but cleaning out rules in all our layers anyway")
 	}
 
 	// retry moving our sublayer to top priority - actually don't, as otherwise cleanup on uninstall doesn't work properly
@@ -1013,15 +1016,12 @@ func doDisable(wfpTransactionAlreadyInProgress bool) error {
 	// 	err = log.ErrorE(fmt.Errorf("failed to check/create provider or sublayer: %w", err), 0)
 	// }
 
-	if !enabled { // Vlad - doDisable() is essentially cleaning out old rules, may need to run this even if firewall was disabled to begin with
-		log.Info("firewall was already disabled, but cleaning out rules in all our layers anyway")
-		//return nil
-	}
-
 	for _, l := range layersAllToClean { // delete filters
-		// delete filters and callouts registered for the provider+layer
-		if err := manager.DeleteFilterByProviderKey(providerKey, l); err != nil {
-			return fmt.Errorf("failed to delete filter : %w", err)
+		if err2 := manager.DeleteFilterByProviderKey(providerKey, l); err2 != nil { // delete filters and callouts registered for the provider+layer
+			err2 = log.ErrorFE("failed to delete filter: %w", err2)
+			if err == nil {
+				err = err2
+			}
 		}
 	}
 
@@ -1141,9 +1141,13 @@ func implDeployPostConnectionRules() (retErr error) {
 	return retErr
 }
 
+// TODO: Vlad - stubbed out, it's unneeded; IPv4 & IPv6 rules are enough to block non-PL traffic
 // We either disable IPv6 on all network interfaces for Total Shield on, or enable it back when Total Shield off.
 // Running the PowerShell asynchronously (fork and forget) - flipping to Enable or Disable on cmdline takes 6.8-6.9 seconds on my laptop
-func enableDisableIPv6(enable bool /*, responseChan chan error*/) {
+//
+//	... although re-running the same command, w/o changing state, is nearly instantaneous
+/*
+func enableDisableIPv6(enable bool) {
 	enableDisableIPv6Mutex.Lock() // since this func runs async, must lock it to ensure it's single-instance
 	defer enableDisableIPv6Mutex.Unlock()
 
@@ -1157,67 +1161,65 @@ func enableDisableIPv6(enable bool /*, responseChan chan error*/) {
 	}
 
 	if err := shell.Exec(log, powershellBinaryPath, cmd...); err != nil {
-		// responseChan <- log.ErrorE(fmt.Errorf("failed to change IPv6 bindings (isStEnabled=%v): %w", enable, err), 0)
 		log.ErrorFE("failed to change IPv6 bindings (enable=%t): %w", enable, err)
-	} /* else {
-		responseChan <- nil
-	}*/
-}
-
-func implTotalShieldApply(deployTotalShieldBlockRules bool) (err error) {
-	if err := manager.TransactionStart(); err != nil { // start WFP transaction
-		return fmt.Errorf("failed to start transaction: %w", err)
 	}
-	defer func() { // do not forget to stop WFP transaction
-		var r any = recover()
-		if err == nil && r == nil {
-			manager.TransactionCommit() // commit WFP transaction
-		} else {
-			manager.TransactionAbort() // abort WFP transaction
+}
+*/
 
-			if r != nil {
-				log.Error("PANIC (recovered): ", r)
-				if e, ok := r.(error); ok {
-					err = e
-				} else {
-					err = errors.New(fmt.Sprint(r))
+func implTotalShieldApply(wfpTransactionAlreadyInProgress, totalShieldNewState bool) (retErr error) {
+	if !wfpTransactionAlreadyInProgress {
+		if retErr = manager.TransactionStart(); retErr != nil { // start WFP transaction
+			return log.ErrorFE("failed to start transaction: %w", retErr)
+		}
+
+		defer func() { // do not forget to stop WFP transaction
+			var r any = recover()
+			if retErr == nil && r == nil {
+				manager.TransactionCommit() // commit WFP transaction
+			} else {
+				manager.TransactionAbort() // abort WFP transaction
+
+				if r != nil {
+					log.Error("PANIC (recovered): ", r)
+					if e, ok := r.(error); ok {
+						retErr = e
+					} else {
+						retErr = errors.New(fmt.Sprint(r))
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	var filterDesc = "Total Shield block-all"
-	if deployTotalShieldBlockRules {
+	if totalShieldNewState {
 		log.Debug(filterDesc + ": enabling")
 	} else {
 		log.Debug(filterDesc + ": disabling")
 	}
 
 	for _, totalShieldLayer := range totalShieldLayers {
-		if deployTotalShieldBlockRules {
+		if totalShieldNewState {
 			if totalShieldLayer.blockAllFilterID == 0 {
-				if totalShieldLayer.blockAllFilterID, err = manager.AddFilter(winlib.NewFilterBlockAll(providerKey, totalShieldLayer.layerGUID, ourSublayerKey,
-					filterDName, filterDesc, totalShieldLayer.isIPv6, isPersistent, false)); err != nil {
-					return log.ErrorFE("failed to add filter '%s': %w", filterDesc, err)
+				if totalShieldLayer.blockAllFilterID, retErr = manager.AddFilter(winlib.NewFilterBlockAll(providerKey, totalShieldLayer.layerGUID, ourSublayerKey,
+					filterDName, filterDesc, totalShieldLayer.isIPv6, isPersistent, false)); retErr != nil {
+					return log.ErrorFE("failed to add filter '%s': %w", filterDesc, retErr)
 				}
 			}
 		} else if totalShieldLayer.blockAllFilterID != 0 { // shouldn't be 0, but just in case
-			if err2 := manager.DeleteFilterByID(totalShieldLayer.blockAllFilterID); err2 != nil {
-				err2 = log.ErrorFE("failed to delete filter '%s' by id %d: %w", filterDesc, totalShieldLayer.blockAllFilterID, err2)
-				if err == nil {
-					err = err2 // and continue deleting other filters anyway, gotta cleanup at least partially
-				}
+			if retErr := manager.DeleteFilterByID(totalShieldLayer.blockAllFilterID); retErr != nil {
+				return log.ErrorFE("failed to delete filter '%s' by id %d: %w", filterDesc, totalShieldLayer.blockAllFilterID, retErr)
 			}
 			totalShieldLayer.blockAllFilterID = 0
 		}
 	}
 
-	if err != nil {
-		return err
-	}
+	// if retErr != nil {
+	return retErr
+	// }
 
-	go enableDisableIPv6(!deployTotalShieldBlockRules) // fork it in the background, as it takes ~7 seconds
-	return nil
+	// go enableDisableIPv6(!deployTotalShieldBlockRules) // fork it in the background, as it takes ~7 seconds
+	// return nil
 }
 
 func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr error) {
