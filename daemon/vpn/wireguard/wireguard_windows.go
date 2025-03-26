@@ -337,7 +337,7 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 	if wg.connectParams.mtu > 0 {
 		MTU = wg.connectParams.mtu
 	} else {
-		MTU = platform.WireguardDefaultMTU()
+		MTU = platform.WGDefaultMTU()
 	}
 	interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", MTU))
 

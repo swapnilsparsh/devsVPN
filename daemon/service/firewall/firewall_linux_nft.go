@@ -862,8 +862,6 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	// Here we should restore all exceptions (all hosts which are allowed)
 	// return reApplyExceptions() // TODO FIXME: Vlad - refactor
 
-	// go onKillSwitchStateChangedCallback() // signal firewall status to UI
-
 	return err
 }
 

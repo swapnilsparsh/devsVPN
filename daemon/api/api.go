@@ -426,7 +426,7 @@ func (a *API) SessionNew(emailOrAcctID string, password string, tryAccountIdWith
 		apiPath = _sessionNewPath
 	} else { // passwordless login
 		// Account ID must not have "a-" prefix, per PLCON-52
-		// TODO FIXME: Vlad - right now the production REST API deskapi.privateline.io/user/login/quick-auth is broken, for some account IDs it works only with "a-" prefix and for some it only works without. So trying both.
+		// TODO: Vlad - right now the production REST API deskapi.privateline.io/user/login/quick-auth is broken, for some account IDs it works only with "a-" prefix and for some it only works without. So trying both.
 		acctID := emailOrAcctID
 		if !tryAccountIdWithADashPrefix {
 			acctID = strings.TrimPrefix(acctID, "a-")

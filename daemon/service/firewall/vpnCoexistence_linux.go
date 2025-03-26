@@ -122,7 +122,7 @@ func surfsharkLegacyHelper() (err error) {
 	vpnCoexLegacyOut := filterLegacy.Chain(vpnCoexLegacyOutDef)
 
 	// allow all DNS
-	// TODO FIXME: allow only before login (SessionNew)
+	// TODO FIXME: allow only until login (SessionNew) is done
 	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPDstPort(false, 53)).TargetAccept().Insert(); err != nil {
 		return log.ErrorFE("error add all DNS dst UDP port 53: %w", err)
 	}
