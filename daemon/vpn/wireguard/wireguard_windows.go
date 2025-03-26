@@ -325,8 +325,11 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 		if manualDNS.Encryption == dns.EncryptionNone {
 			interfaceCfg = append(interfaceCfg, "DNS = "+manualDNS.Ip().String())
 		} else {
-			interfaceCfg = append(interfaceCfg, "DNS = "+wg.DefaultDNS().String())
-			log.Info("(info) The DoH/DoT custom DNS configuration will be applied after connection established")
+			defaultDns := wg.DefaultDNS()
+			if len(*defaultDns) >= 1 {
+				interfaceCfg = append(interfaceCfg, "DNS = "+(*defaultDns)[0].String())
+				log.Info("(info) The DoH/DoT custom DNS configuration will be applied after connection established")
+			}
 		}
 	} else {
 		// interfaceCfg = append(interfaceCfg, "DNS = "+wg.DefaultDNS().String())

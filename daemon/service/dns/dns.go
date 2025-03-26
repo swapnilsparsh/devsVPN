@@ -114,17 +114,22 @@ func (d DnsSettings) Equal(x DnsSettings) bool {
 	return true
 }
 
-// func (d DnsSettings) IsIPv6() bool {
-// 	ip := d.Ip()
-// 	if ip == nil {
-// 		return false
-// 	}
-// 	return ip.To4() == nil
-// }
+func (d DnsSettings) IsIPv6() bool {
+	ip := d.Ip()
+	if ip == nil {
+		return false
+	}
+	return ip.To4() == nil
+}
 
-// func (d DnsSettings) Ip() net.IP {
-// 	return net.ParseIP(d.DnsHosts)
-// }
+// Deprecated: Ip() is no longer to be used, as it returns only one DNS srv IP of the possibly multiple ones.
+func (d DnsSettings) Ip() net.IP {
+	if len(d.DnsServers) >= 1 {
+		return d.DnsServers[0]
+	} else {
+		return net.IPv4zero
+	}
+}
 
 func (d DnsSettings) IsEmpty() bool {
 	if len(d.DnsServers) < 1 {

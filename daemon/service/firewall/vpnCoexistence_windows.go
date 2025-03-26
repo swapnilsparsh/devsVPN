@@ -63,9 +63,9 @@ var (
 	// Mullvad
 	mullvadSublayerKey = syscall.GUID{Data1: 0xC78056FF, Data2: 0x2BC1, Data3: 0x4211, Data4: [8]byte{0xAA, 0xDD, 0x7F, 0x35, 0x8D, 0xEF, 0x20, 0x2D}}
 	mullvadProfile     = OtherVpnInfo{
-		name:       "Mullvad VPN",
-		namePrefix: "mullvad",
-		cliPath:    "ProgramFiles/Mullvad VPN/resources/mullvad.exe",
+		name:            "Mullvad VPN",
+		namePrefix:      "mullvad",
+		cliPathResolved: "ProgramFiles/Mullvad VPN/resources/mullvad.exe",
 		cliCmds: otherVpnCliCmds{
 			cmdStatus:                          "status",
 			statusConnectedRE:                  "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
@@ -83,8 +83,7 @@ var (
 	nordVpnProfile     = OtherVpnInfo{
 		name:       "NordVPN",
 		namePrefix: "nord",
-		cliPath:    "",
-		//cliPath:    "ProgramFiles/NordVPN/NordVPN.exe", // disabled for now, since we didn't find yet a programmatic way to check whether VPN is connected
+		//cliPathResolved:    "ProgramFiles/NordVPN/NordVPN.exe", // disabled for now, since we didn't find yet a programmatic way to check whether VPN is connected
 		cliCmds: otherVpnCliCmds{
 			cmdStatus:                          "",
 			statusConnectedRE:                  "",
@@ -121,15 +120,15 @@ func (otherVpn *OtherVpnInfoParsed) Close() {
 
 func (otherVpn *OtherVpnInfoParsed) validateCliPath() (bool, error) {
 	if ProgramFiles := os.Getenv("ProgramFiles"); len(ProgramFiles) > 0 {
-		otherVpn.cliPath = strings.ReplaceAll(otherVpn.cliPath, "ProgramFiles", ProgramFiles)
-		otherVpn.cliPath = strings.ReplaceAll(otherVpn.cliPath, "/", "\\")
+		otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "ProgramFiles", ProgramFiles)
+		otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "/", "\\")
 	} else {
 		return false, log.ErrorE(errors.New("error resolving %ProgramFiles% environment variable"), 0)
 	}
 
 	// Check whether CLI .exe exists
-	if _, err := os.Stat(otherVpn.cliPath); os.IsNotExist(err) {
-		log.Warning(fmt.Errorf("other VPN '%s' CLI '%s' not found: %w", otherVpn.name, otherVpn.cliPath, err))
+	if _, err := os.Stat(otherVpn.cliPathResolved); os.IsNotExist(err) {
+		log.Warning(fmt.Errorf("other VPN '%s' CLI '%s' not found: %w", otherVpn.name, otherVpn.cliPathResolved, err))
 		return false, nil
 	}
 
@@ -253,7 +252,7 @@ ParseOtherVpn_CheckingStage3_processCLI:
 		log.ErrorFE("error validating CLI path: %w", err)
 		return otherVpnInfoParsed /*, nil*/
 	} else if !otherVpnInfoParsed.otherVpnCliFound {
-		log.Error(errors.New("error - CLI not found at path '" + otherVpnInfoParsed.cliPath + "'"))
+		log.Error(errors.New("error - CLI not found at path '" + otherVpnInfoParsed.cliPathResolved + "'"))
 		return otherVpnInfoParsed /*, nil*/
 	}
 
@@ -278,7 +277,7 @@ ParseOtherVpn_CheckingStage3_processCLI:
 		}
 	}
 
-	if err = shell.ExecAndProcessOutput(log, outProcessFunc, "", otherVpnInfoParsed.cliPath, otherVpnInfoParsed.cliCmds.cmdStatus); err != nil {
+	if err = shell.ExecAndProcessOutput(log, outProcessFunc, "", otherVpnInfoParsed.cliPathResolved, otherVpnInfoParsed.cliCmds.cmdStatus); err != nil {
 		log.ErrorFE("error matching '%s': %s", otherVpnInfoParsed.cliCmds.statusConnectedRE, strErr.String())
 	}
 
@@ -352,18 +351,18 @@ func (otherVpn *OtherVpnInfoParsed) PostSteps() {
 	}
 
 	if otherVpn.otherVpnCliFound {
-		if retErr := shell.Exec(log, otherVpn.cliPath, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
+		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
 			log.Error(fmt.Errorf("error enabling Split Tunnel in other VPN '%s': %w", otherVpn.name, retErr))
 		}
 
 		for _, svcExe := range platform.PLServiceBinariesForFirewallToUnblock() {
 			cmdWhitelistOurSvcExe := append(otherVpn.cliCmds.cmdAddOurBinaryToSplitTunWhitelist, svcExe)
-			if retErr := shell.Exec(log, otherVpn.cliPath, cmdWhitelistOurSvcExe...); retErr != nil {
+			if retErr := shell.Exec(log, otherVpn.cliPathResolved, cmdWhitelistOurSvcExe...); retErr != nil {
 				log.Error(fmt.Errorf("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, otherVpn.name, retErr))
 			}
 		}
 
-		if retErr := shell.Exec(log, otherVpn.cliPath, otherVpn.cliCmds.cmdConnect); retErr != nil {
+		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdConnect); retErr != nil {
 			log.Error(fmt.Errorf("error sending connect command to the other VPN '%s': %w", otherVpn.name, retErr))
 		}
 	}
@@ -544,5 +543,5 @@ func StartService(s *mgr.Service) error {
 }
 
 func implBestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
-	return platform.WireguardDefaultMTU(), nil
+	return platform.WGDefaultMTU(), nil
 }

@@ -33,7 +33,6 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
-	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/vpncoexistence"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"golang.org/x/sys/windows"
@@ -208,7 +207,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 		found, installed, maxWeightSublayerFound, otherSublayerFound bool
 		otherSublayer                                                winlib.SubLayer
 		_otherSublayerGUID                                           syscall.GUID
-		otherVpn                                                     *vpncoexistence.OtherVpnInfoParsed = nil
+		otherVpn                                                     *OtherVpnInfoParsed = nil
 
 		otherVpnUnknownErr FirewallError = FirewallError{containedErr: nil, otherVpnUnknownToUs: false}
 	)
@@ -264,7 +263,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 			log.Warning(otherSublayerMsg)
 
 			if canStopOtherVpn { // if requested to stop other VPN and unregister their firewall sublayer, try it
-				otherVpn /*, err*/ = vpncoexistence.ParseOtherVpnBySublayerGUID(otherSublayerFound, &otherSublayer, &manager)
+				otherVpn /*, err*/ = ParseOtherVpnBySublayerGUID(otherSublayerFound, &otherSublayer, &manager)
 				/* if err != nil {
 					err = log.ErrorE(fmt.Errorf("error parsing VPN info for other VPN '%s' - '%s', so not taking any VPN-specific steps, taking only generic interoperation approach",
 						windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name), 0)
@@ -495,19 +494,29 @@ func implAllowLAN(allowLan bool, allowLanMulticast bool) error {
 }
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
-func implOnChangeDNS(addr net.IP) error {
-	log.Info("implOnChangeDNS addr=" + addr.String())
-	if addr.Equal(customDNS) {
+func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
+	log.Info("implOnChangeDNS")
+	if dnsServers == nil || reflect.DeepEqual(*dnsServers, customDnsServers) || net.IPv4zero.Equal((*dnsServers)[0]) {
 		return nil
 	}
 
-	customDNS = addr
+	customDnsServers = *dnsServers
 
-	enabled, err := implGetEnabled()
-	if err != nil {
-		return fmt.Errorf("failed to get info if firewall is on: %w", err)
+	if enabled, err := implGetEnabled(); err != nil {
+		return log.ErrorFE("failed to get info if firewall is on: %w", err)
+	} else if !enabled {
+		return nil
 	}
-	if !enabled {
+
+	// for those new servers that match one of stock DNS servers for our Wireguard config(s), no need to add new firewall rules or nft set entries for them
+	prefs := getPrefsCallback()
+	var _newDnsServers []net.IP
+	for _, dnsSrv := range customDnsServers {
+		if !prefs.AllDnsServersIPv4Set.Contains(dnsSrv.String()) && !net.IPv4zero.Equal(dnsSrv) {
+			_newDnsServers = append(_newDnsServers, dnsSrv)
+		}
+	}
+	if len(_newDnsServers) < 1 {
 		return nil
 	}
 
@@ -801,11 +810,13 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			}
 		}
 
-		// Also custom DNS
-		if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
-			if _, err = manager.AddFilter(winlib.NewFilterAllowDnsIPv4(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
-				"Allow PL customDNS "+customDNS.String(), customDNS, net.IPv4bcast, isPersistent)); err != nil {
-				return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDNS, err)
+		// Also allow custom DNS servers, if any
+		for _, customDnsSrv := range customDnsServers {
+			if !net.IPv4zero.Equal(customDnsSrv) {
+				if _, err = manager.AddFilter(winlib.NewFilterAllowDnsIPv4(providerKey, ipv4LayerOut, ourSublayerKey, filterDName,
+					"Allow PL customDNS "+customDnsSrv.String(), customDnsSrv, net.IPv4bcast, isPersistent)); err != nil {
+					return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDnsSrv, err)
+				}
 			}
 		}
 
@@ -925,11 +936,13 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			}
 		}
 
-		// Also custom DNS
-		if customDNS != nil && !net.IPv4zero.Equal(customDNS) {
-			if _, err = manager.AddFilter(winlib.NewFilterAllowDnsUdpIPv4(providerKey, ipv4LayerIn, ourSublayerKey, filterDName,
-				"Allow PL customDNS "+customDNS.String(), customDNS, net.IPv4bcast, isPersistent)); err != nil {
-				return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDNS, err)
+		// Also allow custom DNS servers, if any
+		for _, customDnsSrv := range customDnsServers {
+			if !net.IPv4zero.Equal(customDnsSrv) {
+				if _, err = manager.AddFilter(winlib.NewFilterAllowDnsUdpIPv4(providerKey, ipv4LayerIn, ourSublayerKey, filterDName,
+					"Allow PL customDNS "+customDnsSrv.String(), customDnsSrv, net.IPv4bcast, isPersistent)); err != nil {
+					return fmt.Errorf("failed to add filter 'Allow PL customDNS %s': %w", customDnsSrv, err)
+				}
 			}
 		}
 
@@ -1400,7 +1413,7 @@ func getOtherVpnInfo(_otherSublayerGUID syscall.GUID) (otherVpnName, otherVpnDes
 		return "", "", err
 	}
 
-	if !helpers.IsAGuidString(otherSublayer.Name) || reflect.DeepEqual(otherSublayer.ProviderKey, vpncoexistence.ZeroGUID) {
+	if !helpers.IsAGuidString(otherSublayer.Name) || reflect.DeepEqual(otherSublayer.ProviderKey, ZeroGUID) {
 		return otherSublayer.Name, otherSublayer.Description, nil
 	}
 
