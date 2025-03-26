@@ -1566,8 +1566,8 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 		s._evtReceiver.OnSplitTunnelStatusChanged()
 	}()
 
-	log.Debug("splitTunnelling_ApplyConfig entered")
-	defer log.Debug("splitTunnelling_ApplyConfig exited")
+	// log.Debug("splitTunnelling_ApplyConfig entered")
+	// defer log.Debug("splitTunnelling_ApplyConfig exited")
 
 	if stErr, _ := splittun.GetFuncNotAvailableError(); stErr != nil {
 		log.ErrorFE("Split-Tunneling not accessible (not able to connect to a driver or not implemented for current platform: %w", stErr)
@@ -1659,7 +1659,7 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 
 	// Apply Split-Tun config
 	// if runtime.GOOS == "windows" {
-	log.Debug("splitTunnelling_ApplyConfig calling firewall.TotalShieldApply() with prefs.IsTotalShieldOn=", prefs.IsTotalShieldOn)
+	// log.Debug("splitTunnelling_ApplyConfig calling firewall.TotalShieldApply() with prefs.IsTotalShieldOn=", prefs.IsTotalShieldOn)
 	return firewall.TotalShieldApply()
 	// } else {
 	// 	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)

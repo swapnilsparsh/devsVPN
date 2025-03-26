@@ -326,8 +326,8 @@ func TotalShieldApply() (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Debug("TotalShieldApply entered")
-	defer log.Debug("TotalShieldApply exited")
+	// log.Debug("TotalShieldApply entered")
+	// defer log.Debug("TotalShieldApply exited")
 
 	if fwEnabled, err := _getEnabledHelper(true); err != nil {
 		return err
