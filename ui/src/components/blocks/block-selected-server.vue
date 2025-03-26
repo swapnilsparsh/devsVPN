@@ -141,7 +141,7 @@ export default {
   outline-width: 0;
   cursor: pointer;
 
-  height: 82px;
+  height: 65px;
   width: 100%;
 
   padding-bottom: 4px;

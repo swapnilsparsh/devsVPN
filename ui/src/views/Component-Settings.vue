@@ -76,6 +76,20 @@
                 />
                 Connection
               </button>
+              <button
+                v-if="isLoggedIn"
+                class="noBordersBtn tabTitleBtn"
+                v-on:click="onView('manageDevice')"
+                v-bind:class="{
+                  activeBtn: view === 'manageDevice',
+                }"
+              >
+                <img
+                  style="width: 18px; height: 18px"
+                  src="@/assets/settings-whitelist.svg"
+                />
+                Manage Devices
+              </button>
               <!-- <button
                 v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
@@ -173,6 +187,9 @@
         <div class="flexColumn" v-else-if="view === 'account'">
           <accountView />
         </div>
+        <div class="flexColumn" v-else-if="view === 'manageDevice'">
+          <manageDevice />
+        </div>
         <div class="flexColumn" v-else-if="view === 'general'">
           <generalView />
         </div>
@@ -213,6 +230,7 @@ import { Platform, PlatformEnum } from "@/platform/platform";
 
 import connectionView from "@/components/settings/settings-connection.vue";
 import accountView from "@/components/settings/settings-account.vue";
+import manageDevice from "@/components/settings/settings-manage-device.vue";
 import generalView from "@/components/settings/settings-general.vue";
 import firewallView from "@/components/settings/settings-firewall.vue";
 import appWhitelistView from "@/components/settings/settings-appwhitelist.vue";
@@ -228,6 +246,7 @@ export default {
   components: {
     connectionView,
     accountView,
+    manageDevice,
     generalView,
     firewallView,
     appWhitelistView,

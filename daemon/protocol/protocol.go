@@ -191,7 +191,7 @@ type Service interface {
 		rawResponse *api_types.ProfileDataResponse,
 		err error)
 
-	DeviceList() (
+	DeviceList(Search string, Page int, Limit int, DeleteId int) (
 		apiCode int,
 		rawResponse *api_types.DeviceListResponse,
 		err error)
@@ -1172,14 +1172,20 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p.notifyClients(p.createHelloResponse())
 
 	case "DeviceList":
-		var req types.DeviceListRequest
+		type ManageDeviceRequest struct {
+			Search   string `json:"search,omitempty"`
+			Page     int    `json:"page,omitempty"`
+			Limit    int    `json:"limit,omitempty"`
+			DeleteId int    `json:"deleteId,omitempty"`
+		}
+		var req ManageDeviceRequest
 		if err := json.Unmarshal(messageData, &req); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 			break
 		}
 
 		var resp types.DeviceListResp
-		apiCode, rawResponse, err := p._service.DeviceList()
+		apiCode, rawResponse, err := p._service.DeviceList(req.Search, req.Page, req.Limit, req.DeleteId)
 
 		if err != nil {
 			if apiCode == 0 {
@@ -1693,6 +1699,9 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 				if apiCode, apiErrMsg, _, _, err := p._service.SessionNew(prefs.Session.AccountID, "", prefs.Session.DeviceName, false, false, false, false); err != nil {
 					return log.ErrorFE("error logging in after logout: '%w'. apiCode=%d, apiErrMsg='%s'", err, apiCode, apiErrMsg)
 				}
+				// notify all clients about changed session status
+				p.notifyClients(p.createHelloResponse())
+
 				log.Info("Attempt to logout-login successful, now trying to connect to VPN again")
 
 				// reflect new Wireguard parameters in connection request

@@ -2,7 +2,6 @@
 
 import {
   app,
-  protocol,
   BrowserWindow,
   Menu,
   dialog,
@@ -742,7 +741,7 @@ function createWindow(doNotShowWhenReady) {
     width: store.state.settings.minimizedUI
       ? config.MinimizedUIWidth
       : config.MaximizedUIWidth,
-    height: 600,
+    height: 500,
 
     resizable: false,
     fullscreenable: false,
@@ -863,7 +862,7 @@ function createSettingsWindow(viewName) {
     width: 800,
     height: 600,
 
-    resizable: false,
+    resizable: true,
     fullscreenable: false,
     maximizable: false,
 
@@ -878,8 +877,6 @@ function createSettingsWindow(viewName) {
   };
 
   settingsWindow = createBrowserWindow(windowConfig);
-
-  console.log("ELECTRON_RENDERER_URL: ", process.env['ELECTRON_RENDERER_URL'])
 
   // Load the remote URL for development or the local html file for production.
   if (process.env['ELECTRON_RENDERER_URL']) {
