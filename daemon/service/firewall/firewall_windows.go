@@ -67,10 +67,10 @@ var (
 
 	// used to block-all when Total Shield is enabled
 	totalShieldLayers = []*TotalShieldBlockInfo{
-		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthConnectV4, false, 0},
-		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthRecvAcceptV4, false, 0},
-		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthConnectV6, true, 0},
-		&TotalShieldBlockInfo{winlib.FwpmLayerAleAuthRecvAcceptV6, true, 0},
+		{winlib.FwpmLayerAleAuthConnectV4, false, 0},
+		{winlib.FwpmLayerAleAuthRecvAcceptV4, false, 0},
+		{winlib.FwpmLayerAleAuthConnectV6, true, 0},
+		{winlib.FwpmLayerAleAuthRecvAcceptV6, true, 0},
 	}
 
 	v4LayersICMP  = []syscall.GUID{winlib.FwpmLayerOutboundIcmpErrorV4, winlib.FwpmLayerInboundIcmpErrorV4}
@@ -1089,13 +1089,11 @@ func implDeployPostConnectionRules() (retErr error) {
 		} else {
 			manager.TransactionAbort() // abort WFP transaction
 
-			if r != nil {
-				log.Error("PANIC (recovered): ", r)
-				if e, ok := r.(error); ok {
-					retErr = e
-				} else {
-					retErr = errors.New(fmt.Sprint(r))
-				}
+			log.Error("PANIC (recovered): ", r)
+			if e, ok := r.(error); ok {
+				retErr = e
+			} else {
+				retErr = errors.New(fmt.Sprint(r))
 			}
 		}
 	}()
