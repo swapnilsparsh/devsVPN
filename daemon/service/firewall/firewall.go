@@ -59,8 +59,8 @@ var (
 
 	customDnsServers []net.IP
 
-	isPersistent                  bool // Firewall is persistent
-	totalShieldBlockRulesDeployed bool
+	isPersistent             bool // Firewall is persistent
+	totalShieldDeployedState bool
 
 	// List of IP masks that are allowed for any communication
 	userExceptions []net.IPNet
@@ -118,7 +118,7 @@ func Initialize(_getPrefsCallback GetPrefsCallback,
 
 	vpnConnectedOrConnectingCallback = _vpnConnectedOrConnectingCallback
 	vpnConnectedCallback = _vpnConnectedCallback
-	totalShieldBlockRulesDeployed = false // firewall initialized w/ Total Shield block rules disabled
+	totalShieldDeployedState = false // firewall initialized w/ Total Shield block rules disabled
 
 	return implInitialize()
 }
@@ -213,7 +213,7 @@ func _getEnabledHelper(logState bool) (isEnabled bool, err error) {
 		err = log.ErrorFE("Firewall status check error: %w", err)
 	}
 	if logState {
-		log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t", isEnabled, stateAllowLan, stateAllowLanMulticast, totalShieldBlockRulesDeployed))
+		log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t", isEnabled, stateAllowLan, stateAllowLanMulticast, totalShieldDeployedState))
 	}
 
 	return isEnabled, err
@@ -239,7 +239,7 @@ func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFire
 		log.ErrorFE("error checking whether we have top firewall priority: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t", isEnabled, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast, totalShieldBlockRulesDeployed))
+	log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t", isEnabled, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast, totalShieldDeployedState))
 
 	return isEnabled, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err
 }
@@ -324,22 +324,21 @@ func TotalShieldApply(_totalShieldEnabled bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	// if new state is the same as old state, or VPN state is not CONNECTED - don't do anything
-	if totalShieldBlockRulesDeployed == _totalShieldEnabled || !vpnConnectedCallback() {
-		return
+	totalShieldNewState := _totalShieldEnabled && vpnConnectedCallback() // only enable block/DROP rules if the VPN is CONNECTED, otherwise disable
+	if totalShieldNewState == totalShieldDeployedState {
+		return // if new state is the same as old state - don't do anything
 	}
 
 	if fwEnabled, err := _getEnabledHelper(true); err != nil {
 		return err
-	} else if !fwEnabled { // if fw is disabled - don't do anything
+	} else if !fwEnabled { // if the fw is disabled - don't do anything
 		return nil
 	}
 
-	// by now we know fw is enabled and VPN state is CONNECTED - can deploy Total Shield rules
-	if err = implTotalShieldApply(_totalShieldEnabled); err == nil {
-		totalShieldBlockRulesDeployed = _totalShieldEnabled
+	if err = implTotalShieldApply(totalShieldNewState); err == nil {
+		totalShieldDeployedState = totalShieldNewState
 	} else {
-		err = log.ErrorFE("error implTotalShieldApply=%t: %w", _totalShieldEnabled, err)
+		err = log.ErrorFE("error implTotalShieldApply=%t: %w", totalShieldNewState, err)
 	}
 
 	return err

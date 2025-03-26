@@ -843,7 +843,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 
-	if totalShieldBlockRulesDeployed && vpnConnectedOrConnectingCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
+	if totalShieldDeployedState && vpnConnectedOrConnectingCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
 		log.Debug("doEnableNft: enabling TotalShield")
 		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainIn, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
 		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainOut, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})

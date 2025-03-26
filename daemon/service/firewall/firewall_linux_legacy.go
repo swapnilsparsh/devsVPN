@@ -343,7 +343,7 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 		return log.ErrorFE("error filterLegacy.Chain(vpnCoexLegacyOut).MatchOutInterface(false, \"lo\").TargetAccept().Insert(): %w", err)
 	}
 
-	if totalShieldBlockRulesDeployed && vpnConnectedOrConnectingCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
+	if totalShieldDeployedState && vpnConnectedOrConnectingCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
 		log.Debug("doEnableLegacy: enabling TotalShield")
 		if err = vpnCoexLegacyOut.TargetDrop().Append(); err != nil {
 			return log.ErrorFE("error filterLegacy.Chain(vpnCoexLegacyOut).TargetDrop().Append(): %w", err)

@@ -698,8 +698,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		// Forget VPN object
 		s._vpn = nil
 
-		// Notify Split-Tunneling module about disconnected VPN status
-		// It is important to call it only after 's._vpn = nil' (so ST functionality will be correctly notified about VPN disconnected state)
+		// Notify Split-Tunneling module about disconnected VPN status. Firewall will know the VPN state via vpnConnectedCallback()
 		s.splitTunnelling_ApplyConfig()
 
 		log.Info("VPN process stopped")
@@ -856,7 +855,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						sInfo.VpnLocalIPv6 = state.ClientIPv6
 						s.SetVpnSessionInfo(sInfo)
 
-						// Notify Split-Tunneling module about connected VPN status
+						// Notify Split-Tunneling module about VPN state CONNECTED. Firewall will know the VPN state via vpnConnectedCallback()
 						// It is important to call it after 's._vpn' initialised. So ST functionality will be correctly informed about 'VPN connected' status
 						s.splitTunnelling_ApplyConfig()
 
