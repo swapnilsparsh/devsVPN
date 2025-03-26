@@ -1168,6 +1168,9 @@ func enableDisableIPv6(enable bool /*, responseChan chan error*/) {
 }
 
 func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
+	log.Debug("implTotalShieldApply entered")
+	defer log.Debug("implTotalShieldApply exited")
+
 	if totalShieldEnabled == _totalShieldEnabled {
 		return nil
 	}
@@ -1312,7 +1315,7 @@ func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
 
 func implSingleDnsRuleOff() (retErr error) {
 	// TODO FIXME: Vlad - disabled
-	log.Debug("implSingleDnsRuleOn - disabled (providerKeySingleDns not installed), exiting")
+	// log.Debug("implSingleDnsRuleOn - disabled (providerKeySingleDns not installed), exiting")
 	return nil
 
 	/*

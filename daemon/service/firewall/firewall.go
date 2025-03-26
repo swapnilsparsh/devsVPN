@@ -312,10 +312,6 @@ func DeployPostConnectionRules(async bool) (retErr error) {
 	}
 }
 
-func TotalShieldEnabled() bool {
-	return totalShieldEnabled
-}
-
 func TotalShieldApply(_totalShieldEnabled bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
