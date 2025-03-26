@@ -529,7 +529,7 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 	// no delay before first reconnection
 	delayBeforeReconnect := 0 * time.Second
 
-	s._evtReceiver.OnVpnStateChanged(vpn.NewStateInfo(vpn.CONNECTING, "Connecting"))
+	s._evtReceiver.OnVpnStateChanged_SaveStateEarly(vpn.NewStateInfo(vpn.CONNECTING, "Connecting"), true)
 	for {
 		// create new VPN object
 		vpnObj, err := createVpnObj()
@@ -562,7 +562,7 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 		// retry, if reconnection requested
 		if s._requiredVpnState == KeepConnection {
 			// notifying clients about reconnection
-			s._evtReceiver.OnVpnStateChanged(vpn.NewStateInfo(vpn.RECONNECTING, "Reconnecting due to disconnection"))
+			s._evtReceiver.OnVpnStateChanged_SaveStateEarly(vpn.NewStateInfo(vpn.RECONNECTING, "Reconnecting due to disconnection"), true)
 
 			// no delay before reconnection (if last connection was long time ago)
 			if time.Now().After(lastConnectionTryTime.Add(time.Second * 30)) {
@@ -778,7 +778,8 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 				//  using the inline function to process state. It is required for a correct functioning of the "defer" statement
 				func() {
 					// do not forget to forward state to 'stateChan'
-					defer s._evtReceiver.OnVpnStateChanged(state)
+					s._evtReceiver.OnVpnStateChanged_SaveStateEarly(state, false) // we need to save it early, so that firewall Total Shield logic will know VPN is CONNECTED
+					defer s._evtReceiver.OnVpnStateChanged_ProcessSavedState()
 
 					log.Info(fmt.Sprintf("State: %v", state))
 					go s._evtReceiver.OnKillSwitchStateChanged() // re-notify clients abt VPN coexistence status on state change

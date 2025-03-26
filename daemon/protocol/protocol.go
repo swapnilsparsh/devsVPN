@@ -1730,7 +1730,17 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 	return err
 }
 
-func (p *Protocol) notifyVpnStateChanged(stateObj *vpn.StateInfo) {
+// OnVpnStateChanged_SaveStateEarly - save the VPN state. If saveAndProcess==true, also call OnVpnStateChanged_ProcessSavedState().
+func (p *Protocol) OnVpnStateChanged_SaveStateEarly(state vpn.StateInfo, saveAndProcess bool) {
+	p._lastVPNState = state
+
+	if saveAndProcess {
+		p.OnVpnStateChanged_ProcessSavedState()
+	}
+}
+
+// OnVpnStateChanged_ProcessSavedState - process the last saved VPN state
+func (p *Protocol) OnVpnStateChanged_ProcessSavedState() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("Panic when notifying VPN status to clients! (recovered)")
@@ -1742,10 +1752,6 @@ func (p *Protocol) notifyVpnStateChanged(stateObj *vpn.StateInfo) {
 	}()
 
 	state := p._lastVPNState
-	if stateObj != nil {
-		p._lastVPNState = *stateObj
-		state = *stateObj
-	}
 
 	switch state.State {
 	case vpn.CONNECTED:
@@ -1757,10 +1763,6 @@ func (p *Protocol) notifyVpnStateChanged(stateObj *vpn.StateInfo) {
 	}
 }
 
-func (p *Protocol) OnVpnStateChanged(state vpn.StateInfo) {
-	p.notifyVpnStateChanged(&state)
-}
-
 func (p *Protocol) OnVpnPauseChanged() {
-	p.notifyVpnStateChanged(nil)
+	p.OnVpnStateChanged_ProcessSavedState()
 }

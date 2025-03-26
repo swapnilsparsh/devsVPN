@@ -843,7 +843,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 
-	if totalShieldEnabled && vpnConnectedOrConnectingCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
+	if totalShieldBlockRulesDeployed && vpnConnectedOrConnectingCallback() { // add DROP rules at the end of our chains; enable Total Shield blocks only if VPN is connected or connecting
 		log.Debug("doEnableNft: enabling TotalShield")
 		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainIn, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
 		nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainOut, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
@@ -1119,7 +1119,7 @@ func implOnChangeDnsNft(newDnsServers *[]net.IP) (err error) { // by now we know
 	return nil
 }
 
-func implTotalShieldApplyNft(_totalShieldEnabled bool) (err error) {
+func implTotalShieldApplyNft(deployTotalShieldBlockRules bool) (err error) {
 	fwLinuxNftablesMutex.Lock()
 	defer fwLinuxNftablesMutex.Unlock()
 
@@ -1160,8 +1160,7 @@ func implTotalShieldApplyNft(_totalShieldEnabled bool) (err error) {
 		}
 	}
 
-	toEnableTotalShield := _totalShieldEnabled && vpnConnectedOrConnectingCallback() // Enable Total Shield DROP rules only if VPN is connected or connecting
-	if toEnableTotalShield {
+	if deployTotalShieldBlockRules {
 		if !lastInRuleIsDrop { // if last rules are not DROP rules already - append DROP rules to the end
 			nftConn.AddRule(&nftables.Rule{Table: filter, Chain: vpnCoexistenceChainIn, Exprs: []expr.Any{&expr.Counter{}, &expr.Verdict{Kind: expr.VerdictDrop}}})
 			doFlush = true
@@ -1182,7 +1181,7 @@ func implTotalShieldApplyNft(_totalShieldEnabled bool) (err error) {
 	}
 
 	if doFlush {
-		log.Debug("implTotalShieldApplyNft: setting TotalShield=", toEnableTotalShield, " in firewall")
+		log.Debug("implTotalShieldApplyNft: setting TotalShield=", deployTotalShieldBlockRules, " in firewall")
 		if err := nftConn.Flush(); err != nil && !strings.Contains(err.Error(), ENOENT_ERRMSG) {
 			return log.ErrorFE("nft flush error in implTotalShieldApplyNft: %w", err)
 		}

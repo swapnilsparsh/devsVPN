@@ -1149,8 +1149,7 @@ func enableDisableIPv6(enable bool /*, responseChan chan error*/) {
 	enableDisableIPv6Mutex.Lock() // since this func runs async, must lock it to ensure it's single-instance
 	defer enableDisableIPv6Mutex.Unlock()
 
-	// don't leave PrintStack calls enabled in production builds beyond the MVP
-	// logger.PrintStackToStderr()
+	defer log.Debug("enableDisableIPv6 exiting")
 
 	cmd := []string{"-NoProfile", "", "-Name", "\"*\"", "-ComponentID", "ms_tcpip6"}
 	if enable {
@@ -1167,17 +1166,7 @@ func enableDisableIPv6(enable bool /*, responseChan chan error*/) {
 	}*/
 }
 
-func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
-	if totalShieldEnabled == _totalShieldEnabled {
-		return nil
-	}
-
-	if firewallEnabled, err := implGetEnabled(); err != nil {
-		return fmt.Errorf("implTotalShieldApply() failed to get info if firewall is on: %w", err)
-	} else if !firewallEnabled { // nothing to do
-		return nil
-	}
-
+func implTotalShieldApply(deployTotalShieldBlockRules bool) (err error) {
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
@@ -1185,7 +1174,6 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 		var r any = recover()
 		if err == nil && r == nil {
 			manager.TransactionCommit() // commit WFP transaction
-			totalShieldEnabled = _totalShieldEnabled
 		} else {
 			manager.TransactionAbort() // abort WFP transaction
 
@@ -1200,16 +1188,15 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 		}
 	}()
 
-	var filterDesc = "Total Shield block all"
-	toEnableTotalShield := _totalShieldEnabled && vpnConnectedOrConnectingCallback() // Enable Total Shield block rules only if VPN is connected or connecting
-	if toEnableTotalShield {
-		log.Debug("enabling " + filterDesc)
+	var filterDesc = "Total Shield block-all rules"
+	if deployTotalShieldBlockRules {
+		log.Debug(filterDesc + ": enabling")
 	} else {
-		log.Debug("disabling " + filterDesc)
+		log.Debug(filterDesc + ": disabling")
 	}
 
 	for _, totalShieldLayer := range totalShieldLayers {
-		if toEnableTotalShield {
+		if deployTotalShieldBlockRules {
 			if totalShieldLayer.blockAllFilterID == 0 {
 				if totalShieldLayer.blockAllFilterID, err = manager.AddFilter(winlib.NewFilterBlockAll(providerKey, totalShieldLayer.layerGUID, ourSublayerKey,
 					filterDName, filterDesc, totalShieldLayer.isIPv6, isPersistent, false)); err != nil {
@@ -1227,9 +1214,12 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 		}
 	}
 
-	go enableDisableIPv6(!toEnableTotalShield) // fork it in the background, as it takes ~7 seconds
+	if err != nil {
+		return err
+	}
 
-	return err
+	go enableDisableIPv6(!deployTotalShieldBlockRules) // fork it in the background, as it takes ~7 seconds
+	return nil
 }
 
 func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr error) {

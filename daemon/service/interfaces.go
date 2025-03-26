@@ -80,7 +80,8 @@ type IServiceEventsReceiver interface {
 	OnPingStatus(retMap map[string]int)
 	OnServersUpdated(*api_types.ServersInfoResponse)
 	OnSplitTunnelStatusChanged()
-	OnVpnStateChanged(state vpn.StateInfo)
+	OnVpnStateChanged_SaveStateEarly(state vpn.StateInfo, saveAndProcess bool) // Save the VPN state. If saveAndProcess==true, also call OnVpnStateChanged_ProcessSavedState()
+	OnVpnStateChanged_ProcessSavedState()                                      // Process the last saved VPN state.
 	OnVpnPauseChanged()
 
 	// called by a service when new connection is required (e.g. requested by 'trusted-wifi' functionality or 'auto-connect' on launch)

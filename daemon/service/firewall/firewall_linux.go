@@ -344,29 +344,21 @@ func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
 	return nil
 }
 
-func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
-	if totalShieldEnabled == _totalShieldEnabled {
-		return nil
-	}
-
-	if firewallEnabled, err := implGetEnabled(); err != nil {
-		return log.ErrorFE("status check error: %w", err)
-	} else if !firewallEnabled {
-		log.Debug("implTotalShieldApply: saving TotalShield=", _totalShieldEnabled, " in settings")
-		totalShieldEnabled = _totalShieldEnabled
-		return nil
-	}
-
-	// if the firewall is up - gotta add or remove DROP rules to reflect new Total Shield setting
-
+func implTotalShieldApply(deployTotalShieldBlockRules bool) (err error) {
 	var (
 		implTotalShieldApplyWaiter sync.WaitGroup
 		errNft, errLegacy          error
 	)
 
 	implTotalShieldApplyWaiter.Add(2) // launch legacy before nft, it's expected to be slower
-	go func() { errLegacy = implTotalShieldApplyLegacy(_totalShieldEnabled); implTotalShieldApplyWaiter.Done() }()
-	go func() { errNft = implTotalShieldApplyNft(_totalShieldEnabled); implTotalShieldApplyWaiter.Done() }()
+	go func() {
+		errLegacy = implTotalShieldApplyLegacy(deployTotalShieldBlockRules)
+		implTotalShieldApplyWaiter.Done()
+	}()
+	go func() {
+		errNft = implTotalShieldApplyNft(deployTotalShieldBlockRules)
+		implTotalShieldApplyWaiter.Done()
+	}()
 	implTotalShieldApplyWaiter.Wait()
 
 	if errNft != nil {
@@ -375,7 +367,6 @@ func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
 		return log.ErrorFE("error: errLegacy='%w'", errLegacy)
 	}
 
-	totalShieldEnabled = _totalShieldEnabled
 	return nil
 }
 
