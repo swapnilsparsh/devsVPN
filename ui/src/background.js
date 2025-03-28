@@ -670,9 +670,9 @@ async function isCanQuit() {
 
     // Using 'showMessageBox' not 'showMessageBoxSync' - this is required to not to block Tray menu items
     let action = null;
-    if (win == null) 
+    if (win == null)
       action = await dialog.showMessageBox(msgBoxConfig);
-    else 
+    else
       action = await dialog.showMessageBox(win, msgBoxConfig);
     actionNo = action.response;
 
@@ -750,7 +750,7 @@ function createWindow(doNotShowWhenReady) {
       store.state.settings.showAppInSystemDock !== false ? false : true, // not applicable for Linux (since Electron v20)
 
     center: true,
-    title: "PrivateLINE",
+    title: "privateLINE Connect",
 
     frame: IsWindowHasFrame(),
     titleBarStyle: "hidden", // applicable only for macOS
@@ -926,7 +926,7 @@ function createUpdateWindow() {
     minimizable: false,
 
     center: true,
-    title: "PrivateLINE Update",
+    title: "privateLINE Connect Update",
 
     autoHideMenuBar: true,
 
