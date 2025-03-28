@@ -419,7 +419,7 @@ func (p *Protocol) processClient(conn net.Conn) {
 		message, err := reader.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
-				log.Error("Error receiving data from client: ", err)
+				log.Warning(fmt.Errorf("error receiving data from client: %w", err))
 			}
 			break
 		}
