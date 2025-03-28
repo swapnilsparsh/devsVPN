@@ -164,7 +164,7 @@
             </svg>
           </div>
         </div>
-      </div>      
+      </div>
 
       <div style="margin-top:100px;">
         <div class="settingsTitle">SUBSCRIPTION DETAILS</div>
@@ -398,7 +398,7 @@ export default {
       // show dialog ("confirm to logout")
       let needToDisableFirewall = true;
       let needToResetSettings = false;
-      const mes = "Do you really want to log out privateLINE account?";
+      const mes = "Are you sure you want to log out from your privateLINE account?";
       const mesResetSettings = "Reset application settings to defaults";
 
       if (isNeedPromptFirewallStatus == true) {

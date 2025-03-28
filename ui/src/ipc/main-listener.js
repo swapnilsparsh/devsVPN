@@ -404,6 +404,7 @@ ipcMain.handle("renderer-request-ui-color-scheme-set", (event, theme) => {
 
 // DIALOG
 ipcMain.on("renderer-request-showmsgboxsync", (event, diagConfig) => {
+  diagConfig.title = "privateLINE Connect";
   event.returnValue = dialog.showMessageBoxSync(
     event.sender.getOwnerBrowserWindow(),
     diagConfig
@@ -412,6 +413,7 @@ ipcMain.on("renderer-request-showmsgboxsync", (event, diagConfig) => {
 ipcMain.handle(
   "renderer-request-showmsgbox",
   async (event, diagConfig, doNotAttachToWindow) => {
+    diagConfig.title = "privateLINE Connect";
     if (doNotAttachToWindow === true)
       return await dialog.showMessageBox(diagConfig);
 
