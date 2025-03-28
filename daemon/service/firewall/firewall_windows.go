@@ -83,10 +83,11 @@ var (
 	clientLocalIPFilterIDs []uint64
 	customDNS              net.IP
 
-	_isEnabled          bool
-	isPersistent        bool = true
-	isAllowLAN          bool
-	isAllowLANMulticast bool
+	_isEnabled                  bool
+	providerSublayerPersistence      = true
+	isPersistent                bool = false
+	isAllowLAN                  bool
+	isAllowLANMulticast         bool
 
 	// These vars can be out of date. If need to report to UI - recheck all. Also lock the mutex when retrieving the otherSublayerGUID
 	otherSublayerMutex sync.Mutex
@@ -117,7 +118,7 @@ func createAddSublayer() error {
 	sublayer := winlib.CreateSubLayer(ourSublayerKey, providerKey,
 		sublayerDName, "",
 		winlib.SUBLAYER_MAX_WEIGHT,
-		isPersistent)
+		providerSublayerPersistence)
 	if err := manager.AddSubLayer(sublayer); err != nil {
 		return log.ErrorE(fmt.Errorf("failed to add sublayer: %w", err), 0)
 	}
@@ -234,7 +235,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 		return fmt.Errorf("failed to get provider info: %w", err)
 	}
 	if !found || !pInfo.IsInstalled {
-		provider := winlib.CreateProvider(providerKey, providerDName, "", isPersistent)
+		provider := winlib.CreateProvider(providerKey, providerDName, "", providerSublayerPersistence)
 		if err = manager.AddProvider(provider); err != nil {
 			return fmt.Errorf("failed to add provider : %w", err)
 		}
