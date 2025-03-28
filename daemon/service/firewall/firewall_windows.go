@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"runtime/debug"
 	"slices"
 	"sync"
 	"syscall"
@@ -80,9 +81,11 @@ var (
 	manager                winlib.Manager
 	clientLocalIPFilterIDs []uint64
 
-	_isEnabled          bool
-	isAllowLAN          bool
-	isAllowLANMulticast bool
+	_isEnabled                  bool
+	providerSublayerPersistence      = true
+	isPersistent                bool = false
+	isAllowLAN                  bool
+	isAllowLANMulticast         bool
 
 	// These vars can be out of date. If need to report to UI - recheck all. Also lock the mutex when retrieving the otherSublayerGUID
 	otherSublayerMutex sync.Mutex
@@ -105,7 +108,7 @@ const (
 func checkSublayerInstalled() (installed bool, err error) {
 	installed, ourSublayer, err := manager.GetSubLayerByKey(ourSublayerKey)
 	if err != nil {
-		return false, fmt.Errorf("failed to check whether sublayer is installed: %w", err)
+		return false, log.ErrorFE("failed to check whether sublayer is installed: %w", err)
 	} else if installed {
 		ourSublayerWeight = ourSublayer.Weight
 	}
@@ -116,9 +119,9 @@ func createAddSublayer() error {
 	sublayer := winlib.CreateSubLayer(ourSublayerKey, providerKey,
 		sublayerDName, "",
 		winlib.SUBLAYER_MAX_WEIGHT,
-		isPersistent)
+		providerSublayerPersistence)
 	if err := manager.AddSubLayer(sublayer); err != nil {
-		return log.ErrorE(fmt.Errorf("failed to add sublayer: %w", err), 0)
+		return log.ErrorFE("failed to add sublayer: %w", err)
 	}
 
 	return nil
@@ -139,6 +142,7 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfig
 
 	// 		if r != nil {
 	// 			log.Error("PANIC (recovered): ", r)
+	//			log.Error(string(debug.Stack()))
 	// 			if e, ok := r.(error); ok {
 	// 				retErr = e
 	// 			} else {
@@ -151,24 +155,24 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfig
 	var wasEnabled bool
 	wasEnabled, retErr = implGetEnabled()
 	if retErr != nil {
-		return false, log.ErrorE(fmt.Errorf("status check error: %w", retErr), 0)
+		return false, log.ErrorFE("status check error: %w", retErr)
 	}
 
 	if wasEnabled {
 		if retErr = implSetEnabled(false, false); retErr != nil {
-			return false, log.ErrorE(fmt.Errorf("error disabling firewall: %w", retErr), 0)
+			return false, log.ErrorFE("error disabling firewall: %w", retErr)
 		}
 	}
 	var retErr2 error = nil
 	defer func() {
 		if wasEnabled {
 			if retErr2 = implSetEnabled(true, false); retErr != nil {
-				retErr2 = log.ErrorE(fmt.Errorf("error re-enabling firewall: %w", retErr), 0)
+				retErr2 = log.ErrorFE("error re-enabling firewall: %w", retErr)
 				return
 			}
 
 			if retErr2 = doAddClientIPFilters(connectedClientInterfaceIP, connectedClientInterfaceIPv6); retErr2 != nil {
-				retErr2 = log.ErrorE(fmt.Errorf("error doAddClientIPFilters: %w", retErr), 0)
+				retErr2 = log.ErrorFE("error doAddClientIPFilters: %w", retErr)
 				return
 			}
 		}
@@ -179,8 +183,7 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfig
 	}()
 
 	if retErr = checkCreateProviderAndSublayer(false, canStopOtherVpn); retErr != nil {
-		log.Error(fmt.Errorf("error re-registering firewall sublayer at top priority: %w", retErr), 0)
-		return false, retErr
+		return false, log.ErrorFE("error re-registering firewall sublayer at top priority: %w", retErr)
 	}
 
 	if retErr != nil {
@@ -196,7 +199,7 @@ func findOtherSublayerWithMaxWeight() (found bool, otherSublayerKey syscall.GUID
 
 	found, otherSublayerGUID, err = manager.FindSubLayerWithMaxWeight() // check if max weight slot is vacant
 	if err != nil {
-		return false, syscall.GUID{}, fmt.Errorf("failed to check for sublayer with max weight: %w", err)
+		return false, syscall.GUID{}, log.ErrorFE("failed to check for sublayer with max weight: %w", err)
 	}
 
 	return found, otherSublayerGUID, nil
@@ -233,7 +236,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 		return log.ErrorFE("failed to get provider info: %w", err)
 	}
 	if !found || !pInfo.IsInstalled {
-		provider := winlib.CreateProvider(providerKey, providerDName, "", isPersistent)
+		provider := winlib.CreateProvider(providerKey, providerDName, "", providerSublayerPersistence)
 		if err = manager.AddProvider(provider); err != nil {
 			return log.ErrorFE("failed to add provider : %w", err)
 		}
@@ -268,8 +271,8 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 			if canStopOtherVpn { // if requested to stop other VPN and unregister their firewall sublayer, try it
 				otherVpn /*, err*/ = ParseOtherVpnBySublayerGUID(otherSublayerFound, &otherSublayer, &manager)
 				/* if err != nil {
-					err = log.ErrorE(fmt.Errorf("error parsing VPN info for other VPN '%s' - '%s', so not taking any VPN-specific steps, taking only generic interoperation approach",
-						windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name), 0)
+					err = log.ErrorFE("error parsing VPN info for other VPN '%s' - '%s', so not taking any VPN-specific steps, taking only generic interoperation approach",
+						windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name)
 				} else */if otherVpn == nil { // not expected to get nil back, it'd be a bug
 					err = fmt.Errorf("error (unexpected nil): other VPN '%s' '%s' is not known to us, and guessing service names didn't succeed, so we can only try generic interoperation approach",
 						windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name)
@@ -289,7 +292,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 					if sublayerNotFound {
 						log.Info(fmt.Sprintf("Couldn't delete the other sublayer '%s' '%s' - sublayer not found", otherSublayer.Name, windows.GUID(_otherSublayerGUID).String()))
 					} else {
-						log.Error(fmt.Errorf("error deleting the other sublayer '%s' '%s': %w", otherSublayer.Name, windows.GUID(_otherSublayerGUID).String(), err))
+						log.ErrorFE("error deleting the other sublayer '%s' '%s': %w", otherSublayer.Name, windows.GUID(_otherSublayerGUID).String(), err)
 					}
 				}
 			} else {
@@ -371,6 +374,7 @@ func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress bool) (retErr err
 
 				if r != nil {
 					log.Error("PANIC (recovered): ", r)
+					log.Error(string(debug.Stack()))
 					if e, ok := r.(error); ok {
 						retErr = e
 					} else {
@@ -428,6 +432,7 @@ func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net
 
 			if r != nil {
 				log.Error("PANIC (recovered): ", r)
+				log.Error(string(debug.Stack()))
 				if e, ok := r.(error); ok {
 					retErr = e
 				} else {
@@ -459,6 +464,7 @@ func implClientDisconnected() (retErr error) {
 
 			if r != nil {
 				log.Error("PANIC (recovered): ", r)
+				log.Error(string(debug.Stack()))
 				if e, ok := r.(error); ok {
 					retErr = e
 				} else {
@@ -560,6 +566,7 @@ func implReEnable() (retErr error) {
 
 			if r != nil {
 				log.Error("PANIC (recovered): ", r)
+				log.Error(string(debug.Stack()))
 				if e, ok := r.(error); ok {
 					retErr = e
 				} else {
@@ -596,7 +603,7 @@ func icmpAllowHelper(icmpType, icmpCode uint16, layer syscall.GUID, IP, mask net
 		isPersistent,
 		winlib.FILTER_MAX_WEIGHT))
 	if err != nil {
-		return log.ErrorE(fmt.Errorf("failed to add filter '%s': %w", icmpFilterDescr, err), 0)
+		return log.ErrorFE("failed to add filter '%s': %w", icmpFilterDescr, err)
 	}
 	return nil
 }
@@ -756,7 +763,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 			// _, err = manager.AddFilter(winlib.NewFilterICMPType(providerKey, winlib.FwpmLayerOutboundIcmpErrorV4, ourSublayerKey, filterDName, icmpFilterDescr,
 			// 	winlib.FwpActionBlock, winlib.ICMP_IPv4_DESTINATION_UNREACHABLE_Type, allowedIP.IP, allowedIP.Netmask, isPersistent, winlib.FILTER_MAX_WEIGHT-1))
 			// if err != nil {
-			// 	return log.ErrorE(fmt.Errorf("failed to add filter '%s': %w", icmpFilterDescr, err), 0)
+			// 	return log.ErrorFE("failed to add filter '%s': %w", icmpFilterDescr, err)
 			// }
 		}
 	}
@@ -957,7 +964,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 
 		// Allow our other apps (PL Comms, etc.) in: UDP. Weight 15.
 		if plOtherApps, err := platform.PLOtherAppsToAcceptIncomingConnections(); err != nil {
-			log.Error(fmt.Errorf("error enumerating other PL apps: %w", err)) // silently continue
+			log.ErrorFE("error enumerating other PL apps: %w", err) // silently continue
 		} else {
 			for _, plOtherApp := range plOtherApps {
 				filterDesc := fmt.Sprintf("IPv4 UDP: allow %s", plOtherApp)
@@ -1013,7 +1020,7 @@ func doDisable(wfpTransactionAlreadyInProgress bool) (err error) {
 
 	// retry moving our sublayer to top priority - actually don't, as otherwise cleanup on uninstall doesn't work properly
 	// if err = checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, false); err != nil {
-	// 	err = log.ErrorE(fmt.Errorf("failed to check/create provider or sublayer: %w", err), 0)
+	// 	err = log.ErrorFE("failed to check/create provider or sublayer: %w", err)
 	// }
 
 	for _, l := range layersAllToClean { // delete filters
@@ -1039,26 +1046,26 @@ func deleteSublayerAndProvider(sublayerKey, _providerKey syscall.GUID) (retErr e
 	// delete sublayer
 	installed, _, err := manager.GetSubLayerByKey(sublayerKey)
 	if err != nil {
-		retErr = log.ErrorE(fmt.Errorf("failed to check whether sublayer '%s' is installed: %w", windows.GUID(sublayerKey).String(), err), 0)
+		retErr = log.ErrorFE("failed to check whether sublayer '%s' is installed: %w", windows.GUID(sublayerKey).String(), err)
 	} else if installed {
 		for _, l := range layersAllToClean { // delete filters
 			// delete filters and callouts registered for the provider+layer
 			if err := manager.DeleteFilterByProviderKey(_providerKey, l); err != nil {
-				retErr = log.ErrorE(fmt.Errorf("failed to delete filter under provider '%s' : %w", windows.GUID(_providerKey).String(), err), 0)
+				retErr = log.ErrorFE("failed to delete filter under provider '%s' : %w", windows.GUID(_providerKey).String(), err)
 			}
 		}
 
 		if _, err := manager.DeleteSubLayer(sublayerKey); err != nil {
-			retErr = log.ErrorE(fmt.Errorf("failed to delete sublayer '%s': %w", windows.GUID(sublayerKey).String(), err), 0)
+			retErr = log.ErrorFE("failed to delete sublayer '%s': %w", windows.GUID(sublayerKey).String(), err)
 		}
 	}
 
 	// delete provider
 	if found, pinfo, err := manager.GetProviderInfo(_providerKey); err != nil {
-		retErr = log.ErrorE(fmt.Errorf("failed to get provider '%s' info: %w", windows.GUID(_providerKey).String(), err), 0)
+		retErr = log.ErrorFE("failed to get provider '%s' info: %w", windows.GUID(_providerKey).String(), err)
 	} else if found && pinfo.IsInstalled {
 		if err := manager.DeleteProvider(_providerKey); err != nil {
-			retErr = log.ErrorE(fmt.Errorf("failed to delete provider '%s': %w", windows.GUID(_providerKey).String(), err), 0)
+			retErr = log.ErrorFE("failed to delete provider '%s': %w", windows.GUID(_providerKey).String(), err)
 		}
 	}
 
@@ -1070,7 +1077,7 @@ func implCleanupRegistration() (retErr error) {
 	log.Info("implCleanupRegistration")
 
 	if retErr = deleteSublayerAndProvider(ourSublayerKey, providerKey); retErr != nil {
-		retErr = log.ErrorE(fmt.Errorf("error deleting main sublayer and provider: %w", retErr), 0)
+		retErr = log.ErrorFE("error deleting main sublayer and provider: %w", retErr)
 	}
 
 	if err := deleteSublayerAndProvider(sublayerKeySingleDns, providerKeySingleDns); err != nil {
@@ -1084,7 +1091,7 @@ func implCleanupRegistration() (retErr error) {
 // implDeployPostConnectionRules might be called asynchronously w/o checking return, so log everything
 func implDeployPostConnectionRules() (retErr error) {
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
-		return log.ErrorE(fmt.Errorf("failed to start transaction: %w", err), 0)
+		return log.ErrorFE("failed to start transaction: %w", err)
 	}
 	defer func() { // do not forget to stop WFP transaction
 		var r any = recover()
@@ -1094,6 +1101,7 @@ func implDeployPostConnectionRules() (retErr error) {
 			manager.TransactionAbort() // abort WFP transaction
 
 			log.Error("PANIC (recovered): ", r)
+			log.Error(string(debug.Stack()))
 			if e, ok := r.(error); ok {
 				retErr = e
 			} else {
@@ -1183,17 +1191,17 @@ func implTotalShieldApply(wfpTransactionAlreadyInProgress, totalShieldNewState b
 			} else {
 				manager.TransactionAbort() // abort WFP transaction
 
-				if r != nil {
-					log.Error("PANIC (recovered): ", r)
-					if e, ok := r.(error); ok {
-						retErr = e
-					} else {
-						retErr = errors.New(fmt.Sprint(r))
-					}
+			if r != nil {
+				log.Error("PANIC (recovered): ", r)
+				log.Error(string(debug.Stack()))
+				if e, ok := r.(error); ok {
+					err = e
+				} else {
+					err = errors.New(fmt.Sprint(r))
 				}
 			}
-		}()
-	}
+		}
+	}()
 
 	var filterDesc = "Total Shield block-all"
 	if totalShieldNewState {
@@ -1388,6 +1396,7 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 				manager.TransactionAbort() // abort WFP transaction
 
 				log.Error("PANIC (recovered): ", r)
+				log.Error(string(debug.Stack()))
 				if e, ok := r.(error); ok {
 					retErr = e
 				} else {
@@ -1464,7 +1473,7 @@ func getOtherVpnInfo(_otherSublayerGUID syscall.GUID) (otherVpnName, otherVpnDes
 func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
 	if recursionDepth == 0 { // start WFP transaction on the 1st recursion call
 		if retErr = manager.TransactionStart(); retErr != nil {
-			return false, "", "", "", fmt.Errorf("failed to start transaction: %w", retErr)
+			return false, "", "", "", log.ErrorFE("failed to start transaction: %w", retErr)
 		}
 	}
 	defer func() { // do not forget to stop WFP transaction
@@ -1479,6 +1488,7 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 
 			if r != nil {
 				log.Error("PANIC (recovered): ", r)
+				log.Error(string(debug.Stack()))
 				if e, ok := r.(error); ok {
 					retErr = e
 				} else {
@@ -1494,16 +1504,16 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 	)
 
 	if ourSublayerInstalled, retErr = checkSublayerInstalled(); retErr != nil {
-		return false, "", "", "", fmt.Errorf("error checking whether our sublayer is installed: %w", retErr)
+		return false, "", "", "", log.ErrorFE("error checking whether our sublayer is installed: %w", retErr)
 	}
 	if !ourSublayerInstalled {
 		if recursionDepth == 0 { // if our sublayer wasn't installed - try to create and add it
 			if retErr = checkCreateProviderAndSublayer(true, false); retErr != nil {
-				return false, "", "", "", fmt.Errorf("error creating our sublayer: %w", retErr)
+				return false, "", "", "", log.ErrorFE("error creating our sublayer: %w", retErr)
 			}
 			return implHaveTopFirewallPriority(recursionDepth + 1)
 		}
-		return false, "", "", "", fmt.Errorf("error - our sublayer isn't installed: %w", retErr) // already tried creating it in the parent call
+		return false, "", "", "", log.ErrorFE("error - our sublayer isn't installed: %w", retErr) // already tried creating it in the parent call
 	}
 
 	if ourSublayerWeight == winlib.SUBLAYER_MAX_WEIGHT {
@@ -1513,7 +1523,7 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 	// ok, by this point we know that our sublayer is installed and that it doesn't have max weight
 	otherSublayerFound, _otherSublayerGUID, retErr = findOtherSublayerWithMaxWeight() // check if max weight slot is vacant
 	if retErr != nil {
-		return false, "", "", "", fmt.Errorf("failed to check for other sublayer with max weight: %w", retErr)
+		return false, "", "", "", log.ErrorFE("failed to check for other sublayer with max weight: %w", retErr)
 	}
 	if otherSublayerFound {
 		otherVpnID = windows.GUID(_otherSublayerGUID).String()

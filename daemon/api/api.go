@@ -93,7 +93,6 @@ const (
 	_connectDevicePath          = "/connection/push-key"
 	_checkDevicePath            = "/connection/check-device-id"
 	_sessionStatusPath          = "/session/status"
-	_sessionDeletePath          = "/user/remove-device"
 	_deviceListPath             = "/user/device-list"
 	_removeDevicePath           = "/user/remove-device"
 	_profileDataPath            = "/user/profile"
@@ -777,9 +776,9 @@ func (a *API) SessionDelete(session string, deviceWGPublicKey string) error {
 		return errors.New("error - no devices with the given WG public key found under the current user")
 	}
 
-	request := &types.SessionDeleteRequest{Session: session}
+	request := &types.SessionDeleteRequest{Session: session, ForceDelete: 1}
 	resp := &types.APIErrorResponse{}
-	urlPath := fmt.Sprintf("%s/%d", _sessionDeletePath, internalDeviceID)
+	urlPath := fmt.Sprintf("%s/%d", _removeDevicePath, internalDeviceID)
 	if err := a.request(a.getApiHost().Hostname, urlPath, "DELETE", "application/json", request, resp); err != nil {
 		return err
 	}
