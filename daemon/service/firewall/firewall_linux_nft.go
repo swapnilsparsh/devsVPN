@@ -72,9 +72,10 @@ func implInitializeNft() error {
 	return nil
 }
 
-func printNftTableFilter() {
-	// /usr/sbin/nft list table ip filter
-	outText, outErrText, exitCode, isBufferTooSmall, err := shell.ExecAndGetOutput(log, 32768, "", "/usr/sbin/nft", "list", "table", "ip", "filter")
+func printNftToLog() {
+	// outText, outErrText, exitCode, isBufferTooSmall, err := shell.ExecAndGetOutput(log, 32768, "", "/usr/sbin/nft", "list", "table", "ip", "filter")
+	outText, outErrText, exitCode, isBufferTooSmall, err := shell.ExecAndGetOutput(log, 32768, "", "/usr/sbin/nft", "list", "ruleset")
+
 	// trim trailing newlines
 	outText = strings.TrimSuffix(outText, "\n")
 	outErrText = strings.TrimSuffix(outErrText, "\n")
@@ -174,6 +175,12 @@ func implHaveTopFirewallPriorityNft() (weHaveTopFirewallPriority bool, otherVpnI
 // implGetEnabledNft checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains.
 // It needs to be fast, as it's called for every nft firewall change event
 func implGetEnabledNft() (exists bool, retErr error) {
+	defer func() {
+		if retErr != nil {
+			printNftToLog()
+		}
+	}()
+
 	filter, input, output, _, _ := createTableChainsObjects()
 
 	// get INPUT, OUTPUT rulesets - to check that our jump rules are on top of INPUT, OUTPUT
@@ -432,6 +439,12 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 
 	log.Debug("doEnableNft entered")
 	defer log.Debug("doEnableNft exited")
+
+	defer func() {
+		if err != nil {
+			printNftToLog()
+		}
+	}()
 
 	// if !implFirewallBackgroundMonitorNftMutex.TryLock() { // if TryLock() failed - then instance of implFirewallBackgroundMonitorNft() is already running, must stop it
 	// 	stopMonitoringFirewallChanges <- true     // send implFirewallBackgroundMonitorNft() a stop signal
@@ -1011,6 +1024,12 @@ func doDisableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	log.Debug("doDisableNft entered")
 	defer log.Debug("doDisableNft exited")
 
+	defer func() {
+		if err != nil {
+			printNftToLog()
+		}
+	}()
+
 	// if !implFirewallBackgroundMonitorNftMutex.TryLock() { // if TryLock() failed - then instance of implFirewallBackgroundMonitorNft() is already running
 	// 	stopMonitoringFirewallChanges <- true     // send implFirewallBackgroundMonitorNft() a stop signal
 	// 	implFirewallBackgroundMonitorNftMutex.Lock() // wait for it to stop, lock its mutex till the end of doDisableNft()
@@ -1098,6 +1117,12 @@ func implOnChangeDnsNft(newDnsServers *[]net.IP) (err error) { // by now we know
 	fwLinuxNftablesMutex.Lock()
 	defer fwLinuxNftablesMutex.Unlock()
 
+	defer func() {
+		if err != nil {
+			printNftToLog()
+		}
+	}()
+
 	filter := &nftables.Table{Family: TABLE_TYPE, Name: TABLE}
 
 	privatelineDnsAddrsIPv4, err := nftConn.GetSetByName(filter, PL_DNS_SET)
@@ -1122,6 +1147,12 @@ func implOnChangeDnsNft(newDnsServers *[]net.IP) (err error) { // by now we know
 func implTotalShieldApplyNft(totalShieldNewState bool) (err error) {
 	fwLinuxNftablesMutex.Lock()
 	defer fwLinuxNftablesMutex.Unlock()
+
+	defer func() {
+		if err != nil {
+			printNftToLog()
+		}
+	}()
 
 	// by now we know the firewall is up - gotta add or remove DROP rules to reflect new Total Shield setting
 

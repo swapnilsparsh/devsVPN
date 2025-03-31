@@ -230,7 +230,11 @@ func (l *Logger) Trace(v ...interface{}) {
 }
 
 func (l *Logger) Tracef(format string, v ...interface{}) {
-	l.Trace(fmt.Sprintf(format, v...))
+	if l.isDisabled {
+		return
+	}
+
+	_traceWithOffset(l.pref, 0, fmt.Sprintf(format, v...))
 }
 
 // Error - Log Error message
@@ -242,7 +246,10 @@ func (l *Logger) Error(v ...interface{}) {
 }
 
 func (l *Logger) Errorf(format string, v ...interface{}) {
-	l.Error(fmt.Errorf(format, v...))
+	if l.isDisabled {
+		return
+	}
+	_error(l.pref, 0, fmt.Errorf(format, v...))
 }
 
 // ErrorE - Log Error and return same error object
@@ -302,9 +309,13 @@ func _warning(name string, v ...interface{}) {
 	write(timeStr, name, "WARNING", runtimeInfo, mes)
 }
 
-func _trace(name string, v ...interface{}) {
-	mes, timeStr, runtimeInfo, methodInfo := getLogPrefixes(fmt.Sprint(v...), 0)
+func _traceWithOffset(name string, callerStackOffset int, v ...interface{}) {
+	mes, timeStr, runtimeInfo, methodInfo := getLogPrefixes(fmt.Sprint(v...), callerStackOffset)
 	write(timeStr, name, "TRACE", runtimeInfo+methodInfo, mes)
+}
+
+func _trace(name string, v ...interface{}) {
+	_traceWithOffset(name, 0, v...)
 }
 
 func _error(name string, callerStackOffset int, v ...interface{}) {

@@ -25,15 +25,24 @@ type otherVpnCliCmds struct {
 	statusConnectedRE    string
 	statusDisconnectedRE string
 
+	cmdConnect    string
+	cmdDisconnect string
+
 	cmdEnableSplitTun                  []string
 	cmdAddOurBinaryToSplitTunWhitelist []string
-	cmdAddAllowlistOption              []string // used only on Linux
-	cmdRemoveAllowlistOption           []string // used only on Linux
-	cmdConnect                         string
-	cmdDisconnect                      string
+
+	// i.e., ExpressVPN CLI cmd to add our app to splittunnel bypass: expressvpnctl set split-app bypass:/usr/bin/privateline-connect-svc
+	// so the add prefix for it would be "bypass:"
+	cmdSplitTunnelOurBinaryPathPrefixAdd string
+	// and the remove prefix for it would be "remove:"
+	cmdSplitTunnelOurBinaryPathPrefixRemove string
+
+	cmdAddAllowlistOption    []string // used only on Linux
+	cmdRemoveAllowlistOption []string // used only on Linux
 }
 
 type otherVpnCoexistenceLegacyHelper func() (err error)
+type otherVpnCoexistenceNftHelper func(otherVpnName string) (err error)
 
 // Contains all the information about another VPN that we need to configure interoperability
 type OtherVpnInfo struct {
@@ -44,7 +53,10 @@ type OtherVpnInfo struct {
 	cliPathResolved string // resolved at runtime
 	cliCmds         otherVpnCliCmds
 
-	changesNftables       bool
+	changesNftables bool
+	nftablesChain   string
+	nftablesHelper  otherVpnCoexistenceNftHelper
+
 	changesIptablesLegacy bool
 	iptablesLegacyChain   string
 	iptablesLegacyHelper  otherVpnCoexistenceLegacyHelper // if changesIptablesLegacy=true, then iptablesLegacyHelper must be set to some func ptr

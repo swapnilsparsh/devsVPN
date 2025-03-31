@@ -35,8 +35,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/singchia/go-xtables/iptables"
-	"github.com/singchia/go-xtables/pkg/network"
+	"github.com/kocmo/go-xtables/iptables"
+	"github.com/kocmo/go-xtables/pkg/network"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
@@ -61,6 +61,15 @@ var (
 	vpnCoexLegacyInDef                     = iptables.ChainTypeUserDefined
 	vpnCoexLegacyOutDef                    = iptables.ChainTypeUserDefined
 )
+
+func printIptablesLegacy() {
+	// iptables-legacy -L -nv
+	outText, outErrText, exitCode, isBufferTooSmall, err := shell.ExecAndGetOutput(log, 32768, "", iptablesLegacyPath, "-L", "-nv")
+	// trim trailing newlines
+	outText = strings.TrimSuffix(outText, "\n")
+	outErrText = strings.TrimSuffix(outErrText, "\n")
+	log.Info("exitCode=", exitCode, ", isBufferTooSmall=", isBufferTooSmall, ", err=", err, "\n", outErrText, "\n", outText)
+}
 
 func implInitializeLegacy() (err error) {
 	if iptablesLegacyPath, err = exec.LookPath(IPTABLES_LEGACY); err != nil {
@@ -88,8 +97,15 @@ func implHaveTopFirewallPriorityLegacy() (weHaveTopFirewallPriority bool, otherV
 	return weHaveTopFirewallPriority, "", "", "", retErr
 }
 
-// implGetEnabledLegacy checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains
+// implGetEnabledLegacy checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains. Never returns error, because go-xtables parsing may fail.
 func implGetEnabledLegacy() (exists bool, retErr error) {
+	var err2 error
+	defer func() {
+		if err2 != nil {
+			printIptablesLegacy()
+		}
+	}()
+
 	if ipt == nil { // if iptables-legacy not present
 		return true, nil
 	}
@@ -100,7 +116,8 @@ func implGetEnabledLegacy() (exists bool, retErr error) {
 	// TODO: ? implement check-reenable logic? if the 1st rule in INPUT, OUTPUT not a jump to our chains - just add
 
 	if inputRules, err := inputLegacy.ListRules(); err != nil {
-		return false, log.ErrorFE("error listing INPUT rules: %w", err)
+		err2 = log.ErrorFE("error listing INPUT rules: %w", err)
+		return false, nil
 	} else if len(inputRules) < 1 {
 		//log.Debug("INPUT chain empty")
 		return false, nil
@@ -110,7 +127,8 @@ func implGetEnabledLegacy() (exists bool, retErr error) {
 	}
 
 	if outputRules, err := outputLegacy.ListRules(); err != nil {
-		return false, log.ErrorFE("error listing OUTPUT rules: %w", err)
+		err2 = log.ErrorFE("error listing OUTPUT rules: %w", err)
+		return false, nil
 	} else if len(outputRules) < 1 {
 		//log.Debug("OUTPUT chain empty")
 		return false, nil
@@ -215,6 +233,12 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 
 	log.Debug("doEnableLegacy entered")
 	defer log.Debug("doEnableLegacy exited")
+
+	defer func() {
+		if err != nil {
+			printIptablesLegacy()
+		}
+	}()
 
 	if enabled, err := implGetEnabledLegacy(); err != nil {
 		return log.ErrorFE("error implGetEnabledLegacy(): %w", err)
@@ -363,7 +387,7 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 			log.ErrorFE("error looking up detected other VPN '%s', skipping", otherVpnRelevantForLegacyName)
 			continue
 		} else if otherVpnLegacy.iptablesLegacyHelper == nil {
-			err = log.ErrorFE("error: iptablesLegacyHelper=nil for other VPN '%s', it's unexpected", otherVpnRelevantForLegacyName)
+			err = log.ErrorFE("error: iptablesLegacyHelper==nil for other VPN '%s', it's unexpected", otherVpnRelevantForLegacyName)
 		} else if err = otherVpnLegacy.iptablesLegacyHelper(); err != nil {
 			err = log.ErrorFE("error running iptablesLegacyHelper for other VPN '%s': %w", otherVpnRelevantForLegacyName, err)
 		}
@@ -470,6 +494,12 @@ func doDisableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 	log.Debug("doDisableLegacy entered")
 	defer log.Debug("doDisableLegacy exited")
 
+	defer func() {
+		if retErr != nil {
+			printIptablesLegacy()
+		}
+	}()
+
 	vpnCoexLegacyIn := filterLegacy.Chain(vpnCoexLegacyInDef)
 	vpnCoexLegacyOut := filterLegacy.Chain(vpnCoexLegacyOutDef)
 
@@ -507,6 +537,12 @@ func implOnChangeDnsLegacy(newDnsServers *[]net.IP) (err error) {
 	fwLinuxLegacyMutex.Lock()
 	defer fwLinuxLegacyMutex.Unlock()
 
+	defer func() {
+		if err != nil {
+			printIptablesLegacy()
+		}
+	}()
+
 	vpnCoexLegacyIn := filterLegacy.Chain(vpnCoexLegacyInDef)
 	vpnCoexLegacyOut := filterLegacy.Chain(vpnCoexLegacyOutDef)
 
@@ -529,6 +565,12 @@ func implTotalShieldApplyLegacy(totalShieldNewState bool) (err error) {
 
 	fwLinuxLegacyMutex.Lock()
 	defer fwLinuxLegacyMutex.Unlock()
+
+	defer func() {
+		if err != nil {
+			printIptablesLegacy()
+		}
+	}()
 
 	// by now we know the firewall is up - gotta add or remove DROP rules to reflect new Total Shield setting
 

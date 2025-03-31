@@ -352,13 +352,13 @@ func (otherVpn *OtherVpnInfoParsed) PostSteps() {
 
 	if otherVpn.otherVpnCliFound {
 		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
-			log.Error(fmt.Errorf("error enabling Split Tunnel in other VPN '%s': %w", otherVpn.name, retErr))
+			log.ErrorFE("error enabling Split Tunnel in other VPN '%s': %w", otherVpn.name, retErr) // and continue
 		}
 
 		for _, svcExe := range platform.PLServiceBinariesForFirewallToUnblock() {
 			cmdWhitelistOurSvcExe := append(otherVpn.cliCmds.cmdAddOurBinaryToSplitTunWhitelist, svcExe)
 			if retErr := shell.Exec(log, otherVpn.cliPathResolved, cmdWhitelistOurSvcExe...); retErr != nil {
-				log.Error(fmt.Errorf("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, otherVpn.name, retErr))
+				log.ErrorFE("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, otherVpn.name, retErr) // and continue
 			}
 		}
 

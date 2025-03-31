@@ -136,6 +136,8 @@ func isSnapPlugConnected(plugName string) (bool, error) {
 
 // initialize all constant values (e.g. servicePortFile) which can be used in external projects (i.e., privateline-connect-cli)
 func doInitConstants() {
+	wgInterfaceName = "wgprivateline"
+
 	openVpnBinaryPath = "/usr/sbin/openvpn"
 	routeCommand = "/sbin/ip route"
 
