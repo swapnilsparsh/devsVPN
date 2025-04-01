@@ -170,7 +170,7 @@ func rctl_startDnsChangeMonitor() {
 		}
 
 		// Files to be monitored for changes
-		var filesToMonotor = [...]string{"/run/systemd/resolve/stub-resolv.conf", "/run/systemd/resolve/resolv.conf", "/etc/resolv.conf"}
+		var filesToMonitor = [...]string{"/run/systemd/resolve/stub-resolv.conf", "/run/systemd/resolve/resolv.conf", "/etc/resolv.conf"}
 
 		w, err := fsnotify.NewWatcher()
 		if err != nil {
@@ -187,12 +187,12 @@ func rctl_startDnsChangeMonitor() {
 		for {
 			// Remove files from monitoring (if they are)
 			// We have to remove/add files each time after file change detection
-			for _, fpath := range filesToMonotor {
+			for _, fpath := range filesToMonitor {
 				w.Remove(fpath)
 			}
 			// Start looking for files change
 			isMonitoringStarted := false
-			for _, fpath := range filesToMonotor {
+			for _, fpath := range filesToMonitor {
 				if _, err := os.Stat(fpath); err != nil {
 					log.Info(fmt.Sprintf("unable to start file-change monitoring for file '%s': %s", fpath, err.Error()))
 				} else {

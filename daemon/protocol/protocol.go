@@ -1024,7 +1024,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			}
 			// notify current DNS status
 			// TODO: Vlad - disabled AntiTracker functionality for now
-			p.notifyClients(&types.SetAlternateDNSResp{Dns: types.DnsStatus{Dns: p._service.GetManualDNSStatus()}})
+			p.notifyClients(&types.SetAlternateDNSResp{Dns: types.DnsStatus{Dns: p._service.GetManualDNSStatus(), DnsMgmtStyleInUse: dns.DnsMgmtStyleInUse()}})
 			// p.notifyClients(&types.SetAlternateDNSResp{Dns: types.DnsStatus{Dns: p._service.GetManualDNSStatus(), AntiTrackerStatus: p._service.GetAntiTrackerStatus()}})
 		}
 	case "GetDnsPredefinedConfigs":

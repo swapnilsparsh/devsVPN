@@ -33,6 +33,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kocmo/go-xtables/iptables"
@@ -53,9 +54,14 @@ var (
 	stopMonitoringFirewallChangesLegacy      = make(chan bool, 2) // used to send a stop signal to implFirewallBackgroundMonitorLegacy() thread
 	implFirewallBackgroundMonitorLegacyMutex sync.Mutex           // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy function
 
-	iptablesLegacyPath  string                   // empty if iptables-legacy not found in path
-	ipt                 *iptables.IPTables = nil // nil if iptables-legacy not found. Used r/o in vpnCoexistence_linux.go
-	filterLegacy        *iptables.IPTables = nil // nil if iptables-legacy not found. Used r/o in vpnCoexistence_linux.go
+	// iptablesLegacyWasInitialized starts as false on daemon startup - so iptables-legacy support by default is uninitialized. If reDetectOtherVpnsLinux() detects
+	// another VPN that affects legacy tables, it will call implInitializeIptablesLegacyWhenNeeded() to initialize iptables-legacy support. iptablesLegacyInitialized
+	// only may change from false to true once, never backwards - may initialize once and stay initialized through the rest of the daemon running session.
+	iptablesLegacyWasInitialized atomic.Bool
+
+	iptablesLegacyPath string // empty if iptables-legacy not found in path
+	// ipt                 *iptables.IPTables = nil // nil before initialization
+	filterLegacy        *iptables.IPTables = nil // nil before initialization
 	inputLegacy         *iptables.IPTables = nil
 	outputLegacy        *iptables.IPTables = nil
 	vpnCoexLegacyInDef                     = iptables.ChainTypeUserDefined
@@ -71,13 +77,26 @@ func printIptablesLegacy() {
 	log.Info("exitCode=", exitCode, ", isBufferTooSmall=", isBufferTooSmall, ", err=", err, "\n", outErrText, "\n", outText)
 }
 
-func implInitializeLegacy() (err error) {
+func implInitializeIptablesLegacy() (err error) { // Does nothing. Actual implementation occurs later on-demand in implInitializeIptablesLegacyWhenNeeded().
+	return nil
+}
+
+var implInitializeIptablesLegacyWhenNeededMutex sync.Mutex // single instance
+func implInitializeIptablesLegacyWhenNeeded() (err error) {
+	implInitializeIptablesLegacyWhenNeededMutex.Lock()
+	defer implInitializeIptablesLegacyWhenNeededMutex.Unlock()
+
+	if iptablesLegacyWasInitialized.Load() {
+		return nil // already initialized
+	}
+	log.Debug("implInitializeIptablesLegacyWhenNeeded entered")
+
 	if iptablesLegacyPath, err = exec.LookPath(IPTABLES_LEGACY); err != nil {
 		return log.ErrorFE("error looking up %s in PATH: %w", IPTABLES_LEGACY, err)
 	}
 
-	ipt = iptables.NewIPTables(iptables.OptionIPTablesCmdPath(iptablesLegacyPath), iptables.OptionIPTablesLogger(log))
-	filterLegacy = ipt.Table(iptables.TableTypeFilter)
+	_ipt := iptables.NewIPTables(iptables.OptionIPTablesCmdPath(iptablesLegacyPath), iptables.OptionIPTablesLogger(log))
+	filterLegacy = _ipt.Table(iptables.TableTypeFilter)
 
 	inputLegacy = filterLegacy.Chain(iptables.ChainTypeINPUT)
 	outputLegacy = filterLegacy.Chain(iptables.ChainTypeOUTPUT)
@@ -85,11 +104,14 @@ func implInitializeLegacy() (err error) {
 	vpnCoexLegacyInDef.SetName(VPN_COEXISTENCE_CHAIN_LEGACY_IN)
 	vpnCoexLegacyOutDef.SetName(VPN_COEXISTENCE_CHAIN_LEGACY_OUT)
 
+	// ipt = _ipt
+	iptablesLegacyWasInitialized.Store(true)
+	log.Debug("implInitializeIptablesLegacyWhenNeeded finished successfully")
 	return nil
 }
 
-func iptablesLegacyPresent() bool {
-	return ipt != nil
+func iptablesLegacyInitialized() bool {
+	return iptablesLegacyWasInitialized.Load()
 }
 
 func implHaveTopFirewallPriorityLegacy() (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
@@ -99,16 +121,16 @@ func implHaveTopFirewallPriorityLegacy() (weHaveTopFirewallPriority bool, otherV
 
 // implGetEnabledLegacy checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains. Never returns error, because go-xtables parsing may fail.
 func implGetEnabledLegacy() (exists bool, retErr error) {
+	if !iptablesLegacyWasInitialized.Load() {
+		return true, nil // if iptables-legacy functionality is disabled altogether, then return true to avoid triggering further actions
+	}
+
 	var err2 error
 	defer func() {
 		if err2 != nil {
 			printIptablesLegacy()
 		}
 	}()
-
-	if ipt == nil { // if iptables-legacy not present
-		return true, nil
-	}
 
 	// log.Debug("implGetEnabledLegacy entered")
 	// defer log.Debug("implGetEnabledLegacy exited")
@@ -141,7 +163,7 @@ func implGetEnabledLegacy() (exists bool, retErr error) {
 }
 
 func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, retErr error) {
-	if ipt == nil { // if iptables-legacy not present
+	if !iptablesLegacyWasInitialized.Load() {
 		return false, nil
 	}
 
@@ -180,7 +202,7 @@ func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, ret
 // It polls regularly whether we have top firewall priority. If don't have top pri - it recreates our firewall objects.
 // To stop this thread - send to stopMonitoringFirewallChangesLegacy chan.
 func implFirewallBackgroundMonitorLegacy() {
-	if ipt == nil { // if iptables-legacy not present
+	if !iptablesLegacyWasInitialized.Load() {
 		return
 	}
 
@@ -205,6 +227,10 @@ func implFirewallBackgroundMonitorLegacy() {
 }
 
 func implReEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
+	if !iptablesLegacyWasInitialized.Load() {
+		return nil
+	}
+
 	if !fwLinuxLegacyMutexGrabbed {
 		fwLinuxLegacyMutex.Lock()
 		defer fwLinuxLegacyMutex.Unlock()
@@ -225,8 +251,8 @@ func implReEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 }
 
 func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
-	if ipt == nil { // if iptables-legacy not present
-		return
+	if !iptablesLegacyWasInitialized.Load() {
+		return nil
 	}
 
 	if !fwLinuxLegacyMutexGrabbed {
@@ -410,8 +436,8 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 }
 
 func implDeployPostConnectionRulesLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
-	if ipt == nil { // if iptables-legacy not present
-		return
+	if !iptablesLegacyWasInitialized.Load() {
+		return nil
 	}
 
 	if !fwLinuxLegacyMutexGrabbed {
@@ -495,8 +521,8 @@ func deleteOurJumpRules(input bool) (retErr error) {
 
 // doDisableLegacy - actions in it are best-effort, unless we encounter a real error
 func doDisableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
-	if ipt == nil { // if iptables-legacy not present
-		return
+	if !iptablesLegacyWasInitialized.Load() {
+		return nil
 	}
 
 	if !fwLinuxLegacyMutexGrabbed {
@@ -543,8 +569,8 @@ func doDisableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 }
 
 func implOnChangeDnsLegacy(newDnsServers *[]net.IP) (err error) {
-	if ipt == nil { // if iptables-legacy not present
-		return
+	if !iptablesLegacyWasInitialized.Load() {
+		return nil
 	}
 
 	fwLinuxLegacyMutex.Lock()
@@ -572,8 +598,8 @@ func implOnChangeDnsLegacy(newDnsServers *[]net.IP) (err error) {
 }
 
 func implTotalShieldApplyLegacy(totalShieldNewState bool) (err error) {
-	if ipt == nil { // if iptables-legacy not present
-		return
+	if !iptablesLegacyWasInitialized.Load() {
+		return nil
 	}
 
 	fwLinuxLegacyMutex.Lock()

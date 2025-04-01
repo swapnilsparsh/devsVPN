@@ -66,7 +66,7 @@ func implInitialize() (err error) {
 	)
 
 	implInitializeWaiter.Add(2) // launch legacy before nft, it's expected to be slower
-	go func() { errLegacy = implInitializeLegacy(); implInitializeWaiter.Done() }()
+	go func() { errLegacy = implInitializeIptablesLegacy(); implInitializeWaiter.Done() }()
 	go func() { errNft = implInitializeNft(); implInitializeWaiter.Done() }()
 	implInitializeWaiter.Wait()
 
@@ -159,7 +159,7 @@ func implGetFirewallBackgroundMonitors() (monitors []*FirewallBackgroundMonitor)
 		MonitorEndChan:  stopMonitoringFirewallChangesNft,
 		MonitorEndMutex: &implFirewallBackgroundMonitorNftMutex}}
 
-	if iptablesLegacyPresent() {
+	if iptablesLegacyInitialized() {
 		monitors = append(monitors, &FirewallBackgroundMonitor{MonitorFunc: implFirewallBackgroundMonitorLegacy,
 			MonitorEndChan:  stopMonitoringFirewallChangesLegacy,
 			MonitorEndMutex: &implFirewallBackgroundMonitorLegacyMutex})

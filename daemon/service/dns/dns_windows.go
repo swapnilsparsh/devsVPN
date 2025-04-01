@@ -359,3 +359,7 @@ func getInterfacesIPsWhichContainsIP(addr net.IP, localAddrToSkip net.IP) (ret [
 
 	return ret, nil
 }
+
+func implDnsMgmtStyleInUse() DnsMgmtStyle {
+	return DnsMgmtStyleUnknown
+}

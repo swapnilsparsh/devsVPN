@@ -307,9 +307,9 @@ func implFirewallBackgroundMonitorNft() {
 	}
 	defer nftMonitor.Close()
 
-	// if err := enableVpnCoexistenceLinuxNft(); err != nil { // Run VPN coexistence logic synchronously once on start of this func
-	// 	log.ErrorFE("error running enableVpnCoexistenceLinuxNft() on start of implFirewallBackgroundMonitorNft(): %w", err) // and continue
-	// }
+	if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil { // check that we have top-pri once on start of this func
+		log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
+	}
 
 	for {
 		select {

@@ -34,6 +34,27 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 )
 
+type DnsMgmtStyle uint
+
+const (
+	DnsMgmtStyleUnknown DnsMgmtStyle = iota
+	DnsMgmtStyleResolvectl
+	DnsMgmtStyleResolveConf
+)
+
+func DnsMgmtStyleDescription(style DnsMgmtStyle) string {
+	switch style {
+	case DnsMgmtStyleUnknown:
+		return "unknown"
+	case DnsMgmtStyleResolvectl:
+		return "resolvectl"
+	case DnsMgmtStyleResolveConf:
+		return "/etc/resolv.conf"
+	default:
+		return "UNDOCUMENTED"
+	}
+}
+
 type FuncDnsChangeFirewallNotify func(dns *DnsSettings) error
 type FuncGetUserSettings func() DnsExtraSettings
 
@@ -153,6 +174,7 @@ func (d DnsSettings) InfoString() string {
 		dnsServers += dnsSrvIP.String() + " "
 	}
 	dnsServers = strings.TrimSpace(dnsServers)
+
 	template := strings.TrimSpace(d.DohTemplate)
 
 	switch d.Encryption {
@@ -268,6 +290,10 @@ func GetPredefinedDnsConfigurations() ([]DnsSettings, error) {
 // Currently, it is in use for macOS - like a DNS change monitor.
 func UpdateDnsIfWrongSettings() error {
 	return implUpdateDnsIfWrongSettings()
+}
+
+func DnsMgmtStyleInUse() DnsMgmtStyle {
+	return implDnsMgmtStyleInUse()
 }
 
 func dnscryptProxyProcessStart(dnsCfg DnsSettings) (retErr error) {

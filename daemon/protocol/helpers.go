@@ -102,7 +102,7 @@ func (p *Protocol) createConnectedResponse(state vpn.StateInfo) *types.Connected
 		VpnType:         state.VpnType,
 		ExitHostname:    state.ExitHostname,
 		// Dns:             types.DnsStatus{Dns: manualDns, AntiTrackerStatus: p._service.GetAntiTrackerStatus()}, // TODO: Vlad - disabled AntiTracker functionality for now
-		Dns:        types.DnsStatus{Dns: manualDns},
+		Dns:        types.DnsStatus{Dns: manualDns, DnsMgmtStyleInUse: dns.DnsMgmtStyleInUse()},
 		IsTCP:      state.IsTCP,
 		Mtu:        state.Mtu,
 		V2RayProxy: state.V2RayProxy,

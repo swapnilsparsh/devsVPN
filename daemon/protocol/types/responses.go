@@ -304,6 +304,7 @@ type DiagnosticsGeneratedResp struct {
 
 type DnsStatus struct {
 	Dns               dns.DnsSettings
+	DnsMgmtStyleInUse dns.DnsMgmtStyle
 	AntiTrackerStatus service_types.AntiTrackerMetadata
 }
 
