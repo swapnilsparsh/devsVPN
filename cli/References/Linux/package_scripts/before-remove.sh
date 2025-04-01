@@ -37,3 +37,6 @@ else
 	echo "[+] Trying to disconnect (before-remove) ..."
 	/usr/bin/privateline-connect-cli disconnect || echo "[-] Failed to disconnect"
 fi
+
+echo "[+] Trying to delete wgprivateline interface manually, just in case ..."
+/usr/sbin/ip link delete wgprivateline || echo "[-] Apparently wgprivateline interface is already down, no problem"

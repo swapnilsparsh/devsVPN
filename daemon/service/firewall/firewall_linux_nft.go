@@ -107,9 +107,9 @@ func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nfta
 	input = nftConn.AddChain(input)
 	output = nftConn.AddChain(output)
 
-	// if err := nftConn.Flush(); err != nil { // creating INPUT, OUTPUT chains with non-default priority -99, so try on best-effort
-	// 	log.ErrorFE("createTableAndChains - error nft flush 1: %w", err) // and continue
-	// }
+	if err := nftConn.Flush(); err != nil { // creating INPUT, OUTPUT chains with non-default priority -99, so try on best-effort
+		log.ErrorFE("createTableAndChains - error nft flush 1: %w", err) // and continue
+	}
 
 	// Create VPN coexistence chains
 	vpnCoexistenceChainIn = nftConn.AddChain(vpnCoexistenceChainIn)
@@ -484,15 +484,15 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed, enableNftVpnCoexistence bool) (err
 	}
 	ourSets = append(ourSets, wgEndpointAddrsIPv4)
 
-	// defaultRestApiAddrsIPv4 := &nftables.Set{
-	// 	Name:    "privateLINE_default_REST_API_IPv4_addrs",
-	// 	Table:   filter,
-	// 	KeyType: nftables.TypeIPAddr, // our keys are IPv4 addresses
-	// }
-	// if err := nftConn.AddSet(defaultRestApiAddrsIPv4, []nftables.SetElement{}); err != nil {
-	// 	return log.ErrorFE("enable - error creating nft set: %w", err)
-	// }
-	// ourSets = append(ourSets, defaultRestApiAddrsIPv4)
+	defaultRestApiAddrsIPv4 := &nftables.Set{
+		Name:    "privateLINE_default_REST_API_IPv4_addrs",
+		Table:   filter,
+		KeyType: nftables.TypeIPAddr, // our keys are IPv4 addresses
+	}
+	if err := nftConn.AddSet(defaultRestApiAddrsIPv4, []nftables.SetElement{}); err != nil {
+		return log.ErrorFE("enable - error creating nft set: %w", err)
+	}
+	ourSets = append(ourSets, defaultRestApiAddrsIPv4)
 
 	privatelineDnsAddrsIPv4 := &nftables.Set{
 		Name:    PL_DNS_SET,
@@ -531,10 +531,14 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed, enableNftVpnCoexistence bool) (err
 		}
 	}
 
-	// for _, restApiHost := range getRestApiHostsCallback() {
-	// 	if err = nftConn.SetAddElements(defaultRestApiAddrsIPv4, []nftables.SetElement{{Key: restApiHost.DefaultIP}}); err != nil {
-	// 		log.ErrorFE("enable - error adding restApiHost.DefaultIP to set: %w", err) // and continue
-	// 	}
+	for _, restApiHost := range getRestApiHostsCallback() {
+		if err = nftConn.SetAddElements(defaultRestApiAddrsIPv4, []nftables.SetElement{{Key: restApiHost.DefaultIP.To4()}}); err != nil {
+			log.ErrorFE("enable - error adding restApiHost.DefaultIP.To4() to set: %w", err) // and continue
+		}
+	}
+
+	// if err := nftConn.Flush(); err != nil { // preliminary flush
+	// 	return log.ErrorFE("doEnableNft - error nft flush 1: %w", err)
 	// }
 
 	// create a set of TCP & UDP protocols
@@ -548,6 +552,22 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed, enableNftVpnCoexistence bool) (err
 	}
 	ourSets = append(ourSets, tcpAndUdp)
 	nftConn.SetAddElements(tcpAndUdp, []nftables.SetElement{{Key: []byte{unix.IPPROTO_TCP}}, {Key: []byte{unix.IPPROTO_UDP}}})
+
+	// create a set with ports 80, 443
+	portsHttpHttps := &nftables.Set{
+		Name:    "http_https",
+		Table:   filter,
+		KeyType: nftables.TypeInetService, // aka port
+	}
+	if err := nftConn.AddSet(portsHttpHttps, []nftables.SetElement{}); err != nil {
+		return log.ErrorFE("enable - error creating nft set: %w", err)
+	}
+	ourSets = append(ourSets, portsHttpHttps)
+	nftConn.SetAddElements(portsHttpHttps, []nftables.SetElement{{Key: binaryutil.BigEndian.PutUint16(80)}, {Key: binaryutil.BigEndian.PutUint16(443)}})
+
+	// if err := nftConn.Flush(); err != nil { // preliminary flush
+	// 	return log.ErrorFE("doEnableNft - error nft flush 2: %w", err)
+	// }
 
 	// Create rules
 
@@ -767,7 +787,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed, enableNftVpnCoexistence bool) (err
 		})
 	}
 
-	// allow PL service binaries in-out. Then we don't need to explicitly create allow rules for REST API servers, etc.
+	// allow PL service binaries in-out. Then we won't need to explicitly create allow rules for REST API servers, etc.
 	// also allow in-out for our other default allowed apps (PL Comms, etc.)
 	// 	TODO: permit PL Comms etc. only inbound UDP
 	allowedAppsCgroupClassid := []byte{0x1d, 0x1e, 0x56, 0x70} // have to list bytes in reverse order here, x86 is little-endian
@@ -794,8 +814,53 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed, enableNftVpnCoexistence bool) (err
 			&expr.Verdict{Kind: expr.VerdictAccept}},
 	})
 
+	// Eh, allow our REST API servers explicitly also - just in case
+	nftConn.AddRule(&nftables.Rule{ // outbound TCP ports 80,443
+		Table: filter,
+		Chain: vpnCoexistenceChainOut,
+		Exprs: []expr.Any{
+			// [ dest IP: payload load 4b @ network header + 16 => reg 1 ]
+			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 16, Len: 4},
+			// [ lookup reg 1, set defaultRestApiAddrsIPv4 ]
+			&expr.Lookup{SourceRegister: 1, SetName: defaultRestApiAddrsIPv4.Name, SetID: defaultRestApiAddrsIPv4.ID},
+			// [ meta load l4proto => reg 2 ]
+			&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
+			// [ cmp eq reg 2 TCP ]
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_TCP}},
+			// [ dst port: payload load 2b @ transport header + 2 => reg 3 ]
+			&expr.Payload{DestRegister: 3, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2},
+			// [ lookup reg 3, set ports 80,443 ]
+			&expr.Lookup{SourceRegister: 3, SetName: portsHttpHttps.Name, SetID: portsHttpHttps.ID},
+			&expr.Counter{},
+			//[ immediate reg 0 accept ]
+			&expr.Verdict{Kind: expr.VerdictAccept},
+		},
+	})
+	nftConn.AddRule(&nftables.Rule{ // inbound related, established
+		Table: filter,
+		Chain: vpnCoexistenceChainIn,
+		Exprs: []expr.Any{
+			// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
+			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4},
+			// [ lookup reg 1, set defaultRestApiAddrsIPv4 ]
+			&expr.Lookup{SourceRegister: 1, SetName: defaultRestApiAddrsIPv4.Name, SetID: defaultRestApiAddrsIPv4.ID},
+			&expr.Ct{Register: 2, SourceRegister: false, Key: expr.CtKeySTATE},
+			&expr.Bitwise{
+				SourceRegister: 2,
+				DestRegister:   2,
+				Len:            4,
+				Mask:           binaryutil.NativeEndian.PutUint32(expr.CtStateBitESTABLISHED | expr.CtStateBitRELATED),
+				Xor:            binaryutil.NativeEndian.PutUint32(0),
+			},
+			&expr.Cmp{Op: expr.CmpOpNeq, Register: 2, Data: []byte{0, 0, 0, 0}},
+			&expr.Counter{},
+			//[ immediate reg 0 accept ]
+			&expr.Verdict{Kind: expr.VerdictAccept},
+		},
+	})
+
 	// if err := nftConn.Flush(); err != nil { // preliminary flush
-	// 	return log.ErrorFE("doEnableNft - error nft flush 1: %w", err)
+	// 	return log.ErrorFE("doEnableNft - error nft flush 3: %w", err)
 	// }
 
 	// create rules for wgInterfaceName interface - even if it doesn't exist yet
@@ -909,7 +974,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed, enableNftVpnCoexistence bool) (err
 	}
 
 	if err := nftConn.Flush(); err != nil {
-		return log.ErrorFE("doEnableNft - error nft flush 2: %w", err)
+		return log.ErrorFE("doEnableNft - error nft flush 4: %w", err)
 	}
 
 	// log.Debug("doEnableNft flushed")

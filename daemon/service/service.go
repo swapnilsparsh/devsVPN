@@ -1320,6 +1320,9 @@ func (s *Service) disableTotalShieldAsync() {
 	if err := firewall.TotalShieldApply(); err != nil {
 		log.ErrorFE("error firewall.TotalShieldApply(): %w", err)
 	}
+
+	// notify clients
+	s._evtReceiver.OnSplitTunnelStatusChanged()
 }
 
 func (s *Service) ResetPreferences() error {

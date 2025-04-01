@@ -20,7 +20,8 @@ var (
 )
 
 type otherVpnCliCmds struct {
-	cmdStatus string
+	cmdStatus   string
+	parseStatus bool
 
 	statusConnectedRE    string
 	statusDisconnectedRE string
@@ -52,6 +53,8 @@ type OtherVpnInfo struct {
 	cli             string // CLI command of that VPN, used to add our binaries & IP ranges to their exception list. If left blank - that means this VPN doesn't have a useful CLI.
 	cliPathResolved string // resolved at runtime
 	cliCmds         otherVpnCliCmds
+
+	statusConnected bool
 
 	changesNftables bool
 	nftablesChain   string

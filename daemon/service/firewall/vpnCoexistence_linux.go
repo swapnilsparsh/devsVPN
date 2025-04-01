@@ -6,6 +6,7 @@ package firewall
 import (
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -111,10 +112,10 @@ var (
 			cmdSplitTunnelOurBinaryPathPrefixAdd:    "bypass:",
 			cmdSplitTunnelOurBinaryPathPrefixRemove: "remove:", // TODO: unused for now
 
-			// TODO: flesh out as needed
-			// cmdStatus: "???",
-			// statusConnectedRE: "",
-			// statusDisconnectedRE: "",
+			cmdStatus:            "status",
+			parseStatus:          true,
+			statusConnectedRE:    "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
+			statusDisconnectedRE: "^Disconnected([^a-zA-Z0-9]|$)",
 		},
 	}
 
@@ -257,6 +258,38 @@ func expressVpnNftablesHelper() (err error) {
 		if retErr := shell.Exec(log, expressVpnCli, cmdWhitelistOurSvcExe...); retErr != nil {
 			log.ErrorFE("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, expressVpn.name, retErr) // and continue
 		}
+	}
+
+	// TODO FIXME: Vlad - extract this logic into a common-denominator parser
+	// check whether other VPN was connected
+	otherVpnWasConnectedRegex := regexp.MustCompile(expressVpn.cliCmds.statusConnectedRE)
+	expressVpn.statusConnected = false
+
+	const maxErrBufSize int = 1024
+	strErr := strings.Builder{}
+	outProcessFunc := func(text string, isError bool) {
+		if len(text) == 0 {
+			return
+		}
+		if isError {
+			if strErr.Len() > maxErrBufSize {
+				return
+			}
+			strErr.WriteString(text)
+		} else {
+			if otherVpnWasConnectedRegex.MatchString(text) {
+				expressVpn.statusConnected = true
+			}
+		}
+	}
+
+	if err = shell.ExecAndProcessOutput(log, outProcessFunc, "", expressVpn.cliPathResolved, expressVpn.cliCmds.cmdStatus); err != nil {
+		log.ErrorFE("error matching '%s': %s", expressVpn.cliCmds.statusConnectedRE, strErr.String())
+	}
+
+	if expressVpn.statusConnected && expressVpn.incompatWithTotalShieldWhenConnected {
+		log.Warning("When other VPN '", expressVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
+		go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
 	}
 
 	return nil
