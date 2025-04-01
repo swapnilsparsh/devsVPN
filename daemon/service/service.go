@@ -248,7 +248,7 @@ func (s *Service) init() error {
 	}
 
 	// initialize firewall functionality
-	if err := firewall.Initialize(s.Preferences, s._evtReceiver.OnKillSwitchStateChanged, s.ConnectedOrConnecting,
+	if err := firewall.Initialize(s.Preferences, s.disableTotalShieldAsync, s._evtReceiver.OnKillSwitchStateChanged, s.ConnectedOrConnecting,
 		s._vpnConnectedCallback, s._api.GetRestApiHosts); err != nil {
 		return fmt.Errorf("firewall initialization error : %w", err)
 	}
@@ -1309,6 +1309,17 @@ func (s *Service) SetUserPreferences(userPrefs preferences.UserPreferences) erro
 // Preferences returns preferences
 func (s *Service) Preferences() preferences.Preferences {
 	return s._preferences
+}
+
+// fork it asynchronously only, because firewall.TotalShieldApply() needs to wait for a lot of mutexes
+func (s *Service) disableTotalShieldAsync() {
+	prefs := s._preferences
+	prefs.IsTotalShieldOn = false
+	s.setPreferences(prefs)
+
+	if err := firewall.TotalShieldApply(); err != nil {
+		log.ErrorFE("error firewall.TotalShieldApply(): %w", err)
+	}
 }
 
 func (s *Service) ResetPreferences() error {

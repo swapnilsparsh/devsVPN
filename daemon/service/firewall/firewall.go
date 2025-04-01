@@ -39,6 +39,7 @@ import (
 var log *logger.Logger
 
 type GetPrefsCallback func() preferences.Preferences
+type DisableTotalShieldAsyncCallback func()
 type OnKillSwitchStateChangedCallback func()
 type GetRestApiHostsCallback func() (restApiHosts []*helpers.HostnameAndIP)
 
@@ -68,6 +69,7 @@ var (
 	stateAllowLanMulticast bool
 
 	getPrefsCallback                 GetPrefsCallback
+	disableTotalShieldAsyncCallback  DisableTotalShieldAsyncCallback
 	onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback
 	vpnConnectedOrConnectingCallback types.VpnConnectedCallback // whether VPN is connected or connecting
 	vpnConnectedCallback             types.VpnConnectedCallback // whether VPN is in CONNECTED state
@@ -104,7 +106,7 @@ func (fe *FirewallError) OtherVpnUnknownToUs() bool {
 
 // Initialize is doing initialization stuff
 // Must be called on application start
-func Initialize(_getPrefsCallback GetPrefsCallback,
+func Initialize(_getPrefsCallback GetPrefsCallback, _disableTotalShieldAsyncCallback DisableTotalShieldAsyncCallback,
 	_onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback,
 	_vpnConnectedOrConnectingCallback, _vpnConnectedCallback types.VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
 	mutex.Lock()
@@ -114,6 +116,7 @@ func Initialize(_getPrefsCallback GetPrefsCallback,
 	getRestApiHostsCallback = _getRestApiHostsCallback
 
 	getPrefsCallback = _getPrefsCallback
+	disableTotalShieldAsyncCallback = _disableTotalShieldAsyncCallback
 
 	vpnConnectedOrConnectingCallback = _vpnConnectedOrConnectingCallback
 	vpnConnectedCallback = _vpnConnectedCallback

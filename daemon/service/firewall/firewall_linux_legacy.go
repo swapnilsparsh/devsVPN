@@ -163,6 +163,9 @@ func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, ret
 
 	log.Debug("implReregisterFirewallAtTopPriorityLegacy - don't have top pri, need to reenable firewall")
 
+	if _, err := reDetectOtherVpnsLinux(true, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableLegacy() needs otherVpnsLegacyMutex
+		log.ErrorFE("error reDetectOtherVpnsLinux(true, true): %w", err) // and continue
+	}
 	if err := implReEnableLegacy(true); err != nil {
 		return true, log.ErrorFE("error in implReEnableLegacy: %w", err)
 	}
@@ -246,8 +249,6 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 		log.Debug("iptables-legacy already enabled, not enabling again")
 		return nil
 	}
-
-	go reDetectOtherVpnsLinux(false, true) // start re-detecting other VPNs early, and let it adjust our MTU if necessary
 
 	prefs := getPrefsCallback()
 
@@ -377,11 +378,23 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 		}
 	}
 
-	// now run VPN coexistence logic - process the other detected VPNs that are relevant for iptables-legacy
-	// TODO: if processing VPN coexistence for multiple VPNs - run their helpers in parallel
-	vpnCoexistenceLinuxMutex.Lock() // to ensure other threads aren't in process of re-detection, else they may empty OtherVpnsDetectedRelevantForIptablesLegacy
-	defer vpnCoexistenceLinuxMutex.Unlock()
+	// Allow all DNS - workaround for Surfshark, but applying it generally for now.
+	// TODO FIXME: allow only until login (SessionNew) is done
+	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPDstPort(false, 53)).TargetAccept().Insert(); err != nil {
+		return log.ErrorFE("error add all DNS dst UDP port 53: %w", err)
+	}
+	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolTCP).MatchTCP(iptables.WithMatchTCPDstPort(false, 53)).TargetAccept().Insert(); err != nil {
+		return log.ErrorFE("error add all DNS dst TCP port 53: %w", err)
+	}
+	if err = vpnCoexLegacyIn.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPSrcPort(false, 53)).TargetAccept().Insert(); err != nil {
+		return log.ErrorFE("error add all DNS src UDP port 53: %w", err)
+	}
 
+	// Now run the VPN coexistence logic - process the other detected VPNs that are relevant for iptables-legacy.
+	// For iptables-legacy helpers our chains must already exist - that's why we're running it at the end of doEnableLegacy().
+	// TODO: if processing VPN coexistence for multiple VPNs - run their helpers in parallel
+	otherVpnsLegacyMutex.Lock() // we need to make sure reDetectOtherVpnsLinux() is not running, and that we have exclusive access to OtherVpnsDetectedRelevantForIptablesLegacy
+	defer otherVpnsLegacyMutex.Unlock()
 	for otherVpnRelevantForLegacyName := range OtherVpnsDetectedRelevantForIptablesLegacy.Iterator().C {
 		if otherVpnLegacy, ok := otherVpnsByName[otherVpnRelevantForLegacyName]; !ok {
 			log.ErrorFE("error looking up detected other VPN '%s', skipping", otherVpnRelevantForLegacyName)

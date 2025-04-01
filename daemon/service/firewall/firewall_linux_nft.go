@@ -278,7 +278,9 @@ func implReregisterFirewallAtTopPriorityNft() (firewallReconfigured bool, retErr
 	go waitForTopFirewallPriAfterWeLostIt()
 
 	log.Debug("implReregisterFirewallAtTopPriorityNft - don't have top pri, need to reenable firewall")
-
+	if _, err := reDetectOtherVpnsLinux(true, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableNft() needs otherVpnsNftMutex
+		log.ErrorFE("error reDetectOtherVpnsLinux(true, true): %w", err) // and continue
+	}
 	if err := implReEnableNft(true); err != nil {
 		return true, log.ErrorFE("error in implReEnableNft: %w", err)
 	}
@@ -305,26 +307,11 @@ func implFirewallBackgroundMonitorNft() {
 	}
 	defer nftMonitor.Close()
 
-	var (
-		err                               error
-		runEnableCoexistenceWithOtherVpns = true
-		firewallReconfigured              bool
-	)
+	// if err := enableVpnCoexistenceLinuxNft(); err != nil { // Run VPN coexistence logic synchronously once on start of this func
+	// 	log.ErrorFE("error running enableVpnCoexistenceLinuxNft() on start of implFirewallBackgroundMonitorNft(): %w", err) // and continue
+	// }
 
 	for {
-		// Run VPN coexistence logic synchronously here, before processing nft events.
-		// The reason is that VPN coexistence logic generates nft events itself, so we want to:
-		//	- Run VPN coexistence logic first
-		//	- Process buffered nft events later - and, if needed, run implReEnableNft() hopefully only once
-		if runEnableCoexistenceWithOtherVpns {
-			if err := enableVpnCoexistenceLinuxNft(); err != nil {
-				log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
-			}
-			runEnableCoexistenceWithOtherVpns = false
-
-			// go onKillSwitchStateChangedCallback() // signal firewall status to UI
-		}
-
 		select {
 		case _ = <-stopMonitoringFirewallChangesNft:
 			log.Debug("implFirewallBackgroundMonitorNft exiting on stop signal")
@@ -354,10 +341,8 @@ func implFirewallBackgroundMonitorNft() {
 
 				switch change.Type {
 				case nftables.MonitorEventTypeNewRule:
-					if firewallReconfigured, err = implReregisterFirewallAtTopPriorityNft(); err != nil {
+					if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil {
 						log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
-					} else if firewallReconfigured {
-						runEnableCoexistenceWithOtherVpns = true
 					}
 
 				case nftables.MonitorEventTypeDelRule:
@@ -365,10 +350,8 @@ func implFirewallBackgroundMonitorNft() {
 					verdict, _ := gotRule.Exprs[0].(*expr.Verdict)
 					if reflect.TypeOf(gotRule.Exprs[0]) == reflect.TypeFor[*expr.Verdict]() && verdict.Kind == expr.VerdictJump &&
 						(verdict.Chain == VPN_COEXISTENCE_CHAIN_NFT_IN || verdict.Chain == VPN_COEXISTENCE_CHAIN_NFT_OUT) {
-						if firewallReconfigured, err = implReregisterFirewallAtTopPriorityNft(); err != nil {
+						if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
-						} else if firewallReconfigured {
-							runEnableCoexistenceWithOtherVpns = true
 						}
 					}
 
@@ -379,20 +362,16 @@ func implFirewallBackgroundMonitorNft() {
 					case "OUTPUT":
 					case VPN_COEXISTENCE_CHAIN_NFT_IN:
 					case VPN_COEXISTENCE_CHAIN_NFT_OUT:
-						if firewallReconfigured, err = implReregisterFirewallAtTopPriorityNft(); err != nil {
+						if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
-						} else if firewallReconfigured {
-							runEnableCoexistenceWithOtherVpns = true
 						}
 					}
 
 				case nftables.MonitorEventTypeDelTable:
 					gotTable := change.Data.(*nftables.Table)
 					if gotTable.Name == TABLE {
-						if firewallReconfigured, err = implReregisterFirewallAtTopPriorityNft(); err != nil {
+						if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
-						} else if firewallReconfigured {
-							runEnableCoexistenceWithOtherVpns = true
 						}
 					}
 				}
@@ -419,19 +398,34 @@ func implReEnableNft(fwLinuxNftablesMutexGrabbed bool) (retErr error) {
 
 	log.Debug("implReEnableNft")
 
-	if err := doDisableNft(true); err != nil {
-		log.ErrorFE("failed to disable nft firewall: %w", err) // and continue
-	}
+	var implReEnableNftTasks sync.WaitGroup
+	implReEnableNftTasks.Add(2)
 
-	if err := doEnableNft(true); err != nil {
-		return log.ErrorFE("failed to enable nft firewall: %w", err)
-	}
+	go func() { // run nftables-specific VPN coexistence logic in parallel with our usual nftables logic disable-enable
+		defer implReEnableNftTasks.Done()
+		if vpnCoexNftErr := enableVpnCoexistenceLinuxNft(); vpnCoexNftErr != nil {
+			retErr = log.ErrorFE("error enableVpnCoexistenceLinuxNft(): %w", vpnCoexNftErr)
+		}
+	}()
 
+	go func() { // our usual nftables logic disable-enable
+		defer implReEnableNftTasks.Done()
+		if err := doDisableNft(true); err != nil {
+			log.ErrorFE("failed to disable nft firewall: %w", err) // and continue
+		}
+
+		if err := doEnableNft(true, false); err != nil {
+			retErr = log.ErrorFE("failed to enable nft firewall: %w", err)
+		}
+	}()
+
+	implReEnableNftTasks.Wait()
 	//return doAddClientIPFilters(connectedClientInterfaceIP, connectedClientInterfaceIPv6)
-	return nil
+	return retErr
 }
 
-func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
+// doEnableNft - normally call it with enableNftVpnCoexistence=true, unless calling from one of the reenable functions
+func doEnableNft(fwLinuxNftablesMutexGrabbed, enableNftVpnCoexistence bool) (err error) {
 	if !fwLinuxNftablesMutexGrabbed {
 		fwLinuxNftablesMutex.Lock()
 		defer fwLinuxNftablesMutex.Unlock()
@@ -451,6 +445,17 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	// 	implFirewallBackgroundMonitorNftMutex.Lock() // wait for it to stop, lock its mutex till the end of doEnableNft()
 	// }
 	// defer implFirewallBackgroundMonitorNftMutex.Unlock() // release its mutex unconditionally at the end of doEnableNft()
+
+	var doEnableNftTasks sync.WaitGroup
+	if enableNftVpnCoexistence { // if requested to run enableVpnCoexistenceLinuxNft() - run it in parallel with our nft logic creation
+		doEnableNftTasks.Add(1)
+		go func() {
+			defer doEnableNftTasks.Done()
+			if vpnCoexNftErr := enableVpnCoexistenceLinuxNft(); vpnCoexNftErr != nil {
+				err = log.ErrorFE("error enableVpnCoexistenceLinuxNft(): %w", vpnCoexNftErr)
+			}
+		}()
+	}
 
 	if exitCode, err := shell.ExecGetExitCode(nil, platform.FirewallScript(), "start"); err != nil {
 		return log.ErrorFE("error initializing firewall script: %w", err)
@@ -606,15 +611,60 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 		},
 	})
 
-	// Allow UDP src port 53 from our DNS servers, incl. custom DNS
-	nftConn.AddRule(&nftables.Rule{ // in UDP, src port 53
+	/*
+		// Allow UDP src port 53 from our DNS servers, incl. custom DNS
+		nftConn.AddRule(&nftables.Rule{ // in UDP, src port 53
+			Table: filter,
+			Chain: vpnCoexistenceChainIn,
+			Exprs: []expr.Any{
+				// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
+				&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4},
+				// [ lookup reg 1, set DNS servers whitelist ]
+				&expr.Lookup{SourceRegister: 1, SetName: privatelineDnsAddrsIPv4.Name, SetID: privatelineDnsAddrsIPv4.ID},
+				// [ meta load l4proto => reg 2 ]
+				&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
+				// [ cmp eq reg 2 UDP ]
+				&expr.Cmp{Op: expr.CmpOpEq, Register: 2, Data: []byte{unix.IPPROTO_UDP}},
+				// [ src port: payload load 2b @ transport header + 0 => reg 3 ]
+				&expr.Payload{DestRegister: 3, Base: expr.PayloadBaseTransportHeader, Offset: 0, Len: 2},
+				&expr.Cmp{Op: expr.CmpOpEq, Register: 3, Data: binaryutil.BigEndian.PutUint16(53)},
+				&expr.Counter{},
+				//[ immediate reg 0 accept ]
+				&expr.Verdict{Kind: expr.VerdictAccept},
+			},
+		})
+
+		// Allow TCP+UDP dst port 53 to our DNS servers, incl. custom DNS
+		nftConn.AddRule(&nftables.Rule{ // out TCP+UDP, dst port 53
+			Table: filter,
+			Chain: vpnCoexistenceChainOut,
+			Exprs: []expr.Any{
+				// [ dest IP: payload load 4b @ network header + 16 => reg 1 ]
+				&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 16, Len: 4},
+				// [ lookup reg 1, set DNS servers whitelist ]
+				&expr.Lookup{SourceRegister: 1, SetName: privatelineDnsAddrsIPv4.Name, SetID: privatelineDnsAddrsIPv4.ID},
+				// [ meta load l4proto => reg 2 ]
+				&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
+				// [ lookup reg 2, set tcpAndUdp whitelist ]
+				&expr.Lookup{SourceRegister: 2, SetName: tcpAndUdp.Name, SetID: tcpAndUdp.ID},
+				// [ dst port: payload load 2b @ transport header + 2 => reg 3 ]
+				&expr.Payload{DestRegister: 3, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2},
+				&expr.Cmp{Op: expr.CmpOpEq, Register: 3, Data: binaryutil.BigEndian.PutUint16(53)},
+				&expr.Counter{},
+				//[ immediate reg 0 accept ]
+				&expr.Verdict{Kind: expr.VerdictAccept},
+			},
+		})
+	*/
+
+	// Allow all DNS - tentative workaround for ExpressVPN, but applying it generally for now.
+	// TODO FIXME: allow only until login (SessionNew) is done
+
+	// Allow UDP src port 53 from any IP
+	nftConn.InsertRule(&nftables.Rule{ // in UDP, src port 53
 		Table: filter,
 		Chain: vpnCoexistenceChainIn,
 		Exprs: []expr.Any{
-			// [ src IP: payload load 4b @ network header + 12 => reg 1 ]
-			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 12, Len: 4},
-			// [ lookup reg 1, set DNS servers whitelist ]
-			&expr.Lookup{SourceRegister: 1, SetName: privatelineDnsAddrsIPv4.Name, SetID: privatelineDnsAddrsIPv4.ID},
 			// [ meta load l4proto => reg 2 ]
 			&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
 			// [ cmp eq reg 2 UDP ]
@@ -628,15 +678,11 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 		},
 	})
 
-	// Allow TCP+UDP dst port 53 to our DNS servers, incl. custom DNS
-	nftConn.AddRule(&nftables.Rule{ // out TCP+UDP, dst port 53
+	// Allow TCP+UDP dst port 53 to any IP
+	nftConn.InsertRule(&nftables.Rule{ // out TCP+UDP, dst port 53
 		Table: filter,
 		Chain: vpnCoexistenceChainOut,
 		Exprs: []expr.Any{
-			// [ dest IP: payload load 4b @ network header + 16 => reg 1 ]
-			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 16, Len: 4},
-			// [ lookup reg 1, set DNS servers whitelist ]
-			&expr.Lookup{SourceRegister: 1, SetName: privatelineDnsAddrsIPv4.Name, SetID: privatelineDnsAddrsIPv4.ID},
 			// [ meta load l4proto => reg 2 ]
 			&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 2},
 			// [ lookup reg 2, set tcpAndUdp whitelist ]
@@ -875,6 +921,7 @@ func doEnableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 	// Here we should restore all exceptions (all hosts which are allowed)
 	// return reApplyExceptions() // TODO FIXME: Vlad - refactor
 
+	doEnableNftTasks.Wait()
 	return err
 }
 

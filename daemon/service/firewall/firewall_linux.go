@@ -199,6 +199,10 @@ func implReEnable() (retErr error) {
 		errNft, errLegacy  error
 	)
 
+	if _, err := reDetectOtherVpnsLinux(false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before reenable logic
+		log.ErrorFE("error reDetectOtherVpnsLinux(false, true): %w", err) // and continue
+	}
+
 	implReEnableWaiter.Add(2)
 	go func() { errLegacy = implReEnableLegacy(false); implReEnableWaiter.Done() }()
 	go func() { errNft = implReEnableNft(false); implReEnableWaiter.Done() }()
@@ -254,8 +258,11 @@ func implSetEnabled(isEnabled, _ bool) error {
 
 	implSetEnabledWaiter.Add(2)
 	if isEnabled {
+		if _, err := reDetectOtherVpnsLinux(false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before enable logic
+			log.ErrorFE("error reDetectOtherVpnsLinux(false, true): %w", err) // and continue
+		}
 		go func() { errLegacy = doEnableLegacy(false); implSetEnabledWaiter.Done() }()
-		go func() { errNft = doEnableNft(false); implSetEnabledWaiter.Done() }()
+		go func() { errNft = doEnableNft(false, true); implSetEnabledWaiter.Done() }()
 	} else {
 		go func() { errLegacy = doDisableLegacy(false); implSetEnabledWaiter.Done() }()
 		go func() { errNft = doDisableNft(false); implSetEnabledWaiter.Done() }()

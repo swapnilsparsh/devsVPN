@@ -42,7 +42,7 @@ type otherVpnCliCmds struct {
 }
 
 type otherVpnCoexistenceLegacyHelper func() (err error)
-type otherVpnCoexistenceNftHelper func(otherVpnName string) (err error)
+type otherVpnCoexistenceNftHelper func() (err error)
 
 // Contains all the information about another VPN that we need to configure interoperability
 type OtherVpnInfo struct {
@@ -62,6 +62,8 @@ type OtherVpnInfo struct {
 	iptablesLegacyHelper  otherVpnCoexistenceLegacyHelper // if changesIptablesLegacy=true, then iptablesLegacyHelper must be set to some func ptr
 
 	recommendedOurMTU int // MTU we set on our wgprivateline interface if other VPN is present
+
+	incompatWithTotalShieldWhenConnected bool // set to true if Total Shield cannot work when this VPN is connected (network interface is up)
 }
 
 func BestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
