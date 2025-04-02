@@ -252,7 +252,7 @@ export default {
       searchQuery: "",
       currentPage: 1,
       totalCount: 0,
-      itemsPerPage: 10,
+      itemsPerPage: 5,
       deviceListData: [],
       showDetails: {},
       debounceTimeout: null,
