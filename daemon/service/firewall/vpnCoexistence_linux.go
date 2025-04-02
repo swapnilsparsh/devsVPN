@@ -553,7 +553,7 @@ func enableVpnCoexistenceLinuxNft() (retErr error) {
 			continue
 		}
 
-		if otherVpnNftName == expressVpnName { // ExpressVPN is a special case, has a dedicated helper
+		if otherVpnNftName == expressVpnName { // ExpressVPN is a special case, it has a dedicated helper
 			enableVpnCoexistenceLinuxNftTasks.Add(1)
 			go func() {
 				defer enableVpnCoexistenceLinuxNftTasks.Done()
