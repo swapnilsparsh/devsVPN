@@ -252,7 +252,7 @@ export default {
       searchQuery: "",
       currentPage: 1,
       totalCount: 0,
-      itemsPerPage: 10,
+      itemsPerPage: 5,
       deviceListData: [],
       showDetails: {},
       debounceTimeout: null,
@@ -390,7 +390,7 @@ export default {
         sender.showMessageBox({
           type: "error",
           buttons: ["OK"],
-          message: "API Error",
+          message: "Error deleting device",
           detail: errorMessage,
         });
         // Refresh list after
@@ -438,7 +438,7 @@ export default {
           {
             type: "warning",
             buttons: ["OK", "Cancel"],
-            message: "Are you sure? You want to delete this device",
+            message: "Are you sure you want to delete this device?",
             detail: ``,
           },
           true
