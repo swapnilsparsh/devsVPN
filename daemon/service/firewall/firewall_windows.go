@@ -1545,3 +1545,7 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 func implGetFirewallBackgroundMonitors() []*FirewallBackgroundMonitor {
 	return []*FirewallBackgroundMonitor{}
 }
+
+func DisableCoexistenceWithOtherVpns() error {
+	return nil
+}
