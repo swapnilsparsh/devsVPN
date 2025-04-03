@@ -82,7 +82,7 @@ var (
 	clientLocalIPFilterIDs []uint64
 
 	_isEnabled                  bool
-	providerSublayerPersistence      = true
+	providerSublayerPersistence = true
 	isAllowLAN                  bool
 	isAllowLANMulticast         bool
 
@@ -1190,17 +1190,18 @@ func implTotalShieldApply(wfpTransactionAlreadyInProgress, totalShieldNewState b
 			} else {
 				manager.TransactionAbort() // abort WFP transaction
 
-			if r != nil {
-				log.Error("PANIC (recovered): ", r)
-				log.Error(string(debug.Stack()))
-				if e, ok := r.(error); ok {
-					err = e
-				} else {
-					err = errors.New(fmt.Sprint(r))
+				if r != nil {
+					log.Error("PANIC (recovered): ", r)
+					log.Error(string(debug.Stack()))
+					if e, ok := r.(error); ok {
+						retErr = e
+					} else {
+						retErr = errors.New(fmt.Sprint(r))
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	var filterDesc = "Total Shield block-all"
 	if totalShieldNewState {

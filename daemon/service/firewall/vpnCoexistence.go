@@ -60,11 +60,11 @@ type OtherVpnInfo struct {
 
 	isConnected bool
 
-	changesNftables bool
+	changesNftables bool // used on Linux
 	nftablesChain   string
 	nftablesHelper  otherVpnCoexistenceNftHelper
 
-	changesIptablesLegacy bool
+	changesIptablesLegacy bool // used on Linux
 	iptablesLegacyChain   string
 	iptablesLegacyHelper  otherVpnCoexistenceLegacyHelper // if changesIptablesLegacy=true, then iptablesLegacyHelper must be set to some func ptr
 

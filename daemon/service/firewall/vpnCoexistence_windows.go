@@ -40,7 +40,7 @@ var (
 
 	// blacklist of words that can't be brand name candidates
 	// Vlad - don't stop services whose name starts with "Wireguard", because we don't want to kill our own connection, lol
-	invalidServiceNamePrefixes mapset.Set[string] = mapset.NewSet[string]("microsoft", "windefend", "edge", "intel", "wireguard")
+	invalidServiceNamePrefixes mapset.Set[string] = mapset.NewSet("microsoft", "windefend", "edge", "intel", "wireguard")
 
 	// Windows service names to try always:
 
@@ -48,7 +48,7 @@ var (
 	// "Surfshark Service", "Surfshark WireGuard"
 
 	// Must keep both lists in sync. otherVpnDefaultServiceNamePrefixesToTry must contain literal words, not regular expressions.
-	otherVpnDefaultServiceNamePrefixesToTry mapset.Set[string] = mapset.NewSet[string]("mullvad", "expressvpn", "surfshark", "nord", "proton", "ivpn", "hideme",
+	otherVpnDefaultServiceNamePrefixesToTry mapset.Set[string] = mapset.NewSet("mullvad", "expressvpn", "surfshark", "nord", "proton", "ivpn", "hideme",
 		"mozillavpn", "windscribe", "ipvcallout", "ipvan", "cyberghost", "proton", "tunnelbear", "vypervpn", "vyprvpn", "turbovpn", "cloudflarewarp",
 		"urbanvpn", "eddieelevation", "hshld", "hotspotshield", "privateinternetaccess", "hola", "avg", "securevpn")
 	// (?i) for case-insensitive matching, regex matching group not closed in this string - must be closed where used
