@@ -392,6 +392,12 @@ func (s *Service) unInitialise(isLogout bool) error {
 		}
 	}
 
+	// Run or re-run VPN coexistence clean-up tasks, just in case
+	if err := firewall.DisableCoexistenceWithOtherVpns(); err != nil {
+		log.ErrorFE("error firewall.DisableCoexistenceWithOtherVpns(): %w", err)
+		updateRetErr(err)
+	}
+
 	// Disable Split Tunnel
 	if err := splittun.Reset(); err != nil {
 		err = log.ErrorFE("error splittun.Reset(): %w", err)
@@ -1318,6 +1324,10 @@ func (s *Service) disableTotalShieldAsync() {
 	defer disableTotalShieldAsyncMutex.Unlock()
 
 	prefs := s._preferences
+	if !prefs.IsTotalShieldOn { // if already disabled - nothing to do
+		return
+	}
+
 	prefs.IsTotalShieldOn = false
 	s.setPreferences(prefs)
 

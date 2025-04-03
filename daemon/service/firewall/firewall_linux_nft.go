@@ -291,6 +291,17 @@ func implReregisterFirewallAtTopPriorityNft() (firewallReconfigured bool, retErr
 	return true, nil
 }
 
+func disableTotalShieldBecauseOfMullvadHelper(changeTable *nftables.Table) {
+	if !getPrefsCallback().IsTotalShieldOn { // if Total Shield off - nothing to do
+		return
+	}
+
+	if changeTable.Name == "mullvad" && changeTable.Family == nftables.TableFamilyINet {
+		log.Warning("Other VPN 'Mullvad' is connected/connecting - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
+		go disableTotalShieldAsyncCallback()
+	}
+}
+
 // implFirewallBackgroundMonitorNft runs as a background thread, listens for nftable change events.
 // If events are relevant - it checks whether we have top firewall priority. If don't have top pri - it recreates our firewall objects.
 // To stop this thread - send to stopMonitoringFirewallChanges chan.
@@ -341,6 +352,9 @@ func implFirewallBackgroundMonitorNft() {
 
 				switch change.Type {
 				case nftables.MonitorEventTypeNewRule:
+					gotRule := change.Data.(*nftables.Rule)
+					disableTotalShieldBecauseOfMullvadHelper(gotRule.Table) // when Mullvad is connecting/connected - need to disable Total Shield
+
 					if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil {
 						log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
 					}
@@ -374,6 +388,9 @@ func implFirewallBackgroundMonitorNft() {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
 						}
 					}
+
+				case nftables.MonitorEventTypeNewTable:
+					disableTotalShieldBecauseOfMullvadHelper(change.Data.(*nftables.Table)) // when Mullvad is connecting/connected - need to disable Total Shield
 				}
 			}
 		}

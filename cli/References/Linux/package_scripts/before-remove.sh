@@ -8,7 +8,6 @@ if [ "$1" = "remove" -o "$1" = "0" ]; then
   _IS_REMOVE=1
 fi
 
-
 # Erasing Split Tunnel leftovers
 # (we can not do it in 'after-remove' script, because it is executed after package/files removal)
 #echo "[+] Trying to erase Firewall rules ..."
@@ -18,6 +17,9 @@ fi
 #  /opt/privateline-connect/etc/firewall.sh -only_dns_off >/dev/null 2>&1 && echo "OK" || echo "NOK"
 #fi
 
+echo "[+] Trying to disconnect (before-remove) ..."
+/usr/bin/privateline-connect-cli disconnect || echo "[-] Failed to disconnect"
+
 if [ $_IS_REMOVE = 1 ]; then
 	# Vlad: firewall command disabled in CLI
     #echo "[+] Disabling firewall persistency (before-remove) ..."
@@ -26,6 +28,7 @@ if [ $_IS_REMOVE = 1 ]; then
     #echo "[+] Disabling firewall (before-remove) ..."
     #/usr/bin/privateline-connect-cli firewall -off || echo "[-] Failed to disable firewall"
 
+	# CLI required VPN to be disconnected, or else it won't allow the logout command
     echo "[+] Logging out (before-remove) ..."
     yes | /usr/bin/privateline-connect-cli logout || echo "[-] Failed to log out"
 
@@ -33,9 +36,6 @@ if [ $_IS_REMOVE = 1 ]; then
 	  printf "    * /opt/privateline-connect/etc/firewall-helper.sh uninstall    : "
 	  /opt/privateline-connect/etc/firewall-helper.sh uninstall >/dev/null 2>&1         && echo "OK" || echo "NOK"
 	fi
-else
-	echo "[+] Trying to disconnect (before-remove) ..."
-	/usr/bin/privateline-connect-cli disconnect || echo "[-] Failed to disconnect"
 fi
 
 echo "[+] Trying to delete wgprivateline interface manually, just in case ..."

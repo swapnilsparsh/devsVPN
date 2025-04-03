@@ -34,7 +34,7 @@ type otherVpnCliCmds struct {
 	cmdEnableSplitTun                          []string
 	cmdAddOurBinaryPathToSplitTunWhitelist     []string
 	cmdAddOurBinaryPidToSplitTunWhitelist      []string // used for Mullvad on Linux
-	cmdRemoveOurBinaryPidFromSplitTunWhitelist []string // used for Mullvad on Linux
+	cmdDeleteOurBinaryPidFromSplitTunWhitelist []string // used for Mullvad on Linux
 
 	// i.e., ExpressVPN CLI cmd to add our app to splittunnel bypass: expressvpnctl set split-app bypass:/usr/bin/privateline-connect-svc
 	// so the add prefix for it would be "bypass:"

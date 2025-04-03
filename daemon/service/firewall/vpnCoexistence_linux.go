@@ -134,7 +134,7 @@ var (
 		changesNftables: true,
 		nftablesHelper:  mullvadNftablesHelper,
 
-		//incompatWithTotalShieldWhenConnected: true, // FIXME: TBD
+		incompatWithTotalShieldWhenConnected: true,
 
 		cli: "mullvad", // will be checked whether it's in PATH
 		cliCmds: otherVpnCliCmds{
@@ -144,7 +144,7 @@ var (
 			statusDisconnectedRE:    "^Disconnected([^a-zA-Z0-9]|$)",
 
 			cmdAddOurBinaryPidToSplitTunWhitelist:      []string{"split-tunnel", "add"},
-			cmdRemoveOurBinaryPidFromSplitTunWhitelist: []string{"split-tunnel", "remove"},
+			cmdDeleteOurBinaryPidFromSplitTunWhitelist: []string{"split-tunnel", "delete"},
 		},
 	}
 
@@ -267,7 +267,7 @@ func commonNftablesHelper(otherVpnName string) (err error) { // logic common to 
 
 	if otherVpnConnected, err := otherVpn.CheckVpnConnected(); err != nil {
 		return log.ErrorFE("error otherVpn.CheckVpnConnected(): %w", err)
-	} else if otherVpnConnected && otherVpn.incompatWithTotalShieldWhenConnected {
+	} else if otherVpnConnected && getPrefsCallback().IsTotalShieldOn && otherVpn.incompatWithTotalShieldWhenConnected {
 		log.Warning("When other VPN '", otherVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
 		go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
 	}
@@ -325,16 +325,46 @@ func mullvadNftablesHelper() (err error) {
 		mullvadCli = mullvad.cli
 	}
 
-	// add our daemon PID to Mullvad split tunnel PID whitelist
+	// mullvad lockdown-mode set off
+	if retErr := shell.Exec(log, mullvadCli, []string{"lockdown-mode", "set", "off"}...); retErr != nil {
+		log.ErrorFE("error disabling lockdown in other VPN '%s': %w", mullvad.name, retErr) // and continue
+	}
+
+	// mullvad lan set allow
+	if retErr := shell.Exec(log, mullvadCli, []string{"lan", "set", "allow"}...); retErr != nil {
+		log.ErrorFE("error enabling LAN (local area network sharing) in other VPN '%s': %w", mullvad.name, retErr) // and continue
+	}
+
+	otherVpnCommandsToUndo := otherVpnCommandsToUndoMap{}
+
+	// if PL is CONNECTED, then configure Mullvad to use our DNS servers
+	// mullvad dns set custom 10.0.19.2 10.0.20.2
+	mullvadDnsSetDefault := []string{"dns", "set", "default"}
+	if vpnConnectedCallback() {
+		prefs := getPrefsCallback()
+		mullvadDnsSetCustomCmd := []string{"dns", "set", "custom"}
+		for plDnsSrv := range prefs.AllDnsServersIPv4Set.Iterator().C {
+			mullvadDnsSetCustomCmd = append(mullvadDnsSetCustomCmd, plDnsSrv)
+		}
+		if retErr := shell.Exec(log, mullvadCli, mullvadDnsSetCustomCmd...); retErr != nil {
+			log.ErrorFE("error adding privateLINE DNS servers as custom servers to other VPN '%s': %w", mullvad.name, retErr) // and continue
+		} else { // and, if successful - queue to run on disabling VPN coex:	mullvad dns set default
+			otherVpnCommandsToUndo["mullvadDnsSetDefault"] = &otherVpnUndoCompatCommand{cliPath: mullvadCli, fullArgs: &mullvadDnsSetDefault}
+		}
+	} else { // in case we had leftover custom DNS config at Mullvad - reset their DNS to defaults
+		if retErr := shell.Exec(log, mullvadCli, mullvadDnsSetDefault...); retErr != nil {
+			log.ErrorFE("error resetting the other VPN '%s' DNS settings to defaults: %w", mullvad.name, retErr) // and continue
+		}
+	}
+
+	// add our daemon PID to Mullvad split tunnel PID whitelist:	mullvad split-tunnel add <pid>
 	daemonPid := strconv.Itoa(os.Getpid())
 	cmdWhitelistOurDaemonPid := append(mullvad.cliCmds.cmdAddOurBinaryPidToSplitTunWhitelist, daemonPid)
 	if retErr := shell.Exec(log, mullvadCli, cmdWhitelistOurDaemonPid...); retErr != nil {
 		log.ErrorFE("error adding privateline-connect-svc PID '%s' to Split Tunnel PID whitelist in other VPN '%s': %w", daemonPid, mullvad.name, retErr) // and continue
 	} else { // if successful - queue inverse command, to remove our PID from the whitelist when disabling our VPN coexistence logic
-		otherVpnCommandsToUndo := otherVpnCommandsToUndoMap{}
-		otherVpnFullArgs := append(mullvad.cliCmds.cmdRemoveOurBinaryPidFromSplitTunWhitelist, daemonPid)
-		otherVpnCommandsToUndo[daemonPid] = &otherVpnUndoCompatCommand{cliPath: mullvadCli, fullArgs: &otherVpnFullArgs}
-		otherVpnsToUndo[mullvadName] = &otherVpnCommandsToUndo // add this VPN to undo list
+		mullvadRemoveDaemonPid := append(mullvad.cliCmds.cmdDeleteOurBinaryPidFromSplitTunWhitelist, daemonPid)
+		otherVpnCommandsToUndo[daemonPid] = &otherVpnUndoCompatCommand{cliPath: mullvadCli, fullArgs: &mullvadRemoveDaemonPid}
 	}
 
 	// TODO FIXME: do we need?
@@ -342,6 +372,8 @@ func mullvadNftablesHelper() (err error) {
 	//		- "mullvad dns set"
 	// 		- "mullvad lan set"
 	//		- "mullvad export-settings", munge them, "mullvad import-settings"
+
+	otherVpnsToUndo[mullvadName] = &otherVpnCommandsToUndo // add this VPN to undo list
 
 	return nil
 }
@@ -466,7 +498,7 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 			if _, err := netlink.LinkByName(otherVpnInterfaceName); err == nil {
 				log.Info("Other VPN '", otherVpn.name, "' detected by active interface name: ", otherVpnInterfaceName)
 				otherVpn.isConnected = true
-				if !disabledTotalShield && otherVpn.incompatWithTotalShieldWhenConnected {
+				if getPrefsCallback().IsTotalShieldOn && !disabledTotalShield && otherVpn.incompatWithTotalShieldWhenConnected {
 					log.Warning("When other VPN '", otherVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
 					go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
 					disabledTotalShield = true
@@ -670,6 +702,8 @@ func enableVpnCoexistenceLinuxNft() (retErr error) {
 // Undo VPN compatibility steps per VPN.
 // TODO: if customers will have multiple other VPNs up, consider processing them in parallel?
 func DisableCoexistenceWithOtherVpns() (retErr error) {
+	// log.Debug("DisableCoexistenceWithOtherVpns waiting for mutexes")
+
 	otherVpnsNftMutex.Lock()
 	defer otherVpnsNftMutex.Unlock()
 	otherVpnsLegacyMutex.Lock()
