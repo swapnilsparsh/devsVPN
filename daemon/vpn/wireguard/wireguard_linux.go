@@ -89,7 +89,7 @@ func (wg *WireGuard) init() error {
 	wg.internals.resumeDisconnectChan = make(chan *operationRequest, 1)
 	wg.internals.mutex.Unlock()
 
-	// It can happen that ivpn-daemon was not correctly stopped during WireGuard connection
+	// It can happen that privateline-connect-svc was not correctly stopped during WireGuard connection
 	// (e.g. process was terminated)
 	// In such situation, the 'wgprivateline' keeps active.
 	// We should close it in this case. Otherwise, new connection would not be established
@@ -116,7 +116,7 @@ func (wg *WireGuard) getTunnelName() string {
 	return strings.TrimSuffix(filepath.Base(wg.configFilePath), filepath.Ext(wg.configFilePath))
 }
 
-// connect - SYNCHRONOUSLY execute openvpn process (wait until it finished)
+// connect - SYNCHRONOUSLY execute wireguard process (wait until it finished)
 func (wg *WireGuard) connect(stateChan chan<- vpn.StateInfo) error {
 	wg.internals.isRunning.Store(true)
 

@@ -60,7 +60,7 @@ var (
 
 	customDnsServers []net.IP
 
-	isPersistent bool // Firewall is persistent
+	isPersistent bool
 
 	// List of IP masks that are allowed for any communication
 	userExceptions []net.IPNet

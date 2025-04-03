@@ -83,7 +83,6 @@ var (
 
 	_isEnabled                  bool
 	providerSublayerPersistence      = true
-	isPersistent                bool = false
 	isAllowLAN                  bool
 	isAllowLANMulticast         bool
 

@@ -1312,7 +1312,11 @@ func (s *Service) Preferences() preferences.Preferences {
 }
 
 // fork it asynchronously only, because firewall.TotalShieldApply() needs to wait for a lot of mutexes
+var disableTotalShieldAsyncMutex sync.Mutex // single-instance function
 func (s *Service) disableTotalShieldAsync() {
+	disableTotalShieldAsyncMutex.Lock()
+	defer disableTotalShieldAsyncMutex.Unlock()
+
 	prefs := s._preferences
 	prefs.IsTotalShieldOn = false
 	s.setPreferences(prefs)

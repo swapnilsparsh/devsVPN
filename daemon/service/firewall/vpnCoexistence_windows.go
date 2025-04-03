@@ -27,8 +27,7 @@ import (
 type OtherVpnInfoParsed struct {
 	OtherVpnKnown bool // true - other VPN known from our DB, false - we guessed Windows service name from the other VPN sublayer name
 
-	otherVpnCliFound     bool
-	otherVpnWasConnected bool
+	otherVpnCliFound bool
 
 	scmgr                   *scmanager
 	servicesThatWereRunning []*mgr.Service // Windows services, that we know/think belong to the other VPN, that were running at the time of checking
@@ -67,13 +66,15 @@ var (
 		namePrefix:      "mullvad",
 		cliPathResolved: "ProgramFiles/Mullvad VPN/resources/mullvad.exe",
 		cliCmds: otherVpnCliCmds{
-			cmdStatus:                          "status",
-			statusConnectedRE:                  "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
-			statusDisconnectedRE:               "^Disconnected([^a-zA-Z0-9]|$)",
-			cmdEnableSplitTun:                  []string{"split-tunnel", "set", "on"},
-			cmdAddOurBinaryToSplitTunWhitelist: []string{"split-tunnel", "app", "add"},
-			cmdConnect:                         "connect",
-			cmdDisconnect:                      "disconnect",
+			cmdStatus:               "status",
+			checkCliConnectedStatus: false,
+			statusConnectedRE:       "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
+			statusDisconnectedRE:    "^Disconnected([^a-zA-Z0-9]|$)",
+
+			cmdEnableSplitTun:                      []string{"split-tunnel", "set", "on"},
+			cmdAddOurBinaryPathToSplitTunWhitelist: []string{"split-tunnel", "app", "add"},
+			cmdConnect:                             "connect",
+			cmdDisconnect:                          "disconnect",
 		},
 	}
 
@@ -85,13 +86,8 @@ var (
 		namePrefix: "nord",
 		//cliPathResolved:    "ProgramFiles/NordVPN/NordVPN.exe", // disabled for now, since we didn't find yet a programmatic way to check whether VPN is connected
 		cliCmds: otherVpnCliCmds{
-			cmdStatus:                          "",
-			statusConnectedRE:                  "",
-			statusDisconnectedRE:               "",
-			cmdEnableSplitTun:                  []string{},
-			cmdAddOurBinaryToSplitTunWhitelist: []string{},
-			cmdConnect:                         "--connect",
-			cmdDisconnect:                      "--disconnect",
+			cmdConnect:    "--connect",
+			cmdDisconnect: "--disconnect",
 		},
 	}
 
@@ -175,10 +171,10 @@ func lookupOtherVpnProvider(otherVpnProviderKey syscall.GUID, manager *winlib.Ma
 // (1) Try to find the other VPN in our DB via sublayer GUID, or sublayer name, or provider name. Also try to make use of provider.serviceName.
 // (2) Else look for Windows services whose names start with name prefix of any VPN known to us. Also try to make use of provider.serviceName.
 // (3) Else try the list of default service name prefixes, contanining common VPN name brand names.
-func ParseOtherVpnBySublayerGUID(otherSublayerFound bool, otherSublayer *winlib.SubLayer, manager *winlib.Manager) (otherVpn *OtherVpnInfoParsed /*, err error*/) {
+func ParseOtherVpnBySublayerGUID(otherSublayerFound bool, otherSublayer *winlib.SubLayer, manager *winlib.Manager) (otherVpnParsed *OtherVpnInfoParsed /*, err error*/) {
 	var (
 		err                                      error
-		otherVpnReadonly                         *OtherVpnInfo
+		otherVpn                                 *OtherVpnInfo
 		found                                    bool
 		otherVpnProvider                         winlib.ProviderInfo
 		otherVpnProviderFound                    bool
@@ -187,15 +183,15 @@ func ParseOtherVpnBySublayerGUID(otherSublayerFound bool, otherSublayer *winlib.
 		serviceNameRegex                         *regexp.Regexp
 	)
 
-	if otherVpnReadonly, found = otherVpnsBySublayerGUID[otherSublayer.Key]; found { // other VPN found by sublayer ID
-		otherVpnInfoParsed = &OtherVpnInfoParsed{true, false, false, nil, []*mgr.Service{}, *otherVpnReadonly}
+	if otherVpn, found = otherVpnsBySublayerGUID[otherSublayer.Key]; found { // other VPN found by sublayer ID
+		otherVpnInfoParsed = &OtherVpnInfoParsed{true, false, nil, []*mgr.Service{}, *otherVpn}
 		_, otherVpnProvider, providerName1stWord = lookupOtherVpnProvider(otherSublayer.ProviderKey, manager) // lookup the other VPN provider for its serviceName
 		goto ParseOtherVpn_CheckingStage1_serviceNameRegexPrep
 	}
 
 	if !otherSublayerFound { // if VPN is neither known by GUID, nor do we have sublayer (to try guessing by its name and/or its provider name) - we can only try default service names
 		log.Error(errors.New("other VPN '" + windows.GUID(otherSublayer.Key).String() + "' is not known to us"))
-		otherVpnInfoParsed = &OtherVpnInfoParsed{false, false, false, nil, []*mgr.Service{}, OtherVpnInfo{name: windows.GUID(otherSublayer.Key).String()}}
+		otherVpnInfoParsed = &OtherVpnInfoParsed{false, false, nil, []*mgr.Service{}, OtherVpnInfo{name: windows.GUID(otherSublayer.Key).String()}}
 		serviceNameRegex = otherVpnDefaultServiceNamePrefixesRE
 		goto ParseOtherVpn_CheckingStage2_FindRunningMatchingServices
 	}
@@ -205,19 +201,19 @@ func ParseOtherVpnBySublayerGUID(otherSublayerFound bool, otherSublayer *winlib.
 	for _, otherVpnReadonly := range otherVpnsBySublayerGUID { // try matching the name of sublayer or provider to name prefix of other VPNs in our DB
 		if strings.HasPrefix(strings.ToLower(otherSublayer.Name), otherVpnReadonly.namePrefix) ||
 			(otherVpnProviderFound && strings.HasPrefix(strings.ToLower(otherVpnProvider.Name), otherVpnReadonly.namePrefix)) {
-			otherVpnInfoParsed = &OtherVpnInfoParsed{true, false, false, nil, []*mgr.Service{}, *otherVpnReadonly}
+			otherVpnInfoParsed = &OtherVpnInfoParsed{true, false, nil, []*mgr.Service{}, *otherVpnReadonly}
 			goto ParseOtherVpn_CheckingStage1_serviceNameRegexPrep
 		}
 	}
 
 	// ok, by now we haven't found the other VPN in our DB - will try to match Windows services by 1st word of sublayer name and/or provider name of the other VPN
 	sublayerName1stWord = parseFirstWordOfAName(otherSublayer.Name, "sublayer")
-	otherVpnInfoParsed = &OtherVpnInfoParsed{false, false, false, nil, []*mgr.Service{}, OtherVpnInfo{name: otherSublayer.Name}}
+	otherVpnInfoParsed = &OtherVpnInfoParsed{false, false, nil, []*mgr.Service{}, OtherVpnInfo{name: otherSublayer.Name}}
 
 ParseOtherVpn_CheckingStage1_serviceNameRegexPrep:
 	if otherVpnInfoParsed.OtherVpnKnown { // other VPN profile known from DB, so match service names only by other VPN name prefix and provider.serviceName
-		if serviceNameRegex, err = regexp.Compile("(?i)^" + otherVpnReadonly.namePrefix); err != nil { // (?i) for case-insensitive matching
-			log.ErrorFE("error compiling regular expression from other VPN name prefix '%s': %w", otherVpnReadonly.namePrefix, err)
+		if serviceNameRegex, err = regexp.Compile("(?i)^" + otherVpn.namePrefix); err != nil { // (?i) for case-insensitive matching
+			log.ErrorFE("error compiling regular expression from other VPN name prefix '%s': %w", otherVpn.namePrefix, err)
 			goto ParseOtherVpn_CheckingStage3_processCLI
 		}
 	} else { // Other VPN not in our DB, so try matching the Windows service names against the list of default service name prefixes
@@ -257,28 +253,9 @@ ParseOtherVpn_CheckingStage3_processCLI:
 	}
 
 	// check whether other VPN was connected
-	otherVpnWasConnectedRegex := regexp.MustCompile(otherVpnInfoParsed.cliCmds.statusConnectedRE)
-
-	const maxErrBufSize int = 1024
-	strErr := strings.Builder{}
-	outProcessFunc := func(text string, isError bool) {
-		if len(text) == 0 {
-			return
-		}
-		if isError {
-			if strErr.Len() > maxErrBufSize {
-				return
-			}
-			strErr.WriteString(text)
-		} else {
-			if otherVpnWasConnectedRegex.MatchString(text) {
-				otherVpnInfoParsed.otherVpnWasConnected = true
-			}
-		}
-	}
-
-	if err = shell.ExecAndProcessOutput(log, outProcessFunc, "", otherVpnInfoParsed.cliPathResolved, otherVpnInfoParsed.cliCmds.cmdStatus); err != nil {
-		log.ErrorFE("error matching '%s': %s", otherVpnInfoParsed.cliCmds.statusConnectedRE, strErr.String())
+	if _, err := otherVpn.CheckVpnConnected(); err != nil {
+		log.ErrorFE("error otherVpn.CheckVpnConnected(): %w", err)
+		return otherVpnInfoParsed
 	}
 
 	return otherVpnInfoParsed /*, nil*/
@@ -356,7 +333,7 @@ func (otherVpn *OtherVpnInfoParsed) PostSteps() {
 		}
 
 		for _, svcExe := range platform.PLServiceBinariesForFirewallToUnblock() {
-			cmdWhitelistOurSvcExe := append(otherVpn.cliCmds.cmdAddOurBinaryToSplitTunWhitelist, svcExe)
+			cmdWhitelistOurSvcExe := append(otherVpn.cliCmds.cmdAddOurBinaryPathToSplitTunWhitelist, svcExe)
 			if retErr := shell.Exec(log, otherVpn.cliPathResolved, cmdWhitelistOurSvcExe...); retErr != nil {
 				log.ErrorFE("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, otherVpn.name, retErr) // and continue
 			}

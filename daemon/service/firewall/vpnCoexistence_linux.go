@@ -5,8 +5,9 @@ package firewall
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
-	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -92,8 +93,9 @@ var (
 		cli:                                  "surfshark", // will be checked whether it's in PATH
 	}
 
-	// ExpressVPN. It always has interface name "tun0", it's non-descriptive, so not indexing it by interface name.
-	expressVpnName    = "ExpressVPN"
+	// ExpressVPN
+	expressVpnName = "ExpressVPN"
+	//expressVpnInterfaceNameTun = "tun0" // It always has interface name "tun0", it's too generic, so not indexing it by this interface name.
 	expressVpnProfile = OtherVpnInfo{
 		name:       expressVpnName,
 		namePrefix: "expressvpn",
@@ -107,23 +109,54 @@ var (
 
 		cli: "expressvpnctl", // will be checked whether it's in PATH
 		cliCmds: otherVpnCliCmds{
+			cmdStatus:               "status",
+			checkCliConnectedStatus: true,
+			statusConnectedRE:       "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
+			statusDisconnectedRE:    "^Disconnected([^a-zA-Z0-9]|$)",
+
 			cmdEnableSplitTun:                       []string{"set", "splittunnel", "true"},
-			cmdAddOurBinaryToSplitTunWhitelist:      []string{"set", "split-app"},
+			cmdAddOurBinaryPathToSplitTunWhitelist:  []string{"set", "split-app"},
 			cmdSplitTunnelOurBinaryPathPrefixAdd:    "bypass:",
 			cmdSplitTunnelOurBinaryPathPrefixRemove: "remove:", // TODO: unused for now
-
-			cmdStatus:            "status",
-			parseStatus:          true,
-			statusConnectedRE:    "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
-			statusDisconnectedRE: "^Disconnected([^a-zA-Z0-9]|$)",
 		},
 	}
+
+	// Mullvad
+	mullvadName = "Mullvad"
+	// TODO: merge Windows and Linux Mullvad profiles?
+	mullvadInterfaceNameWg = "wg0-mullvad" // When it uses Wireguard
+	//mullvadInterfaceNameTun = "tun0"        // When it uses OpenVPN, TCP or UDP. Interface name "tun0" is too generic, so not indexing it by this interface name.
+	mullvadProfile = OtherVpnInfo{
+		name:              mullvadName,
+		namePrefix:        "mullvad",
+		recommendedOurMTU: 1200, // = 1280 (safe Mullvad setting) - 80 (Wireguard IPv6 header overhead)
+
+		changesNftables: true,
+		nftablesHelper:  mullvadNftablesHelper,
+
+		//incompatWithTotalShieldWhenConnected: true, // FIXME: TBD
+
+		cli: "mullvad", // will be checked whether it's in PATH
+		cliCmds: otherVpnCliCmds{
+			cmdStatus:               "status",
+			checkCliConnectedStatus: true,
+			statusConnectedRE:       "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
+			statusDisconnectedRE:    "^Disconnected([^a-zA-Z0-9]|$)",
+
+			cmdAddOurBinaryPidToSplitTunWhitelist:      []string{"split-tunnel", "add"},
+			cmdRemoveOurBinaryPidFromSplitTunWhitelist: []string{"split-tunnel", "remove"},
+		},
+	}
+
+	// Must contain all the profiles for other VPNs
+	knownOtherVpnProfiles = []*OtherVpnInfo{&nordVpnProfile, &surfsharkProfile, &expressVpnProfile, &mullvadProfile}
 
 	// Index (DB) of other VPNs by their network interface names
 	otherVpnsByInterfaceName = map[string]*OtherVpnInfo{
 		nordVpnInterfaceName:      &nordVpnProfile,
 		surfsharkInterfaceNameWg:  &surfsharkProfile,
 		surfsharkInterfaceNameTun: &surfsharkProfile,
+		mullvadInterfaceNameWg:    &mullvadProfile,
 	}
 
 	// Index (DB) of other VPNs by their CLI command (to detect them by CLI present in PATH)
@@ -131,6 +164,7 @@ var (
 		nordVpnProfile.cli:    &nordVpnProfile,
 		expressVpnProfile.cli: &expressVpnProfile,
 		surfsharkProfile.cli:  &surfsharkProfile,
+		mullvadProfile.cli:    &mullvadProfile,
 	}
 
 	// Index (DB) of other VPNs by the name of their nftables chain in the table filter (for those that have one)
@@ -151,19 +185,10 @@ var (
 
 func init() {
 	// Index (DB) of other VPNs by name, must be initialized in init() to avoid initialization cycles.
-	otherVpnsByName[nordVpnProfile.name] = &nordVpnProfile
-	otherVpnsByName[surfsharkProfile.name] = &surfsharkProfile
-	otherVpnsByName[expressVpnProfile.name] = &expressVpnProfile
+	for _, otherVpn := range knownOtherVpnProfiles {
+		otherVpnsByName[otherVpn.name] = otherVpn
+	}
 }
-
-// func OtherVpnByInterfaceName(otherVpnInterfaceName string) (otherVpn *OtherVpnInfo) {
-// 	_otherVpn, ok := otherVpnsByInterfaceName[otherVpnInterfaceName]
-// 	if ok {
-// 		return _otherVpn
-// 	} else {
-// 		return nil
-// 	}
-// }
 
 // ---------------- per-VPN helpers for iptables-legacy ----------------
 // By the time the per-VPN helpers for iptables-legacy get called, our chains must already exist. So these helpers are called at the end of doEnableLegacy().
@@ -183,7 +208,7 @@ func surfsharkLegacyHelper() (err error) {
 	vpnCoexLegacyOut := filterLegacy.Chain(vpnCoexLegacyOutDef)
 
 	// // allow all DNS - applying it generally in doEnableLegacy() for now
-	// // TODO FIXME: allow only until login (SessionNew) is done
+	// // TODO: allow only until login (SessionNew) is done
 	// if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPDstPort(false, 53)).TargetAccept().Insert(); err != nil {
 	// 	return log.ErrorFE("error add all DNS dst UDP port 53: %w", err)
 	// }
@@ -230,7 +255,27 @@ func surfsharkLegacyHelper() (err error) {
 
 // ---------------- per-VPN helpers for nftables -----------------------
 
-// expressVpnNftablesHelper has a dedicated helper, because it needs to append prefixes to our binary paths
+// commonNftablesHelper - logic common to all nftables helpers. Can be run in parallel with VPN-specific helpers.
+func commonNftablesHelper(otherVpnName string) (err error) { // logic common to all nftables helpers
+	log.Debug("commonNftablesHelper entered for VPN: ", otherVpnName)
+	defer log.Debug("commonNftablesHelper exited for VPN: ", otherVpnName)
+
+	otherVpn, ok := otherVpnsByName[otherVpnName]
+	if !ok {
+		return log.ErrorFE("error looking up other VPN by its name '%s'", otherVpnName)
+	}
+
+	if otherVpnConnected, err := otherVpn.CheckVpnConnected(); err != nil {
+		return log.ErrorFE("error otherVpn.CheckVpnConnected(): %w", err)
+	} else if otherVpnConnected && otherVpn.incompatWithTotalShieldWhenConnected {
+		log.Warning("When other VPN '", otherVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
+		go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
+	}
+
+	return nil
+}
+
+// ExpressVPN has a dedicated helper, because it needs to append prefixes to our binary paths
 func expressVpnNftablesHelper() (err error) {
 	log.Debug("expressVpnNftablesHelper entered")
 	defer log.Debug("expressVpnNftablesHelper exited")
@@ -254,43 +299,49 @@ func expressVpnNftablesHelper() (err error) {
 
 	// add our binaries to ExpressVPN split tunnel bypass list; TODO: implement removing them on uninstallation
 	for _, svcExe := range platform.PLServiceBinariesForFirewallToUnblock() {
-		cmdWhitelistOurSvcExe := append(expressVpn.cliCmds.cmdAddOurBinaryToSplitTunWhitelist, expressVpn.cliCmds.cmdSplitTunnelOurBinaryPathPrefixAdd+svcExe)
+		cmdWhitelistOurSvcExe := append(expressVpn.cliCmds.cmdAddOurBinaryPathToSplitTunWhitelist, expressVpn.cliCmds.cmdSplitTunnelOurBinaryPathPrefixAdd+svcExe)
 		if retErr := shell.Exec(log, expressVpnCli, cmdWhitelistOurSvcExe...); retErr != nil {
 			log.ErrorFE("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, expressVpn.name, retErr) // and continue
 		}
 	}
 
-	// TODO FIXME: Vlad - extract this logic into a common-denominator parser
-	// check whether other VPN was connected
-	otherVpnWasConnectedRegex := regexp.MustCompile(expressVpn.cliCmds.statusConnectedRE)
-	expressVpn.statusConnected = false
+	return nil
+}
 
-	const maxErrBufSize int = 1024
-	strErr := strings.Builder{}
-	outProcessFunc := func(text string, isError bool) {
-		if len(text) == 0 {
-			return
-		}
-		if isError {
-			if strErr.Len() > maxErrBufSize {
-				return
-			}
-			strErr.WriteString(text)
-		} else {
-			if otherVpnWasConnectedRegex.MatchString(text) {
-				expressVpn.statusConnected = true
-			}
-		}
+// mullvadNftablesHelper is a dedicated helper for Mullvad
+func mullvadNftablesHelper() (err error) {
+	log.Debug("mullvadVpnNftablesHelper entered")
+	defer log.Debug("mullvadNftablesHelper exited")
+
+	mullvad, ok := otherVpnsByName[mullvadName]
+	if !ok {
+		return log.ErrorFE("error looking up other VPN by its name '%s'", mullvadName)
 	}
 
-	if err = shell.ExecAndProcessOutput(log, outProcessFunc, "", expressVpn.cliPathResolved, expressVpn.cliCmds.cmdStatus); err != nil {
-		log.ErrorFE("error matching '%s': %s", expressVpn.cliCmds.statusConnectedRE, strErr.String())
+	var mullvadCli string
+	if mullvad.cliPathResolved != "" {
+		mullvadCli = mullvad.cliPathResolved
+	} else {
+		mullvadCli = mullvad.cli
 	}
 
-	if expressVpn.statusConnected && expressVpn.incompatWithTotalShieldWhenConnected {
-		log.Warning("When other VPN '", expressVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
-		go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
+	// add our daemon PID to Mullvad split tunnel PID whitelist
+	daemonPid := strconv.Itoa(os.Getpid())
+	cmdWhitelistOurDaemonPid := append(mullvad.cliCmds.cmdAddOurBinaryPidToSplitTunWhitelist, daemonPid)
+	if retErr := shell.Exec(log, mullvadCli, cmdWhitelistOurDaemonPid...); retErr != nil {
+		log.ErrorFE("error adding privateline-connect-svc PID '%s' to Split Tunnel PID whitelist in other VPN '%s': %w", daemonPid, mullvad.name, retErr) // and continue
+	} else { // if successful - queue inverse command, to remove our PID from the whitelist when disabling our VPN coexistence logic
+		otherVpnCommandsToUndo := otherVpnCommandsToUndoMap{}
+		otherVpnFullArgs := append(mullvad.cliCmds.cmdRemoveOurBinaryPidFromSplitTunWhitelist, daemonPid)
+		otherVpnCommandsToUndo[daemonPid] = &otherVpnUndoCompatCommand{cliPath: mullvadCli, fullArgs: &otherVpnFullArgs}
+		otherVpnsToUndo[mullvadName] = &otherVpnCommandsToUndo // add this VPN to undo list
 	}
+
+	// TODO FIXME: do we need?
+	//		- to worry about explicitly whitelisting /opt/privateline-connect/wireguard-tools/wg* with Mullvad?
+	//		- "mullvad dns set"
+	// 		- "mullvad lan set"
+	//		- "mullvad export-settings", munge them, "mullvad import-settings"
 
 	return nil
 }
@@ -357,7 +408,7 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 		go func() { // detect other VPNs by whether their iptables-legacy chain is present
 			defer reDetectOtherVpnsWaiter.Done() // This thread tends to freeze on VPN disconnect. Console "iptables-legacy -L -nv" freezes, too.
 			log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - entered")
-			defer log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - exited")
+			defer log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - exited") // this one can hang for 2-3 minutes
 			for _, otherVpn := range otherVpnsByLegacyChain {
 				userDefinedLegacyChain := iptables.ChainTypeUserDefined
 				userDefinedLegacyChain.SetName(otherVpn.iptablesLegacyChain)
@@ -380,9 +431,9 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 	reDetectOtherVpnsWaiter.Add(3)
 
 	go func() { // detect other VPNs by whether their nftables chain is present in table filter
-		// log.Debug("reDetectOtherVpnsLinux nftables worker - entered")
-		defer log.Debug("reDetectOtherVpnsLinux nftables worker - exited")
 		defer reDetectOtherVpnsWaiter.Done()
+		// log.Debug("reDetectOtherVpnsLinux nftables worker - entered")
+		// defer log.Debug("reDetectOtherVpnsLinux nftables worker - exited")
 
 		if chains, err := nftConn.ListChainsOfTableFamily(TABLE_TYPE); err != nil {
 			log.ErrorFE("error listing chains: %w", err)
@@ -406,13 +457,15 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 	}()
 
 	go func() { // detect other VPNs by active network interface name
-		log.Debug("reDetectOtherVpnsLinux interface worker - entered")
-		defer log.Debug("reDetectOtherVpnsLinux interface worker - exited")
 		defer reDetectOtherVpnsWaiter.Done()
+		// log.Debug("reDetectOtherVpnsLinux interface worker - entered")
+		// defer log.Debug("reDetectOtherVpnsLinux interface worker - exited")
+
 		disabledTotalShield := false
 		for otherVpnInterfaceName, otherVpn := range otherVpnsByInterfaceName {
 			if _, err := netlink.LinkByName(otherVpnInterfaceName); err == nil {
 				log.Info("Other VPN '", otherVpn.name, "' detected by active interface name: ", otherVpnInterfaceName)
+				otherVpn.isConnected = true
 				if !disabledTotalShield && otherVpn.incompatWithTotalShieldWhenConnected {
 					log.Warning("When other VPN '", otherVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
 					go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
@@ -432,9 +485,10 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 	}()
 
 	go func() { // detect other VPNs by whether their CLI is in PATH
-		log.Debug("reDetectOtherVpnsLinux CLI worker - entered")
-		defer log.Debug("reDetectOtherVpnsLinux CLI worker - exited")
 		defer reDetectOtherVpnsWaiter.Done()
+		// log.Debug("reDetectOtherVpnsLinux CLI worker - entered")
+		// defer log.Debug("reDetectOtherVpnsLinux CLI worker - exited")
+
 		for _, otherVpn := range otherVpnsByCLI {
 			if otherVpnCliPath, err := exec.LookPath(otherVpn.cli); err != nil || otherVpnCliPath == "" {
 				// log.Debug(fmt.Errorf("CLI '%s' expected to be in PATH for other VPN '%s', but not found in PATH, ignoring. err=%w", otherVpn.cli, otherVpn.name, err))
@@ -553,12 +607,20 @@ func enableVpnCoexistenceLinuxNft() (retErr error) {
 			continue
 		}
 
-		if otherVpnNftName == expressVpnName { // ExpressVPN is a special case, it has a dedicated helper
+		enableVpnCoexistenceLinuxNftTasks.Add(1) // run commonNftablesHelper for this other VPN - logic common to all nftables-affecting other VPNs
+		go func() {
+			defer enableVpnCoexistenceLinuxNftTasks.Done()
+			if err := commonNftablesHelper(otherVpnNftName); err != nil {
+				retErr = log.ErrorFE("error commonNftablesHelper() for VPN '%s': %w", otherVpnNftName, err)
+			}
+		}()
+
+		if otherVpnNft.nftablesHelper != nil { // run specific helper for VPNs that have one registered
 			enableVpnCoexistenceLinuxNftTasks.Add(1)
 			go func() {
 				defer enableVpnCoexistenceLinuxNftTasks.Done()
-				if err := expressVpnNftablesHelper(); err != nil {
-					retErr = log.ErrorFE("error expressVpnNftablesHelper(): %w", err)
+				if err := otherVpnNft.nftablesHelper(); err != nil {
+					retErr = log.ErrorFE("error otherVpnNft.nftablesHelper() for VPN '%s': %w", otherVpnNftName, err)
 				}
 			}()
 		}
