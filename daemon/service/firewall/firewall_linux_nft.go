@@ -61,6 +61,8 @@ var (
 	implFirewallBackgroundMonitorNftMutex sync.Mutex // to ensure there's only one instance of implFirewallBackgroundMonitorNft function
 	// implDeployPostConnectionRulesNftMutex sync.Mutex // to ensure there's only one instance of implDeployPostConnectionRulesNft function
 
+	perVpnNftEventsHelperMutex sync.Mutex // mutex for helpers for particular VPNs
+
 	nftMonitor *nftables.Monitor
 	nftEvents  chan *nftables.MonitorEvents
 
@@ -291,13 +293,52 @@ func implReregisterFirewallAtTopPriorityNft() (firewallReconfigured bool, retErr
 	return true, nil
 }
 
-func disableTotalShieldBecauseOfMullvadHelper(changeTable *nftables.Table) {
+func mullvadNftEventsHelper(changeTable *nftables.Table) {
+	if changeTable.Name != "mullvad" || changeTable.Family != nftables.TableFamilyINet { // if not a Mullvad event - ignore
+		return
+	}
+
 	if !getPrefsCallback().IsTotalShieldOn { // if Total Shield off - nothing to do
 		return
 	}
 
-	if changeTable.Name == "mullvad" && changeTable.Family == nftables.TableFamilyINet {
-		log.Warning("Other VPN 'Mullvad' is connected/connecting - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
+	perVpnNftEventsHelperMutex.Lock()
+	defer perVpnNftEventsHelperMutex.Unlock()
+
+	if !getPrefsCallback().IsTotalShieldOn { // recheck after mutex
+		return
+	}
+
+	log.Warning("Other VPN 'Mullvad' is connected/connecting - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
+	go disableTotalShieldAsyncCallback()
+}
+
+// expressVpnNftEventsHelper is called for rules in chains with name starting with "evpn."
+func expressVpnNftEventsHelper(chainName string) {
+	if !strings.HasPrefix(chainName, expressVpnProfile.nftablesChainNamePrefix) { // if not an ExpressVPN event - ignore
+		return
+	}
+
+	if !getPrefsCallback().IsTotalShieldOn { // if Total Shield off - nothing to do
+		return
+	}
+
+	perVpnNftEventsHelperMutex.Lock()
+	defer perVpnNftEventsHelperMutex.Unlock()
+
+	if !getPrefsCallback().IsTotalShieldOn { // recheck after mutex
+		return
+	}
+
+	if expressVpnProfile.nftablesChainNameExclusionsRE.MatchString(chainName) { // If it's an excluded event - ignore. Delay regex check.
+		return
+	}
+
+	// TODO: "expressvpnctl status" does not report connecting status, and doesn't report connected status for a while - disabling that check
+	/*if expressVpnConnected, err := expressVpnProfile.CheckVpnConnected(); err != nil {
+		log.ErrorFE("error expressVpnProfile.CheckVpnConnected(): %w", err)
+	} else*/if /*expressVpnConnected &&*/ expressVpnProfile.incompatWithTotalShieldWhenConnected {
+		log.Warning("Other VPN 'ExpressVPN' may be connecting/connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
 		go disableTotalShieldAsyncCallback()
 	}
 }
@@ -352,8 +393,10 @@ func implFirewallBackgroundMonitorNft() {
 
 				switch change.Type {
 				case nftables.MonitorEventTypeNewRule:
-					gotRule := change.Data.(*nftables.Rule)
-					disableTotalShieldBecauseOfMullvadHelper(gotRule.Table) // when Mullvad is connecting/connected - need to disable Total Shield
+					newRule := change.Data.(*nftables.Rule)
+					go mullvadNftEventsHelper(newRule.Table) // if Mullvad is connecting/connected - need to disable Total Shield
+					// log.Debug("MonitorEventTypeNewRule: chain=", newRule.Chain.Name)
+					go expressVpnNftEventsHelper(newRule.Chain.Name) // if ExpressVPN is connecting/connected - need to disable Total Shield
 
 					if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil {
 						log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
@@ -390,7 +433,7 @@ func implFirewallBackgroundMonitorNft() {
 					}
 
 				case nftables.MonitorEventTypeNewTable:
-					disableTotalShieldBecauseOfMullvadHelper(change.Data.(*nftables.Table)) // when Mullvad is connecting/connected - need to disable Total Shield
+					go mullvadNftEventsHelper(change.Data.(*nftables.Table)) // if Mullvad is connecting/connected - need to disable Total Shield
 				}
 			}
 		}

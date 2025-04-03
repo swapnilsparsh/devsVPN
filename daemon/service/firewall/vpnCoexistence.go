@@ -19,14 +19,16 @@ const (
 )
 
 var (
-	FirstWordRE *regexp.Regexp = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+") // regexp for the 1st word: "^[^[:space:]_\.-]+"
+	FirstWordRE                = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+")   // regexp for the 1st word: "^[^[:space:]_\.-]+"
+	commonStatusConnectedRE    = regexp.MustCompile("^Connected([^a-zA-Z0-9]|$)") // must be 1st line
+	commonStatusDisconnectedRE = regexp.MustCompile("^Disconnected([^a-zA-Z0-9]|$)")
 )
 
 type otherVpnCliCmds struct {
 	cmdStatus               string
 	checkCliConnectedStatus bool
-	statusConnectedRE       string
-	statusDisconnectedRE    string
+	statusConnectedRE       *regexp.Regexp
+	statusDisconnectedRE    *regexp.Regexp
 
 	cmdConnect    string
 	cmdDisconnect string
@@ -44,6 +46,8 @@ type otherVpnCliCmds struct {
 
 	cmdAddAllowlistOption    []string // used for NordVPN on Linux
 	cmdRemoveAllowlistOption []string // used for NordVPN on Linux
+
+	cmdAllowLan []string // used by ExpressVPN, Mullvad on Linux
 }
 
 type otherVpnCoexistenceLegacyHelper func() (err error)
@@ -60,9 +64,11 @@ type OtherVpnInfo struct {
 
 	isConnected bool
 
-	changesNftables bool // used on Linux
-	nftablesChain   string
-	nftablesHelper  otherVpnCoexistenceNftHelper
+	changesNftables               bool // used on Linux
+	nftablesChain                 string
+	nftablesChainNamePrefix       string         // used on Linux by ExpressVPN, for nft monitor to try and detect when ExpressVPN is connecting
+	nftablesChainNameExclusionsRE *regexp.Regexp // exclusions
+	nftablesHelper                otherVpnCoexistenceNftHelper
 
 	changesIptablesLegacy bool // used on Linux
 	iptablesLegacyChain   string
@@ -77,11 +83,6 @@ type OtherVpnInfo struct {
 func (otherVpn *OtherVpnInfo) CheckVpnConnected() (isConnected bool, err error) {
 	if !otherVpn.cliCmds.checkCliConnectedStatus {
 		return false, nil
-	}
-
-	var otherVpnWasConnectedRegex *regexp.Regexp
-	if otherVpnWasConnectedRegex, err = regexp.Compile(otherVpn.cliCmds.statusConnectedRE); err != nil {
-		return false, log.ErrorFE("error regexp.Compile(\"%s\"): %w", otherVpn.cliCmds.statusConnectedRE, err)
 	}
 
 	var otherVpnCli string
@@ -104,7 +105,7 @@ func (otherVpn *OtherVpnInfo) CheckVpnConnected() (isConnected bool, err error) 
 			}
 			strErr.WriteString(text)
 		} else {
-			if otherVpnWasConnectedRegex.MatchString(text) {
+			if otherVpn.cliCmds.statusConnectedRE.MatchString(text) {
 				_isConnected = true
 			}
 		}

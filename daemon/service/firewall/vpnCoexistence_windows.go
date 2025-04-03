@@ -68,8 +68,8 @@ var (
 		cliCmds: otherVpnCliCmds{
 			cmdStatus:               "status",
 			checkCliConnectedStatus: false,
-			statusConnectedRE:       "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
-			statusDisconnectedRE:    "^Disconnected([^a-zA-Z0-9]|$)",
+			statusConnectedRE:       commonStatusConnectedRE, // must be 1st line
+			statusDisconnectedRE:    commonStatusDisconnectedRE,
 
 			cmdEnableSplitTun:                      []string{"split-tunnel", "set", "on"},
 			cmdAddOurBinaryPathToSplitTunWhitelist: []string{"split-tunnel", "app", "add"},

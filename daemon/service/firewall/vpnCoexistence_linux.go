@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -101,9 +102,11 @@ var (
 		namePrefix: "expressvpn",
 		//recommendedOurMTU:     1380,
 
-		changesNftables: true,
-		nftablesChain:   "evpn.OUTPUT",
-		nftablesHelper:  expressVpnNftablesHelper,
+		changesNftables:               true,
+		nftablesChain:                 "evpn.OUTPUT",
+		nftablesChainNamePrefix:       "evpn.", // nft monitor watches for new rules in chains with names starting with that prefix - that may signify ExpressVPN is connecting
+		nftablesChainNameExclusionsRE: regexp.MustCompile(`evpn\..*\.allowLAN`),
+		nftablesHelper:                expressVpnNftablesHelper,
 
 		incompatWithTotalShieldWhenConnected: true, // but we're not including its interface name, tun0, so Total Shield won't get disabled automatically
 
@@ -111,13 +114,15 @@ var (
 		cliCmds: otherVpnCliCmds{
 			cmdStatus:               "status",
 			checkCliConnectedStatus: true,
-			statusConnectedRE:       "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
-			statusDisconnectedRE:    "^Disconnected([^a-zA-Z0-9]|$)",
+			statusConnectedRE:       commonStatusConnectedRE, // must be 1st line
+			statusDisconnectedRE:    commonStatusDisconnectedRE,
 
 			cmdEnableSplitTun:                       []string{"set", "splittunnel", "true"},
 			cmdAddOurBinaryPathToSplitTunWhitelist:  []string{"set", "split-app"},
 			cmdSplitTunnelOurBinaryPathPrefixAdd:    "bypass:",
 			cmdSplitTunnelOurBinaryPathPrefixRemove: "remove:", // TODO: unused for now
+
+			cmdAllowLan: []string{"set", "allowlan", "true"},
 		},
 	}
 
@@ -140,11 +145,13 @@ var (
 		cliCmds: otherVpnCliCmds{
 			cmdStatus:               "status",
 			checkCliConnectedStatus: true,
-			statusConnectedRE:       "^Connected([^a-zA-Z0-9]|$)", // must be 1st line
-			statusDisconnectedRE:    "^Disconnected([^a-zA-Z0-9]|$)",
+			statusConnectedRE:       commonStatusConnectedRE, // must be 1st line
+			statusDisconnectedRE:    commonStatusDisconnectedRE,
 
 			cmdAddOurBinaryPidToSplitTunWhitelist:      []string{"split-tunnel", "add"},
 			cmdDeleteOurBinaryPidFromSplitTunWhitelist: []string{"split-tunnel", "delete"},
+
+			cmdAllowLan: []string{"lan", "set", "allow"},
 		},
 	}
 
@@ -265,14 +272,24 @@ func commonNftablesHelper(otherVpnName string) (err error) { // logic common to 
 		return log.ErrorFE("error looking up other VPN by its name '%s'", otherVpnName)
 	}
 
-	if otherVpnConnected, err := otherVpn.CheckVpnConnected(); err != nil {
-		return log.ErrorFE("error otherVpn.CheckVpnConnected(): %w", err)
-	} else if otherVpnConnected && getPrefsCallback().IsTotalShieldOn && otherVpn.incompatWithTotalShieldWhenConnected {
-		log.Warning("When other VPN '", otherVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
-		go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
+	// if the VPN has allow-LAN command registered, run it
+	if len(otherVpn.cliCmds.cmdAllowLan) > 0 {
+		if err = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); err != nil {
+			err = log.ErrorFE("error enabling LAN (local area network access) in other VPN '%s': %w", otherVpnName, err) // and continue
+		}
 	}
 
-	return nil
+	// if Total Shield is enabled, and another VPN is connected/connecting that is incompatible with Total Shield - disable it
+	if otherVpn.incompatWithTotalShieldWhenConnected && getPrefsCallback().IsTotalShieldOn {
+		if otherVpnConnected, err := otherVpn.CheckVpnConnected(); err != nil {
+			return log.ErrorFE("error otherVpn.CheckVpnConnected(): %w", err)
+		} else if otherVpnConnected {
+			log.Warning("When other VPN '", otherVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
+			go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
+		}
+	}
+
+	return err
 }
 
 // ExpressVPN has a dedicated helper, because it needs to append prefixes to our binary paths
@@ -330,11 +347,6 @@ func mullvadNftablesHelper() (err error) {
 		log.ErrorFE("error disabling lockdown in other VPN '%s': %w", mullvad.name, retErr) // and continue
 	}
 
-	// mullvad lan set allow
-	if retErr := shell.Exec(log, mullvadCli, []string{"lan", "set", "allow"}...); retErr != nil {
-		log.ErrorFE("error enabling LAN (local area network sharing) in other VPN '%s': %w", mullvad.name, retErr) // and continue
-	}
-
 	otherVpnCommandsToUndo := otherVpnCommandsToUndoMap{}
 
 	// if PL is CONNECTED, then configure Mullvad to use our DNS servers
@@ -369,8 +381,6 @@ func mullvadNftablesHelper() (err error) {
 
 	// TODO FIXME: do we need?
 	//		- to worry about explicitly whitelisting /opt/privateline-connect/wireguard-tools/wg* with Mullvad?
-	//		- "mullvad dns set"
-	// 		- "mullvad lan set"
 	//		- "mullvad export-settings", munge them, "mullvad import-settings"
 
 	otherVpnsToUndo[mullvadName] = &otherVpnCommandsToUndo // add this VPN to undo list
@@ -498,7 +508,7 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 			if _, err := netlink.LinkByName(otherVpnInterfaceName); err == nil {
 				log.Info("Other VPN '", otherVpn.name, "' detected by active interface name: ", otherVpnInterfaceName)
 				otherVpn.isConnected = true
-				if getPrefsCallback().IsTotalShieldOn && !disabledTotalShield && otherVpn.incompatWithTotalShieldWhenConnected {
+				if otherVpn.incompatWithTotalShieldWhenConnected && getPrefsCallback().IsTotalShieldOn && !disabledTotalShield {
 					log.Warning("When other VPN '", otherVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
 					go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
 					disabledTotalShield = true
