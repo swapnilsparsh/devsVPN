@@ -17,7 +17,7 @@ require (
 	github.com/google/nftables v0.3.0 // indirect
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/hashicorp/go-envparse v0.1.0 // indirect
-	github.com/kocmo/go-xtables v1.0.7 // indirect
+	github.com/kocmo/go-xtables v1.0.8 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mdlayher/netlink v1.7.3-0.20250113171957-fbb4dce95f42 // indirect
 	github.com/mdlayher/socket v0.5.0 // indirect
@@ -26,7 +26,6 @@ require (
 	github.com/parsiya/golnk v0.0.0-20221103095132-740a4c27c4ff // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
-	github.com/singchia/go-hammer v0.0.2-0.20220516141917-9d83fc02d653 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/vishvananda/netlink v1.3.0 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
