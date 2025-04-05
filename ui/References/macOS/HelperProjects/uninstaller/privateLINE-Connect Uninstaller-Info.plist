@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key>
-	<string>IVPN Installer</string>
+	<string>privateLINE-Connect Uninstaller</string>
 	<key>CFBundleIdentifier</key>
-	<string>net.ivpn.client.installer</string>
+	<string>net.privateline-connect.client.uninstaller</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Installer</string>
+	<string>Uninstaller</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -18,8 +18,8 @@
 	<string>3.0.0</string>
 	<key>SMPrivilegedExecutables</key>
 	<dict>
-		<key>net.ivpn.client.Helper</key>
-		<string>identifier net.ivpn.client.Helper and certificate leaf[subject.OU] = WQXXM75BYN</string>
+		<key>net.privateline-connect.client.Helper</key>
+		<string>identifier net.privateline-connect.client.Helper and certificate leaf[subject.OU] = 8624AA7H9G</string>
 	</dict>
 </dict>
 </plist>

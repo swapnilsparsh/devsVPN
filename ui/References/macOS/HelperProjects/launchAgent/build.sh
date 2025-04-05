@@ -7,7 +7,7 @@ _SCRIPT=`basename "$0"`
 cd "$(dirname "$0")"
 
 _OUT_FOLDER="_out"
-_OUT_BINARY="${_OUT_FOLDER}/net.ivpn.LaunchAgent"
+_OUT_BINARY="${_OUT_FOLDER}/net.privateline-connect.LaunchAgent"
 _PATH_XPC_SOURCES="../../../../../daemon/wifiNotifier/darwin/agent_xpc"
 
 mkdir -p ${_OUT_FOLDER}

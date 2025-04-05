@@ -42,28 +42,28 @@ if [ -z "${_VERSION}" ] || [ -z "${_SIGN_CERT}" ]; then
   exit 1
 fi
 
-echo "[ ] *** Compiling IVPN helper ***"
+echo "[ ] *** Compiling privateLINE-Connect helper ***"
 echo "    Version:                 '${_VERSION}'"
 echo "    Apple DevID certificate: '${_SIGN_CERT}'"
 
 # ======================== VARS =========================
 _CFLAGS=""
-_OUT_BINARY="net.ivpn.client.Helper"
-_PLIST_LAUNCHD="IVPN Helper-Launchd.plist"
+_OUT_BINARY="net.privateline-connect.client.Helper"
+_PLIST_LAUNCHD="privateLINE-Connect Helper-Launchd.plist"
 
-_PLIST_INFO_TEMPLATE="IVPN Helper-Info_template.plist"
-_PLIST_INFO="IVPN Helper-Info.plist"
+_PLIST_INFO_TEMPLATE="privateLINE-Connect Helper-Info_template.plist"
+_PLIST_INFO="privateLINE-Connect Helper-Info.plist"
 
 # ================ UPDATING PLIST FILES =================
 echo "[+] Ubdating PLIST ..."
 cp "${_PLIST_INFO_TEMPLATE}" "${_PLIST_INFO}"|| CheckLastResult
 
-#plutil -replace SMAuthorizedClients -xml "<array> <string>identifier net.ivpn.client.installer and certificate leaf[subject.OU] = ${_SIGN_CERT}</string> </array>" "${_PLIST_INFO}" || CheckLastResult
+#plutil -replace SMAuthorizedClients -xml "<array> <string>identifier net.privateline-connect.client.installer and certificate leaf[subject.OU] = ${_SIGN_CERT}</string> </array>" "${_PLIST_INFO}" || CheckLastResult
 plutil -replace SMAuthorizedClients -xml \
         "<array> \
-          <string>identifier net.ivpn.client.installer and certificate leaf[subject.OU] = ${_SIGN_CERT}</string>\
-          <string>identifier net.ivpn.client.uninstaller and certificate leaf[subject.OU] = ${_SIGN_CERT}</string>\
-          <string>identifier net.ivpn.LaunchAgent and certificate leaf[subject.OU] = ${_SIGN_CERT}</string>\
+          <string>identifier net.privateline-connect.client.installer and certificate leaf[subject.OU] = ${_SIGN_CERT}</string>\
+          <string>identifier net.privateline-connect.client.uninstaller and certificate leaf[subject.OU] = ${_SIGN_CERT}</string>\
+          <string>identifier net.privateline-connect.LaunchAgent and certificate leaf[subject.OU] = ${_SIGN_CERT}</string>\
         </array>" "${_PLIST_INFO}" || CheckLastResult
 
 plutil -replace CFBundleShortVersionString -xml "<string>${_VERSION}</string>" "${_PLIST_INFO}" || CheckLastResult

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-	<string>net.ivpn.client.Helper</string>
+	<string>net.privateline-connect.client.Helper</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -14,9 +14,9 @@
 	<string>2.6.0</string>
 	<key>SMAuthorizedClients</key>
 	<array>
-		<string>identifier net.ivpn.client.uninstaller and certificate leaf[subject.OU] = HERE_SHOULD_BE_DEVELOPERID_CERTIFICATE</string>
-		<string>identifier net.ivpn.client.installer and certificate leaf[subject.OU] = HERE_SHOULD_BE_DEVELOPERID_CERTIFICATE</string>
-		<string>identifier net.ivpn.LaunchAgent and certificate leaf[subject.OU] = HERE_SHOULD_BE_DEVELOPERID_CERTIFICATE</string>
+		<string>identifier net.privateline-connect.client.uninstaller and certificate leaf[subject.OU] = HERE_SHOULD_BE_DEVELOPERID_CERTIFICATE</string>
+		<string>identifier net.privateline-connect.client.installer and certificate leaf[subject.OU] = HERE_SHOULD_BE_DEVELOPERID_CERTIFICATE</string>
+		<string>identifier net.privateline-connect.LaunchAgent and certificate leaf[subject.OU] = HERE_SHOULD_BE_DEVELOPERID_CERTIFICATE</string>
 	</array>
 </dict>
 </plist>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>net.privateline-connect.client.Helper</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Helper</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.34</string>
+	<key>CFBundleVersion</key>
+	<string>1.2.34</string>
+	<key>SMAuthorizedClients</key>
+	<array>
+		<string>identifier net.privateline-connect.client.installer and certificate leaf[subject.OU] = 8624AA7H9G</string>
+		<string>identifier net.privateline-connect.client.uninstaller and certificate leaf[subject.OU] = 8624AA7H9G</string>
+		<string>identifier net.privateline-connect.LaunchAgent and certificate leaf[subject.OU] = 8624AA7H9G</string>
+	</array>
+</dict>
+</plist>

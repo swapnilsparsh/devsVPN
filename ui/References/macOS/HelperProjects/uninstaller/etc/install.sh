@@ -3,11 +3,11 @@
 _source_dmg=$1
 _signature_file=$2
 _signature_file_tmp_decoded="$2.decoded"
-_pub_key_file="/Applications/IVPN.app/Contents/Resources/public.pem"
+_pub_key_file="/Applications/privateLINE-Connect.app/Contents/Resources/public.pem"
 
 _volume=""
 
-_app_path="/Applications/IVPN.app"
+_app_path="/Applications/privateLINE-Connect.app"
 _app_plist="${_app_path}/Contents/Info.plist"
 _app_backup="${_app_path}.old"
 
@@ -42,7 +42,7 @@ function RestoreBackup
 
 function CntAppRunningProcesses
 {
-    return `ps -eo comm | grep -v grep | grep -c "^/Applications/IVPN.app/Contents/MacOS/IVPN$"`
+    return `ps -eo comm | grep -v grep | grep -c "^/Applications/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect$"`
 }
 
 function KillAppProcess
@@ -51,13 +51,13 @@ function KillAppProcess
     _cnt=$?
     if [ "${_cnt}" != "0" ]; then
         echo "Killing application process ..."
-        killall "IVPN"
+        killall "privateLINE-Connect"
         sleep 1
 
         CntAppRunningProcesses
         _cnt=$?
         if [ "${_cnt}" != "0" ]; then
-            killall "IVPN"
+            killall "privateLINE-Connect"
         fi
     fi
 }
@@ -132,14 +132,14 @@ CheckSignature || { echoerr "Signature check failed"; exit 60; }
 echo "[+] Mounting '${_source_dmg}' ..."
 # Mount and get volume name.
 # awk '{ $1=""; $2=""; print substr($0,3)}' => print everything starting from column $3 (and skip leading 3 symbols, which are spaces)
-#   Example: "/dev/disk3s1  Apple_HFS /Volumes/IVPN-3.9.32 1" => "/Volumes/IVPN-3.9.32 1"
+#   Example: "/dev/disk3s1  Apple_HFS /Volumes/privateLINE-Connect-3.9.32 1" => "/Volumes/privateLINE-Connect-3.9.32 1"
 _volume=`hdiutil attach -nobrowse "${_source_dmg}" | grep Volumes | awk '{ $1=""; $2=""; print substr($0,3)}'`
 if [ -z "${_volume}" ]; then
     echoerr "Failed to mount: '${_source_dmg}'"
     exit 66
 fi
 
-_app_path_src="${_volume}/IVPN.app"
+_app_path_src="${_volume}/privateLINE-Connect.app"
 _app_plist_src="${_app_path_src}/Contents/Info.plist"
 
 if [ ! -d "${_app_path_src}" ]; then

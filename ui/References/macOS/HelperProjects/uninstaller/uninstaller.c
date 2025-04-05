@@ -3,10 +3,10 @@
 #include <syslog.h>
 #include <string.h>
 
-#define HELPER_LABEL "net.ivpn.client.Helper"
-#define HELPER_INSTALLED_PLIST_PATH "/Library/LaunchDaemons/net.ivpn.client.Helper.plist"
-#define HELPER_INSTALLED_BIN_PATH "/Library/PrivilegedHelperTools/net.ivpn.client.Helper"
-#define HELPER_PATH_IN_APP_BUNDLE "/Applications/IVPN.app/Contents/MacOS/IVPN Installer.app/Contents/Library/LaunchServices/net.ivpn.client.Helper"
+#define HELPER_LABEL "net.privateline-connect.client.Helper"
+#define HELPER_INSTALLED_PLIST_PATH "/Library/LaunchDaemons/net.privateline-connect.client.Helper.plist"
+#define HELPER_INSTALLED_BIN_PATH "/Library/PrivilegedHelperTools/net.privateline-connect.client.Helper"
+#define HELPER_PATH_IN_APP_BUNDLE "/Applications/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Installer.app/Contents/Library/LaunchServices/net.privateline-connect.client.Helper"
 
 // #define IS_INSTALLER 0   //  IS_INSTALLER should be passed by compiler
 //  Makefile example: cc -D IS_INSTALLER='1' ...
@@ -24,9 +24,9 @@
 void logmes(int mesType, const char* text) {
     syslog(mesType, "%s", text);
     if (IS_INSTALLER!=0)
-      printf("[mestype:%d] IVPN Installer: %s\n", mesType, text);
+      printf("[mestype:%d] privateLINE-Connect Installer: %s\n", mesType, text);
     else
-      printf("[mestype:%d] IVPN UnInstaller: %s\n", mesType, text);
+      printf("[mestype:%d] privateLINE-Connect UnInstaller: %s\n", mesType, text);
 }
 
 void logmesError(CFErrorRef error) {
@@ -110,12 +110,12 @@ int is_helper_installation_required() {
 
     get_versions(installedVer, currentVer, 128);
     if (currentVer[0]==0)
-      return 2; // Unable to install IVPN Helper. Please, copy 'IVPN.app' to '/Applications'
+      return 2; // Unable to install privateLINE-Connect Helper. Please, copy 'privateLINE-Connect.app' to '/Applications'
 
     if (installedVer[0]!=0)
     {
       if (strcmp(installedVer, currentVer)==0)
-        return 1; // Required version of IVPN Helper is already installed. No installation needed
+        return 1; // Required version of privateLINE-Connect Helper is already installed. No installation needed
 
       return 0; // Another version is installed. Upgrade required
     }
@@ -147,15 +147,15 @@ int remove_helper_with_auth(AuthorizationRef authRef) {
   }
 
   if (ret==0)
-	  logmes(LOG_INFO, "Success (IVPN Helper removed)");
+	  logmes(LOG_INFO, "Success (privateLINE-Connect Helper removed)");
   else
-    logmes(LOG_ERR, "IVPN helper removal not complete successfully.");
+    logmes(LOG_ERR, "privateLINE-Connect helper removal not complete successfully.");
 
   return ret;
 }
 
 int remove_helper() {
-    logmes(LOG_INFO, "Removing IVPN helper...");
+    logmes(LOG_INFO, "Removing privateLINE-Connect helper...");
 
     CFErrorRef error = NULL;
 
@@ -167,7 +167,7 @@ int remove_helper() {
                                kAuthorizationFlagExtendRights;
     AuthorizationRef authRef = NULL;
 
-    const char *prompt = "This will remove the previously installed IVPN helper.\n\n";
+    const char *prompt = "This will remove the previously installed privateLINE-Connect helper.\n\n";
     AuthorizationItem envItems = {kAuthorizationEnvironmentPrompt, strlen(prompt), (void *)prompt, 0};
     AuthorizationEnvironment env = { 1, &envItems };
 
@@ -179,12 +179,12 @@ int remove_helper() {
       return ret;
     }
 
-    logmes(LOG_ERR, "ERROR: Getting authorization failed (IVPN helper NOT removed)");
+    logmes(LOG_ERR, "ERROR: Getting authorization failed (privateLINE-Connect helper NOT removed)");
     return err;
 }
 
 int install_helper() {
-    logmes(LOG_INFO, "Installing IVPN helper...");
+    logmes(LOG_INFO, "Installing privateLINE-Connect helper...");
 
     bool isUpgrade = false;
 
@@ -197,7 +197,7 @@ int install_helper() {
     get_versions(installedVer, currentVer, 128);
     if (currentVer[0]==0)
     {
-      logmes(LOG_ERR, "Unable to install IVPN Helper. Please, copy 'IVPN.app' to '/Applications'");
+      logmes(LOG_ERR, "Unable to install privateLINE-Connect Helper. Please, copy 'privateLINE-Connect.app' to '/Applications'");
       return 1;
     }
 
@@ -205,19 +205,19 @@ int install_helper() {
     {
       if (strcmp(installedVer, currentVer)==0)
       {
-        snprintf(messageBuff, 256, "Required version of IVPN Helper (v%s) is already installed. IVPN Helper installation skipped.", installedVer);
+        snprintf(messageBuff, 256, "Required version of privateLINE-Connect Helper (v%s) is already installed. privateLINE-Connect Helper installation skipped.", installedVer);
         logmes(LOG_NOTICE, messageBuff);
         return 1;
       }
 
       isUpgrade = true;
-      snprintf(messageBuff, 256, "Upgrading IVPN helper v%s (already installed version v%s) ...", currentVer, installedVer);
+      snprintf(messageBuff, 256, "Upgrading privateLINE-Connect helper v%s (already installed version v%s) ...", currentVer, installedVer);
       logmes(LOG_INFO, messageBuff);
     }
     else
     {
       // helper not installed
-      snprintf(messageBuff, 256, "Installing IVPN helper v%s ...", currentVer);
+      snprintf(messageBuff, 256, "Installing privateLINE-Connect helper v%s ...", currentVer);
       logmes(LOG_INFO, messageBuff);
     }
 
@@ -229,8 +229,8 @@ int install_helper() {
                                kAuthorizationFlagPreAuthorize |
                                kAuthorizationFlagExtendRights;
 
-    const char *promptUpgrade = "A new version of IVPN has been installed and the privileged helper must be upgraded too.\n\n";
-    const char *prompt = "A privileged helper must be installed to use the IVPN client.\n\n";
+    const char *promptUpgrade = "A new version of privateLINE-Connect has been installed and the privileged helper must be upgraded too.\n\n";
+    const char *prompt = "A privileged helper must be installed to use the privateLINE-Connect client.\n\n";
     if (isUpgrade)
       prompt = promptUpgrade;
 
@@ -250,10 +250,10 @@ int install_helper() {
                       (AuthorizationRef) authRef,
                       &error);
 
-        // New service version may use new format of 'servers.json'. 
+        // New service version may use new format of 'servers.json'.
         // We must be sure that new format is in use.
-        logmes(LOG_INFO, "Overwriting servers information by the data from the bundle ...");        
-        char *args[] = {"/Applications/IVPN.app/Contents/Resources/etc/servers.json", "/Library/Application Support/IVPN/servers.json", NULL};
+        logmes(LOG_INFO, "Overwriting servers information by the data from the bundle ...");
+        char *args[] = {"/Applications/privateLINE-Connect.app/Contents/Resources/etc/servers.json", "/Library/Application Support/privateLINE-Connect/servers.json", NULL};
         OSStatus ret = AuthorizationExecuteWithPrivileges(authRef, (const char*) "/bin/cp", kAuthorizationFlagDefaults, args, NULL);
         if (ret)
         {
@@ -264,48 +264,48 @@ int install_helper() {
 
         if (isSuccess)
         {
-			      logmes(LOG_INFO, "IVPN helper installed.");
+			      logmes(LOG_INFO, "privateLINE-Connect helper installed.");
             return 0;
         }
         else
         {
             logmesError(error);
-            logmes(LOG_ERR, "ERROR: SMJobBless failed (IVPN helper NOT installed)");
+            logmes(LOG_ERR, "ERROR: SMJobBless failed (privateLINE-Connect helper NOT installed)");
             if (error != NULL) CFRelease(error);
             return 1;
         }
     }
 
-	logmes(LOG_ERR, "ERROR: Getting authorization failed (IVPN helper NOT installed)");
+	logmes(LOG_ERR, "ERROR: Getting authorization failed (privateLINE-Connect helper NOT installed)");
     return err;
 }
 
 int disableFirewall() {
-  printf("[ ] Disabling IVPN firewall ...\n");
-  system("/Applications/IVPN.app/Contents/MacOS/cli/ivpn firewall -persistent_off");
-  system("/Applications/IVPN.app/Contents/MacOS/cli/ivpn firewall -off");
+  printf("[ ] Disabling privateLINE-Connect firewall ...\n");
+  system("/Applications/privateLINE-Connect.app/Contents/MacOS/cli/privateline-connect firewall -persistent_off");
+  system("/Applications/privateLINE-Connect.app/Contents/MacOS/cli/privateline-connect firewall -off");
   return 0;
 }
 
 int disconnectApp() {
-  printf("[ ] Disconnecting IVPN ...\n");
-  system("/Applications/IVPN.app/Contents/MacOS/cli/ivpn disconnect");
+  printf("[ ] Disconnecting privateLINE-Connect ...\n");
+  system("/Applications/privateLINE-Connect.app/Contents/MacOS/cli/privateline-connect disconnect");
   return 0;
 }
 
 int quitApp() {
-  printf("[ ] Closing IVPN app...\n");
-  if (system("/usr/bin/osascript -e 'quit app \"IVPN\"'"))
+  printf("[ ] Closing privateLINE-Connect app...\n");
+  if (system("/usr/bin/osascript -e 'quit app \"privateLINE-Connect\"'"))
   {
-    logmes(LOG_ERR, "ERROR: Unable to close application (IVPN).");
-    system( "/usr/bin/osascript -e 'display alert \"IVPN Uninstaller\" message \"Please, close IVPN application and try again.\"'");
+    logmes(LOG_ERR, "ERROR: Unable to close application (privateLINE-Connect).");
+    system( "/usr/bin/osascript -e 'display alert \"privateLINE-Connect Uninstaller\" message \"Please, close privateLINE-Connect application and try again.\"'");
     return 4;
   }
   return 0;
 }
 
 int uninstall() {
-      logmes(LOG_INFO, "Uninstalling IVPN ...");
+      logmes(LOG_INFO, "Uninstalling privateLINE-Connect ...");
       const char *homeDir = getenv("HOME");
 
       CFErrorRef error = NULL;
@@ -334,28 +334,28 @@ int uninstall() {
       if (ret) return ret;
 
       printf("[ ] Logout ...\n");
-      system("/Applications/IVPN.app/Contents/MacOS/cli/ivpn logout");
+      system("/Applications/privateLINE-Connect.app/Contents/MacOS/cli/privateline-connect logout");
 
       printf("[ ] Removing apps defaults...\n");
-      system("/usr/bin/defaults delete net.ivpn.client.IVPN"); // old UI bundleID
-      system("/usr/bin/defaults delete com.electron.ivpn-ui");
+      system("/usr/bin/defaults delete net.privateline-connect.client.privateLINE-Connect"); // old UI bundleID
+      system("/usr/bin/defaults delete com.electron.privateline-connect-ui");
 
       //printf("[ ] Removing LaunchAgent (only for current user)...\n");
-      //system("/Applications/IVPN.app/Contents/MacOS/IVPN uninstall-agent"); // % launchctl list | grep ivpn
+      //system("/Applications/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect uninstall-agent"); // % launchctl list | grep privateline-connect
 
       printf("[ ] Removing helper ...\n");
       remove_helper_with_auth(authRef);
 
       char relFile1[128], relFile2[128];
-      snprintf(relFile1, 128, "%s/Library/Preferences/net.ivpn.client.IVPN.plist", homeDir); // old UI bundleID
-      snprintf(relFile2, 128, "%s/Library/Preferences/com.electron.ivpn-ui.plist", homeDir);
+      snprintf(relFile1, 128, "%s/Library/Preferences/net.privateline-connect.client.privateLINE-Connect.plist", homeDir); // old UI bundleID
+      snprintf(relFile2, 128, "%s/Library/Preferences/com.electron.privateline-connect-ui.plist", homeDir);
 
       char *filesToRemove[] = {
-        "/Library/Logs/IVPN Agent.log",
-        "/Library/Logs/IVPN Agent.log.0",
-        "/Library/Logs/IVPN Agent CrashInfo.log",
-        "/Library/Logs/IVPN Agent CrashInfo.log.0",
-        "/Library/Application Support/net.ivpn.client.Agent/last-btime", // seems, the file created by OS,
+        "/Library/Logs/privateLINE-Connect Agent.log",
+        "/Library/Logs/privateLINE-Connect Agent.log.0",
+        "/Library/Logs/privateLINE-Connect Agent CrashInfo.log",
+        "/Library/Logs/privateLINE-Connect Agent CrashInfo.log.0",
+        "/Library/Application Support/net.privateline-connect.client.Agent/last-btime", // seems, the file created by OS,
         relFile1,
         relFile2
       };
@@ -374,15 +374,15 @@ int uninstall() {
       }
 
       char relDir1[128], relDir2[128];
-      snprintf(relDir1, 128, "%s/Library/Application Support/IVPN", homeDir);
-      snprintf(relDir2, 128, "%s/.ivpn", homeDir); // created by CLI
+      snprintf(relDir1, 128, "%s/Library/Application Support/privateLINE-Connect", homeDir);
+      snprintf(relDir2, 128, "%s/.privateline-connect", homeDir); // created by CLI
 
       char *foldersToRemove[] = {
-        "/Applications/IVPN.app",
-        "/Library/Application Support/IVPN/OpenVPN",
-        "/Library/Application Support/IVPN",
-        "/Library/Application Support/net.ivpn.client.Agent/LocalMachine", // seems, the folder created by OS
-        "/Library/Application Support/net.ivpn.client.Agent", // seems, the folder created by OS
+        "/Applications/privateLINE-Connect.app",
+        "/Library/Application Support/privateLINE-Connect/OpenVPN",
+        "/Library/Application Support/privateLINE-Connect",
+        "/Library/Application Support/net.privateline-connect.client.Agent/LocalMachine", // seems, the folder created by OS
+        "/Library/Application Support/net.privateline-connect.client.Agent", // seems, the folder created by OS
         relDir1,
         relDir2
       };
@@ -403,15 +403,15 @@ int uninstall() {
       AuthorizationFree(authRef, kAuthorizationFlagDefaults);
 
       if (hasErrors)
-        system( "/usr/bin/osascript -e 'display alert \"IVPN Uninstaller\" message \"IVPN removed with errors!\"'");
+        system( "/usr/bin/osascript -e 'display alert \"privateLINE-Connect Uninstaller\" message \"privateLINE-Connect removed with errors!\"'");
       else
-        system( "/usr/bin/osascript -e 'display alert \"IVPN Uninstaller\" message \"IVPN removed!\"'");
+        system( "/usr/bin/osascript -e 'display alert \"privateLINE-Connect Uninstaller\" message \"privateLINE-Connect removed!\"'");
 
       return hasErrors;
 }
 
 int update(char* dmgFile, char* signatureFile) {
-      logmes(LOG_INFO, "Updating IVPN ...");
+      logmes(LOG_INFO, "Updating privateLINE-Connect ...");
 
       CFErrorRef error = NULL;
       AuthorizationRef authRef = NULL;
@@ -434,9 +434,9 @@ int update(char* dmgFile, char* signatureFile) {
       disconnectApp();
 
       char *args[] = {dmgFile, signatureFile, NULL};
-      OSStatus ret = AuthorizationExecuteWithPrivileges(authRef, (const char*) "/Applications/IVPN.app/Contents/MacOS/IVPN Installer.app/Contents/MacOS/install.sh", kAuthorizationFlagDefaults, args, NULL);
-     
-      if (ret != errAuthorizationSuccess) 
+      OSStatus ret = AuthorizationExecuteWithPrivileges(authRef, (const char*) "/Applications/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Installer.app/Contents/MacOS/install.sh", kAuthorizationFlagDefaults, args, NULL);
+
+      if (ret != errAuthorizationSuccess)
       {
         logmes(LOG_ERR, "FAILED to AuthorizationExecuteWithPrivileges(install.sh)");
         return 3;
@@ -445,7 +445,7 @@ int update(char* dmgFile, char* signatureFile) {
       AuthorizationFree(authRef, kAuthorizationFlagDefaults);
 
       logmes(LOG_INFO, "Update script started");
-      
+
       return ret;
 }
 

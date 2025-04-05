@@ -12,15 +12,15 @@ all:
 		-D IS_INSTALLER=0 \
 		-framework ServiceManagement \
 		-framework Security \
-		-Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker "IVPN Uninstaller-Info.plist" \
+		-Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker "privateLINE-Connect Uninstaller-Info.plist" \
 		uninstaller.c \
-		-o "bin/IVPN Uninstaller"
+		-o "bin/privateLINE-Connect Uninstaller"
 
 	cc -m64 -framework Foundation \
 		-mmacosx-version-min=10.6 \
 		-D IS_INSTALLER=1 \
 		-framework ServiceManagement \
 		-framework Security \
-		-Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker "IVPN Installer-Info.plist" \
+		-Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker "privateLINE-Connect Installer-Info.plist" \
 		uninstaller.c \
-		-o "bin/IVPN Installer"
+		-o "bin/privateLINE-Connect Installer"

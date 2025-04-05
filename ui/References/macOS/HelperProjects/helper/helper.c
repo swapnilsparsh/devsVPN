@@ -7,8 +7,8 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
-#define IVPN_APP "/Applications/IVPN.app"
-#define AGENT_APP "/Applications/IVPN.app/Contents/MacOS/IVPN Agent"
+#define IVPN_APP "/Applications/privateLINE-Connect.app"
+#define AGENT_APP "/Applications/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Agent"
 
 // TEAM_IDENTIFIER should be passed by compiler
 //  Makefile example: cc -D TEAM_IDENTIFIER='"${SIGN_CERT}"' ...
@@ -88,10 +88,10 @@ int main(int argc, char **argv)
     syslog(LOG_ALERT, "[helper] Start");
     puts("[helper] Start");
 
-    if (!is_safe_dir("/Applications/IVPN.app"))
+    if (!is_safe_dir("/Applications/privateLINE-Connect.app"))
     {
-        syslog(LOG_ALERT, "[helper] IVPN Agent seems not to have the correct(root) privileges.");
-        puts("[helper] IVPN Agent seems not to have the correct(root) privileges.");
+        syslog(LOG_ALERT, "[helper] privateLINE-Connect Agent seems not to have the correct(root) privileges.");
+        puts("[helper] privateLINE-Connect Agent seems not to have the correct(root) privileges.");
 
         if (check_signature() != 0)
             return 1;
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
     puts("[helper] Launching:" AGENT_APP);
 
     // the second argument is 'arg0' - by convention, should point to the file name associated with the file being executed.
-    execl( AGENT_APP, "IVPN Agent", NULL);
+    execl( AGENT_APP, "privateLINE-Connect Agent", NULL);
 
     syslog(LOG_ALERT, "[helper] Stop");
     puts("[helper] Stop");

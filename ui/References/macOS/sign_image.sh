@@ -37,8 +37,8 @@ if [ -z "${_SIGN_CERT}" ]; then
   exit 1
 fi
 
-if [ ! -d "_image/IVPN.app" ]; then
-  echo "ERROR: folder not exists '_image/IVPN.app'!"
+if [ ! -d "_image/privateLINE-Connect.app" ]; then
+  echo "ERROR: folder not exists '_image/privateLINE-Connect.app'!"
 fi
 
 echo "[i] Signing by cert: '${_SIGN_CERT}'"
@@ -48,7 +48,7 @@ echo "[i] Signing by cert: '${_SIGN_CERT}'"
 IFS=$'\n'; set -f
 
 echo "[+] Signing obfsproxy libraries..."
-for f in $(find '_image/IVPN.app/Contents/Resources/obfsproxy' -name '*.so');
+for f in $(find '_image/privateLINE-Connect.app/Contents/Resources/obfsproxy' -name '*.so');
 do
   echo "    signing: [" $f "]";
   codesign --verbose=4 --force --sign "${_SIGN_CERT}" "$f"
@@ -62,31 +62,31 @@ ListCompiledLibs=()
 if [[ "$@" == *"-libivpn"* ]]
 then
   ListCompiledLibs=(
-  "_image/IVPN.app/Contents/MacOS/libivpn.dylib"
+  "_image/privateLINE-Connect.app/Contents/MacOS/libivpn.dylib"
   )
 fi
 
 ListCompiledBinaries=(
-"_image/IVPN.app/Contents/MacOS/IVPN"
-"_image/IVPN.app/Contents/MacOS/IVPN Agent"
-"_image/IVPN.app/Contents/MacOS/cli/ivpn"
-"_image/IVPN.app/Contents/MacOS/kem/kem-helper"
-"_image/IVPN.app/Contents/MacOS/IVPN Installer.app/Contents/MacOS/IVPN Installer"
-"_image/IVPN.app/Contents/MacOS/IVPN Installer.app"
-"_image/IVPN.app"
-"_image/IVPN Uninstaller.app"
-"_image/IVPN Uninstaller.app/Contents/MacOS/IVPN Uninstaller"
+"_image/privateLINE-Connect.app/Contents/MacOS/privateline-connect-ui"
+"_image/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Agent"
+"_image/privateLINE-Connect.app/Contents/MacOS/cli/privateline-connect"
+"_image/privateLINE-Connect.app/Contents/MacOS/kem/kem-helper"
+"_image/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Installer.app/Contents/MacOS/privateLINE-Connect Installer"
+"_image/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Installer.app"
+"_image/privateLINE-Connect.app"
+"_image/privateLINE-Connect Uninstaller.app"
+"_image/privateLINE-Connect Uninstaller.app/Contents/MacOS/privateLINE-Connect Uninstaller"
 )
 
 ListThirdPartyBinaries=(
-"_image/IVPN.app/Contents/MacOS/IVPN Installer.app/Contents/Library/LaunchServices/net.ivpn.client.Helper"
-"_image/IVPN.app/Contents/MacOS/net.ivpn.LaunchAgent"
-"_image/IVPN.app/Contents/MacOS/openvpn"
-"_image/IVPN.app/Contents/MacOS/WireGuard/wg"
-"_image/IVPN.app/Contents/MacOS/WireGuard/wireguard-go"
-"_image/IVPN.app/Contents/Resources/obfsproxy/obfs4proxy"
-"_image/IVPN.app/Contents/MacOS/v2ray/v2ray"
-"_image/IVPN.app/Contents/MacOS/dnscrypt-proxy/dnscrypt-proxy"
+"_image/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Installer.app/Contents/Library/LaunchServices/net.privateline-connect.client.Helper"
+"_image/privateLINE-Connect.app/Contents/MacOS/net.privateline-connect.LaunchAgent"
+"_image/privateLINE-Connect.app/Contents/MacOS/openvpn"
+"_image/privateLINE-Connect.app/Contents/MacOS/WireGuard/wg"
+"_image/privateLINE-Connect.app/Contents/MacOS/WireGuard/wireguard-go"
+"_image/privateLINE-Connect.app/Contents/Resources/obfsproxy/obfs4proxy"
+"_image/privateLINE-Connect.app/Contents/MacOS/v2ray/v2ray"
+"_image/privateLINE-Connect.app/Contents/MacOS/dnscrypt-proxy/dnscrypt-proxy"
 )
 
 echo "[+] Signing compiled libs..."
