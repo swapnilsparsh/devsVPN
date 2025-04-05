@@ -46,7 +46,7 @@ func Unload() {
 // StartXpcListener starts listener for helper
 func StartXpcListener(tcpPort int, secret uint64) {
 
-	ret := C.start_xpc_listener(C.CString("net.ivpn.client.Helper"), C.int(tcpPort), C.uint64_t(secret))
+	ret := C.start_xpc_listener(C.CString("net.privateline-connect.client.Helper"), C.int(tcpPort), C.uint64_t(secret))
 	if ret == 0 {
 		return
 	}

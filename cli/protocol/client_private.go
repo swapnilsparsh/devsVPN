@@ -274,7 +274,7 @@ func (c *Client) receiverRoutine() {
 				if pf != nil {
 					var errDelayed types.ErrorRespDelayed
 					if err := json.Unmarshal(messageData, &errDelayed); err == nil {
-						pf("IVPN daemon notifies of an error that occurred earlier: " + errDelayed.ErrorMessage + "\n")
+						pf("privateLINE Connect daemon notifies of an error that occurred earlier: " + errDelayed.ErrorMessage + "\n")
 					}
 				}
 			}

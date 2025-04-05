@@ -172,7 +172,7 @@ async function installMacOS(updateProgress) {
   let spawn = require("child_process").spawn;
 
   let cmd = spawn(
-    "/Applications/IVPN.app/Contents/MacOS/IVPN Installer.app/Contents/MacOS/IVPN Installer",
+    "/Applications/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Installer.app/Contents/MacOS/privateLINE-Connect Installer",
     [
       "--update",
       updateProgress.readyToInstallBinary,

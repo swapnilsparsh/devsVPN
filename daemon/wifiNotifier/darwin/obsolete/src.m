@@ -77,7 +77,7 @@ void setWifiNotifier(void) {
      }];
 
     SCDynamicStoreContext ctx = { 0, NULL, NULL, NULL, NULL };
-    SCDynamicStoreRef store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("IVPN"), wifi_network_changed, &ctx);
+    SCDynamicStoreRef store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("privateLINE-Connect"), wifi_network_changed, &ctx);
 
     SCDynamicStoreSetNotificationKeys(store, (__bridge CFArrayRef)scKeys, NULL);
 

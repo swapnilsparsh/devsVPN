@@ -317,14 +317,14 @@ if (gotTheLock && isAllowedToStart) {
     // MACOS: Check is application is located in correct place (path)
     if (Platform() === PlatformEnum.macOS && !config.IsDebug()) {
       let appPath = app.getAppPath();
-      if (!appPath.startsWith("/Applications/PrivateLINE.app/")) {
+      if (!appPath.startsWith("/Applications/privateLINE-Connect.app/")) {
         console.log(`Failed to start. Wrong application path: ${appPath}`);
 
         dialog.showMessageBoxSync({
           type: "error",
           message: "Unable to start privateLINE Connect",
           detail:
-            "privateLINE Connect can only run from the Applications folder. Please move the PrivateLINE.app into the /Applications folder",
+            "privateLINE Connect can only run from the Applications folder. Please move the privateLINE-Connect.app into the /Applications folder",
           buttons: ["Quit"],
         });
 

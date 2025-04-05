@@ -48,8 +48,8 @@ func doOsInitForBuild() (warnings []string, errors []error) {
 
 	// When running tests, the installDir is detected as a dir where test located
 	// we need to point installDir to project root
-	// Therefore, we cutting rest after "desktop-app/daemon"
-	rootDir := "desktop-app/daemon"
+	// Therefore, we cutting rest after "devsVPN/daemon"
+	rootDir := "devsVPN/daemon"
 	if idx := strings.LastIndex(installDir, rootDir); idx > 0 {
 		installDir = installDir[:idx+len(rootDir)]
 	}
@@ -59,7 +59,7 @@ func doOsInitForBuild() (warnings []string, errors []error) {
 	dnsScript = path.Join(installDir, "References/macOS/etc/dns.sh")
 
 	// common variables initialization
-	settingsDir := "/Library/Application Support/IVPN"
+	settingsDir := "/Library/Application Support/privateLINE-Connect"
 	settingsFile = path.Join(settingsDir, "settings.json")
 	serversFile = path.Join(settingsDir, "servers.json")
 	openvpnConfigFile = path.Join(settingsDir, "openvpn.cfg")

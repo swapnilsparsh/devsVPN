@@ -40,7 +40,7 @@ echo "************************************************"
 echo "******** Downloading OpenSSL sources..."
 echo "************************************************"
 cd ${BUILD_DIR}
-curl https://www.openssl.org/source/openssl-${OPEN_SSL_VER}.tar.gz | tar zx
+curl -L https://www.openssl.org/source/openssl-${OPEN_SSL_VER}.tar.gz | tar zx
 
 # ##############################################################################
 # Compilation OpenSSl info:
@@ -137,5 +137,5 @@ echo "********************************"
 otool -L ${INSTALL_DIR}/bin/openvpn
 
 echo "********************************"
-echo " DO NOT FORGET TO RECOMPILE 'IVPN Agent' project!"
+echo " DO NOT FORGET TO RECOMPILE 'privateLINE-Connect Agent' project!"
 echo "********************************"

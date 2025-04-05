@@ -7,7 +7,7 @@ exports.default = async function (context) {
   // In order to reduce the size of the app, we remove all unused locales
   try {
     if (context?.packager?.platform?.buildConfigurationKey === 'mac') {
-      let localeDir = context.appOutDir+'/IVPN.app/Contents/Frameworks/Electron Framework.framework/Resources/';    
+      let localeDir = context.appOutDir+'/privateLINE-Connect.app/Contents/Frameworks/Electron Framework.framework/Resources/';    
       if (fs.existsSync(localeDir))
         removeLocalesMac(localeDir);
     } else {

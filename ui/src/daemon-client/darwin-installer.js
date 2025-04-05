@@ -34,11 +34,11 @@ function InstallDaemon(onInstallationStarted, done) {
 
   let spawn = require("child_process").spawn;
 
-  let logStringPrefix = "[IVPN Installer --install_helper]";
+  let logStringPrefix = "[privateLINE-Connect Installer --install_helper]";
 
   try {
     let cmd = spawn(
-      "/Applications/IVPN.app/Contents/MacOS/IVPN Installer.app/Contents/MacOS/IVPN Installer",
+      "/Applications/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Installer.app/Contents/MacOS/privateLINE-Connect Installer",
       ["--install_helper"]
     );
 
@@ -67,11 +67,11 @@ function InstallDaemon(onInstallationStarted, done) {
 function TryStartDaemon(done) {
   let spawn = require("child_process").spawn;
 
-  let logStringPrefix = "[IVPN Installer --start_helper]";
+  let logStringPrefix = "[privateLINE-Connect Installer --start_helper]";
 
   try {
     let cmd = spawn(
-      "/Applications/IVPN.app/Contents/MacOS/IVPN Installer.app/Contents/MacOS/IVPN Installer",
+      "/Applications/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Installer.app/Contents/MacOS/privateLINE-Connect Installer",
       ["--start_helper"]
     );
 
@@ -99,12 +99,12 @@ function IsDaemonInstallationRequired(onResultFunc) {
     return;
   }
 
-  let logStringPrefix = "[IVPN Installer --is_helper_installation_required]";
+  let logStringPrefix = "[privateLINE-Connect Installer --is_helper_installation_required]";
 
   let spawn = require("child_process").spawn;
   try {
     let cmd = spawn(
-      "/Applications/IVPN.app/Contents/MacOS/IVPN Installer.app/Contents/MacOS/IVPN Installer",
+      "/Applications/privateLINE-Connect.app/Contents/MacOS/privateLINE-Connect Installer.app/Contents/MacOS/privateLINE-Connect Installer",
       ["--is_helper_installation_required"]
     );
 
@@ -134,7 +134,7 @@ function InstallDaemonIfRequired(onInstallationStarted, done) {
     });
   } catch (e) {
     console.log(
-      `Failed to run [[IVPN Installer --is_helper_installation_required]]: ${e}`
+      `Failed to run [[privateLINE-Connect Installer --is_helper_installation_required]]: ${e}`
     );
     if (done) done(-1);
   }

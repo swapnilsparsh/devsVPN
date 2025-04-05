@@ -81,7 +81,7 @@ type WindowsSpecificUserPrefs struct {
 	VpnEntryHostsParsed []*VpnEntryHostParsed
 }
 
-// UserPreferences - IVPN service preferences which can be exposed to client
+// UserPreferences - privateLINE-Connect service preferences which can be exposed to client
 type UserPreferences struct {
 	// NOTE: update this type when adding new preferences which can be exposed for clients
 	// ...
@@ -91,7 +91,7 @@ type UserPreferences struct {
 	Windows WindowsSpecificUserPrefs
 }
 
-// Preferences - IVPN service preferences
+// Preferences - privateLINE-Connect service preferences
 type Preferences struct {
 	// The daemon version that saved this data.
 	// Can be used to determine the format version (e.g., on the first app start after an upgrade).
@@ -122,7 +122,7 @@ type Preferences struct {
 	SplitTunnelApps           []string
 	SplitTunnelInversed       bool // Inverse Split Tunnel: only 'splitted' apps use VPN tunnel (applicable only when IsSplitTunnel=true). For App Whitelist feature must be always true.
 	EnableAppWhitelist        bool // Whether only whitelisted apps are allowed into the enclave (VPN). If false (default), then all apps are allowed into the enclave (VPN tunnel).
-	SplitTunnelAnyDns         bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
+	SplitTunnelAnyDns         bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the privateLINE-Connect application
 	SplitTunnelAllowWhenNoVpn bool // (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled
 
 	// last known account status

@@ -33,11 +33,11 @@ var (
 	dnsScript      string
 )
 
-// initialize all constant values (e.g. servicePortFile) which can be used in external projects (IVPN CLI)
+// initialize all constant values (e.g. servicePortFile) which can be used in external projects (privateLINE-Connect CLI)
 func doInitConstants() {
-	servicePortFile = "/Library/Application Support/IVPN/port.txt"
-	openvpnUserParamsFile = "/Library/Application Support/IVPN/OpenVPN/ovpn_extra_params.txt"
-	paranoidModeSecretFile = "/Library/Application Support/IVPN/eaa"
+	servicePortFile = "/Library/Application Support/privateLINE-Connect/port.txt"
+	openvpnUserParamsFile = "/Library/Application Support/privateLINE-Connect/OpenVPN/ovpn_extra_params.txt"
+	paranoidModeSecretFile = "/Library/Application Support/privateLINE-Connect/eaa"
 
 	logDir := "/Library/Logs/"
 	logFile = path.Join(logDir, helpers.ServiceName)
@@ -70,4 +70,8 @@ func FirewallScript() string {
 // DNSScript returns path to DNS script
 func DNSScript() string {
 	return dnsScript
+}
+
+func implPLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) {
+	return []string{}, nil // TODO FIXME: Vlad - implement on Linux also
 }

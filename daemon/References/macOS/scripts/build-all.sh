@@ -16,15 +16,15 @@ while getopts ":v:" opt; do
 done
 
 echo "############################################"
-echo "### Building IVPN Daemon"
+echo "### Building privateLINE-Connect Daemon"
 echo "### OpenVPN and WireGuard will be also recompiled if they are not exists"
 
 if [ "$#" -eq 0 ]
 then
   echo "### Possible arguments:"
   echo "###   -norebuild    - do not rebuild openVPN and WireGuard binaries is they already compiled"
-  echo "###   -debug        - compile IVPN Daemon in debug mode"
-  echo "###   -libivpn      - use XPC listener for notifying clients about daemon connection port (latest IVPN UI not using XPC)"
+  echo "###   -debug        - compile privateLINE-Connect Daemon in debug mode"
+  echo "###   -libivpn      - use XPC listener for notifying clients about daemon connection port (latest privateLINE-Connect UI not using XPC)"
   echo "###   -wifi         - enable wifi support (do not ask 'Enable WIFI support?' question before demon build start)"
 fi
 echo "############################################"
@@ -170,7 +170,7 @@ fi
 #./update-servers.sh
 
 echo "======================================================"
-echo "=============== IVPN Agent ==========================="
+echo "=============== privateLINE-Connect Agent ==========================="
 echo "======================================================"
 echo "Version: $VERSION"
 echo "Date   : $DATE"
@@ -210,6 +210,6 @@ then
   esac
 fi
 
-CGO_CFLAGS=-mmacosx-version-min=10.10 CGO_LDFLAGS=-mmacosx-version-min=10.10 go build -tags "${BUILDTAGS_NOWIFI} ${BUILDTAGS_USE_LIBVPN} ${BUILDTAGS_DEBUG}" -o "IVPN Agent" -trimpath -ldflags "-s -w -X github.com/swapnilsparsh/devsVPN/daemon/version._version=$VERSION -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=$COMMIT -X github.com/swapnilsparsh/devsVPN/daemon/version._time=$DATE"
+CGO_CFLAGS=-mmacosx-version-min=10.10 CGO_LDFLAGS=-mmacosx-version-min=10.10 go build -tags "${BUILDTAGS_NOWIFI} ${BUILDTAGS_USE_LIBVPN} ${BUILDTAGS_DEBUG}" -o "privateLINE-Connect Agent" -trimpath -ldflags "-s -w -X github.com/swapnilsparsh/devsVPN/daemon/version._version=$VERSION -X github.com/swapnilsparsh/devsVPN/daemon/version._commit=$COMMIT -X github.com/swapnilsparsh/devsVPN/daemon/version._time=$DATE"
 
-echo "Compiled daemon binary: '$(pwd)/IVPN Agent'"
+echo "Compiled daemon binary: '$(pwd)/privateLINE-Connect Agent'"

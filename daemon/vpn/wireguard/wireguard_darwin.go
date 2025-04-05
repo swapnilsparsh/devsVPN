@@ -54,6 +54,7 @@ const subnetMaskPrefixLenIPv6 string = "64"
 // internalVariables of wireguard implementation for macOS
 type internalVariables struct {
 	// WG running process (shell command)
+	manualDNS     dns.DnsSettings
 	command       *exec.Cmd
 	isGoingToStop bool
 	defGateway    net.IP

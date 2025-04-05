@@ -7,8 +7,8 @@ error() {
 
 clean() {
   echo "Cleaning up..."
-  sudo launchctl unload -w /Library/LaunchDaemons/ivpn.xpc.test.service.plist || echo "No service to unload"
-  sudo rm /Library/LaunchDaemons/ivpn.xpc.test.service.plist /tmp/xpc_server || echo "No files to remove"
+  sudo launchctl unload -w /Library/LaunchDaemons/privateline-connect.xpc.test.service.plist || echo "No service to unload"
+  sudo rm /Library/LaunchDaemons/privateline-connect.xpc.test.service.plist /tmp/xpc_server || echo "No files to remove"
   rm -rf _out || echo "No folder to remove"
 }
 
@@ -29,8 +29,8 @@ gcc  -x objective-c -framework Foundation xpc_client_main.c ../xpc_client.m -o _
 cp _out/xpc_server /tmp
 
 # Load daemon
-sudo cp ivpn.xpc.test.service.plist /Library/LaunchDaemons
-sudo launchctl load -w /Library/LaunchDaemons/ivpn.xpc.test.service.plist || error '"launchctl load" failed'
+sudo cp privateline-connect.xpc.test.service.plist /Library/LaunchDaemons
+sudo launchctl load -w /Library/LaunchDaemons/privateline-connect.xpc.test.service.plist || error '"launchctl load" failed'
 
 # Call client
 ./_out/xpc_client || error 'Client start failed'

@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
@@ -42,6 +43,7 @@ var (
 	// key: is a string representation of allowed IP
 	// value: true - if exception rule is persistent (persistent, means will stay available even client is disconnected)
 	allowedHosts map[string]bool
+	isPersistent bool
 )
 
 func init() {
@@ -66,7 +68,7 @@ func implGetEnabled() (bool, error) {
 	return true, nil
 }
 
-func implSetEnabled(isEnabled bool) error {
+func implSetEnabled(isEnabled, _ bool) error {
 	if isEnabled {
 		err := shell.Exec(nil, platform.FirewallScript(), "-enable")
 		if err != nil {
@@ -80,6 +82,7 @@ func implSetEnabled(isEnabled bool) error {
 }
 
 func implSetPersistent(persistent bool) error {
+	isPersistent = persistent
 	if persistent {
 		// The persistence is based on such facts:
 		// 	- daemon is starting as 'LaunchDaemons'
@@ -87,9 +90,33 @@ func implSetPersistent(persistent bool) error {
 		// This means we just have to ensure that firewall enabled.
 
 		// Just ensure that firewall is enabled
-		return implSetEnabled(true)
+		ret := implSetEnabled(true, false)
+		go ensurePersistent(60)
+
+		return ret
 	}
 	return nil
+}
+
+func ensurePersistent(secondsToWait int) {
+	const delaySec = 5
+	log.Info("[ensurePersistent] started")
+	for i := 0; i <= secondsToWait/delaySec; i++ {
+		time.Sleep(time.Second * delaySec)
+		if !isPersistent {
+			break
+		}
+		enabled, err := implGetEnabled()
+		if err != nil {
+			log.Error("[ensurePersistent] ", err)
+			continue
+		}
+		if isPersistent && !enabled {
+			log.Warning("[ensurePersistent] Persistent FW rules not available. Retry to apply...")
+			implSetEnabled(true, false)
+		}
+	}
+	log.Info("[ensurePersistent] stopped.")
 }
 
 // ClientConnected - allow communication for local vpn/client IP address
@@ -353,3 +380,31 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 }
 
 func implTopFirewallPriority() bool { return true } // nothing to do on OSX
+
+func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
+	return true, "", "", "", nil
+}
+
+func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (retErr error) {
+	return nil
+}
+
+func implDeployPostConnectionRules() (retErr error) {
+	return nil
+}
+
+func implCleanupRegistration() (err error) {
+	return nil
+}
+
+func implReEnable() (retErr error) {
+	return nil
+}
+
+func implTotalShieldEnabled() bool {
+	return false // TODO FIXME: Vlad - update
+}
+
+func implTotalShieldApply(_totalShieldEnabled bool) (err error) {
+	return nil
+}

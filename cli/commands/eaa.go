@@ -43,7 +43,7 @@ type CmdParanoidMode struct {
 }
 
 func (c *CmdParanoidMode) Init() {
-	c.Initialize("eaa", "Enhanced App Authentication\nEAA implements an additional authentication factor between the IVPN app (UI)\nand the daemon that manages the VPN tunnel. This prevents a malicious app\nfrom being able to manipulate the VPN tunnel without the users permission.\nWhen EAA is active the EAA password will be required to execute a command.")
+	c.Initialize("eaa", "Enhanced App Authentication\nEAA implements an additional authentication factor between the privateLINE Connect app (UI)\nand the daemon that manages the VPN tunnel. This prevents a malicious app\nfrom being able to manipulate the VPN tunnel without the users permission.\nWhen EAA is active the EAA password will be required to execute a command.")
 	c.BoolVar(&c.status, "status", false, "(default) Show current EAA status")
 	c.BoolVar(&c.disable, "off", false, "Disable EAA")
 	c.BoolVar(&c.enable, "on", false, "Enable EAA and configure password")

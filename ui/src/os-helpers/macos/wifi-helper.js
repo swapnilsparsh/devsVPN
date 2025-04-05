@@ -50,28 +50,28 @@ const LOCATION_SERVICES_AUTHORISATION_STATUS = Object.freeze({
 var isWarningDialogShown = false;
 
 function InitWifiHelper(electronWindow, showSettingsFunc) {
-  if (!isApplicable()) 
+  if (!isApplicable())
     return;
- 
-  // Check is addon available. 
+
+  // Check is addon available.
   // In can be missing for old macOS versions (< v14.x)
   let helperAddon = null
   try {
     helperAddon = require('wifi-info-macos');
   } catch (e) {
-      console.log("ERROR: (wifi-helper) wifi-info-macos addon not found");
-      return;
+    console.log("ERROR: (wifi-helper) wifi-info-macos addon not found");
+    return;
   }
 
   // Just to ensure that required permission already requested
   helperAddon.LocationServicesRequestPermission();
 
-  // update watrning message  
+  // update watrning message
   helperAddon.LocationServicesSetAuthorizationChangeCallback(() => { setTimeout(onLocationServicesAuthorizationChange, 0) });
   updateWarningMessage();
 
   // Notify user about warnings (if they are)
-  setTimeout(() => {showWarningDialogIfRequired(electronWindow, showSettingsFunc)}, 0);
+  setTimeout(() => { showWarningDialogIfRequired(electronWindow, showSettingsFunc) }, 0);
   // Ensure that Agent in expected state (installed/unistalled)
   setTimeout(appyAgentState, 0);
 
@@ -82,7 +82,7 @@ function InitWifiHelper(electronWindow, showSettingsFunc) {
         setTimeout(appyAgentState, 0);
         break;
       case "account/session":
-        setTimeout(() => {showWarningDialogIfRequired(electronWindow, showSettingsFunc)}, 0);
+        setTimeout(() => { showWarningDialogIfRequired(electronWindow, showSettingsFunc) }, 0);
         break;
       default:
     }
@@ -100,9 +100,9 @@ function isApplicable() {
     const versionParts = release.split('.').map(part => parseInt(part, 10));
     const majorVersion = versionParts[0];
     if (majorVersion < 23)
-      return false; // Old macOS versions do not require LaunchAgent    
+      return false; // Old macOS versions do not require LaunchAgent
   } catch (e) {
-    console.log("ERROR: (wifi-helper) Can not obtain macOS version:", e);    
+    console.log("ERROR: (wifi-helper) Can not obtain macOS version:", e);
   }
   return true
 }
@@ -116,7 +116,7 @@ function isWifiFunctionalityEnabled() {
   return wifiSettings.trustedNetworksControl || wifiSettings.connectVPNOnInsecureNetwork;
 }
 
-async function showWarningDialogIfRequired(electronWindow, showSettingsFunc) {  
+async function showWarningDialogIfRequired(electronWindow, showSettingsFunc) {
   try {
     if (isWarningDialogShown)
       return;
@@ -125,7 +125,7 @@ async function showWarningDialogIfRequired(electronWindow, showSettingsFunc) {
 
     isWarningDialogShown = true;
 
-    if (!electronWindow || !showSettingsFunc) 
+    if (!electronWindow || !showSettingsFunc)
       return;
 
     if (!isWifiFunctionalityEnabled())
@@ -134,12 +134,12 @@ async function showWarningDialogIfRequired(electronWindow, showSettingsFunc) {
     let errMsg = getOsConfigErrorDesctiption()
     if (errMsg) {
       let ret = await dialog.showMessageBox(electronWindow,
-      {
-        type: "warning",
-        message: "WIFI Control is inactive",
-        detail:  errMsg,
-        buttons: ["OK", "System Settings ...", "Settings ..."],
-      });  
+        {
+          type: "warning",
+          message: "WIFI Control is inactive",
+          detail: errMsg,
+          buttons: ["OK", "System Settings ...", "Settings ..."],
+        });
 
       if (ret.response == 2) // WIFI Control settings
         showSettingsFunc();
@@ -148,20 +148,20 @@ async function showWarningDialogIfRequired(electronWindow, showSettingsFunc) {
         const { shell } = require("electron");
         await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices');
       }
-    }  
+    }
   } catch (e) {
     console.error("ERROR: (wifi-helper) showWarningDialogIfRequired:", e);
   }
 }
 
 function appyAgentState() {
-  try {    
+  try {
     let helperAddon = require('wifi-info-macos');
 
     // INSTALL/UNINSTALL AGENT
     let agentStatus = helperAddon.AgentGetStatus();
     let isAgentRequired = isWifiFunctionalityEnabled();
- 
+
     if (isAgentRequired && agentStatus != AGENT_STATUS.Enabled)
       InstallAgent()
     else if (!isAgentRequired && agentStatus == AGENT_STATUS.Enabled) {
@@ -177,7 +177,7 @@ function appyAgentState() {
 }
 
 function InstallAgent() {
-  if (!isApplicable()) 
+  if (!isApplicable())
     return;
   try {
     let helperAddon = require('wifi-info-macos');
@@ -192,10 +192,10 @@ function InstallAgent() {
 }
 
 function UninstallAgent() {
-  if (!isApplicable()) 
+  if (!isApplicable())
     return;
   try {
-    let helperAddon = require('wifi-info-macos');    
+    let helperAddon = require('wifi-info-macos');
     console.log("INFO: (wifi-helper) Uninstalling agent");
     let ret = helperAddon.AgentUninstall();
     if (ret != 0)
@@ -217,8 +217,8 @@ function updateWarningMessage() {
     if (isWifiFunctionalityEnabled()) {
       let helperAddon = require('wifi-info-macos');
       let status = helperAddon.AgentGetStatus()
-      if (helperAddon.AgentGetStatus() != AGENT_STATUS.Enabled) {                
-        msg = `Error: The IVPN LaunchAgent is not installed or not enabled (status: ${status}).`;
+      if (helperAddon.AgentGetStatus() != AGENT_STATUS.Enabled) {
+        msg = `Error: The privateLINE-Connect LaunchAgent is not installed or not enabled (status: ${status}).`;
         console.log("ERROR: (wifi-helper):", msg);
       }
     }
@@ -244,11 +244,11 @@ function getOsConfigErrorDesctiption() {
     // retry: sometimes it returns 'NotDetermined' on first call
     lsAuthStatus = helperAddon.LocationServicesAuthorizationStatus();
   }
-  if (lsAuthStatus !== LOCATION_SERVICES_AUTHORISATION_STATUS.AuthorizedAlways 
-    && lsAuthStatus !== LOCATION_SERVICES_AUTHORISATION_STATUS.AuthorizedWhenInUse) {      
-      // NOTE! The "Location Services" text is in use by components/settings/settings-networks.vue 
-      return `WiFi Control is currently inactive due to macOS Location Services being disabled for the ${app.getName()} application.`;
-    }
+  if (lsAuthStatus !== LOCATION_SERVICES_AUTHORISATION_STATUS.AuthorizedAlways
+    && lsAuthStatus !== LOCATION_SERVICES_AUTHORISATION_STATUS.AuthorizedWhenInUse) {
+    // NOTE! The "Location Services" text is in use by components/settings/settings-networks.vue
+    return `WiFi Control is currently inactive due to macOS Location Services being disabled for the ${app.getName()} application.`;
+  }
 
   return "";
 }

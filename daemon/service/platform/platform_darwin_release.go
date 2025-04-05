@@ -36,41 +36,41 @@ import (
 )
 
 const (
-	serversFileBundled = "/Applications/IVPN.app/Contents/Resources/etc/servers.json"
+	serversFileBundled = "/Applications/privateLINE-Connect.app/Contents/Resources/etc/servers.json"
 )
 
 func doOsInitForBuild() (warnings []string, errors []error) {
 	// macOS-specific variable initialization
-	firewallScript = "/Applications/IVPN.app/Contents/Resources/etc/firewall.sh"
-	dnsScript = "/Applications/IVPN.app/Contents/Resources/etc/dns.sh"
+	firewallScript = "/Applications/privateLINE-Connect.app/Contents/Resources/etc/firewall.sh"
+	dnsScript = "/Applications/privateLINE-Connect.app/Contents/Resources/etc/dns.sh"
 
 	// common variables initialization
-	settingsDir := "/Library/Application Support/IVPN"
+	settingsDir := "/Library/Application Support/privateLINE-Connect"
 	settingsFile = path.Join(settingsDir, "settings.json")
 	serversFile = path.Join(settingsDir, "servers.json")
 	openvpnConfigFile = path.Join(settingsDir, "openvpn.cfg")
 	openvpnProxyAuthFile = path.Join(settingsDir, "proxyauth.txt")
 	wgConfigFilePath = path.Join(settingsDir, "wgprivateline.conf")
 
-	openVpnBinaryPath = "/Applications/IVPN.app/Contents/MacOS/openvpn"
-	openvpnCaKeyFile = "/Applications/IVPN.app/Contents/Resources/etc/ca.crt"
-	openvpnTaKeyFile = "/Applications/IVPN.app/Contents/Resources/etc/ta.key"
-	openvpnUpScript = "/Applications/IVPN.app/Contents/Resources/etc/dns.sh -up"
-	openvpnDownScript = "/Applications/IVPN.app/Contents/Resources/etc/dns.sh -down"
+	openVpnBinaryPath = "/Applications/privateLINE-Connect.app/Contents/MacOS/openvpn"
+	openvpnCaKeyFile = "/Applications/privateLINE-Connect.app/Contents/Resources/etc/ca.crt"
+	openvpnTaKeyFile = "/Applications/privateLINE-Connect.app/Contents/Resources/etc/ta.key"
+	openvpnUpScript = "/Applications/privateLINE-Connect.app/Contents/Resources/etc/dns.sh -up"
+	openvpnDownScript = "/Applications/privateLINE-Connect.app/Contents/Resources/etc/dns.sh -down"
 
-	obfsproxyStartScript = "/Applications/IVPN.app/Contents/Resources/obfsproxy/obfs4proxy"
+	obfsproxyStartScript = "/Applications/privateLINE-Connect.app/Contents/Resources/obfsproxy/obfs4proxy"
 
-	v2rayBinaryPath = "/Applications/IVPN.app/Contents/MacOS/v2ray/v2ray"
+	v2rayBinaryPath = "/Applications/privateLINE-Connect.app/Contents/MacOS/v2ray/v2ray"
 	v2rayConfigTmpFile = path.Join(settingsDir, "v2ray.json")
 
-	wgBinaryPath = "/Applications/IVPN.app/Contents/MacOS/WireGuard/wireguard-go"
-	wgToolBinaryPath = "/Applications/IVPN.app/Contents/MacOS/WireGuard/wg"
+	wgBinaryPath = "/Applications/privateLINE-Connect.app/Contents/MacOS/WireGuard/wireguard-go"
+	wgToolBinaryPath = "/Applications/privateLINE-Connect.app/Contents/MacOS/WireGuard/wg"
 
-	dnscryptproxyBinPath = "/Applications/IVPN.app/Contents/MacOS/dnscrypt-proxy/dnscrypt-proxy"
-	dnscryptproxyConfigTemplate = "/Applications/IVPN.app/Contents/Resources/etc/dnscrypt-proxy-template.toml"
+	dnscryptproxyBinPath = "/Applications/privateLINE-Connect.app/Contents/MacOS/dnscrypt-proxy/dnscrypt-proxy"
+	dnscryptproxyConfigTemplate = "/Applications/privateLINE-Connect.app/Contents/Resources/etc/dnscrypt-proxy-template.toml"
 	dnscryptproxyConfig = path.Join(settingsDir, "dnscrypt-proxy.toml")
 
-	kemHelperBinaryPath = "/Applications/IVPN.app/Contents/MacOS/kem/kem-helper"
+	kemHelperBinaryPath = "/Applications/privateLINE-Connect.app/Contents/MacOS/kem/kem-helper"
 
 	return nil, nil
 }

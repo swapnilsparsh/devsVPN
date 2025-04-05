@@ -1,6 +1,6 @@
 #include "libivpn.h"
 
-#define LIBIVPN_PATH "/Applications/IVPN.app/Contents/MonoBundle/libivpn.dylib"
+#define LIBIVPN_PATH "/Applications/privateLINE-Connect.app/Contents/MonoBundle/libivpn.dylib"
 #define FUNC_start_xpc_listener "start_xpc_listener"
 
 #define LOG_ERR_PREFIX "ERROR (helpers.h)"

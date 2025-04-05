@@ -1,4 +1,4 @@
-#define SERVICE_NAME "net.ivpn.client.Helper"
+#define SERVICE_NAME "net.privateline-connect.client.Helper"
 
 enum MsgTypes {
     MSG_TYPE_WIFI_CHANGED = 2,

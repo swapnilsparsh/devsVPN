@@ -33,11 +33,11 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
 
-// Prepare to start IVPN daemon for macOS
-func doPrepareToRun() error {
-	// create symlink to 'ivpn' cli client
-	binFolder := "/usr/local/bin"            // "/usr/local/bin"
-	linkpath := path.Join(binFolder, "ivpn") // "/usr/local/bin/ivpn"
+// Prepare to start privateLINE-Connect daemon for macOS
+func doPrepareToRun() error {   
+	// create symlink to 'privateline-connect' cli client
+	binFolder := "/usr/local/bin"                           // "/usr/local/bin"
+	linkpath := path.Join(binFolder, "privateline-connect") // "/usr/local/bin/privateline-connect"
 	if _, err := os.Stat(linkpath); os.IsNotExist(err) {
 		// "/usr/local/bin"
 		if _, err := os.Stat(binFolder); os.IsNotExist(err) {
@@ -46,11 +46,11 @@ func doPrepareToRun() error {
 				log.Error(fmt.Sprintf("Failed to create folder '%s': ", binFolder), err)
 			}
 		}
-		// "/usr/local/bin/ivpn"
-		log.Info("Creating symlink to IVPN CLI: ", linkpath)
-		err := shell.Exec(log, "/bin/ln", "-fs", "/Applications/IVPN.app/Contents/MacOS/cli/ivpn", linkpath)
+		// "/usr/local/bin/privateline-connect"
+		log.Info("Creating symlink to privateLINE-Connect CLI: ", linkpath)
+		err := shell.Exec(log, "/bin/ln", "-fs", "/Applications/privateLINE-Connect.app/Contents/MacOS/cli/privateline-connect", linkpath)
 		if err != nil {
-			log.Error("Failed to create symlink to IVPN CLI: ", err)
+			log.Error("Failed to create symlink to privateLINE-Connect CLI: ", err)
 		}
 	}
 	return nil

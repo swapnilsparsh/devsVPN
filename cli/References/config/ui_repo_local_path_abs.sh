@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script prints absolute path to local  repository of IVPN Daemon sources
+# Script prints absolute path to local  repository of privateLINE-Connect Daemon sources
 # It reads relative path info from 'config/daemon_repo_local_path.txt'
 # How to use in subscripts:
 #   DAEMON_REPO_ABS_PATH=$("./daemon_repo_local_path_abs.sh")

@@ -37,7 +37,7 @@ type CmdState struct {
 }
 
 func (c *CmdState) Init() {
-	c.Initialize("status", "Prints full info about IVPN state")
+	c.Initialize("status", "Prints full info about privateLINE Connect state")
 }
 func (c *CmdState) Run() error {
 	return showState()

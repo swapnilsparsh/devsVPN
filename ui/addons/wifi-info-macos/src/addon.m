@@ -38,7 +38,7 @@ void runJSCallbackLsAuthorizationChange();
     self = [super init];
     if (self) {
         self.locationManager = [[CLLocationManager alloc] init];
-        self.locationManager.delegate = self; 
+        self.locationManager.delegate = self;
     }
     return self;
 }
@@ -58,14 +58,14 @@ void runJSCallbackLsAuthorizationChange();
 - (void)requestAlwaysAuthorization {
   if (@available(macOS 10.15, *)) {
     [self.locationManager requestAlwaysAuthorization];
-  } 
+  }
 }
 
 // This delegate method is called when the authorization status changes
 - (void)locationManagerDidChangeAuthorization:(CLLocationManager *)manager {
   CLAuthorizationStatus status= self.locationManager.authorizationStatus;
   runJSCallbackLsAuthorizationChange();
-  NSLog(@"IVPN: Location Services  Authorization status changed: %d", status);
+  NSLog(@"privateLINE-Connect: Location Services  Authorization status changed: %d", status);
 }
 @end
 
@@ -80,14 +80,14 @@ static napi_value emptyJSString(napi_env env) {
 }
 
 static napi_value LocationServicesAuthorizationStatus(napi_env env, napi_callback_info info) {
-  napi_value retVal;  
+  napi_value retVal;
   LocationManager *locationMgr = [LocationManager sharedInstance];
   napi_create_int32(env, [locationMgr getAuthorizationStatus], &retVal);
   return retVal;
 }
 
 static napi_value LocationServicesEnabled(napi_env env, napi_callback_info info) {
-  napi_value retVal;  
+  napi_value retVal;
   LocationManager *locationMgr = [LocationManager sharedInstance];
   napi_create_int32(env, [locationMgr areLocationServicesEnabled] ? 1 : 0, &retVal);
   return retVal;
@@ -95,7 +95,7 @@ static napi_value LocationServicesEnabled(napi_env env, napi_callback_info info)
 
 static napi_value LocationServicesRequestPermission(napi_env env, napi_callback_info info) {
   LocationManager *locationMgr = [LocationManager sharedInstance];
-  [locationMgr requestAlwaysAuthorization];  
+  [locationMgr requestAlwaysAuthorization];
   return NULL;
 }
 
@@ -103,7 +103,7 @@ static napi_value LocationServicesRequestPermission(napi_env env, napi_callback_
 static napi_threadsafe_function lsAuthorisationChangeCallback  = NULL;
 static napi_value LocationServicesSetAuthorizationChangeCallback(napi_env env, napi_callback_info info) {
   napi_status status;
-  
+
   size_t argc = 1;
   napi_value args[1];
   status = napi_get_cb_info(env, info, &argc, args, NULL, NULL);
@@ -121,18 +121,18 @@ static napi_value LocationServicesSetAuthorizationChangeCallback(napi_env env, n
 
   napi_value callback = args[0]; // Get the callback function
   status = napi_create_threadsafe_function(env, callback, NULL, resourceName, 0, 1, NULL, NULL, NULL, NULL, &lsAuthorisationChangeCallback );
-  if (status != napi_ok) {  
+  if (status != napi_ok) {
     char errorMsg[128];
     snprintf(errorMsg, sizeof(errorMsg), "Failed to create threadsafe function. Status: %d", status);
     napi_throw_error(env, NULL, errorMsg);
     return NULL;
   }
-  
+
   return NULL;
 }
 
 void runJSCallbackLsAuthorizationChange() {
-  if (lsAuthorisationChangeCallback == NULL) return;  
+  if (lsAuthorisationChangeCallback == NULL) return;
 
   napi_status status = napi_call_threadsafe_function(lsAuthorisationChangeCallback, NULL, napi_tsfn_blocking);
   if (status != napi_ok) {
@@ -144,24 +144,24 @@ void runJSCallbackLsAuthorizationChange() {
 // LaunchAgent
 //=========================================================================
 #import <ServiceManagement/SMAppService.h>
-#define LAUNCH_AGENT_PLIST @"net.ivpn.LaunchAgent_launchd.plist"
+#define LAUNCH_AGENT_PLIST @"net.privateline-connect.LaunchAgent_launchd.plist"
 
 void logAgentStatus(long status) {
   switch (status) {
     case SMAppServiceStatusNotRegistered:
-      NSLog(@"IVPN LaunchAgent status: NotRegistered (%ld)", status);
+      NSLog(@"privateLINE-Connect LaunchAgent status: NotRegistered (%ld)", status);
       break;
     case SMAppServiceStatusEnabled:
-      NSLog(@"IVPN LaunchAgent status: Enabled (%ld)", status);
+      NSLog(@"privateLINE-Connect LaunchAgent status: Enabled (%ld)", status);
       break;
     case SMAppServiceStatusRequiresApproval:
-      NSLog(@"IVPN LaunchAgent status: RequiresApproval (%ld)", status);
+      NSLog(@"privateLINE-Connect LaunchAgent status: RequiresApproval (%ld)", status);
       break;
     case SMAppServiceStatusNotFound:
-      NSLog(@"IVPN LaunchAgent status: NotFound (%ld)", status);
+      NSLog(@"privateLINE-Connect LaunchAgent status: NotFound (%ld)", status);
       break;
     default:
-      NSLog(@"IVPN LaunchAgent status: Unknown (%ld)", status);
+      NSLog(@"privateLINE-Connect LaunchAgent status: Unknown (%ld)", status);
       break;
   }
 }
@@ -185,7 +185,7 @@ static napi_value AgentUninstall(napi_env env, napi_callback_info info) {
   NSLog(@"Uninstalling '%@'...", LAUNCH_AGENT_PLIST);
   NSError* error = nil;
   bool isOk = [agentService unregisterAndReturnError:&error];
-  if (error != nil) 
+  if (error != nil)
     NSLog(@"Uninstalling '%@' FAILED: %@", LAUNCH_AGENT_PLIST, error);
   else if (!isOk)
     NSLog(@"Uninstalling '%@' FAILED", LAUNCH_AGENT_PLIST);
@@ -197,7 +197,7 @@ static napi_value AgentUninstall(napi_env env, napi_callback_info info) {
 }
 
 static napi_value AgentInstall(napi_env env, napi_callback_info info) {
-  napi_value retVal;  
+  napi_value retVal;
 
   SMAppService *agentService = [SMAppService agentServiceWithPlistName:LAUNCH_AGENT_PLIST];
   if ([agentService status] == SMAppServiceStatusEnabled) {
@@ -207,18 +207,18 @@ static napi_value AgentInstall(napi_env env, napi_callback_info info) {
   }
 
   logAgentStatus([agentService status]);
-    
+
   NSLog(@"Installing '%@'...", LAUNCH_AGENT_PLIST);
   NSError* error = nil;
   bool isOk = [agentService registerAndReturnError:&error];
-  if (error != nil) 
+  if (error != nil)
     NSLog(@"Installing '%@' FAILED: %@", LAUNCH_AGENT_PLIST, error);
   else if (!isOk)
     NSLog(@"Installing '%@' FAILED", LAUNCH_AGENT_PLIST);
   else
     NSLog(@"Installed '%@'", LAUNCH_AGENT_PLIST);
 
- 
+
   napi_create_int32(env, (error==nil && isOk)? 0: 1, &retVal);
   return retVal; // returns 0 if success
 }
@@ -234,19 +234,19 @@ napi_value Init(napi_env env, napi_value exports) {
 
   napi_property_descriptor properties[] = {
     DECLARE_NAPI_METHOD( "LocationServicesAuthorizationStatus", LocationServicesAuthorizationStatus ),
-    DECLARE_NAPI_METHOD( "LocationServicesEnabled", LocationServicesEnabled ), 
-    DECLARE_NAPI_METHOD( "LocationServicesRequestPermission", LocationServicesRequestPermission ), 
+    DECLARE_NAPI_METHOD( "LocationServicesEnabled", LocationServicesEnabled ),
+    DECLARE_NAPI_METHOD( "LocationServicesRequestPermission", LocationServicesRequestPermission ),
     DECLARE_NAPI_METHOD( "LocationServicesSetAuthorizationChangeCallback", LocationServicesSetAuthorizationChangeCallback ),
     DECLARE_NAPI_METHOD( "AgentInstall", AgentInstall ),
-    DECLARE_NAPI_METHOD( "AgentUninstall", AgentUninstall ),   
+    DECLARE_NAPI_METHOD( "AgentUninstall", AgentUninstall ),
     DECLARE_NAPI_METHOD( "AgentGetStatus", AgentGetStatus )
   };
 
   // Define properties on the exports object
   napi_define_properties(
-    env, 
-    exports, 
-    sizeof(properties) / sizeof(properties[0]), 
+    env,
+    exports,
+    sizeof(properties) / sizeof(properties[0]),
     properties);
 
   return exports;

@@ -79,7 +79,7 @@ var (
 )
 
 func init() {
-	// initialize all constant values (e.g. servicePortFile) which can be used in external projects (IVPN CLI)
+	// initialize all constant values (e.g. servicePortFile) which can be used in external projects (privateLINE-Connect CLI)
 	doInitConstants()
 	if len(servicePortFile) <= 0 {
 		panic("Path to service port file not defined ('platform.servicePortFile' is empty)")

@@ -82,7 +82,7 @@ func (c *CmdWiFi) Init() {
 			* none 	    - no actions will be applied when joining a network`)
 	c.StringVar(&c.set_trusted_action, "set_trusted_action", "", "CONFIG",
 		`Configure action for when joining wifi networks
-		CONFIG parameter format: <ACTION>:<VALUE> 
+		CONFIG parameter format: <ACTION>:<VALUE>
 			VALUE: [on/off]
 			ACTION:
 				Actions for Untrusted WiFi
@@ -92,12 +92,12 @@ func (c *CmdWiFi) Init() {
 				Actions for Trusted WiFi
 					* trusted_disconnect_vpn    - Disconnect from VPN
 					* trusted_disable_firewall  - Disable firewall
-		Example: 
+		Example:
 					ivpn wifi -set_trusted_action untrusted_connect_vpn:off
 					ivpn wifi -set_trusted_action untrusted_enable_firewall:on`)
 	c.StringVar(&c.set_trusted_network, "set_trusted_network", "", "CONFIG",
 		`Set trust status for WiFi network
-			CONFIG parameter format: '<NETWORK_NAME>':<VALUE> 
+			CONFIG parameter format: '<NETWORK_NAME>':<VALUE>
 				NETWORK_NAME: if empty - will be used WiFi network name which is currently connected
 				VALUE: [none/trusted/untrusted]
 					(Set the value to "none" to remove the network from the list)
@@ -337,7 +337,7 @@ func (c *CmdWiFi) printStatus(w *tabwriter.Writer) *tabwriter.Writer {
 
 	canApplyInBackgroundWarning := ""
 	if !wifiSettings.CanApplyInBackground {
-		canApplyInBackgroundWarning = " (only while the IVPN UI application is running)"
+		canApplyInBackgroundWarning = " (only while the privateLINE Connect UI application is running)"
 	}
 
 	if isInsecureNetworksSuppported() {

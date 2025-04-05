@@ -46,7 +46,7 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-// Client for IVPN daemon
+// Client for privateLINE-Connect daemon
 type Client struct {
 	_port   int
 	_secret uint64
@@ -74,7 +74,7 @@ func (e ResponseTimeout) Error() string {
 	return "response timeout"
 }
 
-// CreateClient initialising new client for IVPN daemon
+// CreateClient initialising new client for privateLINE-Connect daemon
 func CreateClient(port int, secret uint64) *Client {
 	return &Client{
 		_port:           port,
@@ -93,7 +93,7 @@ func (c *Client) Connect() (err error) {
 
 	c._conn, err = net.Dial("tcp", fmt.Sprintf(":%d", c._port))
 	if err != nil {
-		return fmt.Errorf("failed to connect to IVPN daemon (does IVPN daemon/service running?): %w", err)
+		return fmt.Errorf("failed to connect to privateLINE-Connect daemon (does privateLINE-Connect daemon/service running?): %w", err)
 	}
 
 	logger.Info("Connected")
@@ -339,7 +339,7 @@ func (c *Client) FirewallSetUserExceptions(exceptions string) error {
 	return nil
 }
 
-// FirewallAllowApiServers set configuration 'Allow access to IVPN servers when Firewall is enabled'
+// FirewallAllowApiServers set configuration 'Allow access to privateLINE-Connect servers when Firewall is enabled'
 func (c *Client) FirewallAllowApiServers(allow bool) error {
 	if err := c.ensureConnected(); err != nil {
 		return err
@@ -406,7 +406,7 @@ func (c *Client) GetSplitTunnelStatus() (cfg types.SplitTunnelStatus, err error)
 //
 //	isEnabled  bool - is ST enabled
 //	isInversed bool - when inversed - only apps added to ST will use VPN connection, all other apps will use direct unencrypted connection
-//	isAnyDns   bool - (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application
+//	isAnyDns   bool - (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the privateLINE-Connect application
 //	isAllowWhenNoVpn bool - (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled
 //	reset      bool - reset ST config and disable ST (if enabled - all the rest paremeters are ignored)
 func (c *Client) SetSplitTunnelConfig(isEnable, isInversed, isAnyDns, isAllowWhenNoVpn, reset bool) (err error) {
@@ -441,8 +441,8 @@ func (c *Client) SplitTunnelAddApp(execCmd string) (isRequiredToExecuteCommand b
 	var respEmpty types.EmptyResp
 	var respAppCmdResp types.SplitTunnelAddAppCmdResp
 	if val, ok := os.LookupEnv("PRIVATELINE_STARTED_BY_PARENT"); !ok || val != "PRIVATELINE_UI" {
-		// If the CLI was started by IVPN UI - skip sending 'SplitTunnelAddApp'
-		// It is already done by IVPN UI
+		// If the CLI was started by privateLINE-Connect UI - skip sending 'SplitTunnelAddApp'
+		// It is already done by privateLINE-Connect UI
 
 		req := types.SplitTunnelAddApp{Exec: execCmd}
 		_, _, err := c.sendRecvAnyEx(&req, false, &respEmpty, &respAppCmdResp)
