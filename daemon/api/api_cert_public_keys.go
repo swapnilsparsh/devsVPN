@@ -11,8 +11,9 @@ var APIPrivateLineHashes = []string{
 	"u4GSL0S1V8jcHJ3sJ07ehNMu3uALbeiwUxL+P/OZCXc=", // deskapi.privateline.io, api.privateline.io, sso.privateline.io
 	"KJyZJqESixPI7jPLs0/8P2q6kI4h5kXWIkoxybZ/gzM=", // api.privateline.io old cert
 
-	"H84WASAGlih/MAB89DhXu+D5HdKG6hfHudZrEN9RQ3c=",	// api.privateline.dev, sso.privateline.dev
-	"3/INJ5mVSZ/bndP0j6irtFHJ3M+1PVr0+/s91l8JKzM=", // older dev cert hash
+	"AzlJ+c/ob/HmMHp1Ymq6aRRpAeDmDynd6wdLu5ER1YM=", //api.privateline.dev, sso.privateline.dev
+	"H84WASAGlih/MAB89DhXu+D5HdKG6hfHudZrEN9RQ3c=", // older dev cert hashes
+	"3/INJ5mVSZ/bndP0j6irtFHJ3M+1PVr0+/s91l8JKzM=",
 }
 
 // UpdatePrivateLineHashes - base64-encoded SHA256 hashes for 'repo.privateline.io' server public keys (in use for certificate key pinning)
