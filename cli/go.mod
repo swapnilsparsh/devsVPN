@@ -1,12 +1,14 @@
 module github.com/swapnilsparsh/devsVPN/cli
 
-go 1.22
+go 1.23.0
+
+toolchain go1.23.8
 
 require (
 	github.com/swapnilsparsh/devsVPN/daemon v0.0.0
-	golang.org/x/crypto v0.31.0
-	golang.org/x/sys v0.28.0
-	golang.org/x/term v0.27.0
+	golang.org/x/crypto v0.36.0
+	golang.org/x/sys v0.31.0
+	golang.org/x/term v0.30.0
 )
 
 require (

@@ -45,7 +45,7 @@ These instructions enable you to get the project up and running on your local ma
 
 #### Windows
 
-[Go 1.22+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); [nsis3](https://nsis.sourceforge.io/Download); Build Tools for Visual Studio 2019 ('Windows 10 SDK 10.0.19041.0', 'Windows 11 SDK 10.0.22000.0', 'MSVC v142 C++ x64 build tools', 'C++ ATL for latest v142 build tools'); gcc compiler (e.g. [TDM GCC](https://jmeubank.github.io/tdm-gcc/download/)).  
+[Go 1.23+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); [nsis3](https://nsis.sourceforge.io/Download); Build Tools for Visual Studio 2019 ('Windows 10 SDK 10.0.19041.0', 'Windows 11 SDK 10.0.22000.0', 'MSVC v142 C++ x64 build tools', 'C++ ATL for latest v142 build tools'); gcc compiler (e.g. [TDM GCC](https://jmeubank.github.io/tdm-gcc/download/)).  
 
 Target Windows platforms are: Windows 10, Windows 11. To make sure that your build works on win10 - you must install the exact SDK versions as part of Build Tools for Visual Studio installation, not the latest SDKs.
 
