@@ -25,6 +25,7 @@ package platform
 import (
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -63,9 +64,13 @@ var (
 
 	routeCommand string // Example: "/sbin/route" - for macOS, "/sbin/ip route" - for Linux, "C:\\Windows\\System32\\ROUTE.EXE" - for Windows
 
+	resolvectlCommand string
+
 	wgBinaryPath     string
 	wgToolBinaryPath string
 	wgConfigFilePath string
+	wgInterfaceName  string
+	wgDefaultMtu     int
 
 	// other PL apps, which need firewall rules to accept incoming connections
 	plCommsBinaryPath string
@@ -76,6 +81,10 @@ var (
 	dnscryptproxyConfigTemplate string
 	dnscryptproxyConfig         string
 	dnscryptproxyLog            string
+
+	plInternalHosts = []*helpers.HostnameAndIP{
+		{Hostname: "meet.privateline.network", DefaultIP: net.IPv4(10, 0, 5, 20), DefaultIpString: "10.0.5.20"},
+	}
 )
 
 func init() {
@@ -359,6 +368,14 @@ func WGConfigFilePath() string {
 	return wgConfigFilePath
 }
 
+func WGInterfaceName() string {
+	return wgInterfaceName
+}
+
+func WGDefaultMTU() int {
+	return wgDefaultMtu
+}
+
 func DnsCryptProxyInfo() (binPath, configPathTemplate, configPathMutable, logPath string) {
 	return dnscryptproxyBinPath, dnscryptproxyConfigTemplate, dnscryptproxyConfig, dnscryptproxyLog
 }
@@ -376,8 +393,8 @@ func PLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) 
 	return implPLOtherAppsToAcceptIncomingConnections()
 }
 
-func PLInternalHostnamesToAcceptIncomingUdpFrom() []string {
-	return []string{"meet.privateline.network"}
+func PLInternalHostsToAcceptIncomingUdpFrom() *[]*helpers.HostnameAndIP {
+	return &plInternalHosts
 }
 
 func OsVersion() string {

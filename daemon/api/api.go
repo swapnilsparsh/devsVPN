@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/api/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 )
@@ -50,22 +51,23 @@ const (
 )
 
 type RestApiHostsDef struct {
-	ApiHost    string
-	SsoHost    string
-	UpdateHost string
+	ApiHost    helpers.HostnameAndIP
+	SsoHost    helpers.HostnameAndIP
+	UpdateHost helpers.HostnameAndIP
 }
 
 var (
 	productionApiHosts = RestApiHostsDef{
-		ApiHost:    "deskapi.privateline.io", // "api.privateline.io"
-		SsoHost:    "sso.privateline.io",
-		UpdateHost: "raw.githubusercontent.com",
+		// desktop uses deskapi.privateline.io, mobile apps use api.privateline.io
+		ApiHost:    helpers.HostnameAndIP{Hostname: "deskapi.privateline.io", DefaultIP: net.IPv4(155, 130, 218, 68), DefaultIpString: "155.130.218.68"},
+		SsoHost:    helpers.HostnameAndIP{Hostname: "sso.privateline.io", DefaultIP: net.IPv4(155, 130, 218, 68), DefaultIpString: "155.130.218.68"},
+		UpdateHost: helpers.HostnameAndIP{Hostname: "deskapi.privateline.io", DefaultIP: net.IPv4(155, 130, 218, 68), DefaultIpString: "155.130.218.68"},
 	}
 
 	developmentApiHosts = RestApiHostsDef{
-		ApiHost:    "api.privateline.dev",
-		SsoHost:    "sso.privateline.dev",
-		UpdateHost: "raw.githubusercontent.com",
+		ApiHost:    helpers.HostnameAndIP{Hostname: "api.privateline.dev", DefaultIP: net.IPv4(155, 130, 218, 69), DefaultIpString: "155.130.218.69"},
+		SsoHost:    helpers.HostnameAndIP{Hostname: "sso.privateline.dev", DefaultIP: net.IPv4(155, 130, 218, 69), DefaultIpString: "155.130.218.69"},
+		UpdateHost: helpers.HostnameAndIP{Hostname: "api.privateline.dev", DefaultIP: net.IPv4(155, 130, 218, 69), DefaultIpString: "155.130.218.69"},
 	}
 
 	RestApiHostsSet = []*RestApiHostsDef{&productionApiHosts, &developmentApiHosts}
@@ -138,9 +140,15 @@ type API struct {
 	currentRestApiBackend RestApiBackendType
 }
 
-func (a *API) getApiHost() string    { return RestApiHostsSet[a.currentRestApiBackend].ApiHost }
-func (a *API) getSsoHost() string    { return RestApiHostsSet[a.currentRestApiBackend].SsoHost }
-func (a *API) getUpdateHost() string { return RestApiHostsSet[a.currentRestApiBackend].UpdateHost }
+func (a *API) getApiHost() *helpers.HostnameAndIP {
+	return &RestApiHostsSet[a.currentRestApiBackend].ApiHost
+}
+func (a *API) getSsoHost() *helpers.HostnameAndIP {
+	return &RestApiHostsSet[a.currentRestApiBackend].SsoHost
+}
+func (a *API) getUpdateHost() *helpers.HostnameAndIP {
+	return &RestApiHostsSet[a.currentRestApiBackend].UpdateHost
+}
 
 // SetRestApiBackend: true for development env, false for production env
 func (a *API) SetRestApiBackend(devEnv bool) {
@@ -156,6 +164,11 @@ func (a *API) SetRestApiBackend(devEnv bool) {
 // GetRestApiBackend - returns true if development REST API servers are enabled, false if production servers are enabled
 func (a *API) GetRestApiBackend() (devEnv bool) {
 	return a.currentRestApiBackend == DevelopmentEnv
+}
+
+// GetRestApiHosts - returns a set of our REST API hosts, to be used for firewall rules, etc.
+func (a *API) GetRestApiHosts() (restApiHosts []*helpers.HostnameAndIP) {
+	return []*helpers.HostnameAndIP{&RestApiHostsSet[a.currentRestApiBackend].ApiHost, &RestApiHostsSet[a.currentRestApiBackend].SsoHost}
 }
 
 // Alias - alias description of API request (can be requested by UI client)
@@ -184,46 +197,46 @@ const (
 func (a *API) APIAliases(key string) (Alias, bool) {
 	switch key {
 	case GeoLookupApiAlias:
-		return Alias{host: a.getApiHost(), path: _geoLookupPath}, true
+		return Alias{host: a.getApiHost().Hostname, path: _geoLookupPath}, true
 
 	case "updateInfo_Linux":
-		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update.json"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/stable/_update_info/update.json"}, true
 	case "updateSign_Linux":
-		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update.json.sign.sha256.base64"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/stable/_update_info/update.json.sign.sha256.base64"}, true
 	case "updateInfo_macOS":
-		return Alias{host: a.getUpdateHost(), path: "/macos/update.json"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/macos/update.json"}, true
 	case "updateSign_macOS":
-		return Alias{host: a.getUpdateHost(), path: "/macos/update.json.sign.sha256.base64"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/macos/update.json.sign.sha256.base64"}, true
 	case "updateInfo_Windows":
-		return Alias{host: a.getUpdateHost(), path: "/windows/update.json"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/windows/update.json"}, true
 	case "updateSign_Windows":
-		return Alias{host: a.getUpdateHost(), path: "/windows/update.json.sign.sha256.base64"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/windows/update.json.sign.sha256.base64"}, true
 
 	case "updateInfo_manual_Linux":
-		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update_manual.json"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/stable/_update_info/update_manual.json"}, true
 	case "updateSign_manual_Linux":
-		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update_manual.json.sign.sha256.base64"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/stable/_update_info/update_manual.json.sign.sha256.base64"}, true
 	case "updateInfo_manual_macOS":
-		return Alias{host: a.getUpdateHost(), path: "/macos/update_manual.json"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/macos/update_manual.json"}, true
 	case "updateSign_manual_macOS":
-		return Alias{host: a.getUpdateHost(), path: "/macos/update_manual.json.sign.sha256.base64"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/macos/update_manual.json.sign.sha256.base64"}, true
 	case "updateInfo_manual_Windows":
-		return Alias{host: a.getUpdateHost(), path: "/windows/update_manual.json"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/windows/update_manual.json"}, true
 	case "updateSign_manual_Windows":
-		return Alias{host: a.getUpdateHost(), path: "/windows/update_manual.json.sign.sha256.base64"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/windows/update_manual.json.sign.sha256.base64"}, true
 
 	case "updateInfo_beta_Linux":
-		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update_beta.json"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/stable/_update_info/update_beta.json"}, true
 	case "updateSign_beta_Linux":
-		return Alias{host: a.getUpdateHost(), path: "/stable/_update_info/update_beta.json.sign.sha256.base64"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/stable/_update_info/update_beta.json.sign.sha256.base64"}, true
 	case "updateInfo_beta_macOS":
-		return Alias{host: a.getUpdateHost(), path: "/macos/update_beta.json"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/macos/update_beta.json"}, true
 	case "updateSign_beta_macOS":
-		return Alias{host: a.getUpdateHost(), path: "/macos/update_beta.json.sign.sha256.base64"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/macos/update_beta.json.sign.sha256.base64"}, true
 	case "updateInfo_beta_Windows":
-		return Alias{host: a.getUpdateHost(), path: "/windows/update_beta.json"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/windows/update_beta.json"}, true
 	case "updateSign_beta_Windows":
-		return Alias{host: a.getUpdateHost(), path: "/windows/update_beta.json.sign.sha256.base64"}, true
+		return Alias{host: a.getUpdateHost().Hostname, path: "/windows/update_beta.json.sign.sha256.base64"}, true
 	default:
 		return Alias{}, false
 	}
@@ -337,11 +350,11 @@ func (a *API) doSetAlternateIPs(IPv6 bool, IPs []string) error {
 	return nil
 }
 
-// DownloadServersList - download servers list form API IVPN server
+// DownloadServersList - download servers list form privateLINE REST API server
 func (a *API) DownloadServersList() (*types.ServersInfoResponse, error) {
 	servers := new(types.ServersInfoResponse)
 	// if err := a.request(getApiHost(), _serversPath, "GET", "", nil, servers); err != nil {
-	if err := a.request(a.getUpdateHost(), _serversPath, "GET", "", nil, servers); err != nil {
+	if err := a.request(a.getUpdateHost().Hostname, _serversPath, "GET", "", nil, servers); err != nil {
 		return nil, err
 	}
 
@@ -414,7 +427,7 @@ func (a *API) SessionNew(emailOrAcctID string, password string, tryAccountIdWith
 		apiPath = _sessionNewPath
 	} else { // passwordless login
 		// Account ID must not have "a-" prefix, per PLCON-52
-		// TODO FIXME: Vlad - right now the production REST API deskapi.privateline.io/user/login/quick-auth is broken, for some account IDs it works only with "a-" prefix and for some it only works without. So trying both.
+		// TODO: Vlad - right now the production REST API deskapi.privateline.io/user/login/quick-auth is broken, for some account IDs it works only with "a-" prefix and for some it only works without. So trying both.
 		acctID := emailOrAcctID
 		if !tryAccountIdWithADashPrefix {
 			acctID = strings.TrimPrefix(acctID, "a-")
@@ -428,7 +441,7 @@ func (a *API) SessionNew(emailOrAcctID string, password string, tryAccountIdWith
 		apiPath = _sessionNewPasswordlessPath
 	}
 
-	data, httpResp, err = a.requestRaw(protocolTypes.IPvAny, a.getApiHost(), apiPath, "POST", "application/json", request, 0, 0)
+	data, httpResp, err = a.requestRaw(protocolTypes.IPvAny, a.getApiHost().Hostname, apiPath, "POST", "application/json", request, 0, 0)
 	if err != nil {
 		return nil, nil, nil, rawResponse, err
 	}
@@ -488,7 +501,7 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	// payload.Set("client_secret", "YKJ6aBMCMhJfzH9RtClcBFFNGrh5ystc") //dev client secret
 
 	// Send the POST request to get the token
-	ssoTokenUrl := "https://" + a.getSsoHost() + _ssoTokenPath
+	ssoTokenUrl := "https://" + a.getSsoHost().Hostname + _ssoTokenPath
 	tokenResp, err := httpClient.PostForm(ssoTokenUrl, payload)
 	if err != nil {
 		return resp, fmt.Errorf("failed to request token: %w", err)
@@ -536,7 +549,7 @@ func (a *API) ConnectDevice(deviceID string, deviceName string, publicKey string
 		SessionTokenStruct: types.SessionTokenStruct{SessionToken: sessionToken},
 	}
 
-	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, a.getApiHost(), _connectDevicePath, "POST", "application/json", request, 0, 0)
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, a.getApiHost().Hostname, _connectDevicePath, "POST", "application/json", request, 0, 0)
 
 	if err != nil {
 		return nil, nil, rawResponse, err
@@ -645,7 +658,7 @@ func (a *API) SessionStatus(session string) (
 
 	request := &types.SessionStatusRequest{Session: session}
 
-	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, a.getApiHost(), _sessionStatusPath, "POST", "application/json", request, 0, 0)
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, a.getApiHost().Hostname, _sessionStatusPath, "POST", "application/json", request, 0, 0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -680,7 +693,7 @@ func (a *API) DeviceList(session string, Search string, Page int, Limit int, Del
 		deleteURL := _removeDevicePath + "/" + strconv.Itoa(DeleteId)
 		deleteResp := &types.DeviceListResponse{}
 
-		if err := a.request(a.getApiHost(), deleteURL, "DELETE", "application/json", request, deleteResp); err != nil {
+		if err := a.request(a.getApiHost().Hostname, deleteURL, "DELETE", "application/json", request, deleteResp); err != nil {
 			return nil, err
 		}
 
@@ -689,7 +702,7 @@ func (a *API) DeviceList(session string, Search string, Page int, Limit int, Del
 		}
 	}
 
-	if err := a.request(a.getApiHost(), _deviceListPath+"?search="+Search+"&page="+strconv.Itoa(Page)+"&limit="+strconv.Itoa(Limit), "GET", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost().Hostname, _deviceListPath+"?search="+Search+"&page="+strconv.Itoa(Page)+"&limit="+strconv.Itoa(Limit), "GET", "application/json", request, resp); err != nil {
 		return nil, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
@@ -716,7 +729,7 @@ func (a *API) ProfileData(session string) (
 	fullProfilePath := _profileDataPath + queryParams
 
 	resp = &types.ProfileDataResponse{}
-	if err := a.request(a.getApiHost(), fullProfilePath, "GET", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost().Hostname, fullProfilePath, "GET", "application/json", request, resp); err != nil {
 		return nil, 0, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
@@ -733,7 +746,7 @@ func (a *API) SubscriptionData(session string) (
 	request := &types.DeviceListRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 
 	resp = &types.SubscriptionDataResponse{}
-	if err := a.request(a.getApiHost(), _subscriptionDataPath, "GET", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost().Hostname, _subscriptionDataPath, "GET", "application/json", request, resp); err != nil {
 		return nil, 0, err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
@@ -766,7 +779,7 @@ func (a *API) SessionDelete(session string, deviceWGPublicKey string) error {
 	request := &types.SessionDeleteRequest{Session: session, ForceDelete: 1}
 	resp := &types.APIErrorResponse{}
 	urlPath := fmt.Sprintf("%s/%d", _removeDevicePath, internalDeviceID)
-	if err := a.request(a.getApiHost(), urlPath, "DELETE", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost().Hostname, urlPath, "DELETE", "application/json", request, resp); err != nil {
 		return err
 	}
 	if resp.HttpStatusCode != types.CodeSuccess {
@@ -783,7 +796,7 @@ func (a *API) MigrateSsoUser(session string) (
 
 	request := &types.MigrateSsoUserRequest{SessionTokenStruct: types.SessionTokenStruct{SessionToken: session}}
 	resp = &types.MigrateSsoUserResponse{}
-	if err := a.request(a.getApiHost(), _migrateSsoUserPath, "POST", "application/json", request, resp); err != nil {
+	if err := a.request(a.getApiHost().Hostname, _migrateSsoUserPath, "POST", "application/json", request, resp); err != nil {
 		return nil, 0, err
 	} else if resp.HttpStatusCode != types.CodeSuccess {
 		return nil, resp.HttpStatusCode, types.CreateAPIError(resp.HttpStatusCode, resp.Message)
@@ -802,7 +815,7 @@ func (a *API) WireGuardKeySet(session string, newPublicWgKey string, activePubli
 
 	resp := types.SessionsWireGuardResponse{}
 
-	if err := a.request(a.getApiHost(), _wgKeySetPath, "POST", "application/json", request, &resp); err != nil {
+	if err := a.request(a.getApiHost().Hostname, _wgKeySetPath, "POST", "application/json", request, &resp); err != nil {
 		return resp, err
 	}
 
@@ -851,7 +864,7 @@ func (a *API) GeoLookup(timeoutMs int, ipTypeRequired protocolTypes.RequiredIPPr
 					gl.isRunning = false
 					close(gl.done)
 				}()
-				gl.response, httpResp, gl.err = a.requestRaw(ipType, a.getApiHost(), _geoLookupPath, "GET", "", nil, timeoutMs, 0)
+				gl.response, httpResp, gl.err = a.requestRaw(ipType, a.getApiHost().Hostname, _geoLookupPath, "GET", "", nil, timeoutMs, 0)
 				err := json.Unmarshal(gl.response, &gl.location)
 				if httpResp != nil {
 					gl.location.SetHttpStatusCode(httpResp.StatusCode)

@@ -1,23 +1,23 @@
 //
-//  Daemon for IVPN Client Desktop
+//  Daemon for privateLINE Connect Desktop
 //  https://github.com/swapnilsparsh/devsVPN
 //
 //  Created by Stelnykovych Alexandr.
 //  Copyright (c) 2023 IVPN Limited.
 //
-//  This file is part of the Daemon for IVPN Client Desktop.
+//  This file is part of the Daemon for privateLINE Connect Desktop.
 //
-//  The Daemon for IVPN Client Desktop is free software: you can redistribute it and/or
+//  The Daemon for privateLINE Connect Desktop is free software: you can redistribute it and/or
 //  modify it under the terms of the GNU General Public License as published by the Free
 //  Software Foundation, either version 3 of the License, or (at your option) any later version.
 //
-//  The Daemon for IVPN Client Desktop is distributed in the hope that it will be useful,
+//  The Daemon for privateLINE Connect Desktop is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 //  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 //  details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with the Daemon for IVPN Client Desktop. If not, see <https://www.gnu.org/licenses/>.
+//  along with the Daemon for privateLINE Connect Desktop. If not, see <https://www.gnu.org/licenses/>.
 //
 
 package protocol
@@ -158,25 +158,25 @@ type Service interface {
 	// If 'antiTracker' is enabled - the 'dnsCfg' will be ignored
 	SetManualDNS(dns dns.DnsSettings, antiTracker service_types.AntiTrackerMetadata) (changedDns dns.DnsSettings, retErr error)
 	GetManualDNSStatus() dns.DnsSettings
-	GetAntiTrackerStatus() service_types.AntiTrackerMetadata
+	//GetAntiTrackerStatus() service_types.AntiTrackerMetadata // TODO: Vlad - disabled AntiTracker functionality for now
 
 	IsCanConnectMultiHop() error
 	Connect(params service_types.ConnectionParams) error
 	Disconnect() error
-	Connected() bool
+	ConnectedOrConnecting() bool
 
 	Pause(durationSeconds uint32) error
 	Resume() error
 	IsPaused() bool
 	PausedTill() time.Time
 
-	SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID bool, notifyClientsOnSessionDelete bool) (
+	SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID, notifyClientsOnSessionDelete, disableFirewallOnExit, disableFirewallOnErrorOnly bool) (
 		apiCode int,
 		apiErrorMsg string,
 		accountInfo preferences.AccountStatus,
 		rawResponse string,
 		err error)
-	SsoLogin(code string, sessionState string) (
+	SsoLogin(code string, sessionState string, disableFirewallOnExit, disableFirewallOnErrorOnly bool) (
 		apiCode int,
 		apiErrorMsg string,
 		rawResponse *api_types.SsoLoginResponse,
@@ -207,7 +207,7 @@ type Service interface {
 		rawResponse string,
 		err error)
 
-	SessionDelete(isCanDeleteSessionLocally bool, notifyClientsOnSessionChange bool) error
+	SessionDelete(isCanDeleteSessionLocally, notifyClientsOnSessionChange, disableFirewallOnExit bool) error
 
 	RequestSessionStatus() (
 		apiCode int,
@@ -250,7 +250,7 @@ type connectionInfo struct {
 	IsAuthenticated bool                 // true when connection fully authenticated (secret is OK and EAA check is passed)
 }
 
-// Protocol - TCP interface to communicate with IVPN application
+// Protocol - TCP interface to communicate with PL Connect application
 type Protocol struct {
 	_secret uint64
 
@@ -1012,7 +1012,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				}
 				return fields[0]
 			}
-			req.Dns.DnsHost = getSingleField(req.Dns.DnsHost)
+			// req.Dns.DnsHosts = getSingleField(req.Dns.DnsHosts)
 			req.Dns.DohTemplate = getSingleField(req.Dns.DohTemplate)
 
 			_, err := p._service.SetManualDNS(req.Dns, req.AntiTracker)
@@ -1023,7 +1023,9 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				p.sendResponse(conn, &types.EmptyResp{}, reqCmd.Idx) // notify: request processed
 			}
 			// notify current DNS status
-			p.notifyClients(&types.SetAlternateDNSResp{Dns: types.DnsStatus{Dns: p._service.GetManualDNSStatus(), AntiTrackerStatus: p._service.GetAntiTrackerStatus()}})
+			// TODO: Vlad - disabled AntiTracker functionality for now
+			p.notifyClients(&types.SetAlternateDNSResp{Dns: types.DnsStatus{Dns: p._service.GetManualDNSStatus(), DnsMgmtStyleInUse: dns.DnsMgmtStyleInUse()}})
+			// p.notifyClients(&types.SetAlternateDNSResp{Dns: types.DnsStatus{Dns: p._service.GetManualDNSStatus(), AntiTrackerStatus: p._service.GetAntiTrackerStatus()}})
 		}
 	case "GetDnsPredefinedConfigs":
 		cfgs, err := dns.GetPredefinedDnsConfigurations()
@@ -1066,7 +1068,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 
 		var resp types.SessionNewResp
-		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.EmailOrAcctID, req.Password, req.DeviceName, req.StableDeviceID, true)
+		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.EmailOrAcctID, req.Password, req.DeviceName, req.StableDeviceID, true, true, true)
 		if err != nil {
 			if apiCode == 0 {
 				// if apiCode == 0 - it is not API error. Sending error response
@@ -1104,7 +1106,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 
 		var resp types.SsoLoginResp
-		apiCode, apiErrMsg, rawResponse, err := p._service.SsoLogin(req.Code, req.SessionState)
+		apiCode, apiErrMsg, rawResponse, err := p._service.SsoLogin(req.Code, req.SessionState, true, true)
 
 		if err != nil {
 			if apiCode == 0 {
@@ -1300,18 +1302,18 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
-		err := p._service.SessionDelete(req.IsCanDeleteSessionLocally, true)
+		err := p._service.SessionDelete(req.IsCanDeleteSessionLocally, true, true) // SessionDelete() will disable the firewall
 		if err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 			break
 		}
 
-		// It is important to ensure FW is disabled after SessionDelete() call.
-		// (because the SessionDelete->Disconnect->Resume restores original FW state which were before pause)
-		if req.NeedToDisableFirewall {
-			p._service.SetKillSwitchIsPersistent(false)
-			p._service.SetKillSwitchState(false)
-		}
+		// // It is important to ensure FW is disabled after SessionDelete() call.
+		// // (because the SessionDelete->Disconnect->Resume restores original FW state which were before pause)
+		// if req.NeedToDisableFirewall {
+		// 	p._service.SetKillSwitchIsPersistent(false)
+		// 	p._service.SetKillSwitchState(false)
+		// }
 
 		if req.NeedToResetSettings {
 			// disable paranoid mode
@@ -1469,7 +1471,8 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 
 		// First logout quietly before switching
-		if err := p._service.SessionDelete(true, false); err != nil {
+		// TODO: Vlad - if different firewall rules will be needed for production and development REST API sets, then need to set disableFirewallOnExit=true here
+		if err := p._service.SessionDelete(true, false, false); err != nil {
 			p.sendErrorResponse(conn, reqCmd, log.ErrorFE("error logging out before switching REST API backend: %w", err))
 			break
 		}
@@ -1488,7 +1491,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p._disconnectRequested = true
 		p._lastConnectionErrorToNotifyClient = ""
 
-		if !p._service.Connected() {
+		if !p._service.ConnectedOrConnecting() {
 			p.sendResponse(conn, &types.DisconnectedResp{Reason: types.DisconnectRequested}, reqCmd.Idx)
 			// INFO: _service.Connected() is based on a simple check (s._vpn != nil). So there is still a chance
 			// that the connection-retry loop is running and we just caught a moment while s._vpn is temporarily nil.
@@ -1676,6 +1679,9 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 			log.Error(err)
 			log.Error(string(debug.Stack()))
 		}
+		if err != nil { // disable firewall on error
+			p._service.SetKillSwitchState(false)
+		}
 	}()
 
 	if p._disconnectRequested {
@@ -1690,7 +1696,7 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 			log.Info(fmt.Errorf("1st attempt to connect to VPN failed with recoverable error '%w', will logout-login and try to connect again", recoverableError))
 			prefs := p._service.Preferences()
 			if helpers.IsAValidAccountID(prefs.Session.AccountID) { // if we have stored an account ID - try to logout and re-login
-				if apiCode, apiErrMsg, _, _, err := p._service.SessionNew(prefs.Session.AccountID, "", prefs.Session.DeviceName, false, false); err != nil {
+				if apiCode, apiErrMsg, _, _, err := p._service.SessionNew(prefs.Session.AccountID, "", prefs.Session.DeviceName, false, false, false, false); err != nil {
 					return log.ErrorFE("error logging in after logout: '%w'. apiCode=%d, apiErrMsg='%s'", err, apiCode, apiErrMsg)
 				}
 				// notify all clients about changed session status
@@ -1709,10 +1715,10 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 				r.ManualDNS = prefs.LastConnectionParams.ManualDNS
 
 				// try to connect again
-				return p._service.Connect(r)
+				err = p._service.Connect(r)
 			} else { // otherwise logout locally and tell the user to re-login
 				log.Info("We don't have an account ID stored in Preferences, so logout locally and report an error to the user")
-				if err = p._service.SessionDelete(true, true); err != nil {
+				if err = p._service.SessionDelete(true, true, false); err != nil {
 					log.Warning(err)
 				}
 
@@ -1724,7 +1730,17 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 	return err
 }
 
-func (p *Protocol) notifyVpnStateChanged(stateObj *vpn.StateInfo) {
+// OnVpnStateChanged_SaveStateEarly - save the VPN state. If saveAndProcess==true, also call OnVpnStateChanged_ProcessSavedState().
+func (p *Protocol) OnVpnStateChanged_SaveStateEarly(state vpn.StateInfo, saveAndProcess bool) {
+	p._lastVPNState = state
+
+	if saveAndProcess {
+		p.OnVpnStateChanged_ProcessSavedState()
+	}
+}
+
+// OnVpnStateChanged_ProcessSavedState - process the last saved VPN state
+func (p *Protocol) OnVpnStateChanged_ProcessSavedState() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("Panic when notifying VPN status to clients! (recovered)")
@@ -1736,10 +1752,6 @@ func (p *Protocol) notifyVpnStateChanged(stateObj *vpn.StateInfo) {
 	}()
 
 	state := p._lastVPNState
-	if stateObj != nil {
-		p._lastVPNState = *stateObj
-		state = *stateObj
-	}
 
 	switch state.State {
 	case vpn.CONNECTED:
@@ -1751,10 +1763,6 @@ func (p *Protocol) notifyVpnStateChanged(stateObj *vpn.StateInfo) {
 	}
 }
 
-func (p *Protocol) OnVpnStateChanged(state vpn.StateInfo) {
-	p.notifyVpnStateChanged(&state)
-}
-
 func (p *Protocol) OnVpnPauseChanged() {
-	p.notifyVpnStateChanged(nil)
+	p.OnVpnStateChanged_ProcessSavedState()
 }

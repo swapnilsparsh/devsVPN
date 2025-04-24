@@ -42,7 +42,7 @@ import (
 )
 
 func (s *Service) implIsCanApplyUserPreferences(userPrefs preferences.UserPreferences) error {
-	if s.Connected() {
+	if s.ConnectedOrConnecting() {
 		return fmt.Errorf("unable to change settings in the connected state")
 	}
 	if userPrefs.Linux.IsDnsMgmtOldStyle {
@@ -81,12 +81,12 @@ func (s *Service) implPingServersStopped(hosts []net.IP) error {
 
 // on Linux we need firewall off for now
 func (s *Service) implSplitTunnelling_CheckConditions(splitTunIsEnabled, splitTunIsInversed bool) (ok bool, err error) {
-	if splitTunIsEnabled && splitTunIsInversed {
-		// if we are going to enable INVERSE SplitTunneling - ensure that Firewall is disabled
-		if enabled, _ := s.FirewallEnabled(); enabled {
-			return false, fmt.Errorf("unable to activate Inverse Split Tunnel: the Firewall is enabled; please, disable privateLINE Firewall first")
-		}
-	}
+	// if splitTunIsEnabled && splitTunIsInversed {
+	// 	// if we are going to enable INVERSE SplitTunneling - ensure that Firewall is disabled
+	// 	if enabled, _ := s.FirewallEnabled(); enabled {
+	// 		return false, fmt.Errorf("unable to activate Inverse Split Tunnel: the Firewall is enabled; please, disable privateLINE Firewall first")
+	// 	}
+	// }
 
 	return true, nil
 }

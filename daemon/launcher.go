@@ -148,9 +148,9 @@ func Launch() {
 	}
 
 	defer func() {
+		doBeforeStop() // OS-specific steps required before shutdown
 		log.Info(helpers.ServiceName + " daemon stopped.")
-		// OS-specific service finalizer
-		doStopped()
+		doStopped() // OS-specific service finalizer
 	}()
 
 	tzName, tzOffsetSec := time.Now().Zone()
@@ -251,7 +251,7 @@ func doCleanup() (osExitCode int) {
 		var fwErr error
 		fwEnabled, err := firewall.GetEnabled()
 		if err != nil {
-			fwErr = log.ErrorE(fmt.Errorf("firewall.GetEnabled() failed: %w", err), 0)
+			fwErr = log.ErrorFE("firewall.GetEnabled() failed: %w", err)
 		} else if fwEnabled {
 			log.Info("Disabling firewall ...")
 			if err = firewall.SetEnabled(false); err != nil {

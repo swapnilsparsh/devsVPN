@@ -34,6 +34,8 @@ import (
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
@@ -87,7 +89,7 @@ func (wg *WireGuard) init() error {
 	wg.internals.resumeDisconnectChan = make(chan *operationRequest, 1)
 	wg.internals.mutex.Unlock()
 
-	// It can happen that ivpn-daemon was not correctly stopped during WireGuard connection
+	// It can happen that privateline-connect-svc was not correctly stopped during WireGuard connection
 	// (e.g. process was terminated)
 	// In such situation, the 'wgprivateline' keeps active.
 	// We should close it in this case. Otherwise, new connection would not be established
@@ -114,7 +116,7 @@ func (wg *WireGuard) getTunnelName() string {
 	return strings.TrimSuffix(filepath.Base(wg.configFilePath), filepath.Ext(wg.configFilePath))
 }
 
-// connect - SYNCHRONOUSLY execute openvpn process (wait until it finished)
+// connect - SYNCHRONOUSLY execute wireguard process (wait until it finished)
 func (wg *WireGuard) connect(stateChan chan<- vpn.StateInfo) error {
 	wg.internals.isRunning.Store(true)
 
@@ -140,8 +142,7 @@ func (wg *WireGuard) connect(stateChan chan<- vpn.StateInfo) error {
 		// }
 	}()
 
-	internalRestoreDNSFunc := func() {
-		// restore DNS configuration
+	internalRestoreDNSFunc := func() { // restore DNS configuration
 		if err := dns.DeleteManual(nil, wg.connectParams.clientLocalIP); err != nil {
 			log.Warning(fmt.Sprintf("failed to restore DNS configuration: %s", err))
 		}
@@ -370,27 +371,37 @@ func (wg *WireGuard) resetManualDNS() error {
 }
 
 func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg []string, err error) {
-	if wg.connectParams.mtu > 0 {
-		interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", wg.connectParams.mtu))
-	}
-
 	var MTU int
-	if wg.connectParams.mtu > 0 {
-		MTU = wg.connectParams.mtu
-	} else { // If MTU not specified explicitly, set 1380 - reasonable default on Linux, same as Mullvad
-		MTU = 1380
+	// if wg.connectParams.mtu > 0 {
+	// 	MTU = wg.connectParams.mtu
+	// } else {
+
+	if MTU, err = firewall.BestWireguardMtuForConditions(); err != nil {
+		err = log.ErrorFE("error firewall.BestWireguardMtuForConditions(): %w", err)
+		MTU = platform.WGDefaultMTU()
 	}
+	// }
 	interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", MTU))
 
-	// TODO FIXME: Vlad - do we need to append "/32" here?
 	interfaceCfg = append(interfaceCfg, "Address = "+wg.connectParams.clientLocalIP.String()+"/32")
 	interfaceCfg = append(interfaceCfg, "SaveConfig = true")
 
 	// Vlad: disabling per https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491
-	// interfaceCfg = append(interfaceCfg, "DNS = " + wg.connectParams.dnsServers)
+	// interfaceCfg = append(interfaceCfg, "DNS = "+wg.connectParams.dnsServers)
+	// // And per comment #9 there: https://bugs.launchpad.net/ubuntu/+source/wireguard/+bug/1992491/comments/9
+	// // 	PostUp = resolvectl dns %i <ip1> <ip2> ...; resolvectl domain %i \~domain1 \~domain2 ...
+	// postUpCmd := "PostUp = resolvectl dns %i"
+	// for _, dnsSrv := range strings.Split(wg.connectParams.dnsServers, ",") {
+	// 	postUpCmd += " " + strings.TrimSpace(dnsSrv)
+	// }
+	// postUpCmd += "; resolvectl domain %i"
+	// for _, plInternalDomain := range helpers.PrivatelineInternalDomains {
+	// 	postUpCmd += " \\~" + plInternalDomain
+	// }
+	// interfaceCfg = append(interfaceCfg, postUpCmd)
 
 	peerCfg = append(peerCfg, "AllowedIPs = "+wg.connectParams.allowedIPs)
-	return interfaceCfg, peerCfg, nil
+	return interfaceCfg, peerCfg, err
 }
 
 // TODO: Vlad - this was original IVPN version

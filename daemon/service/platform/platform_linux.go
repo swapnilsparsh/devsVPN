@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -47,6 +48,10 @@ var (
 
 	// path to the readonly servers.json file bundled into the package
 	serversFileBundled string
+
+	resolvectlPlInternalDomains = []string{"~privateline.io", "~privateline.network", "~privateline.dev"}
+
+	PrivatelineInternalDomainsResolvectlRegex = regexp.MustCompile(`(?i)[\s]+DNS Domain:[\s]+~privateline.io[\s]+~privateline.network[\s]+~privateline.dev`)
 )
 
 const (
@@ -131,6 +136,8 @@ func isSnapPlugConnected(plugName string) (bool, error) {
 
 // initialize all constant values (e.g. servicePortFile) which can be used in external projects (i.e., privateline-connect-cli)
 func doInitConstants() {
+	wgInterfaceName = "wgprivateline"
+
 	openVpnBinaryPath = "/usr/sbin/openvpn"
 	routeCommand = "/sbin/ip route"
 
@@ -149,8 +156,13 @@ func doInitConstants() {
 	logFile = path.Join(logDir, helpers.ServiceName+".log")
 
 	openvpnUserParamsFile = path.Join(tmpDir, "ovpn_extra_params.txt")
+
+	wgDefaultMtu = 1380 // reasonable default for MTU on Linux
 }
 
+// TODO FIXME: Vlad: doOsInit() gets called only once on daemon start
+//   - likewise here have to re-check before each connection whether we can run resolvectl (after we brought up our firewall rule to allow all port 53 traffic)
+//   - also here may be a good place to check whether /etc/resolv.conf is a file or a symlink
 func doOsInit() (warnings []string, errors []error, logInfo []string) {
 	warnings, errors, logInfo = doOsInitForBuild()
 
@@ -250,12 +262,16 @@ func SplitTunScript() string {
 	return splitTunScript
 }
 
+func ResolvectlDetected() bool {
+	return resolvectlBinPath != ""
+}
+
 func ResolvectlBinPath() string {
 	return resolvectlBinPath
 }
 
 func implPLOtherAppsToAcceptIncomingConnections() (otherPlApps []string, err error) {
-	return []string{}, nil // TODO FIXME: Vlad - implement on Linux also
+	return []string{}, nil // Vlad - on Linux the list of PL apps is implemented in firewall-helper.sh so far
 }
 
 func parseOsVersion() (err error) {
@@ -278,4 +294,9 @@ func parseOsVersion() (err error) {
 		osVersion = runtime.GOOS
 		return nil
 	}
+}
+
+// to be used on Linux by command: resolvectl domain wgprivateline \~domain1 \~domain2 ...
+func PrivatelineInternalDomains() *[]string {
+	return &resolvectlPlInternalDomains
 }

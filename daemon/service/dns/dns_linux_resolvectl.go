@@ -109,10 +109,6 @@ func rctl_implSetManual(dnsCfg DnsSettings, localInterfaceIP net.IP) (dnsInfoFor
 }
 
 func rctl_applySetManual(dnsCfg DnsSettings, localInterfaceIP net.IP) (dnsInfoForFirewall DnsSettings, retErr error) {
-	//resolvectl domain privacy0 '~.'
-	//resolvectl default-route privacy0 true
-	//resolvectl dns privacy0 8.8.8.8
-
 	if localInterfaceIP == nil || localInterfaceIP.IsUnspecified() {
 		log.Info("'Set DNS' call ignored due to no local address initialized")
 		return dnsCfg, nil
@@ -124,16 +120,20 @@ func rctl_applySetManual(dnsCfg DnsSettings, localInterfaceIP net.IP) (dnsInfoFo
 	localInterfaceName := inf.Name
 
 	binPath := platform.ResolvectlBinPath()
-	err = shell.Exec(log, binPath, "domain", localInterfaceName, "~.")
-	if err != nil {
+	if err = shell.Exec(log, binPath, "default-route", localInterfaceName, "true"); err != nil {
 		return DnsSettings{}, rctl_error(err)
 	}
-	err = shell.Exec(log, binPath, "default-route", localInterfaceName, "true")
-	if err != nil {
+	// resolvectl dns wgprivateline <dnsSrv1> <dnsSrv1> ...
+	resolvectlDnsCmdArgs := append([]string{"dns", localInterfaceName})
+	for _, dnsSrvIP := range dnsCfg.DnsServers {
+		resolvectlDnsCmdArgs = append(resolvectlDnsCmdArgs, dnsSrvIP.String())
+	}
+	if err = shell.Exec(log, binPath, resolvectlDnsCmdArgs...); err != nil {
 		return DnsSettings{}, rctl_error(err)
 	}
-	err = shell.Exec(log, binPath, "dns", localInterfaceName, dnsCfg.DnsHost)
-	if err != nil {
+	// resolvectl domain wgprivateline \~domain1 \~domain2 ...
+	resolvectlDomainCmdArgs := append([]string{"domain", localInterfaceName}, *platform.PrivatelineInternalDomains()...)
+	if err = shell.Exec(log, binPath, resolvectlDomainCmdArgs...); err != nil {
 		return DnsSettings{}, rctl_error(err)
 	}
 
@@ -170,7 +170,7 @@ func rctl_startDnsChangeMonitor() {
 		}
 
 		// Files to be monitored for changes
-		var filesToMonotor = [...]string{"/run/systemd/resolve/stub-resolv.conf", "/run/systemd/resolve/resolv.conf", "/etc/resolv.conf"}
+		var filesToMonitor = [...]string{"/run/systemd/resolve/stub-resolv.conf", "/run/systemd/resolve/resolv.conf", "/etc/resolv.conf"}
 
 		w, err := fsnotify.NewWatcher()
 		if err != nil {
@@ -187,12 +187,12 @@ func rctl_startDnsChangeMonitor() {
 		for {
 			// Remove files from monitoring (if they are)
 			// We have to remove/add files each time after file change detection
-			for _, fpath := range filesToMonotor {
+			for _, fpath := range filesToMonitor {
 				w.Remove(fpath)
 			}
 			// Start looking for files change
 			isMonitoringStarted := false
-			for _, fpath := range filesToMonotor {
+			for _, fpath := range filesToMonitor {
 				if _, err := os.Stat(fpath); err != nil {
 					log.Info(fmt.Sprintf("unable to start file-change monitoring for file '%s': %s", fpath, err.Error()))
 				} else {
@@ -251,19 +251,13 @@ func rctl_startDnsChangeMonitor() {
 
 // rctl_configOk - returns true if OS DNS configuration ie expected for VPN interface
 func rctl_configOk() (bool, error) {
-	// Example of 'resolvectl status ...' output:
-	//	Link 5 (wgprivateline)
-	//		  Current Scopes: DNS
-	//	DefaultRoute setting: yes
-	//		   LLMNR setting: yes
-	//	MulticastDNS setting: no
-	//	  DNSOverTLS setting: no
-	//	  	  DNSSEC setting: no
-	//		DNSSEC supported: no
-	//	  Current DNS Server: 172.16.0.1
-	//	 		 DNS Servers: 172.16.0.1
-	//			  DNS Domain: ~.
-
+	// Example of 'resolvectl status wgprivateline' output:
+	// Link 11 (wgprivateline)
+	//	Current Scopes: DNS
+	//	Protocols: +DefaultRoute +LLMNR -mDNS -DNSOverTLS DNSSEC=no/unsupported
+	//	Current DNS Server: 10.0.19.2
+	//	DNS Servers: 10.0.19.2 10.0.20.2
+	//	DNS Domain: privateline.network privateline.io privateline.dev
 	if rctl_localInterfaceIp == nil || rctl_localInterfaceIp.IsUnspecified() || manualDNS.IsEmpty() {
 		return false, fmt.Errorf("unable to check/compare OS DNS settings for the VPN interface: expected DNS configuration is not defined")
 	}
@@ -272,20 +266,21 @@ func rctl_configOk() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("unable to check/compare OS DNS settings for the VPN interface: %w", err)
 	}
-
 	localInterfaceName := inf.Name
 
 	binPath := platform.ResolvectlBinPath()
 	outText, _, _, _, _ := shell.ExecAndGetOutput(nil, 1024*5, "", binPath, "status", localInterfaceName)
 
-	regExpCurDns, err := regexp.Compile(fmt.Sprintf("(?i)[ \t\n\r]+DNS Servers:[ \t]*%s[ \t\n\r]+", manualDNS.DnsHost))
-	if err != nil {
-		return false, err
+	// TODO FIXME: Vlad - precompile regex for DNS servers in Preferences
+	var dnsServersRegex string
+	for _, dnsSrvIP := range manualDNS.DnsServers {
+		dnsServersRegex += " " + dnsSrvIP.String()
 	}
-	regExpDnsDomain, err := regexp.Compile(`(?i)[ \t\n\r]+DNS Domain:[ \t]*~\.`)
+	// regExpCurDns, err := regexp.Compile(fmt.Sprintf("(?i)[ \t\n\r]+DNS Servers:[ \t]*%s[ \t\n\r]+", manualDNS.DnsServers))
+	regExpCurDns, err := regexp.Compile(`(?i)[\s]+DNS Servers:[\s]*` + dnsServersRegex)
 	if err != nil {
 		return false, err
 	}
 
-	return regExpCurDns.MatchString(outText) && regExpDnsDomain.MatchString(outText), nil
+	return regExpCurDns.MatchString(outText) && platform.PrivatelineInternalDomainsResolvectlRegex.MatchString(outText), nil
 }

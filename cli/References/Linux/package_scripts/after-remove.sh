@@ -118,7 +118,7 @@ fi
 
 echo "[+] Running UI removal logic ..."
 
-UI_APP=/opt/privateline-connect/ui/bin/privateline-connect-ui %u
+UI_APP=/opt/privateline-connect/ui/bin/privateline-connect-ui
 
 UI_APP_USER_DIR="/home/${USER}/.config/privateline-connect-ui"
 UI_APP_USER_DIR_OLD="/home/${USER}/.config/privateline-connect-ui" # (old productName='privateline-connect-ui')

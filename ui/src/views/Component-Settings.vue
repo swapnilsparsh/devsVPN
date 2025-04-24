@@ -100,6 +100,8 @@
               >
                 PrivateLINE Firewall
               </button> -->
+              
+              <!-- Vlad: disabling App Whitelist for now
               <button
                 v-if="isLinux && isLoggedIn"
                 class="noBordersBtn tabTitleBtn"
@@ -114,6 +116,8 @@
                 />
                 App Whitelist
               </button>
+              -->
+
               <!-- <button
                 v-if="isLoggedIn"
                 class="noBordersBtn tabTitleBtn"

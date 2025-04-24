@@ -99,7 +99,7 @@ func main() {
 	addCommand(&commands.CmdDisconnect{})
 	addCommand(&commands.CmdConnectionControl{})
 	addCommand(&commands.CmdServers{})
-	addCommand(&commands.CmdFirewall{})
+	// addCommand(&commands.CmdFirewall{}) // TODO FIXME: Vlad - disabled firewall commands for now
 	if cliplatform.IsSplitTunSupported() {
 		// Split tunnel functionality is currently only available on Windows
 		addCommand(&commands.SplitTun{})
@@ -108,7 +108,7 @@ func main() {
 		}
 	}
 	addCommand(&commands.CmdWireGuard{})
-	addCommand(&commands.CmdDns{})
+	// addCommand(&commands.CmdDns{}) // TODO FIXME: Vlad - disabled DNS commands for now
 	addCommand(&commands.CmdAntitracker{})
 	addCommand(&commands.CmdLogs{})
 	addCommand(&commands.CmdLogin{})

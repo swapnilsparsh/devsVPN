@@ -190,12 +190,20 @@ func (l *Logger) Info(v ...interface{}) {
 	_info(l.pref, v...)
 }
 
+func (l *Logger) Infof(format string, v ...interface{}) {
+	l.Info(fmt.Sprintf(format, v...))
+}
+
 // Debug - Log Debug message
 func (l *Logger) Debug(v ...interface{}) {
 	if l.isDisabled {
 		return
 	}
 	_debug(l.pref, v...)
+}
+
+func (l *Logger) Debugf(format string, v ...interface{}) {
+	l.Debug(fmt.Sprintf(format, v...))
 }
 
 // Warning - Log Warning message
@@ -206,6 +214,13 @@ func (l *Logger) Warning(v ...interface{}) {
 	_warning(l.pref, v...)
 }
 
+func (l *Logger) Warn(v ...interface{}) {
+	l.Warning(v...)
+}
+func (l *Logger) Warnf(format string, v ...interface{}) {
+	l.Warning(fmt.Sprintf(format, v...))
+}
+
 // Trace - Log Trace message
 func (l *Logger) Trace(v ...interface{}) {
 	if l.isDisabled {
@@ -214,12 +229,27 @@ func (l *Logger) Trace(v ...interface{}) {
 	_trace(l.pref, v...)
 }
 
+func (l *Logger) Tracef(format string, v ...interface{}) {
+	if l.isDisabled {
+		return
+	}
+
+	_traceWithOffset(l.pref, 0, fmt.Sprintf(format, v...))
+}
+
 // Error - Log Error message
 func (l *Logger) Error(v ...interface{}) {
 	if l.isDisabled {
 		return
 	}
 	_error(l.pref, 0, v...)
+}
+
+func (l *Logger) Errorf(format string, v ...interface{}) {
+	if l.isDisabled {
+		return
+	}
+	_error(l.pref, 0, fmt.Errorf(format, v...))
 }
 
 // ErrorE - Log Error and return same error object
@@ -234,7 +264,7 @@ func (l *Logger) ErrorE(err error, callerStackOffset int) error {
 
 // ErrorE - Log args in errorf format, and return the created error object
 func (l *Logger) ErrorFE(format string, a ...any) error {
-	return l.ErrorE(fmt.Errorf(format, a...), 0)
+	return l.ErrorE(fmt.Errorf(format, a...), 1)
 }
 
 // ErrorTrace - Log error with trace
@@ -279,9 +309,13 @@ func _warning(name string, v ...interface{}) {
 	write(timeStr, name, "WARNING", runtimeInfo, mes)
 }
 
-func _trace(name string, v ...interface{}) {
-	mes, timeStr, runtimeInfo, methodInfo := getLogPrefixes(fmt.Sprint(v...), 0)
+func _traceWithOffset(name string, callerStackOffset int, v ...interface{}) {
+	mes, timeStr, runtimeInfo, methodInfo := getLogPrefixes(fmt.Sprint(v...), callerStackOffset)
 	write(timeStr, name, "TRACE", runtimeInfo+methodInfo, mes)
+}
+
+func _trace(name string, v ...interface{}) {
+	_traceWithOffset(name, 0, v...)
 }
 
 func _error(name string, callerStackOffset int, v ...interface{}) {

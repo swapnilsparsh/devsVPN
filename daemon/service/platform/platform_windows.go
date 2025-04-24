@@ -55,6 +55,10 @@ func doInitConstants() {
 
 	openvpnUserParamsFile = path.Join(installDir, "mutable/ovpn_extra_params.txt")
 	paranoidModeSecretFile = path.Join(installDir, "etc/eaa") // file located in 'etc' will not be removed during app upgrade
+
+	// Set default MTU to 1280 - minimum value allowed on Windows
+	// According to Windows specification: "... For IPv4 the minimum value is 576 bytes. For IPv6 the minimum value is 1280 bytes... "
+	wgDefaultMtu = 1280
 }
 
 func doOsInit() (warnings []string, errors []error, logInfo []string) {

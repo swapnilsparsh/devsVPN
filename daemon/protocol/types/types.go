@@ -117,3 +117,5 @@ func GetCommandBase(messageData []byte) (CommandBase, error) {
 
 	return obj, nil
 }
+
+type VpnConnectedCallback func() bool

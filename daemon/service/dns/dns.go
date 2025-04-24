@@ -26,12 +26,34 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"reflect"
 	"strings"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns/dnscryptproxy"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 )
+
+type DnsMgmtStyle uint
+
+const (
+	DnsMgmtStyleUnknown DnsMgmtStyle = iota
+	DnsMgmtStyleResolvectl
+	DnsMgmtStyleResolveConf
+)
+
+func DnsMgmtStyleDescription(style DnsMgmtStyle) string {
+	switch style {
+	case DnsMgmtStyleUnknown:
+		return "unknown"
+	case DnsMgmtStyleResolvectl:
+		return "resolvectl"
+	case DnsMgmtStyleResolveConf:
+		return "/etc/resolv.conf"
+	default:
+		return "UNDOCUMENTED"
+	}
+}
 
 type FuncDnsChangeFirewallNotify func(dns *DnsSettings) error
 type FuncGetUserSettings func() DnsExtraSettings
@@ -91,23 +113,23 @@ const (
 )
 
 type DnsSettings struct {
-	DnsHost     string // DNS host IP address
+	DnsServers  []net.IP // DNS server IP addresses
 	Encryption  DnsEncryption
 	DohTemplate string // DoH/DoT template URI (for Encryption = DnsOverHttps or Encryption = DnsOverTls)
 }
 
 // create  DnsSettings object with no encryption
-func DnsSettingsCreate(ip net.IP) DnsSettings {
-	if ip == nil {
+func DnsSettingsCreate(dnsSrvIps *[]net.IP) DnsSettings {
+	if dnsSrvIps == nil || len(*dnsSrvIps) < 1 {
 		return DnsSettings{}
 	}
-	return DnsSettings{DnsHost: ip.String()}
+	return DnsSettings{DnsServers: *dnsSrvIps}
 }
 
 func (d DnsSettings) Equal(x DnsSettings) bool {
 	if d.Encryption != x.Encryption ||
 		d.DohTemplate != x.DohTemplate ||
-		d.DnsHost != x.DnsHost {
+		!reflect.DeepEqual(d.DnsServers, x.DnsServers) {
 		return false
 	}
 	return true
@@ -121,37 +143,49 @@ func (d DnsSettings) IsIPv6() bool {
 	return ip.To4() == nil
 }
 
+// Deprecated: Ip() is no longer to be used, as it returns only one DNS srv IP of the possibly multiple ones.
 func (d DnsSettings) Ip() net.IP {
-	return net.ParseIP(d.DnsHost)
+	if len(d.DnsServers) >= 1 {
+		return d.DnsServers[0]
+	} else {
+		return net.IPv4zero
+	}
 }
 
 func (d DnsSettings) IsEmpty() bool {
-	if strings.TrimSpace(d.DnsHost) == "" {
+	if len(d.DnsServers) < 1 {
 		return true
 	}
-	ip := d.Ip()
-	if ip == nil || ip.Equal(net.IPv4zero) || ip.Equal(net.IPv4bcast) || ip.Equal(net.IPv6zero) {
-		return true
+	for _, ip := range d.DnsServers {
+		if ip != nil && !ip.Equal(net.IPv4zero) && !ip.Equal(net.IPv4bcast) && !ip.Equal(net.IPv6zero) {
+			return false
+		}
 	}
-	return false
+	return true
 }
 
 func (d DnsSettings) InfoString() string {
 	if d.IsEmpty() {
 		return "<none>"
 	}
-	host := strings.TrimSpace(d.DnsHost)
+
+	var dnsServers string
+	for _, dnsSrvIP := range d.DnsServers {
+		dnsServers += dnsSrvIP.String() + " "
+	}
+	dnsServers = strings.TrimSpace(dnsServers)
+
 	template := strings.TrimSpace(d.DohTemplate)
 
 	switch d.Encryption {
 	case EncryptionDnsOverTls:
-		return host + " (DoT " + template + ")"
+		return dnsServers + " (DoT " + template + ")"
 	case EncryptionDnsOverHttps:
-		return host + " (DoH " + template + ")"
+		return dnsServers + " (DoH " + template + ")"
 	case EncryptionNone:
-		return host
+		return dnsServers
 	default:
-		return host + " (UNKNOWN ENCRYPTION)"
+		return dnsServers + " (UNKNOWN ENCRYPTION)"
 	}
 }
 
@@ -228,7 +262,7 @@ func SetManual(dnsCfg DnsSettings, localInterfaceIP net.IP) error {
 
 // DeleteManual - reset manual DNS configuration to default (DHCP)
 // 'localInterfaceIP' - local IP of VPN interface
-func DeleteManual(defaultDns net.IP, localInterfaceIP net.IP) error {
+func DeleteManual(defaultDns *[]net.IP, localInterfaceIP net.IP) error {
 	// reset custom DNS
 	ret := implDeleteManual(localInterfaceIP)
 	if ret == nil {
@@ -256,6 +290,10 @@ func GetPredefinedDnsConfigurations() ([]DnsSettings, error) {
 // Currently, it is in use for macOS - like a DNS change monitor.
 func UpdateDnsIfWrongSettings() error {
 	return implUpdateDnsIfWrongSettings()
+}
+
+func DnsMgmtStyleInUse() DnsMgmtStyle {
+	return implDnsMgmtStyleInUse()
 }
 
 func dnscryptProxyProcessStart(dnsCfg DnsSettings) (retErr error) {
@@ -290,7 +328,7 @@ func dnscryptProxyProcessStart(dnsCfg DnsSettings) (retErr error) {
 	//stamp.Props |= dnscryptproxy.ServerInformalPropertyNoLog
 	//stamp.Props |= dnscryptproxy.ServerInformalPropertyNoFilter
 
-	stamp.ServerAddrStr = dnsCfg.DnsHost
+	stamp.ServerAddrStr = dnsCfg.DnsServers[0].String()
 
 	u, err := url.Parse(dnsCfg.DohTemplate)
 	if err != nil {

@@ -582,10 +582,10 @@ func (o *OpenVPN) IsPaused() bool {
 }
 
 // DefaultDNS returns default DNS pushed by OpenVPN server
-func (o *OpenVPN) DefaultDNS() net.IP {
+func (o *OpenVPN) DefaultDNS() *[]net.IP {
 	mi := o.managementInterface
 	if mi != nil && mi.isConnected && o.state != vpn.DISCONNECTED && o.state != vpn.EXITING {
-		return mi.pushReplyDNS
+		return &[]net.IP{mi.pushReplyDNS}
 	}
 	return nil
 }

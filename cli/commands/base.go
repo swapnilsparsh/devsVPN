@@ -35,6 +35,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/cli/protocol"
 	apitypes "github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
 	"github.com/swapnilsparsh/devsVPN/daemon/v2r"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
@@ -135,6 +136,7 @@ func printDNSState(w *tabwriter.Writer, dnsStatus types.DnsStatus, servers *apit
 			fmt.Fprintf(w, "DNS\t:\tDefault (auto)\n")
 		} else {
 			fmt.Fprintf(w, "DNS\t:\t%v\n", dnsStatus.Dns.InfoString())
+			fmt.Fprintf(w, "    Management style\t:\t%v\n", dns.DnsMgmtStyleDescription(dnsStatus.DnsMgmtStyleInUse))
 		}
 	}
 
@@ -178,12 +180,18 @@ func printFirewallState(w *tabwriter.Writer, isEnabled, isPersistent, isAllowLAN
 	}
 
 	if isEnabled {
+		if weHaveTopFirewallPriority {
+			fmt.Fprintf(w, "    VPN coexistence\t:\tGOOD\n")
+		} else {
+			fmt.Fprintf(w, "    VPN coexistence\t:\tFAILED\n")
+		}
+
 		// fmt.Fprintf(w, "    Allow internet\t:\t%v\n", isAllowLAN)
 		// fmt.Fprintf(w, "    Allow LAN\t:\t%v\n", isAllowLAN)
-		fmt.Fprintf(w, "    Allow PL servers\t:\t%v\n", isAllowApiServers)
-		if len(userExceptions) > 0 {
-			fmt.Fprintf(w, "    Allow IP masks\t:\t%v\n", userExceptions)
-		}
+		// fmt.Fprintf(w, "    Allow PL servers\t:\t%v\n", isAllowApiServers)
+		// if len(userExceptions) > 0 {
+		// 	fmt.Fprintf(w, "    Allow IP masks\t:\t%v\n", userExceptions)
+		// }
 	}
 
 	return w
@@ -209,33 +217,33 @@ func printSplitTunState(w *tabwriter.Writer, isShortPrint, isFullPrint, isSplitT
 	totalShieldEffectivelyEnabled := !isSplitTunEnabled && vpnActive
 
 	state := "Enabled"
-	dnsFw := ""
-	allowDefConnectivity := ""
+	// dnsFw := ""
+	// allowDefConnectivity := ""
 	if isSplitTunEnabled {
 		state = "Disabled"
 		if isInversed {
 			state += " (INVERSE MODE)"
 
-			if isAnyDns {
-				dnsFw = "Allowed (!)"
-			} else {
-				dnsFw = "Blocked"
-			}
-			if isAllowWhenNoVpn {
-				allowDefConnectivity = "Allowed"
-			} else {
-				allowDefConnectivity = "Not allowed"
-			}
+			// if isAnyDns {
+			// 	dnsFw = "Allowed (!)"
+			// } else {
+			// 	dnsFw = "Blocked"
+			// }
+			// if isAllowWhenNoVpn {
+			// 	allowDefConnectivity = "Allowed"
+			// } else {
+			// 	allowDefConnectivity = "Not allowed"
+			// }
 		}
 	}
 
 	fmt.Fprintf(w, "Total Shield\t:\t%v\n", state)
-	if len(dnsFw) > 0 {
-		fmt.Fprintf(w, "    Non-privateLINE DNS\t:\t%v\n", dnsFw)
-	}
-	if len(allowDefConnectivity) > 0 {
-		fmt.Fprintf(w, "    No-VPN connectivity\t:\t%v\n", allowDefConnectivity)
-	}
+	// if len(dnsFw) > 0 {
+	// 	fmt.Fprintf(w, "    Non-privateLINE DNS\t:\t%v\n", dnsFw)
+	// }
+	// if len(allowDefConnectivity) > 0 {
+	// 	fmt.Fprintf(w, "    No-VPN connectivity\t:\t%v\n", allowDefConnectivity)
+	// }
 
 	// if !isSplitTunEnabled {
 	var canAccessInternet, canAccessPLServers string

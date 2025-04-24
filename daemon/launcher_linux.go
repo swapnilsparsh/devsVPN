@@ -31,6 +31,7 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 )
 
 func doPrepareToRun() error {
@@ -58,6 +59,13 @@ func doPrepareToRun() error {
 	}
 
 	return nil
+}
+
+func doBeforeStop() {
+	log.Debug("doBeforeStop entered")
+	defer log.Debug("doBeforeStop exited")
+	firewall.DisableCoexistenceWithOtherVpnsMutex.Lock() // launcher waits for this mutex on daemon shutdown, to ensure all disable tasks have been completed
+	defer firewall.DisableCoexistenceWithOtherVpnsMutex.Unlock()
 }
 
 func doStopped() {

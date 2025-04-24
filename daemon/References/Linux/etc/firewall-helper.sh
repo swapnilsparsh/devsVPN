@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-#  Script to control the Split-Tunneling functionality for Linux.
+#  Script to control the App Whitelist functionality for Linux.
 #  It is a part of Daemon for privateLINE Connect Desktop.
 #  https://github.com/swapnilsparsh/devsVPN/daemon
 #
@@ -23,26 +23,30 @@
 #  along with the Daemon for privateLINE Connect Desktop. If not, see <https://www.gnu.org/licenses/>.
 #
 
-echo -e "$(date '+%Y-%m-%d__%H-%M-%S_%Z')\t$@" >> /tmp/splittun_sh_ran.log
+echo -e "$(date '+%Y-%m-%d__%H-%M-%S_%Z')\t$@" >> /tmp/firewall-helper.sh_ran.log
 
 # default apps to be included in App Whitelist (to be allowed access to the enclave)
-# TODO FIXME: add Trezor, Ledger
+# TODO FIXME: Vlad - do we need two separate cgroups - one for PL apps and other for user-specified apps?
+# TODO FIXME: input from Chris - whitelist browsers
+# TODO FIXME: add cryptocurrency wallets (Trezor, Ledger)
 declare -a DEFAULT_WHITELISTED_APPS=(
     "/usr/bin/privateline-connect-svc"
     "/usr/bin/privateline-connect-cli"
     "/opt/privateline-connect/ui/bin/privateline-connect-ui"
-    "/usr/bin/privateline-comms-desktop"
     "/etc/alternatives/privateline-comms-desktop"
+    "/etc/alternatives/pl-comms-desktop"
+    "/usr/bin/privateline-comms-desktop"
     "/opt/privateLINE-Comms/privateline-comms-desktop"
+    "/opt/PL-Comms/pl-comms-desktop"
 )
 
-# Split Tunneling cgroup parameters
-_cgroup_name=privateline-exclude
+# App Whitelist cgroup parameters
+_cgroup_name=privateline-app-whitelist
 _cgroup_classid=0x70561e1d      # Anything from 0x00000001 to 0xFFFFFFFF
 _cgroup_folder=/sys/fs/cgroup/net_cls/${_cgroup_name}
 
-# Routing table configuration for packets coming from Split-Tunneling environment
-_routing_table_name=privateline-exclude-tbl
+# Routing table configuration for packets coming from App Whitelist environment
+_routing_table_name=privateline-app-whitelist-tbl
 _routing_table_weight=17            # Anything from 1 to 252
 
 # iptables chains
@@ -59,11 +63,11 @@ _iptables_locktime=2
 
 # Backup folder name.
 # This folder contains temporary data to be able to clean everything correctly 
-_backup_folder_name=privateline-exclude-tmp
+_backup_folder_name=privateline-app-whitelist-tmp
 _mutable_folder_default=/etc/opt/privateline-connect/mutable   # default location of 'mutable' folder
 _mutable_folder_fallback=/opt/privateline-connect/mutable      # alternate location of 'mutable' folder (needed for backward compatibility and snap environment)
 
-# Info: The 'mark' value for packets coming from the Split-Tunneling environment. Vlad: mark set on packets from apps whose PIDS are not in cgroup.
+# Info: The 'mark' value for packets coming from the App Whitelist environment. Vlad: mark set on packets from apps whose PIDS are not in cgroup.
 # Using here value 0xca6c. It is the same as WireGuard marking packets which were processed.
 # That allows us not to be aware of changes in the routing policy database on each new connection of WireGuard.
 # Extended description:
@@ -91,9 +95,15 @@ _def_interface_name=""
 _def_interface_nameIPv6=""
 _def_gateway=""
 _def_gatewayIPv6=""
+
+# Vlad: for App Whitelist feature we always have _is_inversed=1
+#
 # When inversed - only apps added to ST will use VPN connection, 
-# all other apps will use direct unencrypted connection
-_is_inversed=0 
+# all other apps will use direct unencrypted connection.
+_is_inversed=1
+
+# Vlad: _is_inversed_blocked* set to 0
+#
 # Applicable for Inverse mode only: block/allow communication for 'splitted' apps 
 #   -   "1" means the communication for splitted apps will be blocked (for example, when VPN not connected)
 #   -   "0" means the communication for splitted apps will not be blocked
@@ -101,8 +111,7 @@ _is_inversed_blocked=0
 _is_inversed_blocked_ipv6=0
 
 vercomp () {
-    if [[ $1 == $2 ]]
-    then
+    if [[ $1 == $2 ]]; then
         return 0
     fi
     local IFS=.
@@ -114,17 +123,14 @@ vercomp () {
     done
     for ((i=0; i<${#ver1[@]}; i++))
     do
-        if [[ -z ${ver2[i]} ]]
-        then
+        if [[ -z ${ver2[i]} ]]; then
             # fill empty fields in ver2 with zeros
             ver2[i]=0
         fi
-        if ((10#${ver1[i]} > 10#${ver2[i]}))
-        then
+        if ((10#${ver1[i]} > 10#${ver2[i]})) ; then
             return 1
         fi
-        if ((10#${ver1[i]} < 10#${ver2[i]}))
-        then
+        if ((10#${ver1[i]} < 10#${ver2[i]})) ; then
             return 2
         fi
     done
@@ -153,13 +159,13 @@ function test()
         fi
     fi
 
-    if ! command -v ${_bin_iptables} &>/dev/null ;   then echo "ERROR: Binary Not Found (${_bin_iptables})" 1>&2; return 1; fi
+#    if ! command -v ${_bin_iptables} &>/dev/null ;   then echo "ERROR: Binary Not Found (${_bin_iptables})" 1>&2; return 1; fi
     if ! command -v ${_bin_ip} &>/dev/null ;         then echo "ERROR: Binary Not Found (${_bin_ip})" 1>&2; return 1; fi    
     if ! command -v ${_bin_grep} &>/dev/null ;       then echo "ERROR: Binary Not Found (${_bin_grep})" 1>&2; return 1; fi
     if ! command -v ${_bin_dirname} &>/dev/null ;    then echo "ERROR: Binary Not Found (${_bin_dirname})" 1>&2; return 1; fi
     if ! command -v ${_bin_sed} &>/dev/null ;        then echo "ERROR: Binary Not Found (${_bin_sed})" 1>&2; return 1; fi
 
-    if ! command -v ${_bin_ip6tables} &>/dev/null ;  then echo "WARNING: Binary Not Found (${_bin_ip6tables})" 1>&2; fi
+#    if ! command -v ${_bin_ip6tables} &>/dev/null ;  then echo "WARNING: Binary Not Found (${_bin_ip6tables})" 1>&2; fi
     if ! command -v ${_bin_awk} &>/dev/null ;        then echo "WARNING: Binary Not Found (${_bin_awk})" 1>&2; fi
     if ! command -v ${_bin_runuser} &>/dev/null ;    then echo "WARNING: Binary Not Found (${_bin_runuser})" 1>&2; fi
 
@@ -167,16 +173,16 @@ function test()
     # ###
     # -= Compare minimum required iptables version for Inverse Split Tunneling =-
     # ###
-    local min_required_ver="1.8.7"
+#    local min_required_ver="1.8.7"
     
-    local iptables_version=$(${_bin_iptables} --version 2>&1 | ${_bin_awk} '{print $2}') # Get iptables version
-    local iptables_version=${iptables_version#v} # remove "v" prefix, if exists
-    vercomp $iptables_version $min_required_ver # compare versions
-    if [[ $? -eq 2 ]]; then 
-        # NOTE! Do not change the message below. It is used by daemon to detect the error.
-        echo "ERROR: Inverse mode for all_apps_allowed/some_apps_allowed functionality is not applicable. The minimum required version of 'iptables' is $min_required_ver, while your version is $iptables_version."
-        exit 1
-    fi
+#    local iptables_version=$(${_bin_iptables} --version 2>&1 | ${_bin_awk} '{print $2}') # Get iptables version
+#    local iptables_version=${iptables_version#v} # remove "v" prefix, if exists
+#    vercomp $iptables_version $min_required_ver # compare versions
+#    if [[ $? -eq 2 ]]; then 
+#        # NOTE! Do not change the message below. It is used by daemon to detect the error.
+#        echo "ERROR: Inverse mode for all_apps_allowed/some_apps_allowed functionality is not applicable. The minimum required version of 'iptables' is $min_required_ver, while your version is $iptables_version."
+#        exit 1
+#    fi
     
     return 0
 }
@@ -198,7 +204,11 @@ function detectDefRouteVars()
 }
 
 function init_iptables() 
-{    
+{
+    # Vlad: this script doesn't use iptables in MVP 3.0
+    echo "iptables not used in MVP 3.0"
+    exit 1
+    
     local bin_iptables=$1
     local def_inf_name=$2
     local inverse_block=$3
@@ -301,6 +311,10 @@ function init_iptables()
 
 function clear_iptables() 
 {   
+    # Vlad: this script doesn't use iptables in MVP 3.0
+    echo "iptables not used in MVP 3.0"
+    exit 1
+
     local bin_iptables=$1    
     ##############################################
     # Remove firewall rules
@@ -373,97 +387,104 @@ function init()
     # Backup some parameters for restore function (_def_interface_name, /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter )
     ##############################################
     backup
-    # Set required reverse path filtering parameter
-    if [ -f /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter ]; then
-        echo 2 > /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter
-    fi
+#    # Set required reverse path filtering parameter
+#    if [ -f /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter ]; then
+#        echo 2 > /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter
+#    fi
 
     ##############################################
     # Create cgroup
     ##############################################
-    if [ ! -d ${_cgroup_folder} ]; then
-        mkdir -p ${_cgroup_folder}
-        echo ${_cgroup_classid} > ${_cgroup_folder}/net_cls.classid
-    fi
+    [ ! -d ${_cgroup_folder} ]                  && mkdir -p ${_cgroup_folder}
+    echo ${_cgroup_classid} > ${_cgroup_folder}/net_cls.classid
     
     ##############################################
     # Firewall rules for packets coming from cgroup
-    ##############################################       
-    init_iptables  "${_bin_iptables}" "${_def_interface_name}" "${_is_inversed_blocked}"
-    if [ -f /proc/net/if_inet6 ]; then
-        block=0
-        if [ ! ${_is_inversed_blocked} -eq 0 ] || [ ! ${_is_inversed_blocked_ipv6} -eq 0 ]; then 
-            block=1
-        fi
-        init_iptables  "${_bin_ip6tables}" "${_def_interface_nameIPv6}" "${block}"
-    fi
+    ##############################################
+    #
+    # Vlad: disabled init_iptables logic in the shell scripts - all firewall manipulation is via nftables in Golang now       
+#    init_iptables  "${_bin_iptables}" "${_def_interface_name}" "${_is_inversed_blocked}"
+#    if [ -f /proc/net/if_inet6 ]; then
+#        block=0
+#        if [ ! ${_is_inversed_blocked} -eq 0 ] || [ ! ${_is_inversed_blocked_ipv6} -eq 0 ]; then 
+#            block=1
+#        fi
+#        init_iptables  "${_bin_ip6tables}" "${_def_interface_nameIPv6}" "${block}"
+#    fi
 
     ##############################################
-    # Initialize routing table for packets coming from cgroup   
-    ##############################################    
-    if ! ${_bin_grep} -E "^[0-9]+\s+${_routing_table_name}\s*$" /etc/iproute2/rt_tables &>/dev/null ; then
-        # initialize new routing table
-        mkdir -p /etc/iproute2
-        echo "${_routing_table_weight}      ${_routing_table_name}" >> /etc/iproute2/rt_tables
+    # TODO FIXME: Vlad - disabled: Initialize routing table for packets coming from cgroup   
+    ##############################################
+    # 
+    # if ! ${_bin_grep} -E "^[0-9]+\s+${_routing_table_name}\s*$" /etc/iproute2/rt_tables &>/dev/null ; then
+    #     # initialize new routing table
+    #     mkdir -p /etc/iproute2
+    #     echo "${_routing_table_weight}      ${_routing_table_name}" >> /etc/iproute2/rt_tables
 
-        # Packets with mark will use splittun table
-        # Vlad: disabled this routing rule in MVP 2.0
-        #${_bin_ip} rule add fwmark ${_packets_fwmark_value} table ${_routing_table_name}
+    #     # Packets with mark will use splittun table
+    #     # Vlad: disabled this routing rule in MVP 2.0
+    #     #${_bin_ip} rule add fwmark ${_packets_fwmark_value} table ${_routing_table_name}
 
-        if [ ! -z ${_def_gatewayIPv6} ]; then
-            if [ -f /proc/net/if_inet6 ]; then
-                # Packets with mark will use splittun table
-                # Vlad: disabled this routing rule in MVP 2.0
-                #${_bin_ip} -6 rule add fwmark ${_packets_fwmark_value} table ${_routing_table_name}
-                echo
-            fi
-        fi
+    #     if [ ! -z ${_def_gatewayIPv6} ]; then
+    #         if [ -f /proc/net/if_inet6 ]; then
+    #             # Packets with mark will use splittun table
+    #             # Vlad: disabled this routing rule in MVP 2.0
+    #             #${_bin_ip} -6 rule add fwmark ${_packets_fwmark_value} table ${_routing_table_name}
+    #             echo
+    #         fi
+    #     fi
 
-        # The splittun table has a default gateway route to the default interface
-        #   ${_bin_ip} route add default via ${_def_gateway} table ${_routing_table_name}  
-        #   ${_bin_ip} -6 route add default via ${_def_gatewayIPv6} table ${_routing_table_name}
-        updateRoutes        
-    fi
+    #     # The splittun table has a default gateway route to the default interface
+    #     #   ${_bin_ip} route add default via ${_def_gateway} table ${_routing_table_name}  
+    #     #   ${_bin_ip} -6 route add default via ${_def_gatewayIPv6} table ${_routing_table_name}
+    #     updateRoutes        
+    # fi
 
     ##############################################
-    # Compatibility with WireGuard rules 
+    # TODO FIXME: Vlad - disabled: Compatibility with WireGuard rules 
     ##############################################
     # Check iw WG connected
-    _ret=$(${_bin_ip} rule list not from all fwmark 0xca6c) # WG rule
-    if [ ! -z "${_ret}" ]; then
-        # Only for WireGuard connection:
-        # Ensure rule 'rule add from all lookup main suppress_prefixlength 0' has higher priority
-        #
-        # This wireguard rule respects the manually configured routes in the main table. 
-        # (routing decision is ignored for routes with a prefix length of 0 (it is 'default' route: 0.0.0.0/0))
-        #
-        # Info:
-        #   wireguard adds such rules:
-        #   	from all lookup main suppress_prefixlength 0
-        #   	not from all fwmark 0xca6c lookup 51820
+    # _ret=$(${_bin_ip} rule list not from all fwmark 0xca6c) # WG rule
+    # if [ ! -z "${_ret}" ]; then
+    #     # Only for WireGuard connection:
+    #     # Ensure rule 'rule add from all lookup main suppress_prefixlength 0' has higher priority
+    #     #
+    #     # This wireguard rule respects the manually configured routes in the main table. 
+    #     # (routing decision is ignored for routes with a prefix length of 0 (it is 'default' route: 0.0.0.0/0))
+    #     #
+    #     # Info:
+    #     #   wireguard adds such rules:
+    #     #   	from all lookup main suppress_prefixlength 0
+    #     #   	not from all fwmark 0xca6c lookup 51820
 
-        ${_bin_ip} rule del from all lookup main suppress_prefixlength 0 > /dev/null 2>&1
-        ${_bin_ip} rule add from all lookup main suppress_prefixlength 0
+    #     ${_bin_ip} rule del from all lookup main suppress_prefixlength 0 > /dev/null 2>&1
+    #     ${_bin_ip} rule add from all lookup main suppress_prefixlength 0
 
-        if [ -f /proc/net/if_inet6 ]; then
-            _ret=$(${_bin_ip} -6 rule list not from all fwmark 0xca6c) # WG rule
-            if [ ! -z "${_ret}" ]; then
-                ${_bin_ip} -6 rule del from all lookup main suppress_prefixlength 0 > /dev/null 2>&1
-                ${_bin_ip} -6 rule add from all lookup main suppress_prefixlength 0
-            fi
-        fi
-    fi
+    #     if [ -f /proc/net/if_inet6 ]; then
+    #         _ret=$(${_bin_ip} -6 rule list not from all fwmark 0xca6c) # WG rule
+    #         if [ ! -z "${_ret}" ]; then
+    #             ${_bin_ip} -6 rule del from all lookup main suppress_prefixlength 0 > /dev/null 2>&1
+    #             ${_bin_ip} -6 rule add from all lookup main suppress_prefixlength 0
+    #         fi
+    #     fi
+    # fi
+
+    test || { RET=$?; echo "test error: $RET"; exit $RET; }
 
     addDefaultWhitelistedApps
 
     set +e
 
-    echo "privateLINE Split Tunneling enabled"
+    echo "privateLINE cgroups enabled"
 }
 
 # Vlad: this function effectively does nothing in MVP 2.0. "Allow privateLINE Apps only" functionality only uses the firewall, doesn't use or care about routing table.
 function updateRoutes()
 { 
+    # Vlad: this script doesn't care about routing table in PL Connect MVP 2.0
+    echo "updateRoutes not supported in MVP 2.0"
+    exit 1
+
     # simple check if ST enabled
     if [ ! -d ${_cgroup_folder} ]; then
         return
@@ -487,39 +508,55 @@ function clean()
     restore 
 
     ##############################################
-    # Move all processes from the privateLINE cgroup to the main cgroup
+    # Restore the App Whitelist cgroup only to default PL apps
     ##############################################    
+    removeAllPids
+    addDefaultWhitelistedApps
+
+    ##############################################
+    # TODO: Vlad - disabled: Remove cgroup    
+    ##############################################
+#    # check is cgroup exists
+#    if [ -d ${_cgroup_folder} ]; then
+#        # Note: the cgroup folder will be removed only in case
+#        # when no active process are in that cgroup
+#        rmdir ${_cgroup_folder}
+#    fi  
+
+    ##############################################
+    # TODO: Vlad - disabled: Remove firewall rules
+    ##############################################
+#    clear_iptables ${_bin_iptables}    
+#    if [ -f /proc/net/if_inet6 ]; then
+#        clear_iptables ${_bin_ip6tables} &>/dev/null 
+#    fi
+
+    ##############################################
+    # TODO: Vlad - disabled: Remove routing
+    ##############################################
+#    ${_bin_ip} rule del fwmark ${_packets_fwmark_value} table ${_routing_table_name}    
+#    ${_bin_ip} route flush table ${_routing_table_name}
+#    if [ -f /proc/net/if_inet6 ]; then
+#        ${_bin_ip} -6 rule del fwmark ${_packets_fwmark_value} table ${_routing_table_name}    &>/dev/null 
+#        ${_bin_ip} -6 route flush table ${_routing_table_name}    &>/dev/null 
+#    fi 
+
+#    ${_bin_sed} -i "/${_routing_table_name}\s*$/d" /etc/iproute2/rt_tables   
+}
+
+function uninstall()
+{
     removeAllPids
 
     ##############################################
-    # Remove cgroup    
+    # Remove cgroup
     ##############################################
     # check is cgroup exists
     if [ -d ${_cgroup_folder} ]; then
         # Note: the cgroup folder will be removed only in case
         # when no active process are in that cgroup
         rmdir ${_cgroup_folder}
-    fi  
-
-    ##############################################
-    # Remove firewall rules
-    ##############################################
-    clear_iptables ${_bin_iptables}    
-    if [ -f /proc/net/if_inet6 ]; then
-        clear_iptables ${_bin_ip6tables} &>/dev/null 
     fi
-
-    ##############################################
-    # Remove routing
-    ##############################################
-    ${_bin_ip} rule del fwmark ${_packets_fwmark_value} table ${_routing_table_name}    
-    ${_bin_ip} route flush table ${_routing_table_name}
-    if [ -f /proc/net/if_inet6 ]; then
-        ${_bin_ip} -6 rule del fwmark ${_packets_fwmark_value} table ${_routing_table_name}    &>/dev/null 
-        ${_bin_ip} -6 route flush table ${_routing_table_name}    &>/dev/null 
-    fi 
-
-    ${_bin_sed} -i "/${_routing_table_name}\s*$/d" /etc/iproute2/rt_tables   
 }
 
 function getBackupFolderPath()
@@ -659,9 +696,9 @@ function appWhitelistEnabled()
 
 function info()
 {
-    #echo "[*] Interfaces (${_bin_ip} link):"
-    #${_bin_ip} link
-    #echo
+    echo "[*] Interfaces (${_bin_ip} link):"
+    ${_bin_ip} link
+    echo
 
     if [[ $1 != "-6" ]]; then
         _val=`cat /proc/sys/net/ipv4/ip_forward`
@@ -688,25 +725,25 @@ function info()
     echo "[*] File '/etc/iproute2/rt_tables':"
     cat /etc/iproute2/rt_tables
         
-    echo ---------------------------------
-    if [[ $1 != "-4" ]]; then
-        echo "[*] ip6tables -t mangle -S:"
-        ${_bin_ip6tables} -t mangle -S
-    fi
-    if [[ $1 != "-6" ]]; then
-        echo "[*] iptables -t mangle -S:"
-        ${_bin_iptables} -t mangle -S
-    fi
+#    echo ---------------------------------
+#    if [[ $1 != "-4" ]]; then
+#        echo "[*] ip6tables -t mangle -S:"
+#        ${_bin_ip6tables} -t mangle -S
+#    fi
+#    if [[ $1 != "-6" ]]; then
+#        echo "[*] iptables -t mangle -S:"
+#        ${_bin_iptables} -t mangle -S
+#    fi
 
-    echo ---------------------------------
-    if [[ $1 != "-4" ]]; then
-        echo "[*] ip6tables -t nat -S:"
-        ${_bin_ip6tables} -t nat -S
-    fi
-    if [[ $1 != "-6" ]]; then
-        echo "[*] iptables -t nat -S:"
-        ${_bin_iptables} -t nat -S
-    fi
+#    echo ---------------------------------
+#    if [[ $1 != "-4" ]]; then
+#        echo "[*] ip6tables -t nat -S:"
+#        ${_bin_ip6tables} -t nat -S
+#    fi
+#    if [[ $1 != "-6" ]]; then
+#        echo "[*] iptables -t nat -S:"
+#        ${_bin_iptables} -t nat -S
+#    fi
     #echo ---------------------------------
     #echo "[*] ip6tables -S ${INPUT}:"
     #${_bin_ip6tables} -S ${INPUT}
@@ -719,35 +756,35 @@ function info()
     #echo "[*] iptables -S ${OUTPUT}:"
     #${_bin_iptables} -S ${OUTPUT}
     
-    echo ---------------------------------
-    if [[ $1 != "-4" ]]; then
-        echo "[*] ip6tables -S | grep PRIVATELINE:"
-        ${_bin_ip6tables} -S  | grep PRIVATELINE
-    fi
-    if [[ $1 != "-6" ]]; then
-        echo "[*] iptables -S | grep PRIVATELINE:"
-        ${_bin_iptables} -S  | grep PRIVATELINE    
-    fi
-    echo ---------------------------------
-    if [[ $1 != "-4" ]]; then
-        echo "[*] ip -6 rule:"
-        ${_bin_ip} -6 rule
-    fi
-    if [[ $1 != "-6" ]]; then
-        echo "[*] ip rule:"
-        ${_bin_ip} rule
-    fi
+#    echo ---------------------------------
+#    if [[ $1 != "-4" ]]; then
+#        echo "[*] ip6tables -S | grep PRIVATELINE:"
+#        ${_bin_ip6tables} -S  | grep PRIVATELINE
+#    fi
+#    if [[ $1 != "-6" ]]; then
+#        echo "[*] iptables -S | grep PRIVATELINE:"
+#        ${_bin_iptables} -S  | grep PRIVATELINE    
+#    fi
+#    echo ---------------------------------
+#    if [[ $1 != "-4" ]]; then
+#        echo "[*] ip -6 rule:"
+#        ${_bin_ip} -6 rule
+#    fi
+#    if [[ $1 != "-6" ]]; then
+#        echo "[*] ip rule:"
+#        ${_bin_ip} rule
+#    fi
 
-    echo ---------------------------------
-    if [[ $1 != "-4" ]]; then
-        echo "[*] ip -6 route show table ${_routing_table_weight}"
-        ${_bin_ip} -6 route show table ${_routing_table_weight}    
-    fi
-    if [[ $1 != "-6" ]]; then
-        echo "[*] ip route show table ${_routing_table_weight}"
-        ${_bin_ip} route show table ${_routing_table_weight} #${_routing_table_name}
-    fi
-    echo ---------------------------------
+#    echo ---------------------------------
+#    if [[ $1 != "-4" ]]; then
+#        echo "[*] ip -6 route show table ${_routing_table_weight}"
+#        ${_bin_ip} -6 route show table ${_routing_table_weight}    
+#    fi
+#    if [[ $1 != "-6" ]]; then
+#        echo "[*] ip route show table ${_routing_table_weight}"
+#        ${_bin_ip} route show table ${_routing_table_weight} #${_routing_table_name}
+#    fi
+#    echo ---------------------------------
 
     detectDefRouteVars
 
@@ -769,9 +806,9 @@ function parseInputArgs()
             -gateway) _def_gateway="$2"; shift;;
             -interface6) _def_interface_nameIPv6="$2"; shift;;
             -gateway6) _def_gatewayIPv6="$2"; shift;;
-            -inverse) _is_inversed=1; echo "'-inverse' flag defined!";;
-            -inverse_block) _is_inversed_blocked=1; echo "'-inverse_block' flag defined!";;
-            -inverse_block_ipv6) _is_inversed_blocked_ipv6=1; echo "'-inverse_block_ipv6' flag defined!";;
+#            -inverse) _is_inversed=1; echo "'-inverse' flag defined!";;
+#            -inverse_block) _is_inversed_blocked=1; echo "'-inverse_block' flag defined!";;
+#            -inverse_block_ipv6) _is_inversed_blocked_ipv6=1; echo "'-inverse_block_ipv6' flag defined!";;
             *) echo "Unknown parameter: '$1'" 1>&2; exit 1;;
         esac
         shift
@@ -796,6 +833,9 @@ elif [[ $1 = "reset" ]] ; then
     removeAllPids
     addDefaultWhitelistedApps
 
+elif [[ $1 = "uninstall" ]] ; then 
+    uninstall
+
 elif [[ $1 = "addpid" ]] ; then
     shift 
     addpid $@
@@ -818,7 +858,7 @@ elif [[ $1 = "run" ]] ; then
         shift
     fi
     _command=$@
-    execute "${_user}" "${_command}"     
+    execute "${_user}" "${_command}"
 
 elif [[ $1 = "update-routes" ]] ; then
     # Vlad: this script doesn't care about routing table in PL Connect MVP 2.0
@@ -850,8 +890,8 @@ elif [[ $1 = "manual" ]] ; then
     echo "Running manual command: ${_FUNCNAME}($@) "
     ${_FUNCNAME} $@
 else
-    echo "Script to control the Split-Tunneling functionality for Linux."
-    echo "Applications running in the split tunnel environment do not use the VPN tunnel."
+    echo "Script to control the App Whitelist functionality for Linux."
+    echo "When App Whitelist is enabled - only apps included in it are allowed access to the privateLINE enclave."
     echo "It is a part of Daemon for privateLINE Connect Desktop."
     echo "https://github.com/swapnilsparsh/devsVPN/daemon"
     echo "Created by Stelnykovych Alexandr."
@@ -907,4 +947,5 @@ else
     echo "        $0 stop"
     echo "    Check whether all apps or only whitelisted apps are allowed access to the enclave:"
     echo "        $0 appWhitelistEnabled"
+    exit 1
 fi

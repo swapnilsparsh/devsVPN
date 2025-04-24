@@ -34,6 +34,7 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 
@@ -324,8 +325,11 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 		if manualDNS.Encryption == dns.EncryptionNone {
 			interfaceCfg = append(interfaceCfg, "DNS = "+manualDNS.Ip().String())
 		} else {
-			interfaceCfg = append(interfaceCfg, "DNS = "+wg.DefaultDNS().String())
-			log.Info("(info) The DoH/DoT custom DNS configuration will be applied after connection established")
+			defaultDns := wg.DefaultDNS()
+			if len(*defaultDns) >= 1 {
+				interfaceCfg = append(interfaceCfg, "DNS = "+(*defaultDns)[0].String())
+				log.Info("(info) The DoH/DoT custom DNS configuration will be applied after connection established")
+			}
 		}
 	} else {
 		// interfaceCfg = append(interfaceCfg, "DNS = "+wg.DefaultDNS().String())
@@ -335,9 +339,8 @@ func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg
 	var MTU int
 	if wg.connectParams.mtu > 0 {
 		MTU = wg.connectParams.mtu
-	} else { // If MTU not specified explicitly, set 1280 - minimum value allowed on Windows
-		// // According to Windows specification: "... For IPv4 the minimum value is 576 bytes. For IPv6 the minimum value is 1280 bytes... "
-		MTU = 1280
+	} else {
+		MTU = platform.WGDefaultMTU()
 	}
 	interfaceCfg = append(interfaceCfg, fmt.Sprintf("MTU = %d", MTU))
 

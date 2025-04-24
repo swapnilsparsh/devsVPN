@@ -61,7 +61,7 @@ var (
 // (map[<PID>]<command>)
 var _addedRootProcesses map[int]string = map[int]string{}
 
-const stPidsFile = "/sys/fs/cgroup/net_cls/privateline-exclude/cgroup.procs"
+const stPidsFile = "/sys/fs/cgroup/net_cls/privateline-app-whitelist/cgroup.procs"
 
 func implInitialize() error {
 	funcNotAvailableError = nil
@@ -69,13 +69,13 @@ func implInitialize() error {
 
 	snapEvs := platform.GetSnapEnvs()
 	if snapEvs != nil {
-		funcNotAvailableError = fmt.Errorf("Split-Tunnelling not applicable out from snap sandbox")
+		funcNotAvailableError = fmt.Errorf("App Whitelist not applicable out from snap sandbox")
 		return funcNotAvailableError
 	}
 
 	stScriptPath = platform.SplitTunScript()
 	if len(stScriptPath) <= 0 {
-		funcNotAvailableError = fmt.Errorf("Split-Tunnelling script is not defined")
+		funcNotAvailableError = fmt.Errorf("App Whitelist script is not defined")
 		return funcNotAvailableError
 	}
 
@@ -586,7 +586,7 @@ func enableDisableAppWhitelist(isEnable bool) error {
 			if len(outErrText) > 0 {
 				err = fmt.Errorf("(%w) exitCode=%d: %s", err, exitCode, outErrText)
 			}
-			// if splittun.sh start failed - clean everything (by command 'stop')
+			// if firewall-helper.sh start failed - clean everything (by command 'stop')
 			shell.Exec(nil, stScriptPath, "stop")
 			return fmt.Errorf("failed to enable app whitelist: exitCode=%d: %w", exitCode, err)
 		}

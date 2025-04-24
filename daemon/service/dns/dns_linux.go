@@ -27,7 +27,9 @@ package dns
 
 import (
 	"fmt"
+	"io/fs"
 	"net"
+	"os"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns/dnscryptproxy"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
@@ -37,17 +39,17 @@ import (
 //
 //	https://github.com/systemd/systemd/blob/main/docs/RESOLVED-VPNS.md
 //	https://blogs.gnome.org/mcatanzaro/2020/12/17/understanding-systemd-resolved-split-dns-and-vpn-configuration/
-func isResolveCtlInUse() bool {
+func isResolveCtlAvail() bool {
 	return len(platform.ResolvectlBinPath()) > 0
 }
 
 var (
-	isOldMgmtStyleInUse bool
-	f_implInitialize    func() error
-	f_implPause         func(localInterfaceIP net.IP) error
-	f_implResume        func(localInterfaceIP net.IP) error
-	f_implSetManual     func(dnsCfg DnsSettings, localInterfaceIP net.IP) (dnsInfoForFirewall DnsSettings, retErr error)
-	f_implDeleteManual  func(localInterfaceIP net.IP) error
+	isResolvectlInUse  bool
+	f_implInitialize   func() error
+	f_implPause        func(localInterfaceIP net.IP) error
+	f_implResume       func(localInterfaceIP net.IP) error
+	f_implSetManual    func(dnsCfg DnsSettings, localInterfaceIP net.IP) (dnsInfoForFirewall DnsSettings, retErr error)
+	f_implDeleteManual func(localInterfaceIP net.IP) error
 )
 
 var (
@@ -64,18 +66,25 @@ func init() {
 	f_implDeleteManual = func(localInterfaceIP net.IP) error { return err }
 }
 
-// implInitialize doing initialization stuff (called on application start)
+// implInitialize doing initialization stuff
+// it's called both:
+//   - on daemon start
+//   - and at the beginning of each connection by Service.connect() in service_connect.go
+//
+// TODO: Vlad - will we need to reconfigure DNS mgmt to-from old-style and resolvectl in the middle of connection, checked by vpnCoexistence_linux.go?
+//   - if yes, we'll need locking
 func implInitialize() error {
-
-	if !isNeedUseOldMgmtStyle() && isResolveCtlInUse() {
+	if willUseResolvectl, err := WillUseResolvectlForDnsMgmt(); err != nil {
+		return log.ErrorFE("error WillUseResolvectl(): %w", err) // TODO FIXME: Vlad - or just ignore errors and force old-style DNS management on errors?
+	} else if willUseResolvectl {
 		// new management style: using 'resolvectl'
 		f_implInitialize = rctl_implInitialize
 		f_implPause = rctl_implPause
 		f_implResume = rctl_implResume
 		f_implSetManual = rctl_implSetManual
 		f_implDeleteManual = rctl_implDeleteManual
-		isOldMgmtStyleInUse = false
-		log.Info("Initialized management: resolvectl in use")
+		isResolvectlInUse = true
+		log.Info("Initialized DNS management: resolvectl in use")
 	} else {
 		// old management style: direct modifying '/etc/resolv.conf'
 		f_implInitialize = rconf_implInitialize
@@ -83,26 +92,50 @@ func implInitialize() error {
 		f_implResume = rconf_implResume
 		f_implSetManual = rconf_implSetManual
 		f_implDeleteManual = rconf_implDeleteManual
-		isOldMgmtStyleInUse = true
-		log.Info("Initialized management: direct modification the '/etc/resolv.conf' ")
+		isResolvectlInUse = false
+		log.Info("Initialized old-style DNS management: direct modification of '/etc/resolv.conf'")
 	}
 
 	return f_implInitialize()
 }
 
-func isNeedUseOldMgmtStyle() bool {
-	if funcGetUserSettings != nil {
-		extraSettings := funcGetUserSettings()
-		return extraSettings.Linux_IsDnsMgmtOldStyle
+// On Linux we prefer to use resolvectl, if we can - but all the conditions have to be met
+func WillUseResolvectlForDnsMgmt() (willUseResolvectl bool, retErr error) {
+	if !isResolveCtlAvail() { // do we have resolvectl and does it work?
+		// log.Debug("isResolveCtlAvail() == false")
+		return false, nil
 	}
-	return false
+
+	if funcGetUserSettings != nil && funcGetUserSettings().Linux_IsDnsMgmtOldStyle { // if old-style DNS management is specified by user preferences - follow that
+		log.Debug("Linux_IsDnsMgmtOldStyle == true")
+		return false, nil
+	}
+
+	fi, err := os.Lstat("/etc/resolv.conf") // check whether /etc/resolv.conf is a file, or symlink, or neither/absent
+	if err != nil {
+		return false, log.ErrorFE("error os.Lstat /etc/resolv.conf: %w", err)
+	}
+
+	switch mode := fi.Mode(); {
+	case mode.IsRegular():
+		log.Debug("/etc/resolv.conf is a regular file, so use old-style DNS management")
+		return false, nil // /etc/resolv.conf is a regular file, so use old-style DNS management
+	case mode&fs.ModeSymlink != 0:
+		log.Debug("/etc/resolv.conf is a symlink, so use resolvectl")
+		return true, nil // TODO: check whether it's a symlink to /run/systemd/resolve/stub-resolv.conf or similar systemd-resolved path
+	default:
+		return false, fmt.Errorf("error - /etc/resolv.conf has unexpected mode 0x%x", fi.Mode())
+	}
 }
 
 func implApplyUserSettings() error {
 	// checking if the required settings is already initialized
-	if isNeedUseOldMgmtStyle() == isOldMgmtStyleInUse {
+	if willUseResolvectl, err := WillUseResolvectlForDnsMgmt(); err != nil {
+		return log.ErrorFE("error WillUseResolvectl(): %w", err)
+	} else if willUseResolvectl == isResolvectlInUse {
 		return nil // expected configuration already applied
 	}
+
 	// if DNS changed to a custom value - we have to restore the original DNS settings before changing the DNS management style
 	if !manualDNS.IsEmpty() {
 		return fmt.Errorf("unable to apply new DNS management style: DNS currently changed to a custom value")
@@ -165,7 +198,7 @@ func implSetManual(dnsCfg DnsSettings, localInterfaceIP net.IP) (dnsInfoForFirew
 			return DnsSettings{}, err
 		}
 		// the local DNS must be configured to the dnscrypt-proxy (localhost)
-		dnsCfg = DnsSettings{DnsHost: "127.0.0.1"}
+		dnsCfg = DnsSettings{DnsServers: []net.IP{net.ParseIP("127.0.0.1")}}
 	}
 
 	return f_implSetManual(dnsCfg, localInterfaceIP)
@@ -191,4 +224,12 @@ func implUpdateDnsIfWrongSettings() error {
 	// Not in use for Linux implementation
 	// We are using platform-specific implementation of DNS change monitor for Linux
 	return nil
+}
+
+func implDnsMgmtStyleInUse() DnsMgmtStyle {
+	if isResolvectlInUse {
+		return DnsMgmtStyleResolvectl
+	} else {
+		return DnsMgmtStyleResolveConf
+	}
 }

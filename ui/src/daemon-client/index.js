@@ -1424,6 +1424,8 @@ async function Connect() {
       return tmpSvrs;
     };
 
+    // TODO FIXME: Vlad - disabling pinging servers for now, till PLCON-112
+    /* 
     // ENTRY SERVER
     if (store.getters["settings/isFastestServer"]) {
       const funcGetPing = store.getters["vpnState/funcGetPing"];
@@ -1451,7 +1453,7 @@ async function Connect() {
         fastest = store.getters["vpnState/fastestServer"];
       }
       if (fastest != null) store.dispatch("settings/serverEntry", fastest);
-    } else if (store.getters["settings/isRandomServer"]) {
+    } else if (store.getters["settings/isRandomServer"]) {*/
       // random server
       let servers = store.getters["vpnState/activeServers"];
       if (!isRandomExitSvr) {
@@ -1459,7 +1461,7 @@ async function Connect() {
       }
       let randomIdx = Math.floor(Math.random() * Math.floor(servers.length));
       store.dispatch("settings/serverEntry", servers[randomIdx]);
-    }
+    /*}*/
 
     // EXIT SERVER
     if (isRandomExitSvr) {

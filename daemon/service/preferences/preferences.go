@@ -26,7 +26,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,6 +35,7 @@ import (
 
 	"os"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/obfsproxy"
@@ -48,7 +48,7 @@ var log *logger.Logger
 var mutexRW sync.RWMutex
 
 func init() {
-	log = logger.NewLogger("sprefs")
+	log = logger.NewLogger("prefs")
 }
 
 const (
@@ -65,20 +65,18 @@ type LinuxSpecificUserPrefs struct {
 	IsDnsMgmtOldStyle bool
 }
 
+type WindowsSpecificUserPrefs struct {
+}
+
+// VPN entry host info in parsed form, ready to be fed to firewall rules on Windows, Linux
 type IPAndNetmask struct {
 	IP      net.IP
 	Netmask net.IP
 }
-
-// VPN entry host info in parsed form, ready to be fed to WFP rules
 type VpnEntryHostParsed struct {
 	VpnEntryHostIP net.IP
 	DnsServersIPv4 []net.IP
 	AllowedIPs     []IPAndNetmask
-}
-
-type WindowsSpecificUserPrefs struct {
-	VpnEntryHostsParsed []*VpnEntryHostParsed
 }
 
 // UserPreferences - IVPN service preferences which can be exposed to client
@@ -118,7 +116,7 @@ type Preferences struct {
 	IsAutoconnectOnLaunchDaemon bool
 
 	// split-tunnelling
-	IsSplitTunnel             bool // Split Tunnel on/off
+	IsTotalShieldOn           bool // note that privateLINE definition of Total Shield is the opposite of the IVPN definition of Split Tunnel
 	SplitTunnelApps           []string
 	SplitTunnelInversed       bool // Inverse Split Tunnel: only 'splitted' apps use VPN tunnel (applicable only when IsSplitTunnel=true). For App Whitelist feature must be always true.
 	EnableAppWhitelist        bool // Whether only whitelisted apps are allowed into the enclave (VPN). If false (default), then all apps are allowed into the enclave (VPN tunnel).
@@ -135,7 +133,10 @@ type Preferences struct {
 	UserPrefs UserPreferences
 
 	LastConnectionParams service_types.ConnectionParams
-	WiFiControl          WiFiParams
+	VpnEntryHostsParsed  []*VpnEntryHostParsed
+	AllDnsServersIPv4Set mapset.Set[string]
+
+	WiFiControl WiFiParams
 }
 
 type SessionMutableData struct {
@@ -154,18 +155,21 @@ func Create() *Preferences {
 	}
 }
 
-// ParseWindowsPreferences - parse endpoint(s) information once per change, to be reused many times in firewall_windows.go
-func (p *Preferences) ParseWindowsPreferences() {
-	p.UserPrefs.Windows = WindowsSpecificUserPrefs{VpnEntryHostsParsed: make([]*VpnEntryHostParsed, len(p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts))}
+// ParseVpnEntryHosts - parse endpoint(s) information once per change, to be reused many times in firewall_windows.go
+func (p *Preferences) ParseVpnEntryHosts() {
+	p.VpnEntryHostsParsed = make([]*VpnEntryHostParsed, len(p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts))
+	p.AllDnsServersIPv4Set = mapset.NewThreadUnsafeSetWithSize[string](2)
 
 	for idx, vpnEntryHost := range p.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {
 		var vpnEntryHostParsed VpnEntryHostParsed
 
-		vpnEntryHostParsed.VpnEntryHostIP = net.ParseIP(vpnEntryHost.EndpointIP)
+		vpnEntryHostParsed.VpnEntryHostIP = net.ParseIP(vpnEntryHost.EndpointIP).To4()
 
 		vpnEntryHostParsed.DnsServersIPv4 = make([]net.IP, 0, 2)
 		for _, dnsSrv := range strings.Split(vpnEntryHost.DnsServers, ",") {
-			vpnEntryHostParsed.DnsServersIPv4 = append(vpnEntryHostParsed.DnsServersIPv4, net.ParseIP(strings.TrimSpace(dnsSrv)))
+			trimmedDnsSrv := strings.TrimSpace(dnsSrv)
+			vpnEntryHostParsed.DnsServersIPv4 = append(vpnEntryHostParsed.DnsServersIPv4, net.ParseIP(trimmedDnsSrv).To4())
+			p.AllDnsServersIPv4Set.Add(trimmedDnsSrv)
 		}
 
 		vpnEntryHostParsed.AllowedIPs = make([]IPAndNetmask, 0, 6)
@@ -181,7 +185,7 @@ func (p *Preferences) ParseWindowsPreferences() {
 			vpnEntryHostParsed.AllowedIPs = append(vpnEntryHostParsed.AllowedIPs, IPAndNetmask{allowedIP, netmaskAsIP})
 		}
 
-		p.UserPrefs.Windows.VpnEntryHostsParsed[idx] = &vpnEntryHostParsed
+		p.VpnEntryHostsParsed[idx] = &vpnEntryHostParsed
 	}
 }
 
@@ -189,7 +193,7 @@ func (p *Preferences) ParseWindowsPreferences() {
 // 'true' (default behavior) - when the VPN connection should be configured as the default route on a system,
 // 'false' - when the default route should remain unchanged	(e.g., for inverse split-tunneling,	when the VPN tunnel is used only by 'split' apps).
 func (p *Preferences) IsInverseSplitTunneling() bool {
-	if !p.IsSplitTunnel {
+	if p.IsTotalShieldOn {
 		return false
 	}
 
@@ -269,10 +273,8 @@ func (p *Preferences) SavePreferences() error {
 	// Remove temp file after successful saving
 	os.Remove(settingsFileTmp)
 
-	// if on Windows - also parse VPN entry hosts here, to use as input for WFP rules
-	if runtime.GOOS == "windows" {
-		p.ParseWindowsPreferences()
-	}
+	// also parse VPN entry hosts here, to use as input for firewall rules
+	p.ParseVpnEntryHosts()
 
 	return nil
 }
@@ -285,24 +287,23 @@ func (p *Preferences) LoadPreferences() error {
 	funcReadPreferences := func(filePath string) (data []byte, err error) {
 		data, err = os.ReadFile(filePath)
 		if err != nil {
-			return data, fmt.Errorf("failed to read preferences file: %w", err)
+			return data, log.ErrorFE("failed to read preferences file: %w", err)
 		}
 
 		// Parse json into preferences object
-		err = json.Unmarshal(data, p)
-		if err != nil {
-			return data, err
+		p.AllDnsServersIPv4Set = mapset.NewThreadUnsafeSetWithSize[string](2) // to fix unmarshaling errors
+		if err = json.Unmarshal(data, p); err != nil {
+			return data, log.ErrorFE("error unmarshaling preferences file: %w", err)
 		}
 		return data, nil
 	}
 
 	data, err := funcReadPreferences(platform.SettingsFile())
 	if err != nil {
-		log.Error(fmt.Sprintf("failed to read preferences file: %v", err))
+		log.ErrorFE("failed to read preferences file: %w", err)
 		// Try to read from temp file, if exists (this is necessary to prevent data loss in case of a power failure)
 		var errTmp error
-		data, errTmp = funcReadPreferences(p.getTempFilePath())
-		if errTmp != nil {
+		if data, errTmp = funcReadPreferences(p.getTempFilePath()); errTmp != nil {
 			return err // return original error
 		}
 		log.Info("Preferences file was restored from temporary file")
@@ -357,10 +358,8 @@ func (p *Preferences) LoadPreferences() error {
 		}
 	}
 
-	// if on Windows - also parse VPN entry hosts here, to use as input for WFP rules
-	if runtime.GOOS == "windows" {
-		p.ParseWindowsPreferences()
-	}
+	// also parse VPN entry hosts here, to use as input for firewall rules
+	p.ParseVpnEntryHosts()
 
 	return nil
 }

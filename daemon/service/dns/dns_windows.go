@@ -210,7 +210,7 @@ func implSetManual(dnsCfg DnsSettings, localInterfaceIP net.IP) (dnsInfoForFirew
 			return DnsSettings{}, err
 		}
 		// the local DNS must be configured to the dnscrypt-proxy (localhost)
-		dnsCfg = DnsSettings{DnsHost: "127.0.0.1"}
+		dnsCfg = DnsSettings{DnsServers: []net.IP{net.ParseIP("127.0.0.1")}}
 	} else {
 		// non-VPN interfaces to update (if DNS located in local network)
 		notVpnInterfacesToUpdate, _ = getInterfacesIPsWhichContainsIP(dnsCfg.Ip(), localInterfaceIP)
@@ -358,4 +358,8 @@ func getInterfacesIPsWhichContainsIP(addr net.IP, localAddrToSkip net.IP) (ret [
 	}
 
 	return ret, nil
+}
+
+func implDnsMgmtStyleInUse() DnsMgmtStyle {
+	return DnsMgmtStyleUnknown
 }

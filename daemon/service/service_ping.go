@@ -38,6 +38,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/ping"
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
 
@@ -82,6 +83,13 @@ func (ph *pingHost) setPriority(phase int, vpnTypePriority int, hostPriority int
 //   - Nearest hosts to the current location have higher priority (if geo-location is known)
 func (s *Service) PingServers(firstPhaseTimeoutMs int, vpnTypePrioritized vpn.Type, skipSecondPhase bool) (map[string]int, error) {
 	startTime := time.Now()
+
+	// temporarily enable the firewall, need VPN coexistence logic up - otherwise, if another VPN is already running, our pings may not go through
+	if err := firewall.EnableIfNeeded(); err != nil {
+		return nil, log.ErrorFE("error in firewall.EnableIfNeeded: %w", err)
+	} else {
+		defer firewall.DisableUnlessConnectedConnecting() // want to keep our firewall logic (incl. VPN coexistence rules) disabled most of the time
+	}
 
 	if s._vpn != nil {
 		ret := s.ping_getLastResults()

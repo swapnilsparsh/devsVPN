@@ -322,7 +322,8 @@ CreatePackage()
   DEBUG_ARGS=
 #  DEBUG_ARGS="--log debug --debug"
 
-  FPMOUT=$(fpm ${DEBUG_ARGS} -d openvpn -d iptables -d "${RESOLVCONF_DEP}" $EXTRA_ARGS \
+# we need both iptables (for iptables-legacy, legacy interface) and nftables
+  FPMOUT=$(fpm ${DEBUG_ARGS} -d iptables -d nftables -d "${RESOLVCONF_DEP}" $EXTRA_ARGS \
     --conflicts $CONFLICTS ${PKG_COMPRESSION_ARGS} \
     --rpm-rpmbuild-define "_build_id_links none" \
     --deb-no-default-config-files -s dir -t $PKG_TYPE -n $PKG_NAME -v $VERSION --url https://www.privateline.io --license "GNU GPL3" \

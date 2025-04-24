@@ -58,8 +58,8 @@ func doOsInitForBuild() (warnings []string, errors []error, logInfo []string) {
 	etcDirCommon := path.Join(installDir, "References/common/etc")
 	installDir = path.Join(installDir, "References/Linux")
 
-	firewallScript = path.Join(etcDir, "firewall.sh")
-	splitTunScript = path.Join(etcDir, "splittun.sh")
+	firewallScript = path.Join(etcDir, "firewall-helper.sh")
+	splitTunScript = path.Join(etcDir, "firewall-helper.sh")
 	openvpnCaKeyFile = path.Join(etcDirCommon, "ca.crt")
 	openvpnTaKeyFile = path.Join(etcDirCommon, "ta.key")
 	openvpnUpScript = path.Join(etcDir, "client.up")

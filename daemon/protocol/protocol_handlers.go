@@ -23,9 +23,12 @@
 package protocol
 
 import (
+	"sync"
+
 	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
+	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier"
 )
 
@@ -49,15 +52,20 @@ func (p *Protocol) OnSessionStatus(sessionToken string, sessionData preferences.
 	})
 }
 
-// OnKillSwitchStateChanged - Firewall change handler
+var OnKillSwitchStateChangedMutex sync.Mutex
+
+// OnKillSwitchStateChanged - Firewall change handler. Single-instance.
 func (p *Protocol) OnKillSwitchStateChanged() {
+	OnKillSwitchStateChangedMutex.Lock() // single instance.
+	defer OnKillSwitchStateChangedMutex.Unlock()
+
 	if p._service == nil {
 		return
 	}
 
 	// notify all clients about KillSwitch status
 	if status, err := p._service.KillSwitchState(); err != nil {
-		log.Error(err)
+		log.ErrorFE("error in p._service.KillSwitchState(): %w", err)
 	} else {
 		p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
 	}
@@ -115,4 +123,8 @@ func (p *Protocol) OnSplitTunnelStatusChanged() {
 		return
 	}
 	p.notifyClients(&status)
+}
+
+func (p *Protocol) LastVpnStateIsConnected() bool {
+	return p._lastVPNState.State == vpn.CONNECTED
 }
