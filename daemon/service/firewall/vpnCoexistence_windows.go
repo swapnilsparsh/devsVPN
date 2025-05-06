@@ -25,7 +25,7 @@ import (
 )
 
 type OtherVpnInfoParsed struct {
-	OtherVpnKnown bool // true - other VPN known from our DB, false - we guessed Windows service name from the other VPN sublayer name
+	OtherVpnKnownFromDB bool // true - other VPN known from our DB, false - we guessed Windows service name from the other VPN sublayer name
 
 	otherVpnCliFound bool
 
@@ -96,6 +96,9 @@ var (
 		mullvadSublayerKey: &mullvadProfile,
 		nordVpnSublayerKey: &nordVpnProfile,
 	}
+
+	// list of other VPNs with CLI present on the system; indexed by VPN name
+	otherVpnsInstalledWithCliPresent mapset.Set[string] = mapset.NewSet[string]()
 )
 
 func (otherVpn *OtherVpnInfoParsed) Close() {
@@ -211,7 +214,7 @@ func ParseOtherVpnBySublayerGUID(otherSublayerFound bool, otherSublayer *winlib.
 	otherVpnInfoParsed = &OtherVpnInfoParsed{false, false, nil, []*mgr.Service{}, OtherVpnInfo{name: otherSublayer.Name}}
 
 ParseOtherVpn_CheckingStage1_serviceNameRegexPrep:
-	if otherVpnInfoParsed.OtherVpnKnown { // other VPN profile known from DB, so match service names only by other VPN name prefix and provider.serviceName
+	if otherVpnInfoParsed.OtherVpnKnownFromDB { // other VPN profile known from DB, so match service names only by other VPN name prefix and provider.serviceName
 		if serviceNameRegex, err = regexp.Compile("(?i)^" + otherVpn.namePrefix); err != nil { // (?i) for case-insensitive matching
 			log.ErrorFE("error compiling regular expression from other VPN name prefix '%s': %w", otherVpn.namePrefix, err)
 			goto ParseOtherVpn_CheckingStage3_processCLI
@@ -247,7 +250,9 @@ ParseOtherVpn_CheckingStage3_processCLI:
 	if otherVpnInfoParsed.otherVpnCliFound, err = otherVpnInfoParsed.validateCliPath(); err != nil { // check CLI binary exists
 		log.ErrorFE("error validating CLI path: %w", err)
 		return otherVpnInfoParsed /*, nil*/
-	} else if !otherVpnInfoParsed.otherVpnCliFound {
+	} else if otherVpnInfoParsed.otherVpnCliFound {
+		otherVpnsInstalledWithCliPresent.Add(otherVpnInfoParsed.name)
+	} else {
 		log.Error(errors.New("error - CLI not found at path '" + otherVpnInfoParsed.cliPathResolved + "'"))
 		return otherVpnInfoParsed /*, nil*/
 	}

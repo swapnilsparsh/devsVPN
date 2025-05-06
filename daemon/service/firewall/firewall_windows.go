@@ -278,7 +278,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 					log.Warning(err)
 				} else {
 					log.Debug(fmt.Sprintf("otherVpn = %+v", otherVpn))
-					otherVpnUnknownErr.otherVpnUnknownToUs = !otherVpn.OtherVpnKnown
+					otherVpnUnknownErr.otherVpnUnknownToUs = !otherVpn.OtherVpnKnownFromDB
 					if err = otherVpn.PreSteps(); err != nil {
 						err = fmt.Errorf("error taking pre-steps for other VPN '%s' '%s', continuing with generic interoperation approach. Error: %w",
 							windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name, err)
