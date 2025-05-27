@@ -316,7 +316,7 @@ CreatePackage()
   if [[ ${PKG_TYPE} == deb ]]; then
   	RESOLVCONF_DEP="resolvconf | systemd-resolved | openresolv"
   elif [[ ${PKG_TYPE} == rpm ]]; then
-  	RESOLVCONF_DEP=/usr/sbin/resolvconf
+  	RESOLVCONF_DEP="openresolv"
   fi
 
   DEBUG_ARGS=
