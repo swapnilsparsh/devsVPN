@@ -308,8 +308,8 @@ CreatePackage()
 				  $UI_REPO_ABS_PATH/References/Linux/ui/privateline-connect.svg=/usr/share/icons/hicolor/scalable/apps/privateline-connect.svg \
 				  $UI_REPO_ABS_PATH/dist/bin=/opt/privateline-connect/ui/"
 
-	# adding v4l-utils as dependency for QR scanner in UI
-	EXTRA_ARGS+=" -d v4l-utils"
+	# adding libv4l as dependency for QR scanner in UI
+	EXTRA_ARGS+=" -d libv4l"
   fi
 
   declare RESOLVCONF_DEP
