@@ -303,13 +303,17 @@ CreatePackage()
   #   [*] After remove (3.3.30 : rpm : 0)
 
   EXTRA_INPUTS=
-  if [ $PKG_NAME == privateline-connect-full ]; then
+  if [[ ${PKG_NAME} == privateline-connect-full ]]; then
   	EXTRA_INPUTS="$UI_REPO_ABS_PATH/References/Linux/ui/privateline-connect-ui.desktop=/usr/share/applications/privateline-connect-ui.desktop \
 				  $UI_REPO_ABS_PATH/References/Linux/ui/privateline-connect.svg=/usr/share/icons/hicolor/scalable/apps/privateline-connect.svg \
 				  $UI_REPO_ABS_PATH/dist/bin=/opt/privateline-connect/ui/"
 
-	# adding libv4l as dependency for QR scanner in UI
-	EXTRA_ARGS+=" -d libv4l"
+	# adding video4linux (package named as "*v4l*") as dependency for QR scanner in UI
+	if [[ ${PKG_TYPE} == deb ]]; then
+		EXTRA_ARGS+=" -d v4l-utils"
+	elif [[ ${PKG_TYPE} == rpm ]]; then
+		EXTRA_ARGS+=" -d libv4l"
+	fi
   fi
 
   declare RESOLVCONF_DEP
