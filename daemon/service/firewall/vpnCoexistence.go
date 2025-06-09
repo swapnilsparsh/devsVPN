@@ -47,7 +47,8 @@ type otherVpnCliCmds struct {
 	cmdAddAllowlistOption    []string // used for NordVPN on Linux
 	cmdRemoveAllowlistOption []string // used for NordVPN on Linux
 
-	cmdAllowLan []string // used by ExpressVPN, Mullvad on Linux
+	cmdAllowLan     []string // used by ExpressVPN on Linux, and by Mullvad on Linux, Windows
+	cmdLockdownMode []string // used by Mullvad on Windows
 }
 
 type otherVpnCoexistenceLegacyHelper func() (err error)
