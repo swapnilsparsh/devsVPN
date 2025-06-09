@@ -71,10 +71,14 @@ var (
 			statusConnectedRE:       commonStatusConnectedRE, // must be 1st line
 			statusDisconnectedRE:    commonStatusDisconnectedRE,
 
+			cmdConnect:    "connect",
+			cmdDisconnect: "disconnect",
+
 			cmdEnableSplitTun:                      []string{"split-tunnel", "set", "on"},
 			cmdAddOurBinaryPathToSplitTunWhitelist: []string{"split-tunnel", "app", "add"},
-			cmdConnect:                             "connect",
-			cmdDisconnect:                          "disconnect",
+
+			cmdLockdownMode: []string{"lockdown-mode", "set", "off"},
+			cmdAllowLan:     []string{"lan", "set", "allow"},
 		},
 	}
 
@@ -339,8 +343,20 @@ func (otherVpn *OtherVpnInfoParsed) PostSteps() {
 			}
 		}
 
+		if len(otherVpn.cliCmds.cmdLockdownMode) > 0 {
+			if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdLockdownMode...); retErr != nil {
+				log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdLockdownMode, otherVpn.name, retErr)
+			}
+		}
+
+		if len(otherVpn.cliCmds.cmdAllowLan) > 0 {
+			if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); retErr != nil {
+				log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdAllowLan, otherVpn.name, retErr)
+			}
+		}
+
 		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdConnect); retErr != nil {
-			log.Error(fmt.Errorf("error sending connect command to the other VPN '%s': %w", otherVpn.name, retErr))
+			log.ErrorFE("error sending connect command to the other VPN '%s': %w", otherVpn.name, retErr)
 		}
 	}
 
