@@ -135,7 +135,7 @@ func SetEnabled(enable bool) (err error) {
 		log.Info("Disabling...")
 	}
 
-	if err = implSetEnabled(enable, false); err != nil {
+	if err = implSetEnabled(enable, false, false); err != nil {
 		return log.ErrorFE("failed to change firewall state : %w", err)
 	}
 
@@ -184,7 +184,7 @@ func CleanupRegistration() (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if err = implSetEnabled(false, false); err != nil {
+	if err = implSetEnabled(false, false, false); err != nil {
 		return log.ErrorE(fmt.Errorf("failed to disable firewall: %w", err), 0)
 	}
 
@@ -253,7 +253,7 @@ func EnableIfNeeded() error {
 	if isEnabled, err := _getEnabledHelper(true); err != nil {
 		return err
 	} else if !isEnabled {
-		return implSetEnabled(true, false)
+		return implSetEnabled(true, false, true)
 	}
 
 	return nil

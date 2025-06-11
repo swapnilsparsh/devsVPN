@@ -158,14 +158,14 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfig
 	}
 
 	if wasEnabled {
-		if retErr = implSetEnabled(false, false); retErr != nil {
+		if retErr = implSetEnabled(false, false, false); retErr != nil {
 			return false, log.ErrorFE("error disabling firewall: %w", retErr)
 		}
 	}
 	var retErr2 error = nil
 	defer func() {
 		if wasEnabled {
-			if retErr2 = implSetEnabled(true, false); retErr != nil {
+			if retErr2 = implSetEnabled(true, false, false); retErr != nil {
 				retErr2 = log.ErrorFE("error re-enabling firewall: %w", retErr)
 				return
 			}
@@ -358,7 +358,11 @@ func implGetEnabled() (isEnabled bool, err error) {
 	}
 }
 
-func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress bool) (retErr error) {
+func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress, rescanForOtherVpns bool) (retErr error) {
+	if rescanForOtherVpns {
+		go reDetectVpnsWithCliAndRunTheirCliActions(false)
+	}
+
 	if !wfpTransactionAlreadyInProgress {
 		if retErr = manager.TransactionStart(); retErr != nil { // start WFP transaction
 			return log.ErrorFE("failed to start transaction: %w", retErr)
@@ -552,6 +556,8 @@ func implOnUserExceptionsUpdated() error {
 
 // implReEnable unconditionally starts WFP transaction, so callers must not have started one already
 func implReEnable() (retErr error) {
+	go reDetectVpnsWithCliAndRunTheirCliActions(false)
+
 	log.Info("implReEnable")
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return log.ErrorFE("failed to start transaction: %w", err)

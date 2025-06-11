@@ -6,6 +6,7 @@ package firewall
 import (
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
@@ -22,6 +23,14 @@ var (
 	FirstWordRE                = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+")   // regexp for the 1st word: "^[^[:space:]_\.-]+"
 	commonStatusConnectedRE    = regexp.MustCompile("^Connected([^a-zA-Z0-9]|$)") // must be 1st line
 	commonStatusDisconnectedRE = regexp.MustCompile("^Disconnected([^a-zA-Z0-9]|$)")
+
+	// Must contain all the other VPNs profiles, initialized in platform-specific init()
+	knownOtherVpnProfiles = []*OtherVpnInfo{}
+
+	// Index (DB) of other VPNs by name, must be initialized in platform-specific init() to avoid initialization cycles
+	otherVpnsByName = map[string]*OtherVpnInfo{}
+
+	otherVpnsLastDetectionTimestamp time.Time // if we last re-detected other VPNs less than 5s ago, usually no reason to re-detect again
 )
 
 type otherVpnCliCmds struct {
@@ -59,9 +68,11 @@ type OtherVpnInfo struct {
 	name       string // display name of another VPN
 	namePrefix string // name prefix used to match sublayer, provider names, and Windows service names
 
-	cli             string // CLI command of that VPN, used to add our binaries & IP ranges to their exception list. If left blank - that means this VPN doesn't have a useful CLI.
-	cliPathResolved string // resolved at runtime
-	cliCmds         otherVpnCliCmds
+	cli                    string // CLI command of that VPN, used to add our binaries & IP ranges to their exception list. If left blank - that means this VPN doesn't have a useful CLI.
+	cliPathResolved        string // resolved at runtime
+	otherVpnCliFound       bool
+	cliCmds                otherVpnCliCmds
+	runVpnCliCommandsMutex sync.Mutex // used to protect RunVpnCliCommands()
 
 	isConnected bool
 

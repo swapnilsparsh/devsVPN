@@ -49,7 +49,6 @@ var (
 	//	otherVpnsNftMutex 1st
 	//	otherVpnsLegacyMutex 2nd
 	//	DisableCoexistenceWithOtherVpnsMutex 3rd
-	otherVpnsLastDetectionTimestamp            time.Time          // if we last re-detected other VPNs less than 5s ago, usually no reason to re-detect again
 	OtherVpnsDetectedRelevantForNftables       mapset.Set[string] = mapset.NewSet[string]()
 	otherVpnsNftMutex                          sync.Mutex         // used to protect OtherVpnsDetectedRelevantForNftables
 	OtherVpnsDetectedRelevantForIptablesLegacy mapset.Set[string] = mapset.NewSet[string]()
@@ -60,9 +59,6 @@ var (
 
 	// lowest recommended MTU for our Wireguard - adjusted every time other VPNs are detected
 	lowestRecommendedMTU = platform.WGDefaultMTU()
-
-	// Index (DB) of other VPNs by name, must be initialized in init() to avoid initialization cycles.
-	otherVpnsByName = map[string]*OtherVpnInfo{}
 
 	// NordVPN. Apparently it doesn't create any custom firewall chains.
 	nordVpnInterfaceName = "nordlynx"
@@ -155,9 +151,6 @@ var (
 		},
 	}
 
-	// Must contain all the profiles for other VPNs
-	knownOtherVpnProfiles = []*OtherVpnInfo{&nordVpnProfile, &surfsharkProfile, &expressVpnProfile, &mullvadProfile}
-
 	// Index (DB) of other VPNs by their network interface names
 	otherVpnsByInterfaceName = map[string]*OtherVpnInfo{
 		nordVpnInterfaceName:      &nordVpnProfile,
@@ -191,7 +184,9 @@ var (
 )
 
 func init() {
-	// Index (DB) of other VPNs by name, must be initialized in init() to avoid initialization cycles.
+	knownOtherVpnProfiles = []*OtherVpnInfo{&nordVpnProfile, &surfsharkProfile, &expressVpnProfile, &mullvadProfile}
+
+	// Index (DB) of other VPNs by name, must be initialized in init() to avoid initialization cycles
 	for _, otherVpn := range knownOtherVpnProfiles {
 		otherVpnsByName[otherVpn.name] = otherVpn
 	}
