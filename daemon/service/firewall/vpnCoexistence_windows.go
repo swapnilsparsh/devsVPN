@@ -375,14 +375,16 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 	otherVpn.runVpnCliCommandsMutex.Lock()
 	defer otherVpn.runVpnCliCommandsMutex.Unlock()
 
-	if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
-		retErr = log.ErrorFE("error enabling Split Tunnel in other VPN '%s': %w", otherVpn.name, retErr) // and continue
-	}
+	if len(otherVpn.cliCmds.cmdEnableSplitTun) > 0 {
+		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
+			retErr = log.ErrorFE("error enabling Split Tunnel in other VPN '%s': %w", otherVpn.name, retErr) // and continue
+		}
 
-	for _, svcExe := range platform.PLServiceBinariesForFirewallToUnblock() {
-		cmdWhitelistOurSvcExe := append(otherVpn.cliCmds.cmdAddOurBinaryPathToSplitTunWhitelist, svcExe)
-		if retErr := shell.Exec(log, otherVpn.cliPathResolved, cmdWhitelistOurSvcExe...); retErr != nil {
-			retErr = log.ErrorFE("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, otherVpn.name, retErr) // and continue
+		for _, svcExe := range platform.PLServiceBinariesForFirewallToUnblock() {
+			cmdWhitelistOurSvcExe := append(otherVpn.cliCmds.cmdAddOurBinaryPathToSplitTunWhitelist, svcExe)
+			if retErr := shell.Exec(log, otherVpn.cliPathResolved, cmdWhitelistOurSvcExe...); retErr != nil {
+				retErr = log.ErrorFE("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, otherVpn.name, retErr) // and continue
+			}
 		}
 	}
 
