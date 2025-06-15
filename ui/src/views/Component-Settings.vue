@@ -321,7 +321,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
-@import "@/components/scss/constants";
+@use "@/components/scss/constants";
 
 $back-btn-width: 50px;
 $min-title-height: 26px;

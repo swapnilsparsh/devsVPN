@@ -1015,8 +1015,8 @@ function makeObfsInfoUiObj(v2rayType, obfsVer, obfs4Iat) {
 </script>
 
 <style scoped lang="scss">
-@import "@/components/scss/constants";
-@import "@/components/scss/platform/base";
+@use "@/components/scss/constants";
+@use "@/components/scss/platform/base";
 
 .defColor {
   @extend .settingsDefaultTextColor;

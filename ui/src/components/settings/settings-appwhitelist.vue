@@ -889,8 +889,8 @@ function getFileFolder(appBinPath) {
 </script>
 
 <style scoped lang="scss">
-@import "@/components/scss/constants";
-@import "@/components/scss/platform/base.scss";
+@use "@/components/scss/constants";
+@use "@/components/scss/platform/base.scss";
 
 .grayedOnHover:hover {
   background: rgba(100, 100, 100, 0.2);

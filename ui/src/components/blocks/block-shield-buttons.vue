@@ -731,8 +731,8 @@ Do you want to enable Inverse mode for Split Tunnel?",
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss"></style>
 <style scoped lang="scss">
-@import "@/components/scss/constants";
-@import "@/components/scss/platform/base.scss";
+@use "@/components/scss/constants";
+@use "@/components/scss/platform/base.scss";
 
 .grayedOnHover:hover {
   background: rgba(100, 100, 100, 0.2);
