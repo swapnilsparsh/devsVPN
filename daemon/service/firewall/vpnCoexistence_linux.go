@@ -566,8 +566,8 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 	if updateCurrentMTU { // if requested, update the current MTU on wgprivateline network interface
 		log.Debug("reDetectOtherVpnsLinux about to netlink.LinkByName(platform.WGInterfaceName())")
 		if ourWgInterface, err = netlink.LinkByName(platform.WGInterfaceName()); err == nil {
-			log.Debug("reDetectOtherVpnsLinux about to ourWgInterface.Attrs().MTU")
 			currMtu = ourWgInterface.Attrs().MTU
+			// log.Debug("currMtu = ", currMtu)
 		} else {
 			log.Debug(fmt.Errorf("error getting our Wireguard interface - perhaps it's not up at the moment. Not adjusting our current MTU. err=%w", err))
 		}
@@ -575,7 +575,7 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 
 	if updateCurrentMTU && currMtu != 0 { // if requested, update the current MTU on wgprivateline network interface
 		if currMtu != lowestRecommendedMTU && vpnConnectedOrConnectingCallback() { // if we have to change our current MTU
-			log.Debug("reDetectOtherVpnsLinux about to netlink.LinkSetMTU(()")
+			log.Debug("reDetectOtherVpnsLinux about to netlink.LinkSetMTU(", lowestRecommendedMTU, ") - changing from ", currMtu)
 			if err = netlink.LinkSetMTU(ourWgInterface, lowestRecommendedMTU); err != nil {
 				return lowestRecommendedMTU, log.ErrorFE("error netlink.LinkSetMTU(%d): %w", lowestRecommendedMTU, err)
 			}
