@@ -106,7 +106,9 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 	return topPriNft && topPriLegacy, "", "", "", nil
 }
 
-func implGetEnabled() (isEnabled bool, retErr error) {
+// implGetEnabled - if blockingWait is true, then it'll wait for NFT and legacy mutexes and will lock them for the duration of the function.
+// This is to make sure that if any enable/disable operations are in progress, we'd wait for their completion.
+func implGetEnabled(blockingWait bool) (isEnabled bool, retErr error) {
 	var (
 		implGetEnabledWaiter          sync.WaitGroup
 		errNft, errLegacy             error
@@ -114,8 +116,8 @@ func implGetEnabled() (isEnabled bool, retErr error) {
 	)
 
 	implGetEnabledWaiter.Add(2)
-	go func() { isEnabledLegacy, errLegacy = implGetEnabledLegacy(); implGetEnabledWaiter.Done() }()
-	go func() { isEnabledNft, errNft = implGetEnabledNft(); implGetEnabledWaiter.Done() }()
+	go func() { isEnabledLegacy, errLegacy = implGetEnabledLegacy(blockingWait); implGetEnabledWaiter.Done() }()
+	go func() { isEnabledNft, errNft = implGetEnabledNft(blockingWait); implGetEnabledWaiter.Done() }()
 	implGetEnabledWaiter.Wait()
 
 	if errNft != nil {
@@ -182,7 +184,7 @@ func waitForTopFirewallPriAfterWeLostIt() {
 	for vpnConnectedOrConnectingCallback() { // if VPN is no longer connected - terminate this waiting loop
 		time.Sleep(time.Second * 5)
 
-		if weHaveTopFirewallPriority, err := implGetEnabled(); err != nil {
+		if weHaveTopFirewallPriority, err := implGetEnabled(false); err != nil {
 			log.ErrorFE("error in implGetEnabled(): %w", err)
 			break
 		} else if weHaveTopFirewallPriority {
@@ -223,8 +225,11 @@ func implDeployPostConnectionRules() (retErr error) {
 		errNft, errLegacy                   error
 	)
 
-	// TODO FIXME: Vlad - do we still need to run them from here?
-	// re-run VPN coexistence rules, since presumably now we're CONNECTED
+	log.Debug("implDeployPostConnectionRules entered")
+	defer log.Debug("implDeployPostConnectionRules exited")
+
+	// Re-run VPN coexistence rules, since presumably now we're CONNECTED
+	// Required for Mullvad on Linux after CONNECTED, to set custom DNS in its settings.
 	if err := enableVpnCoexistenceLinuxNft(); err != nil {
 		retErr = log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
 	}
@@ -285,7 +290,7 @@ func implSetPersistent(persistent bool) error {
 		// 	- daemon is starting as on system boot
 		// 	- SetPersistent() called by service object on daemon start
 		// This means we just have to ensure that firewall enabled.
-		if isEnabled, err := implGetEnabled(); err != nil {
+		if isEnabled, err := implGetEnabled(false); err != nil {
 			return log.ErrorFE("Status check error: %w", err)
 		} else if !isEnabled {
 			return implSetEnabled(true, false, false)
@@ -314,7 +319,7 @@ func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
 
 	customDnsServers = *dnsServers
 
-	if enabled, err := implGetEnabled(); err != nil {
+	if enabled, err := implGetEnabled(false); err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	} else if !enabled {
 		return nil
@@ -393,7 +398,7 @@ func ensurePersistent(secondsToWait int) {
 		if !isPersistent {
 			break
 		}
-		enabled, err := implGetEnabled()
+		enabled, err := implGetEnabled(false)
 		if err != nil {
 			log.Error("[ensurePersistent] ", err)
 			continue

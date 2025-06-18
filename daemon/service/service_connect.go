@@ -860,7 +860,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						// It is important to call it after 's._vpn' initialised. So ST functionality will be correctly informed about 'VPN connected' status
 						s.splitTunnelling_ApplyConfig()
 
-						// Run at the end, as meet.privateline.network lookup fails if it's called too soon after WG connects. Run asynchronously, it'll sleep for 5s.
+						// Run at the end, as meet.privateline.network lookup fails if it's called too soon after WG connects. Run asynchronously, it'll sleep for 1-2s.
 						firewall.DeployPostConnectionRules(true)
 					default:
 					}

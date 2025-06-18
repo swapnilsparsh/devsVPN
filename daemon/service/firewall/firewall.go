@@ -27,6 +27,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
@@ -176,6 +177,9 @@ func ReEnable() error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
+	log.Debug("ReEnable entered")
+	defer log.Debug("ReEnable exited")
+
 	return implReEnable()
 }
 
@@ -210,7 +214,7 @@ func SetPersistent(persistent bool) (err error) {
 
 // _getEnabledHelper is a helper, it doesn't grab the mutex - parent callers do
 func _getEnabledHelper(logState bool) (isEnabled bool, err error) {
-	if isEnabled, err = implGetEnabled(); err != nil {
+	if isEnabled, err = implGetEnabled(false); err != nil {
 		err = log.ErrorFE("Firewall status check error: %w", err)
 	}
 	if logState {
@@ -291,24 +295,23 @@ func ClientResumed() {
 }
 
 func deployPostConnectionRulesAsync() {
-	// Now that we're deploying VPN coexistence resolvectl fix after CONNECTED, and also presetting rules for default IPs for meet.privateline.network -
-	// probably don't need to wait anymore. If facing problems - try 1-2s sleep.
-	//
-	// time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 1) // Need to sleep 1-2s, to set custom DNS for Mullvad in Linux. If multiple other VPNs are installed - enable/reenable can take a long time.
 
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	// check whether firewall is still enabled after timeout
-	if enabled, err := implGetEnabled(); err != nil {
+	if enabled, err := implGetEnabled(true); err != nil { // blocking wait in implGetEnabled, to ensure no enable/disable/reenable operations in progress
 		log.Error(fmt.Errorf("status check error: %w", err))
 	} else if enabled {
 		implDeployPostConnectionRules()
+	} else {
+		log.Error("error - unexpectedly firewall is still disabled in deployPostConnectionRulesAsync()")
 	}
 }
 
 // If Mullvad stays connected, PL Connect has max firewall priority (0xFFFF sublayer weight), and goes from disconnected to connected - then looking up
-// hosts immediately after WG connection is established fails. In that case need to fork post-connection rules to run asynchronously 5-10sec later.
+// hosts immediately after WG connection is established fails. In that case need to fork post-connection rules to run asynchronously 1-2sec later.
 func DeployPostConnectionRules(async bool) (retErr error) {
 	if async {
 		go deployPostConnectionRulesAsync()

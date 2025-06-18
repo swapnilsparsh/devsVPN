@@ -119,14 +119,19 @@ func iptablesLegacyInitialized() bool {
 }
 
 func implHaveTopFirewallPriorityLegacy() (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
-	weHaveTopFirewallPriority, retErr = implGetEnabledLegacy()
+	weHaveTopFirewallPriority, retErr = implGetEnabledLegacy(false)
 	return weHaveTopFirewallPriority, "", "", "", retErr
 }
 
 // implGetEnabledLegacy checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains. Never returns error, because go-xtables parsing may fail.
-func implGetEnabledLegacy() (exists bool, retErr error) {
+func implGetEnabledLegacy(blockingWait bool) (exists bool, retErr error) {
 	if !iptablesLegacyWasInitialized.Load() {
 		return true, nil // if iptables-legacy functionality is disabled altogether, then return true to avoid triggering further actions
+	}
+
+	if blockingWait {
+		fwLinuxLegacyMutex.Lock()
+		defer fwLinuxLegacyMutex.Unlock()
 	}
 
 	var err2 error
@@ -178,7 +183,7 @@ func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, ret
 	// log.Debug("implReregisterFirewallAtTopPriorityLegacy entered")
 	// defer log.Debug("implReregisterFirewallAtTopPriorityLegacy exited")
 
-	if weHaveTopFirewallPriority, err := implGetEnabledLegacy(); err != nil {
+	if weHaveTopFirewallPriority, err := implGetEnabledLegacy(false); err != nil {
 		return false, log.ErrorFE("error in implGetEnabledLegacy(): %w", err)
 	} else if weHaveTopFirewallPriority {
 		return false, nil
@@ -240,7 +245,8 @@ func implReEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 		defer fwLinuxLegacyMutex.Unlock()
 	}
 
-	log.Debug("implReEnableLegacy")
+	log.Debug("implReEnableLegacy entered")
+	defer log.Debug("implReEnableLegacy exited")
 
 	if err := doDisableLegacy(true); err != nil {
 		log.ErrorFE("failed to disable iptables-legacy firewall: %w", err) // and continue
@@ -273,7 +279,7 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 		}
 	}()
 
-	if enabled, err := implGetEnabledLegacy(); err != nil {
+	if enabled, err := implGetEnabledLegacy(false); err != nil {
 		return log.ErrorFE("error implGetEnabledLegacy(): %w", err)
 	} else if enabled {
 		log.Debug("iptables-legacy already enabled, not enabling again")
@@ -452,7 +458,7 @@ func implDeployPostConnectionRulesLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr
 	log.Debug("implDeployPostConnectionRulesLegacy entered")
 	defer log.Debug("implDeployPostConnectionRulesLegacy exited")
 
-	if firewallEnabled, err := implGetEnabledLegacy(); err != nil {
+	if firewallEnabled, err := implGetEnabledLegacy(false); err != nil {
 		return log.ErrorFE("status check error: %w", err)
 	} else if !firewallEnabled || !vpnConnectedOrConnectingCallback() {
 		return nil // our tables not up or VPN not connected/connecting, so skipping

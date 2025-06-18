@@ -349,7 +349,7 @@ func implInitialize() (retErr error) {
 	return checkCreateProviderAndSublayer(false, false)
 }
 
-func implGetEnabled() (isEnabled bool, err error) {
+func implGetEnabled(_ bool) (isEnabled bool, err error) {
 	if found, pInfo, err := manager.GetProviderInfo(providerKey); err != nil {
 		_isEnabled = false
 		return false, log.ErrorFE("failed to get provider info: %w", err)

@@ -170,13 +170,18 @@ func createTableAndChains() (filter *nftables.Table, vpnCoexistenceChainIn *nfta
 }
 
 func implHaveTopFirewallPriorityNft() (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
-	weHaveTopFirewallPriority, retErr = implGetEnabledNft()
+	weHaveTopFirewallPriority, retErr = implGetEnabledNft(false)
 	return weHaveTopFirewallPriority, "", "", "", retErr
 }
 
 // implGetEnabledNft checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains.
 // It needs to be fast, as it's called for every nft firewall change event
-func implGetEnabledNft() (exists bool, retErr error) {
+func implGetEnabledNft(blockingWait bool) (exists bool, retErr error) {
+	if blockingWait {
+		fwLinuxNftablesMutex.Lock()
+		defer fwLinuxNftablesMutex.Unlock()
+	}
+
 	defer func() {
 		if retErr != nil {
 			printNftToLog()
@@ -270,7 +275,7 @@ func implReregisterFirewallAtTopPriorityNft() (firewallReconfigured bool, retErr
 	// log.Debug("implReregisterFirewallAtTopPriorityNft entered")
 	// defer log.Debug("implReregisterFirewallAtTopPriorityNft exited")
 
-	if weHaveTopFirewallPriority, err := implGetEnabledNft(); err != nil {
+	if weHaveTopFirewallPriority, err := implGetEnabledNft(false); err != nil {
 		return false, log.ErrorFE("error in implGetEnabledNft(): %w", err)
 	} else if weHaveTopFirewallPriority {
 		return false, nil
@@ -456,7 +461,8 @@ func implReEnableNft(fwLinuxNftablesMutexGrabbed bool) (retErr error) {
 		defer fwLinuxNftablesMutex.Unlock()
 	}
 
-	log.Debug("implReEnableNft")
+	log.Debug("implReEnableNft entered")
+	defer log.Debug("implReEnableNft exited")
 
 	var implReEnableNftTasks sync.WaitGroup
 	implReEnableNftTasks.Add(2)
@@ -1069,7 +1075,7 @@ func implDeployPostConnectionRulesNft(fwLinuxNftablesMutexGrabbed bool) (retErr 
 	// log.Debug("implDeployPostConnectionRulesNft entered")
 	// defer log.Debug("implDeployPostConnectionRulesNft exited")
 
-	if firewallEnabled, err := implGetEnabledNft(); err != nil {
+	if firewallEnabled, err := implGetEnabledNft(false); err != nil {
 		return log.ErrorFE("status check error: %w", err)
 	} else if !firewallEnabled || !vpnConnectedOrConnectingCallback() {
 		return nil // our tables not up or VPN not connected/connecting, so skipping
