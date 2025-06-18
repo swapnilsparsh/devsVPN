@@ -68,7 +68,7 @@ export default {
 </script>
 
 <style lang="scss">
-@import "@/components/scss/constants";
+@use "@/components/scss/constants";
 
 .titleBar {
   // Panel can be dragable by mouse

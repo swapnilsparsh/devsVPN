@@ -121,7 +121,7 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
-@import "@/components/scss/constants";
+@use "@/components/scss/constants";
 
 #main {
   @extend .left_panel_block;

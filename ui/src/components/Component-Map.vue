@@ -1322,7 +1322,7 @@ $shadow: 0px 3px 12px rgba(var(--shadow-color-rgb), var(--shadow-opacity));
 
 $popup-background: var(--background-color);
 
-@import "@/components/scss/constants";
+@use "@/components/scss/constants";
 
 #main {
   position: relative;
