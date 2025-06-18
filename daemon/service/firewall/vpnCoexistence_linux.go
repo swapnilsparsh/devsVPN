@@ -631,8 +631,8 @@ func enableVpnCoexistenceLinuxNft() (retErr error) {
 	log.Debug("enableVpnCoexistenceLinuxNft entered")
 	defer log.Debug("enableVpnCoexistenceLinuxNft exited")
 	// Debugging: dump nftables and optionally iptables-legacy to log
-	defer printNftToLog()
-	defer printIptablesLegacy() // will print anything only if another VPN affecting iptables-legacy is detected
+	// defer printNftToLog()
+	// defer printIptablesLegacy() // will print anything only if another VPN affecting iptables-legacy is detected
 
 	prefs := getPrefsCallback()
 
