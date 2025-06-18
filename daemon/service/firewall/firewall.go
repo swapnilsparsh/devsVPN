@@ -370,6 +370,10 @@ func ClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net.IP,
 func ClientDisconnected() error {
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	log.Debug("ClientDisconnected entered")
+	defer log.Debug("ClientDisconnected exited")
+
 	ClientResumed()
 
 	// Remove client interface from exceptions

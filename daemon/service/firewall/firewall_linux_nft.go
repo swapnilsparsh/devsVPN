@@ -371,8 +371,8 @@ func implFirewallBackgroundMonitorNft() {
 	for {
 		select {
 		case _ = <-stopMonitoringFirewallChangesNft:
-			log.Debug("implFirewallBackgroundMonitorNft exiting on stop signal")
 			go DisableCoexistenceWithOtherVpns() // nah, run asynchronously in the background after all - 8sec is way too long to wait in the UI
+			log.Debug("implFirewallBackgroundMonitorNft exiting on stop signal")
 			return
 		case event, ok := <-nftEvents:
 			if !ok {

@@ -564,7 +564,7 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 	var ourWgInterface netlink.Link
 	var currMtu = 0
 	if updateCurrentMTU { // if requested, update the current MTU on wgprivateline network interface
-		log.Debug("reDetectOtherVpnsLinux about to netlink.LinkByName(platform.WGInterfaceName())")
+		log.Debug("reDetectOtherVpnsLinux about to netlink.LinkByName(", platform.WGInterfaceName(), ")")
 		if ourWgInterface, err = netlink.LinkByName(platform.WGInterfaceName()); err == nil {
 			currMtu = ourWgInterface.Attrs().MTU
 			// log.Debug("currMtu = ", currMtu)
