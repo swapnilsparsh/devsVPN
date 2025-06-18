@@ -272,8 +272,8 @@ func implReregisterFirewallAtTopPriorityNft() (firewallReconfigured bool, retErr
 	fwLinuxNftablesMutex.Lock()
 	defer fwLinuxNftablesMutex.Unlock()
 
-	// log.Debug("implReregisterFirewallAtTopPriorityNft entered")
-	// defer log.Debug("implReregisterFirewallAtTopPriorityNft exited")
+	log.Debug("implReregisterFirewallAtTopPriorityNft entered")
+	defer log.Debug("implReregisterFirewallAtTopPriorityNft exited")
 
 	if weHaveTopFirewallPriority, err := implGetEnabledNft(false); err != nil {
 		return false, log.ErrorFE("error in implGetEnabledNft(): %w", err)
@@ -1072,8 +1072,8 @@ func implDeployPostConnectionRulesNft(fwLinuxNftablesMutexGrabbed bool) (retErr 
 	// implDeployPostConnectionRulesNftMutex.Lock() // ensure only one instance of this func can run at a time
 	// defer implDeployPostConnectionRulesNftMutex.Unlock()
 
-	// log.Debug("implDeployPostConnectionRulesNft entered")
-	// defer log.Debug("implDeployPostConnectionRulesNft exited")
+	log.Debug("implDeployPostConnectionRulesNft entered")
+	defer log.Debug("implDeployPostConnectionRulesNft exited")
 
 	if firewallEnabled, err := implGetEnabledNft(false); err != nil {
 		return log.ErrorFE("status check error: %w", err)
