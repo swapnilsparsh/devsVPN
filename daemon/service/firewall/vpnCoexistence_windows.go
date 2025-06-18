@@ -375,6 +375,12 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 	otherVpn.runVpnCliCommandsMutex.Lock()
 	defer otherVpn.runVpnCliCommandsMutex.Unlock()
 
+	if len(otherVpn.cliCmds.cmdLockdownMode) > 0 {
+		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdLockdownMode...); retErr != nil {
+			retErr = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdLockdownMode, otherVpn.name, retErr)
+		}
+	}
+
 	if len(otherVpn.cliCmds.cmdEnableSplitTun) > 0 {
 		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
 			retErr = log.ErrorFE("error enabling Split Tunnel in other VPN '%s': %w", otherVpn.name, retErr) // and continue
@@ -388,21 +394,15 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 		}
 	}
 
-	if len(otherVpn.cliCmds.cmdLockdownMode) > 0 {
-		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdLockdownMode...); retErr != nil {
-			retErr = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdLockdownMode, otherVpn.name, retErr)
-		}
-	}
-
 	if len(otherVpn.cliCmds.cmdAllowLan) > 0 {
 		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); retErr != nil {
 			retErr = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdAllowLan, otherVpn.name, retErr)
 		}
 	}
 
-	if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdConnect); retErr != nil {
-		retErr = log.ErrorFE("error sending connect command to the other VPN '%s': %w", otherVpn.name, retErr)
-	}
+	// if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdConnect); retErr != nil {
+	// 	retErr = log.ErrorFE("error sending connect command to the other VPN '%s': %w", otherVpn.name, retErr)
+	// }
 
 	return retErr
 }
