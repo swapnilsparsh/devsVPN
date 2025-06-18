@@ -152,7 +152,7 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfig
 	// }()
 
 	var wasEnabled bool
-	wasEnabled, retErr = implGetEnabled()
+	wasEnabled, retErr = implGetEnabled(false)
 	if retErr != nil {
 		return false, log.ErrorFE("status check error: %w", retErr)
 	}
@@ -500,7 +500,7 @@ func implAllowLAN(allowLan bool, allowLanMulticast bool) error {
 	isAllowLAN = allowLan
 	isAllowLANMulticast = allowLanMulticast
 
-	enabled, err := implGetEnabled()
+	enabled, err := implGetEnabled(false)
 	if err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
@@ -520,7 +520,7 @@ func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
 
 	customDnsServers = *dnsServers
 
-	if enabled, err := implGetEnabled(); err != nil {
+	if enabled, err := implGetEnabled(false); err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	} else if !enabled {
 		return nil
@@ -543,7 +543,7 @@ func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
 
 // implOnUserExceptionsUpdated() called when 'userExceptions' value were updated. Necessary to update firewall rules.
 func implOnUserExceptionsUpdated() error {
-	enabled, err := implGetEnabled()
+	enabled, err := implGetEnabled(false)
 	if err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
@@ -637,7 +637,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 	log.Info("doEnable")
 	implSingleDnsRuleOff()
 
-	if enabled, err := implGetEnabled(); err != nil {
+	if enabled, err := implGetEnabled(false); err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	} else if enabled {
 		return nil
@@ -1017,7 +1017,7 @@ func doDisable(wfpTransactionAlreadyInProgress bool) (err error) {
 
 	implSingleDnsRuleOff()
 
-	if fwEnabled, err2 := implGetEnabled(); err2 != nil {
+	if fwEnabled, err2 := implGetEnabled(false); err2 != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err2) // and continue
 	} else if !fwEnabled { // Vlad - doDisable() is essentially cleaning out old rules, may need to run this even if firewall was disabled to begin with
 		log.Info("firewall was already disabled, but cleaning out rules in all our layers anyway")
@@ -1245,7 +1245,7 @@ func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr 
 		return nil
 	}
 
-	enabled, err := implGetEnabled()
+	enabled, err := implGetEnabled(false)
 	if err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
@@ -1285,7 +1285,7 @@ func doRemoveClientIPFilters() (retErr error) {
 		clientLocalIPFilterIDs = nil
 	}()
 
-	enabled, err := implGetEnabled()
+	enabled, err := implGetEnabled(false)
 	if err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
