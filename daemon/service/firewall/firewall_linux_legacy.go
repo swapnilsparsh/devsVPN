@@ -69,6 +69,10 @@ var (
 )
 
 func printIptablesLegacy() {
+	if !iptablesLegacyWasInitialized.Load() {
+		return // if iptables-legacy not initialized - don't print it
+	}
+
 	// iptables-legacy -L -nv
 	outText, outErrText, exitCode, isBufferTooSmall, err := shell.ExecAndGetOutput(log, 32768, "", iptablesLegacyPath, "-L", "-nv")
 	// trim trailing newlines
