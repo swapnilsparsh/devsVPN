@@ -481,8 +481,8 @@ export default {
 </script>
 
 <style scoped lang="scss">
-@import "@/components/scss/constants";
-@import "@/components/scss/platform/base";
+@use "@/components/scss/constants";
+@use "@/components/scss/platform/base";
 
 .connectionDetailWrap {
   padding: 5px 20px 5px 20px;

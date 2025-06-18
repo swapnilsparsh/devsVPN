@@ -95,7 +95,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
-@import "@/components/scss/constants";
+@use "@/components/scss/constants";
 
 input.minSize {
   min-width: 380px;

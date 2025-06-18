@@ -530,7 +530,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
-@import "@/components/scss/constants";
+@use "@/components/scss/constants";
 
 .defColor {
   @extend .settingsDefaultTextColor;

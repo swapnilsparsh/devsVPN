@@ -340,8 +340,8 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
-@import "@/components/scss/constants";
-@import "@/components/scss/popup";
+@use "@/components/scss/constants";
+@use "@/components/scss/popup";
 $shadow:
   0px 3px 1px rgba(0, 0, 0, 0.06),
   0px 3px 8px rgba(0, 0, 0, var(--shadow-opacity-koef));
