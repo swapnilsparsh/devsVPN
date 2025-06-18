@@ -213,12 +213,12 @@ func SetPersistent(persistent bool) (err error) {
 }
 
 // _getEnabledHelper is a helper, it doesn't grab the mutex - parent callers do
-func _getEnabledHelper(logState bool) (isEnabled bool, err error) {
-	if isEnabled, err = implGetEnabled(false); err != nil {
+func _getEnabledHelper(logState, blockingWait bool) (isEnabled bool, err error) {
+	if isEnabled, err = implGetEnabled(blockingWait); err != nil {
 		err = log.ErrorFE("Firewall status check error: %w", err)
 	}
 	if logState {
-		log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t", isEnabled, stateAllowLan, stateAllowLanMulticast, TotalShieldDeployedState()))
+		log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t blockingWait:%t", isEnabled, stateAllowLan, stateAllowLanMulticast, TotalShieldDeployedState(), blockingWait))
 	}
 
 	return isEnabled, err
@@ -229,14 +229,14 @@ func GetEnabled() (isEnabled bool, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return _getEnabledHelper(true)
+	return _getEnabledHelper(true, false)
 }
 
 func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if isEnabled, err = _getEnabledHelper(false); err != nil {
+	if isEnabled, err = _getEnabledHelper(false, false); err != nil {
 		return isEnabled, false, false, false, "", "", "", err
 	}
 
@@ -254,7 +254,7 @@ func EnableIfNeeded() error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if isEnabled, err := _getEnabledHelper(true); err != nil {
+	if isEnabled, err := _getEnabledHelper(true, false); err != nil {
 		return err
 	} else if !isEnabled {
 		return implSetEnabled(true, false, true)
@@ -301,7 +301,7 @@ func deployPostConnectionRulesAsync() {
 	defer mutex.Unlock()
 
 	// check whether firewall is still enabled after timeout
-	if enabled, err := implGetEnabled(true); err != nil { // blocking wait in implGetEnabled, to ensure no enable/disable/reenable operations in progress
+	if enabled, err := _getEnabledHelper(true, true); err != nil { // blocking wait in implGetEnabled, to ensure no enable/disable/reenable operations in progress
 		log.Error(fmt.Errorf("status check error: %w", err))
 	} else if enabled {
 		implDeployPostConnectionRules()
@@ -335,7 +335,7 @@ func TotalShieldApply() (err error) {
 	// log.Debug("TotalShieldApply entered")
 	// defer log.Debug("TotalShieldApply exited")
 
-	if fwEnabled, err := _getEnabledHelper(true); err != nil {
+	if fwEnabled, err := _getEnabledHelper(true, false); err != nil {
 		return err
 	} else if !fwEnabled { // if fw is disabled - don't do anything
 		return nil
