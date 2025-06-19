@@ -27,7 +27,6 @@ import (
 	"net"
 	"strings"
 	"sync"
-	"time"
 	"unicode"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
@@ -75,6 +74,7 @@ var (
 	vpnConnectedOrConnectingCallback types.VpnConnectedCallback // whether VPN is connected or connecting
 	vpnConnectedCallback             types.VpnConnectedCallback // whether VPN is in CONNECTED state
 	getRestApiHostsCallback          GetRestApiHostsCallback
+	isDaemonStoppingCallback         types.VpnConnectedCallback
 )
 
 type FirewallError struct {
@@ -109,7 +109,7 @@ func (fe *FirewallError) OtherVpnUnknownToUs() bool {
 // Must be called on application start
 func Initialize(_getPrefsCallback GetPrefsCallback, _disableTotalShieldAsyncCallback DisableTotalShieldAsyncCallback,
 	_onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback,
-	_vpnConnectedOrConnectingCallback, _vpnConnectedCallback types.VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
+	_vpnConnectedOrConnectingCallback, _vpnConnectedCallback, _isDaemonStoppingCallback types.VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -122,11 +122,17 @@ func Initialize(_getPrefsCallback GetPrefsCallback, _disableTotalShieldAsyncCall
 	vpnConnectedOrConnectingCallback = _vpnConnectedOrConnectingCallback
 	vpnConnectedCallback = _vpnConnectedCallback
 
+	isDaemonStoppingCallback = _isDaemonStoppingCallback
+
 	return implInitialize()
 }
 
 // SetEnabled - change firewall state
 func SetEnabled(enable bool) (err error) {
+	if enable && isDaemonStoppingCallback() {
+		return log.ErrorFE("error - can't enable the firewall when daemon is stopping")
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -172,6 +178,10 @@ func ReEnable() error {
 	// } else if !enabled {
 	// 	log.Info("firewall was not enabled, but disabling-then-enabling anyway")
 	// }
+
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - can't re-enable the firewall when daemon is stopping")
+	}
 
 	// GetEnabled() also grabs mutex, so have to wait for it to finish
 	mutex.Lock()
@@ -251,6 +261,10 @@ func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFire
 
 // EnableIfNeeded - atomic operation on firewall.mutex. Will check firewall status and, if disabled, will enable it.
 func EnableIfNeeded() error {
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -294,34 +308,17 @@ func ClientResumed() {
 	isClientPaused = false
 }
 
-func deployPostConnectionRulesAsync() {
-	time.Sleep(time.Second * 1) // Need to sleep 1-2s, to set custom DNS for Mullvad in Linux. If multiple other VPNs are installed - enable/reenable can take a long time.
+// If Mullvad stays connected, PL Connect has max firewall priority (0xFFFF sublayer weight), and goes from disconnected to connected - then looking up
+// hosts immediately after WG connection is established fails. In that case need to fork post-connection rules to run asynchronously 1-2sec later.
+func DeployPostConnectionRules() (retErr error) {
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	// check whether firewall is still enabled after timeout
-	if enabled, err := _getEnabledHelper(true, true); err != nil { // blocking wait in implGetEnabled, to ensure no enable/disable/reenable operations in progress
-		log.Error(fmt.Errorf("status check error: %w", err))
-	} else if enabled {
-		implDeployPostConnectionRules()
-	} else {
-		log.Error("error - unexpectedly firewall is still disabled in deployPostConnectionRulesAsync()")
-	}
-}
-
-// If Mullvad stays connected, PL Connect has max firewall priority (0xFFFF sublayer weight), and goes from disconnected to connected - then looking up
-// hosts immediately after WG connection is established fails. In that case need to fork post-connection rules to run asynchronously 1-2sec later.
-func DeployPostConnectionRules(async bool) (retErr error) {
-	if async {
-		go deployPostConnectionRulesAsync()
-		return nil
-	} else {
-		mutex.Lock()
-		defer mutex.Unlock()
-
-		return implDeployPostConnectionRules()
-	}
+	return implDeployPostConnectionRules()
 }
 
 func TotalShieldDeployedState() bool {
@@ -339,6 +336,10 @@ func TotalShieldApply() (err error) {
 		return err
 	} else if !fwEnabled { // if fw is disabled - don't do anything
 		return nil
+	}
+
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
 	}
 
 	return implTotalShieldApply(false, TotalShieldDeployedState())
@@ -550,6 +551,10 @@ func HaveTopFirewallPriority() (weHaveTopFirewallPriority bool, otherVpnID, othe
 }
 
 func TryReregisterFirewallAtTopPriority(canStopOtherVpn bool) (err error) {
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -557,18 +562,13 @@ func TryReregisterFirewallAtTopPriority(canStopOtherVpn bool) (err error) {
 	return err
 }
 
-// procedure to stop a running monitor is:
-//
-//	if !MonitorEndMutex.TryLock() {
-//		MonitorEndChan <- true
-//		MonitorEndMutex.Lock()
-//	}
-//	MonitorEndMutex.Unlock()
 type FirewallBackgroundMonitorFunc func()
 type FirewallBackgroundMonitor struct {
-	MonitorFunc     FirewallBackgroundMonitorFunc
-	MonitorEndChan  chan bool
-	MonitorEndMutex *sync.Mutex
+	MonitorName          string
+	MonitorFunc          FirewallBackgroundMonitorFunc
+	MonitorEndChan       chan bool
+	MonitorRunningMutex  *sync.Mutex
+	MonitorStopFuncMutex *sync.Mutex
 }
 
 // GetFirewallBackgroundMonitors  - caller should them all in forked threads
@@ -576,7 +576,20 @@ func GetFirewallBackgroundMonitors() (monitors []*FirewallBackgroundMonitor) {
 	return implGetFirewallBackgroundMonitors()
 }
 
-// // StopFirewallBackgroundMonitor returns the locked mutex of the FirewallBackgroundMonitor, caller must unlock it. Returns nil on error.
-// func StopFirewallBackgroundMonitor() (mutex *sync.Mutex) {
-// 	return implStopFirewallBackgroundMonitor()
-// }
+// StopFirewallBackgroundMonitor stops the corresponding background monitor.
+// It will stop it only once, if needed - or won't send stop action if the monitor was already stopped.
+func (fbm *FirewallBackgroundMonitor) StopFirewallBackgroundMonitor() {
+	fbm.MonitorStopFuncMutex.Lock() // single-instance function
+	defer fbm.MonitorStopFuncMutex.Unlock()
+	log.Debug("StopFirewallBackgroundMonitor: stopping monitor '", fbm.MonitorName, "'")
+
+	// must check whether the monitor func is still running (it could've exited due to an error), else don't send to EndChan
+	if !fbm.MonitorRunningMutex.TryLock() {
+		fbm.MonitorEndChan <- true     // send MonitorFunc a stop signal
+		fbm.MonitorRunningMutex.Lock() // wait for it to stop
+		defer log.Debug("StopFirewallBackgroundMonitor: monitor '", fbm.MonitorName, "' stopped")
+	} else {
+		defer log.Debug("StopFirewallBackgroundMonitor: monitor '", fbm.MonitorName, "' was already stopped")
+	}
+	fbm.MonitorRunningMutex.Unlock() // release its mutex, to allow it to be restarted later
+}

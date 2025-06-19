@@ -157,14 +157,18 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfig
 }
 
 func implGetFirewallBackgroundMonitors() (monitors []*FirewallBackgroundMonitor) {
-	monitors = []*FirewallBackgroundMonitor{{MonitorFunc: implFirewallBackgroundMonitorNft,
-		MonitorEndChan:  stopMonitoringFirewallChangesNft,
-		MonitorEndMutex: &implFirewallBackgroundMonitorNftMutex}}
+	monitors = []*FirewallBackgroundMonitor{{MonitorName: "implFirewallBackgroundMonitorNft",
+		MonitorFunc:          implFirewallBackgroundMonitorNft,
+		MonitorEndChan:       stopMonitoringFirewallChangesNft,
+		MonitorRunningMutex:  &implFirewallBackgroundMonitorNftRunningMutex,
+		MonitorStopFuncMutex: &implFirewallBackgroundMonitorNftStopFuncMutex}}
 
 	if iptablesLegacyInitialized() {
-		monitors = append(monitors, &FirewallBackgroundMonitor{MonitorFunc: implFirewallBackgroundMonitorLegacy,
-			MonitorEndChan:  stopMonitoringFirewallChangesLegacy,
-			MonitorEndMutex: &implFirewallBackgroundMonitorLegacyMutex})
+		monitors = append(monitors, &FirewallBackgroundMonitor{MonitorName: "implFirewallBackgroundMonitorLegacy",
+			MonitorFunc:          implFirewallBackgroundMonitorLegacy,
+			MonitorEndChan:       stopMonitoringFirewallChangesLegacy,
+			MonitorRunningMutex:  &implFirewallBackgroundMonitorLegacyRunningMutex,
+			MonitorStopFuncMutex: &implFirewallBackgroundMonitorLegacyStopFuncMutex})
 	}
 
 	return monitors
@@ -189,6 +193,8 @@ func waitForTopFirewallPriAfterWeLostIt() {
 			break
 		} else if weHaveTopFirewallPriority {
 			break
+		} else if isDaemonStoppingCallback() {
+			return
 		}
 	}
 
@@ -232,6 +238,15 @@ func implDeployPostConnectionRules() (retErr error) {
 	// Required for Mullvad on Linux after CONNECTED, to set custom DNS in its settings.
 	if err := enableVpnCoexistenceLinuxNft(); err != nil {
 		retErr = log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
+	}
+
+	// time.Sleep(time.Second * 1) // May need to sleep 1-2s. If multiple other VPNs are installed - enable/reenable can take a long time.
+
+	// check whether firewall is enabled
+	if enabled, err := _getEnabledHelper(true, true); err != nil { // blocking wait in implGetEnabled, to wait for any enable/disable/reenable operations to finish
+		return log.ErrorFE("status check error: %w", err)
+	} else if !enabled {
+		return log.ErrorFE("error - unexpectedly firewall is still disabled in implDeployPostConnectionRules()")
 	}
 
 	implDeployPostConnectionRulesWaiter.Add(2)
@@ -293,6 +308,9 @@ func implSetPersistent(persistent bool) error {
 		if isEnabled, err := implGetEnabled(false); err != nil {
 			return log.ErrorFE("Status check error: %w", err)
 		} else if !isEnabled {
+			if isDaemonStoppingCallback() {
+				return log.ErrorFE("error - daemon is stopping")
+			}
 			return implSetEnabled(true, false, false)
 		}
 

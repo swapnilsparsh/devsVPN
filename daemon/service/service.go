@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/api"
@@ -82,6 +83,8 @@ const (
 
 // Service - PrivateLINE service
 type Service struct {
+	_daemonStopping atomic.Bool // false from start, will be set to true on daemon shutdown (protocol.Stop())
+
 	_evtReceiver       IServiceEventsReceiver
 	_api               *api.API
 	_serversUpdater    IServersUpdater
@@ -140,6 +143,16 @@ type Service struct {
 
 	_statsCallbacks       protocol.StatsCallbacks
 	_vpnConnectedCallback protocolTypes.VpnConnectedCallback
+}
+
+// IsDaemonShuttingDown implements protocol.Service.
+func (s *Service) IsDaemonStopping() bool {
+	return s._daemonStopping.Load()
+}
+
+// MarkDaemonShuttingDown implements protocol.Service.
+func (s *Service) MarkDaemonStopping() {
+	s._daemonStopping.Store(true)
 }
 
 // SetRestApiBackend - send true for development REST API backend, false for production one
@@ -249,7 +262,7 @@ func (s *Service) init() error {
 
 	// initialize firewall functionality
 	if err := firewall.Initialize(s.Preferences, s.disableTotalShieldAsync, s._evtReceiver.OnKillSwitchStateChanged, s.ConnectedOrConnecting,
-		s._vpnConnectedCallback, s._api.GetRestApiHosts); err != nil {
+		s._vpnConnectedCallback, s.IsDaemonStopping, s._api.GetRestApiHosts); err != nil {
 		return fmt.Errorf("firewall initialization error : %w", err)
 	}
 
@@ -369,7 +382,7 @@ func (s *Service) UnInitialise() error {
 // - enable Split Tunnel mode
 // - etc. ...
 func (s *Service) unInitialise(isLogout bool) error {
-	log.Info("Uninitialising service...")
+	log.Info(fmt.Sprintf("Uninitialising service... isLogout=%t", isLogout))
 	var retErr error
 	updateRetErr := func(e error) {
 		if retErr != nil {
@@ -617,6 +630,11 @@ func (s *Service) disconnect() error {
 		log.Info("Disconnecting (going to reconnect)...")
 	} else {
 		log.Info("Disconnecting...")
+	}
+
+	// stop firewall background monitors 1st thing - as legacy one is prone to lengthy timeouts (2-3min) on xtables lock
+	for _, firewallBackgroundMonitor := range firewall.GetFirewallBackgroundMonitors() {
+		go firewallBackgroundMonitor.StopFirewallBackgroundMonitor() // async
 	}
 
 	// stop detections for routing changes

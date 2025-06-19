@@ -50,9 +50,10 @@ const (
 )
 
 var (
-	fwLinuxLegacyMutex                       sync.Mutex           // global lock for firewall_linux_legacy read and write operations
-	stopMonitoringFirewallChangesLegacy      = make(chan bool, 2) // used to send a stop signal to implFirewallBackgroundMonitorLegacy() thread
-	implFirewallBackgroundMonitorLegacyMutex sync.Mutex           // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy function
+	fwLinuxLegacyMutex                               sync.Mutex           // global lock for firewall_linux_legacy read and write operations
+	stopMonitoringFirewallChangesLegacy              = make(chan bool, 1) // used to send a stop signal to implFirewallBackgroundMonitorLegacy() thread
+	implFirewallBackgroundMonitorLegacyRunningMutex  sync.Mutex           // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy function
+	implFirewallBackgroundMonitorLegacyStopFuncMutex sync.Mutex           // to ensure there's only one instance of StopFirewallBackgroundMonitor function for this instance
 
 	// iptablesLegacyWasInitialized starts as false on daemon startup - so iptables-legacy support by default is uninitialized. If reDetectOtherVpnsLinux() detects
 	// another VPN that affects legacy tables, it will call implInitializeIptablesLegacyWhenNeeded() to initialize iptables-legacy support. iptablesLegacyInitialized
@@ -69,7 +70,7 @@ var (
 )
 
 func printIptablesLegacy() {
-	if !iptablesLegacyWasInitialized.Load() {
+	if !iptablesLegacyWasInitialized.Load() || isDaemonStoppingCallback() {
 		return // if iptables-legacy not initialized - don't print it
 	}
 
@@ -87,6 +88,10 @@ func implInitializeIptablesLegacy() (err error) { // Does nothing. Actual implem
 
 var implInitializeIptablesLegacyWhenNeededMutex sync.Mutex // single instance
 func implInitializeIptablesLegacyWhenNeeded() (err error) {
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	implInitializeIptablesLegacyWhenNeededMutex.Lock()
 	defer implInitializeIptablesLegacyWhenNeededMutex.Unlock()
 
@@ -125,7 +130,7 @@ func implHaveTopFirewallPriorityLegacy() (weHaveTopFirewallPriority bool, otherV
 
 // implGetEnabledLegacy checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains. Never returns error, because go-xtables parsing may fail.
 func implGetEnabledLegacy(blockingWait bool) (exists bool, retErr error) {
-	if !iptablesLegacyWasInitialized.Load() {
+	if !iptablesLegacyWasInitialized.Load() || isDaemonStoppingCallback() {
 		return true, nil // if iptables-legacy functionality is disabled altogether, then return true to avoid triggering further actions
 	}
 
@@ -134,15 +139,15 @@ func implGetEnabledLegacy(blockingWait bool) (exists bool, retErr error) {
 		defer fwLinuxLegacyMutex.Unlock()
 	}
 
+	// log.Debug("implGetEnabledLegacy entered")
+	// defer log.Debug("implGetEnabledLegacy exited")
+
 	var err2 error
 	defer func() {
 		if err2 != nil {
 			printIptablesLegacy()
 		}
 	}()
-
-	// log.Debug("implGetEnabledLegacy entered")
-	// defer log.Debug("implGetEnabledLegacy exited")
 
 	// TODO: ? implement check-reenable logic? if the 1st rule in INPUT, OUTPUT not a jump to our chains - just add
 
@@ -172,7 +177,7 @@ func implGetEnabledLegacy(blockingWait bool) (exists bool, retErr error) {
 }
 
 func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, retErr error) {
-	if !iptablesLegacyWasInitialized.Load() {
+	if !iptablesLegacyWasInitialized.Load() || isDaemonStoppingCallback() {
 		return false, nil
 	}
 
@@ -211,12 +216,12 @@ func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, ret
 // It polls regularly whether we have top firewall priority. If don't have top pri - it recreates our firewall objects.
 // To stop this thread - send to stopMonitoringFirewallChangesLegacy chan.
 func implFirewallBackgroundMonitorLegacy() {
-	if !iptablesLegacyWasInitialized.Load() {
+	if !iptablesLegacyWasInitialized.Load() || isDaemonStoppingCallback() {
 		return
 	}
 
-	implFirewallBackgroundMonitorLegacyMutex.Lock() // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy
-	defer implFirewallBackgroundMonitorLegacyMutex.Unlock()
+	implFirewallBackgroundMonitorLegacyRunningMutex.Lock() // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy
+	defer implFirewallBackgroundMonitorLegacyRunningMutex.Unlock()
 
 	log.Debug("implFirewallBackgroundMonitorLegacy entered")
 	defer log.Debug("implFirewallBackgroundMonitorLegacy exited")
@@ -228,6 +233,11 @@ func implFirewallBackgroundMonitorLegacy() {
 			log.Debug("implFirewallBackgroundMonitorLegacy exiting on stop signal")
 			return
 		default: // no message received
+			if isDaemonStoppingCallback() {
+				log.ErrorFE("error - daemon is stopping")
+				return
+			}
+
 			if _, err := implReregisterFirewallAtTopPriorityLegacy(); err != nil {
 				log.ErrorFE("error in implReregisterFirewallAtTopPriorityLegacy(): %w", err) // and continue
 			}
@@ -238,6 +248,10 @@ func implFirewallBackgroundMonitorLegacy() {
 func implReEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 	if !iptablesLegacyWasInitialized.Load() {
 		return nil
+	}
+
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
 	}
 
 	if !fwLinuxLegacyMutexGrabbed {
@@ -263,6 +277,10 @@ func implReEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 	if !iptablesLegacyWasInitialized.Load() {
 		return nil
+	}
+
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
 	}
 
 	if !fwLinuxLegacyMutexGrabbed {
@@ -448,6 +466,10 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 func implDeployPostConnectionRulesLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 	if !iptablesLegacyWasInitialized.Load() {
 		return nil
+	}
+
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
 	}
 
 	if !fwLinuxLegacyMutexGrabbed {

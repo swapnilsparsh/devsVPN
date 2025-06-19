@@ -727,22 +727,14 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 	for _, firewallBackgroundMonitor := range firewall.GetFirewallBackgroundMonitors() {
 		connectRoutinesWaiter.Add(1)
 		go func(fbm *firewall.FirewallBackgroundMonitor) {
-			fbmName := helpers.GetFunctionName(fbm.MonitorFunc)
-			log.Info("Firewall background monitor '", fbmName, "' started")
-
 			defer func() {
-				// must check whether the monitor func is still running (it could've exited due to an error), else don't send to EndChan
-				if !fbm.MonitorEndMutex.TryLock() {
-					fbm.MonitorEndChan <- true // send MonitorFunc a stop signal
-					fbm.MonitorEndMutex.Lock() // wait for it to stop
-				}
-				fbm.MonitorEndMutex.Unlock() // release its mutex, to allow it to be restarted later
-
-				log.Info("Firewall background monitor '", fbmName, "' stopped")
+				fbm.StopFirewallBackgroundMonitor()
 				connectRoutinesWaiter.Done()
 			}()
 
 			go fbm.MonitorFunc()
+			log.Debug("Monitor '", fbm.MonitorName, "' started")
+
 			<-stopChannel // triggered when the stopChannel is closed
 		}(firewallBackgroundMonitor)
 	}
@@ -860,8 +852,8 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						// It is important to call it after 's._vpn' initialised. So ST functionality will be correctly informed about 'VPN connected' status
 						s.splitTunnelling_ApplyConfig()
 
-						// Run at the end, as meet.privateline.network lookup fails if it's called too soon after WG connects. Run asynchronously, it'll sleep for 1-2s.
-						firewall.DeployPostConnectionRules(true)
+						// Run at the end, as meet.privateline.network lookup fails if it's called too soon after WG connects. Run asynchronously.
+						go firewall.DeployPostConnectionRules()
 					default:
 					}
 				}()

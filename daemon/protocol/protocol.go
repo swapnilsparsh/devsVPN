@@ -100,6 +100,9 @@ var (
 
 // Service - service interface
 type Service interface {
+	MarkDaemonStopping()
+	IsDaemonStopping() bool
+
 	UnInitialise() error
 
 	SetRestApiBackend(devEnv bool) error // true to use development REST API backend servers, false for production ones
@@ -293,6 +296,7 @@ func (p *Protocol) Stop() {
 	listener := p._connListener
 	if listener != nil {
 		// keep info that stop command requested
+		p._service.MarkDaemonStopping()
 		p._isRunning = false
 		// do not accept new incoming connections
 		listener.Close()

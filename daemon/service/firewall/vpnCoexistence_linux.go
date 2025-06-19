@@ -203,6 +203,10 @@ func surfsharkLegacyHelper() (err error) {
 	log.Debug("surfsharkLegacyHelper entered")
 	defer log.Debug("surfsharkLegacyHelper exited")
 
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	prefs := getPrefsCallback()
 
 	// we know our chains already exist, create their objects
@@ -262,6 +266,10 @@ func commonNftablesHelper(otherVpnName string) (err error) { // logic common to 
 	log.Debug("commonNftablesHelper entered for VPN: ", otherVpnName)
 	defer log.Debug("commonNftablesHelper exited for VPN: ", otherVpnName)
 
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	otherVpn, ok := otherVpnsByName[otherVpnName]
 	if !ok {
 		return log.ErrorFE("error looking up other VPN by its name '%s'", otherVpnName)
@@ -291,6 +299,10 @@ func commonNftablesHelper(otherVpnName string) (err error) { // logic common to 
 func expressVpnNftablesHelper() (err error) {
 	log.Debug("expressVpnNftablesHelper entered")
 	defer log.Debug("expressVpnNftablesHelper exited")
+
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
 
 	expressVpn, ok := otherVpnsByName[expressVpnName]
 	if !ok {
@@ -325,6 +337,10 @@ func mullvadNftablesHelper() (err error) {
 	log.Debug("mullvadVpnNftablesHelper entered")
 	defer log.Debug("mullvadNftablesHelper exited")
 
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	mullvad, ok := otherVpnsByName[mullvadName]
 	if !ok {
 		return log.ErrorFE("error looking up other VPN by its name '%s'", mullvadName)
@@ -337,14 +353,9 @@ func mullvadNftablesHelper() (err error) {
 		mullvadCli = mullvad.cli
 	}
 
-	// mullvad lockdown-mode set off
-	if retErr := shell.Exec(log, mullvadCli, []string{"lockdown-mode", "set", "off"}...); retErr != nil {
-		log.ErrorFE("error disabling lockdown in other VPN '%s': %w", mullvad.name, retErr) // and continue
-	}
-
 	otherVpnCommandsToUndo := otherVpnCommandsToUndoMap{}
 
-	// if PL is CONNECTED, then configure Mullvad to use our DNS servers
+	// If PL is CONNECTED, then configure Mullvad to use our DNS servers. Run dns command early - so that DNS starts working sooner after VPN is CONNECTED.
 	// mullvad dns set custom 10.0.19.2 10.0.20.2
 	mullvadDnsSetDefault := []string{"dns", "set", "default"}
 	if vpnConnectedCallback() {
@@ -362,6 +373,11 @@ func mullvadNftablesHelper() (err error) {
 		if retErr := shell.Exec(log, mullvadCli, mullvadDnsSetDefault...); retErr != nil {
 			log.ErrorFE("error resetting the other VPN '%s' DNS settings to defaults: %w", mullvad.name, retErr) // and continue
 		}
+	}
+
+	// mullvad lockdown-mode set off
+	if retErr := shell.Exec(log, mullvadCli, []string{"lockdown-mode", "set", "off"}...); retErr != nil {
+		log.ErrorFE("error disabling lockdown in other VPN '%s': %w", mullvad.name, retErr) // and continue
 	}
 
 	// add our daemon PID to Mullvad split tunnel PID whitelist:	mullvad split-tunnel add <pid>
@@ -414,6 +430,10 @@ func tryCmdLogOnError(binPath string, args ...string) (retErr error) {
 // If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
 // Else it will run re-detection only if the previous detection data is older than 5 seconds.
 func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
+	if isDaemonStoppingCallback() {
+		return lowestRecommendedMTU, log.ErrorFE("error - daemon is stopping")
+	}
+
 	otherVpnsNftMutex.Lock()
 	otherVpnsLegacyMutex.Lock()
 	defer otherVpnsNftMutex.Unlock()
@@ -440,30 +460,32 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 		newRecommendedMtuByCli           = defMtu
 	)
 
-	if iptablesLegacyInitialized() {
-		reDetectOtherVpnsWaiter.Add(1)
-		go func() { // detect other VPNs by whether their iptables-legacy chain is present
-			defer reDetectOtherVpnsWaiter.Done() // This thread tends to freeze on VPN disconnect. Console "iptables-legacy -L -nv" freezes, too.
-			log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - entered")
-			defer log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - exited") // this one can hang for 2-3 minutes
-			for _, otherVpn := range otherVpnsByLegacyChain {
-				userDefinedLegacyChain := iptables.ChainTypeUserDefined
-				userDefinedLegacyChain.SetName(otherVpn.iptablesLegacyChain)
-				if foundChains, err := filterLegacy.Chain(userDefinedLegacyChain).FindChains(); err == nil && len(foundChains) >= 1 {
-					log.Info("Other VPN '", otherVpn.name, "' detected by iptables-legacy chain: ", otherVpn.iptablesLegacyChain)
-					if otherVpn.changesNftables {
-						OtherVpnsDetectedRelevantForNftables.Add(otherVpn.name)
-					}
-					if otherVpn.changesIptablesLegacy {
-						OtherVpnsDetectedRelevantForIptablesLegacy.Add(otherVpn.name)
-					}
-					if otherVpn.recommendedOurMTU != 0 && otherVpn.recommendedOurMTU < newRecommendedMtuByLegacyChain {
-						newRecommendedMtuByLegacyChain = otherVpn.recommendedOurMTU
-					}
-				}
-			}
-		}()
-	}
+	// xtables locks up for up to 2-15 minutes, so disabling slow iptables-legacy operations.
+	//
+	// if iptablesLegacyInitialized() && !isDaemonStoppingCallback() {
+	// 	reDetectOtherVpnsWaiter.Add(1)
+	// 	go func() { // detect other VPNs by whether their iptables-legacy chain is present
+	// 		defer reDetectOtherVpnsWaiter.Done() // This thread tends to freeze on VPN disconnect. Console "iptables-legacy -L -nv" freezes, too.
+	// 		log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - entered")
+	// 		defer log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - exited") // this one can hang for 2-3 minutes
+	// 		for _, otherVpn := range otherVpnsByLegacyChain {
+	// 			userDefinedLegacyChain := iptables.ChainTypeUserDefined
+	// 			userDefinedLegacyChain.SetName(otherVpn.iptablesLegacyChain)
+	// 			if foundChains, err := filterLegacy.Chain(userDefinedLegacyChain).FindChains(); err == nil && len(foundChains) >= 1 {
+	// 				log.Info("Other VPN '", otherVpn.name, "' detected by iptables-legacy chain: ", otherVpn.iptablesLegacyChain)
+	// 				if otherVpn.changesNftables {
+	// 					OtherVpnsDetectedRelevantForNftables.Add(otherVpn.name)
+	// 				}
+	// 				if otherVpn.changesIptablesLegacy {
+	// 					OtherVpnsDetectedRelevantForIptablesLegacy.Add(otherVpn.name)
+	// 				}
+	// 				if otherVpn.recommendedOurMTU != 0 && otherVpn.recommendedOurMTU < newRecommendedMtuByLegacyChain {
+	// 					newRecommendedMtuByLegacyChain = otherVpn.recommendedOurMTU
+	// 				}
+	// 			}
+	// 		}
+	// 	}()
+	// }
 
 	reDetectOtherVpnsWaiter.Add(3)
 
@@ -564,7 +586,7 @@ func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommende
 	var ourWgInterface netlink.Link
 	var currMtu = 0
 	if updateCurrentMTU { // if requested, update the current MTU on wgprivateline network interface
-		log.Debug("reDetectOtherVpnsLinux about to netlink.LinkByName(", platform.WGInterfaceName(), ")")
+		// log.Debug("reDetectOtherVpnsLinux about to netlink.LinkByName(", platform.WGInterfaceName(), ")")
 		if ourWgInterface, err = netlink.LinkByName(platform.WGInterfaceName()); err == nil {
 			currMtu = ourWgInterface.Attrs().MTU
 			// log.Debug("currMtu = ", currMtu)
@@ -625,6 +647,10 @@ func implBestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 
 // enableVpnCoexistenceLinuxNft enables VPN coexistence steps for those other VPNs that affect nftables
 func enableVpnCoexistenceLinuxNft() (retErr error) {
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	otherVpnsNftMutex.Lock() // we need to make sure reDetectOtherVpnsLinux() is not running, and that we have exclusive access to OtherVpnsDetectedRelevantForNftables
 	defer otherVpnsNftMutex.Unlock()
 
@@ -647,14 +673,6 @@ func enableVpnCoexistenceLinuxNft() (retErr error) {
 			continue
 		}
 
-		enableVpnCoexistenceLinuxNftTasks.Add(1) // run commonNftablesHelper for this other VPN - logic common to all nftables-affecting other VPNs
-		go func() {
-			defer enableVpnCoexistenceLinuxNftTasks.Done()
-			if err := commonNftablesHelper(otherVpnNftName); err != nil {
-				retErr = log.ErrorFE("error commonNftablesHelper() for VPN '%s': %w", otherVpnNftName, err)
-			}
-		}()
-
 		if otherVpnNft.nftablesHelper != nil { // run specific helper for VPNs that have one registered
 			enableVpnCoexistenceLinuxNftTasks.Add(1)
 			go func() {
@@ -664,6 +682,14 @@ func enableVpnCoexistenceLinuxNft() (retErr error) {
 				}
 			}()
 		}
+
+		enableVpnCoexistenceLinuxNftTasks.Add(1) // run commonNftablesHelper for this other VPN - logic common to all nftables-affecting other VPNs
+		go func() {
+			defer enableVpnCoexistenceLinuxNftTasks.Done()
+			if err := commonNftablesHelper(otherVpnNftName); err != nil {
+				retErr = log.ErrorFE("error commonNftablesHelper() for VPN '%s': %w", otherVpnNftName, err)
+			}
+		}()
 
 		if otherVpnNft.cliPathResolved != "" && len(otherVpnNft.cliCmds.cmdAddAllowlistOption) > 0 { // if we have an allowlist command for that VPN
 			otherVpnCommandsToUndo := otherVpnCommandsToUndoMap{}
