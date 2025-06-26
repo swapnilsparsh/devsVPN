@@ -634,7 +634,7 @@ func (s *Service) disconnect() error {
 
 	// stop firewall background monitors 1st thing - as legacy one is prone to lengthy timeouts (2-3min) on xtables lock
 	for _, firewallBackgroundMonitor := range firewall.GetFirewallBackgroundMonitors() {
-		go firewallBackgroundMonitor.StopFirewallBackgroundMonitor() // async
+		go firewallBackgroundMonitor.StopFirewallBackgroundMonitor() // async, as iptables-legacy one sleeps for 5s between each polling loop iteration
 	}
 
 	// stop detections for routing changes

@@ -728,7 +728,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		connectRoutinesWaiter.Add(1)
 		go func(fbm *firewall.FirewallBackgroundMonitor) {
 			defer func() {
-				fbm.StopFirewallBackgroundMonitor()
+				go fbm.StopFirewallBackgroundMonitor() // async, as iptables-legacy one sleeps for 5s between each polling loop iteration
 				connectRoutinesWaiter.Done()
 			}()
 

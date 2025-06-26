@@ -227,7 +227,6 @@ func implFirewallBackgroundMonitorLegacy() {
 	defer log.Debug("implFirewallBackgroundMonitorLegacy exited")
 
 	for {
-		time.Sleep(time.Second * 5)
 		select {
 		case _ = <-stopMonitoringFirewallChangesLegacy:
 			log.Debug("implFirewallBackgroundMonitorLegacy exiting on stop signal")
@@ -241,6 +240,7 @@ func implFirewallBackgroundMonitorLegacy() {
 			if _, err := implReregisterFirewallAtTopPriorityLegacy(); err != nil {
 				log.ErrorFE("error in implReregisterFirewallAtTopPriorityLegacy(): %w", err) // and continue
 			}
+			time.Sleep(time.Second * 5)
 		}
 	}
 }
