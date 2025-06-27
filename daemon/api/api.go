@@ -71,6 +71,8 @@ var (
 	}
 
 	RestApiHostsSet = []*RestApiHostsDef{&productionApiHosts, &developmentApiHosts}
+
+	RestApiHostnamesToPing = []string{"deskapi.privateline.io", "api.privateline.io"} // used for temporary stop-gap health check
 )
 
 // API URLs

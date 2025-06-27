@@ -34,6 +34,7 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
 
@@ -129,20 +130,24 @@ func implGetEnabled(blockingWait bool) (isEnabled bool, retErr error) {
 	return isEnabledNft && isEnabledLegacy, nil
 }
 
-func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfigured bool, retErr error) {
+func implReregisterFirewallAtTopPriority(canStopOtherVpn, forceReconfigureFirewall bool) (firewallReconfigured bool, retErr error) {
 	var (
 		implReregisterFirewallAtTopPriorityWaiter           sync.WaitGroup
 		errNft, errLegacy                                   error
 		firewallReconfiguredNft, firewallReconfiguredLegacy bool
 	)
 
+	if _, err := reDetectOtherVpnsImpl(true, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableNft() needs otherVpnsNftMutex
+		log.ErrorFE("error reDetectOtherVpnsImpl(true, true): %w", err) // and continue
+	}
+
 	implReregisterFirewallAtTopPriorityWaiter.Add(2)
 	go func() {
-		firewallReconfiguredLegacy, errLegacy = implReregisterFirewallAtTopPriorityLegacy()
+		firewallReconfiguredLegacy, errLegacy = implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, false)
 		implReregisterFirewallAtTopPriorityWaiter.Done()
 	}()
 	go func() {
-		firewallReconfiguredNft, errNft = implReregisterFirewallAtTopPriorityNft()
+		firewallReconfiguredNft, errNft = implReregisterFirewallAtTopPriorityNft(forceReconfigureFirewall, false)
 		implReregisterFirewallAtTopPriorityWaiter.Done()
 	}()
 	implReregisterFirewallAtTopPriorityWaiter.Wait()
@@ -156,19 +161,26 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfig
 	return firewallReconfiguredNft || firewallReconfiguredLegacy, nil
 }
 
-func implGetFirewallBackgroundMonitors() (monitors []*FirewallBackgroundMonitor) {
-	monitors = []*FirewallBackgroundMonitor{{MonitorName: "implFirewallBackgroundMonitorNft",
+var (
+	firewallNftBackgroundMonitorDef = srvhelpers.ServiceBackgroundMonitor{
+		MonitorName:          "implFirewallBackgroundMonitorNft",
 		MonitorFunc:          implFirewallBackgroundMonitorNft,
 		MonitorEndChan:       stopMonitoringFirewallChangesNft,
 		MonitorRunningMutex:  &implFirewallBackgroundMonitorNftRunningMutex,
-		MonitorStopFuncMutex: &implFirewallBackgroundMonitorNftStopFuncMutex}}
+		MonitorStopFuncMutex: &implFirewallBackgroundMonitorNftStopFuncMutex}
 
+	firewallLegacyBackgroundMonitorDef = srvhelpers.ServiceBackgroundMonitor{
+		MonitorName:          "implFirewallBackgroundMonitorLegacy",
+		MonitorFunc:          implFirewallBackgroundMonitorLegacy,
+		MonitorEndChan:       stopMonitoringFirewallChangesLegacy,
+		MonitorRunningMutex:  &implFirewallBackgroundMonitorLegacyRunningMutex,
+		MonitorStopFuncMutex: &implFirewallBackgroundMonitorLegacyStopFuncMutex}
+)
+
+func implGetFirewallBackgroundMonitors() (monitors []*srvhelpers.ServiceBackgroundMonitor) {
+	monitors = []*srvhelpers.ServiceBackgroundMonitor{&firewallNftBackgroundMonitorDef}
 	if iptablesLegacyInitialized() {
-		monitors = append(monitors, &FirewallBackgroundMonitor{MonitorName: "implFirewallBackgroundMonitorLegacy",
-			MonitorFunc:          implFirewallBackgroundMonitorLegacy,
-			MonitorEndChan:       stopMonitoringFirewallChangesLegacy,
-			MonitorRunningMutex:  &implFirewallBackgroundMonitorLegacyRunningMutex,
-			MonitorStopFuncMutex: &implFirewallBackgroundMonitorLegacyStopFuncMutex})
+		monitors = append(monitors, &firewallLegacyBackgroundMonitorDef)
 	}
 
 	return monitors
@@ -207,7 +219,7 @@ func implReEnable() (retErr error) {
 		errNft, errLegacy  error
 	)
 
-	if _, err := reDetectOtherVpnsLinux(false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before reenable logic
+	if _, err := reDetectOtherVpnsImpl(false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before reenable logic
 		log.ErrorFE("error reDetectOtherVpnsLinux(false, true): %w", err) // and continue
 	}
 
@@ -278,7 +290,7 @@ func implSetEnabled(isEnabled, _, _ bool) error {
 
 	implSetEnabledWaiter.Add(2)
 	if isEnabled {
-		if _, err := reDetectOtherVpnsLinux(false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before enable logic
+		if _, err := reDetectOtherVpnsImpl(false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before enable logic
 			log.ErrorFE("error reDetectOtherVpnsLinux(false, true): %w", err) // and continue
 		}
 		go func() { errLegacy = doEnableLegacy(false); implSetEnabledWaiter.Done() }()

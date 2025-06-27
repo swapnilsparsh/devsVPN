@@ -134,3 +134,7 @@ func (otherVpn *OtherVpnInfo) CheckVpnConnected() (isConnected bool, err error) 
 func BestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 	return implBestWireguardMtuForConditions()
 }
+
+func ReDetectOtherVpns(forceRedetection, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
+	return reDetectOtherVpnsImpl(forceRedetection, updateCurrentMTU)
+}

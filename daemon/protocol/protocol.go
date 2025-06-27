@@ -43,7 +43,8 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
-	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
+	firewall_types "github.com/swapnilsparsh/devsVPN/daemon/service/firewall/types"
+
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
@@ -125,6 +126,7 @@ type Service interface {
 	ServersListForceUpdate() (*api_types.ServersInfoResponse, error)
 
 	PingServers(timeoutMs int, vpnTypePrioritized vpn.Type, skipSecondPhase bool) (map[string]int, error)
+	PingInternalApiHosts() (success bool, err error)
 
 	APIRequest(apiAlias string, ipTypeRequired types.RequiredIPProtocol) (responseData []byte, err error)
 	DetectAccessiblePorts(portsToTest []api_types.PortInfo) (retPorts []api_types.PortInfo, err error)
@@ -796,7 +798,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 
 		if err := p._service.KillSwitchReregister(req.CanStopOtherVpn); err != nil { // try to reregister at top firewall pri
-			var fe *firewall.FirewallError
+			var fe *firewall_types.FirewallError
 			if errors.As(err, &fe) && fe.OtherVpnUnknownToUs() { // if grabbing 0xFFFF failed, and other VPN is not registered in our database - report to client
 				log.Error(fmt.Errorf("%sError processing request '%s': %w", p.connLogID(conn), req.Command, fe.GetContainedErr()))
 				resp := types.KillSwitchReregisterErrorResp{

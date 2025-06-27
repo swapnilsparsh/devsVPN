@@ -46,6 +46,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform/filerights"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/v2r"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
@@ -726,9 +727,9 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 	// if firewall background monitors are available on the platform - start them all in the background
 	for _, firewallBackgroundMonitor := range firewall.GetFirewallBackgroundMonitors() {
 		connectRoutinesWaiter.Add(1)
-		go func(fbm *firewall.FirewallBackgroundMonitor) {
+		go func(fbm *srvhelpers.ServiceBackgroundMonitor) {
 			defer func() {
-				go fbm.StopFirewallBackgroundMonitor() // async, as iptables-legacy one sleeps for 5s between each polling loop iteration
+				go fbm.StopServiceBackgroundMonitor() // async, as iptables-legacy one sleeps for 5s between each polling loop iteration
 				connectRoutinesWaiter.Done()
 			}()
 
@@ -854,6 +855,21 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 						// Run at the end, as meet.privateline.network lookup fails if it's called too soon after WG connects. Run asynchronously.
 						go firewall.DeployPostConnectionRules()
+
+						// Finally start the connectivityHealthchecksBackgroundMonitor
+						connectRoutinesWaiter.Add(1)
+						go func(chbm *srvhelpers.ServiceBackgroundMonitor) {
+							defer func() {
+								go chbm.StopServiceBackgroundMonitor() // async
+								connectRoutinesWaiter.Done()
+							}()
+
+							go chbm.MonitorFunc()
+							log.Debug("Monitor '", chbm.MonitorName, "' started")
+
+							<-stopChannel // triggered when the stopChannel is closed
+						}(s.connectivityHealthchecksBackgroundMonitorDef)
+
 					default:
 					}
 				}()

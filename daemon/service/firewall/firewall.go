@@ -34,6 +34,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
 )
 
 var log *logger.Logger
@@ -76,34 +77,6 @@ var (
 	getRestApiHostsCallback          GetRestApiHostsCallback
 	isDaemonStoppingCallback         types.VpnConnectedCallback
 )
-
-type FirewallError struct {
-	containedErr error
-
-	otherVpnUnknownToUs bool
-	otherVpnName        string
-	otherVpnGUID        string
-}
-
-func (fe *FirewallError) Error() string {
-	return fe.containedErr.Error()
-}
-
-func (fe *FirewallError) GetContainedErr() error {
-	return fe.containedErr
-}
-
-func (fe *FirewallError) OtherVpnName() string {
-	return fe.otherVpnName
-}
-
-func (fe *FirewallError) OtherVpnGUID() string {
-	return fe.otherVpnGUID
-}
-
-func (fe *FirewallError) OtherVpnUnknownToUs() bool {
-	return fe.otherVpnUnknownToUs
-}
 
 // Initialize is doing initialization stuff
 // Must be called on application start
@@ -550,7 +523,7 @@ func HaveTopFirewallPriority() (weHaveTopFirewallPriority bool, otherVpnID, othe
 	return implHaveTopFirewallPriority(0)
 }
 
-func TryReregisterFirewallAtTopPriority(canStopOtherVpn bool) (err error) {
+func TryReregisterFirewallAtTopPriority(canStopOtherVpn, forceReconfigureFirewall bool) (err error) {
 	if isDaemonStoppingCallback() {
 		return log.ErrorFE("error - daemon is stopping")
 	}
@@ -558,38 +531,11 @@ func TryReregisterFirewallAtTopPriority(canStopOtherVpn bool) (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	_, err = implReregisterFirewallAtTopPriority(canStopOtherVpn)
+	_, err = implReregisterFirewallAtTopPriority(canStopOtherVpn, forceReconfigureFirewall)
 	return err
 }
 
-type FirewallBackgroundMonitorFunc func()
-type FirewallBackgroundMonitor struct {
-	MonitorName          string
-	MonitorFunc          FirewallBackgroundMonitorFunc
-	MonitorEndChan       chan bool
-	MonitorRunningMutex  *sync.Mutex
-	MonitorStopFuncMutex *sync.Mutex
-}
-
 // GetFirewallBackgroundMonitors  - caller should them all in forked threads
-func GetFirewallBackgroundMonitors() (monitors []*FirewallBackgroundMonitor) {
+func GetFirewallBackgroundMonitors() (monitors []*srvhelpers.ServiceBackgroundMonitor) {
 	return implGetFirewallBackgroundMonitors()
-}
-
-// StopFirewallBackgroundMonitor stops the corresponding background monitor.
-// It will stop it only once, if needed - or won't send stop action if the monitor was already stopped.
-func (fbm *FirewallBackgroundMonitor) StopFirewallBackgroundMonitor() {
-	fbm.MonitorStopFuncMutex.Lock() // single-instance function
-	defer fbm.MonitorStopFuncMutex.Unlock()
-	log.Debug("StopFirewallBackgroundMonitor: stopping monitor '", fbm.MonitorName, "'")
-
-	// must check whether the monitor func is still running (it could've exited due to an error), else don't send to EndChan
-	if !fbm.MonitorRunningMutex.TryLock() {
-		fbm.MonitorEndChan <- true     // send MonitorFunc a stop signal
-		fbm.MonitorRunningMutex.Lock() // wait for it to stop
-		defer log.Debug("StopFirewallBackgroundMonitor: monitor '", fbm.MonitorName, "' stopped")
-	} else {
-		defer log.Debug("StopFirewallBackgroundMonitor: monitor '", fbm.MonitorName, "' was already stopped")
-	}
-	fbm.MonitorRunningMutex.Unlock() // release its mutex, to allow it to be restarted later
 }

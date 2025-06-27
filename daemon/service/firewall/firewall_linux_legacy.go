@@ -176,7 +176,7 @@ func implGetEnabledLegacy(blockingWait bool) (exists bool, retErr error) {
 	return true, nil
 }
 
-func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, retErr error) {
+func implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, forceRedetectOtherVpns bool) (firewallReconfigured bool, retErr error) {
 	if !iptablesLegacyWasInitialized.Load() || isDaemonStoppingCallback() {
 		return false, nil
 	}
@@ -188,19 +188,30 @@ func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, ret
 	// log.Debug("implReregisterFirewallAtTopPriorityLegacy entered")
 	// defer log.Debug("implReregisterFirewallAtTopPriorityLegacy exited")
 
-	if weHaveTopFirewallPriority, err := implGetEnabledLegacy(false); err != nil {
-		return false, log.ErrorFE("error in implGetEnabledLegacy(): %w", err)
-	} else if weHaveTopFirewallPriority {
-		return false, nil
+	entryMsg := ""
+	if !forceReconfigureFirewall {
+		if weHaveTopFirewallPriority, err := implGetEnabledLegacy(false); err != nil {
+			return false, log.ErrorFE("error in implGetEnabledLegacy(): %w", err)
+		} else if weHaveTopFirewallPriority {
+			return false, nil
+		} else if isDaemonStoppingCallback() {
+			return false, log.ErrorFE("error - daemon is stopping")
+		}
+
+		entryMsg = "don't have top pri, need to reenable firewall"
+	} else {
+		entryMsg = "forced to reenable firewall"
 	}
 
 	// signal loss of top firewall priority to UI
 	go waitForTopFirewallPriAfterWeLostIt()
 
-	log.Debug("implReregisterFirewallAtTopPriorityLegacy - don't have top pri, need to reenable firewall")
+	log.Debug("implReregisterFirewallAtTopPriorityLegacy - ", entryMsg)
 
-	if _, err := reDetectOtherVpnsLinux(true, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableLegacy() needs otherVpnsLegacyMutex
-		log.ErrorFE("error reDetectOtherVpnsLinux(true, true): %w", err) // and continue
+	if forceRedetectOtherVpns {
+		if _, err := reDetectOtherVpnsImpl(true, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableLegacy() needs otherVpnsLegacyMutex
+			log.ErrorFE("error reDetectOtherVpnsImpl(true, true): %w", err) // and continue
+		}
 	}
 	if err := implReEnableLegacy(true); err != nil {
 		return true, log.ErrorFE("error in implReEnableLegacy: %w", err)
@@ -241,7 +252,7 @@ func implFirewallBackgroundMonitorLegacy() {
 			time.Sleep(time.Second) // sleep 1 second per each loop iteration
 			loopIteration = (loopIteration + 1) % 5
 			if loopIteration == 0 { // poll iptables-legacy only every 5th iteration - that is, once every 5 seconds
-				if _, err := implReregisterFirewallAtTopPriorityLegacy(); err != nil {
+				if _, err := implReregisterFirewallAtTopPriorityLegacy(false, true); err != nil {
 					log.ErrorFE("error in implReregisterFirewallAtTopPriorityLegacy(): %w", err) // and continue
 				}
 			}

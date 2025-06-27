@@ -426,10 +426,10 @@ func tryCmdLogOnError(binPath string, args ...string) (retErr error) {
 	return nil
 }
 
-// reDetectOtherVpnsLinux - re-detect the other VPNs present, and optionally adjust the current MTU accordingly.
+// reDetectOtherVpnsImpl - re-detect the other VPNs present, and optionally adjust the current MTU accordingly.
 // If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
 // Else it will run re-detection only if the previous detection data is older than 5 seconds.
-func reDetectOtherVpnsLinux(forceRedetection, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
+func reDetectOtherVpnsImpl(forceRedetection, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
 	if isDaemonStoppingCallback() {
 		return lowestRecommendedMTU, log.ErrorFE("error - daemon is stopping")
 	}
@@ -614,7 +614,7 @@ func implBestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 	// otherVpnsLegacyMutex.Lock()
 	// defer otherVpnsLegacyMutex.Unlock()
 
-	return reDetectOtherVpnsLinux(false, false)
+	return reDetectOtherVpnsImpl(false, false)
 	// recommendedMTU = lowestRecommendedMTU
 	// return recommendedMTU, retErr
 }

@@ -279,7 +279,7 @@ func registerNftMonitor() (err error) {
 }
 
 // implReregisterFirewallAtTopPriorityNft - here we assume VPN connection is already established, so we include creation of all firewall objects, incl. post-connection
-func implReregisterFirewallAtTopPriorityNft() (firewallReconfigured bool, retErr error) {
+func implReregisterFirewallAtTopPriorityNft(forceReconfigureFirewall, forceRedetectOtherVpns bool) (firewallReconfigured bool, retErr error) {
 	if isDaemonStoppingCallback() {
 		log.ErrorFE("error - daemon is stopping")
 		return
@@ -292,20 +292,29 @@ func implReregisterFirewallAtTopPriorityNft() (firewallReconfigured bool, retErr
 	// log.Debug("implReregisterFirewallAtTopPriorityNft entered")
 	// defer log.Debug("implReregisterFirewallAtTopPriorityNft exited")
 
-	if weHaveTopFirewallPriority, err := implGetEnabledNft(false); err != nil {
-		return false, log.ErrorFE("error in implGetEnabledNft(): %w", err)
-	} else if weHaveTopFirewallPriority {
-		return false, nil
-	} else if isDaemonStoppingCallback() {
-		return false, log.ErrorFE("error - daemon is stopping")
+	entryMsg := ""
+	if !forceReconfigureFirewall {
+		if weHaveTopFirewallPriority, err := implGetEnabledNft(false); err != nil {
+			return false, log.ErrorFE("error in implGetEnabledNft(): %w", err)
+		} else if weHaveTopFirewallPriority {
+			return false, nil
+		} else if isDaemonStoppingCallback() {
+			return false, log.ErrorFE("error - daemon is stopping")
+		}
+
+		entryMsg = "don't have top pri, need to reenable firewall"
+	} else {
+		entryMsg = "forced to reenable firewall"
 	}
 
 	// signal loss of top firewall priority to UI
 	go waitForTopFirewallPriAfterWeLostIt()
 
-	log.Debug("implReregisterFirewallAtTopPriorityNft - don't have top pri, need to reenable firewall")
-	if _, err := reDetectOtherVpnsLinux(true, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableNft() needs otherVpnsNftMutex
-		log.ErrorFE("error reDetectOtherVpnsLinux(true, true): %w", err) // and continue
+	log.Debug("implReregisterFirewallAtTopPriorityNft - ", entryMsg)
+	if forceRedetectOtherVpns {
+		if _, err := reDetectOtherVpnsImpl(true, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableNft() needs otherVpnsNftMutex
+			log.ErrorFE("error reDetectOtherVpnsImpl(true, true): %w", err) // and continue
+		}
 	}
 	if err := implReEnableNft(true); err != nil {
 		return true, log.ErrorFE("error in implReEnableNft: %w", err)
@@ -398,7 +407,7 @@ func implFirewallBackgroundMonitorNft() {
 	}
 	defer nftMonitor.Close()
 
-	if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil { // check that we have top-pri once on start of this func
+	if _, err := implReregisterFirewallAtTopPriorityNft(false, true); err != nil { // check that we have top-pri once on start of this func
 		log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
 	}
 
@@ -442,7 +451,7 @@ func implFirewallBackgroundMonitorNft() {
 					// log.Debug("MonitorEventTypeNewRule: chain=", newRule.Chain.Name)
 					go expressVpnNftEventsHelper(newRule.Chain.Name) // if ExpressVPN is connecting/connected - need to disable Total Shield
 
-					if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil {
+					if _, err := implReregisterFirewallAtTopPriorityNft(false, true); err != nil {
 						log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
 					}
 
@@ -451,7 +460,7 @@ func implFirewallBackgroundMonitorNft() {
 					verdict, _ := gotRule.Exprs[0].(*expr.Verdict)
 					if reflect.TypeOf(gotRule.Exprs[0]) == reflect.TypeFor[*expr.Verdict]() && verdict.Kind == expr.VerdictJump &&
 						(verdict.Chain == VPN_COEXISTENCE_CHAIN_NFT_IN || verdict.Chain == VPN_COEXISTENCE_CHAIN_NFT_OUT) {
-						if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil {
+						if _, err := implReregisterFirewallAtTopPriorityNft(false, true); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
 						}
 					}
@@ -463,7 +472,7 @@ func implFirewallBackgroundMonitorNft() {
 					case "OUTPUT":
 					case VPN_COEXISTENCE_CHAIN_NFT_IN:
 					case VPN_COEXISTENCE_CHAIN_NFT_OUT:
-						if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil {
+						if _, err := implReregisterFirewallAtTopPriorityNft(false, true); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
 						}
 					}
@@ -471,7 +480,7 @@ func implFirewallBackgroundMonitorNft() {
 				case nftables.MonitorEventTypeDelTable:
 					gotTable := change.Data.(*nftables.Table)
 					if gotTable.Name == TABLE {
-						if _, err := implReregisterFirewallAtTopPriorityNft(); err != nil {
+						if _, err := implReregisterFirewallAtTopPriorityNft(false, true); err != nil {
 							log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
 						}
 					}

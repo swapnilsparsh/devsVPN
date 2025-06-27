@@ -52,6 +52,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform/filerights"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
@@ -80,6 +81,13 @@ const (
 	// SessionCheckInterval - the interval for periodical check session status
 	SessionCheckInterval time.Duration = time.Hour * 1
 )
+
+type pingSet struct {
+	_results_mutex           sync.RWMutex
+	_result                  map[string]int //[host]latency
+	_singleRequestLimitMutex sync.Mutex
+	_notifyClients           bool
+}
 
 // Service - PrivateLINE service
 type Service struct {
@@ -117,11 +125,7 @@ type Service struct {
 
 	_systemLog chan<- SystemLogMessage
 
-	_ping struct {
-		_results_mutex           sync.RWMutex
-		_result                  map[string]int //[host]latency
-		_singleRequestLimitMutex sync.Mutex
-	}
+	_pingServers, _pingInternalApiHosts pingSet
 
 	// variables needed for automatic resume
 	_pause struct {
@@ -143,6 +147,12 @@ type Service struct {
 
 	_statsCallbacks       protocol.StatsCallbacks
 	_vpnConnectedCallback protocolTypes.VpnConnectedCallback
+
+	// connectivityHealthchecksBackgroundMonitor data
+	connectivityHealthchecksBackgroundMonitorDef                                *srvhelpers.ServiceBackgroundMonitor
+	connectivityHealthchecksRunningMutex, connectivityHealthchecksStopFuncMutex sync.Mutex
+	stopPollingConnectivityHealthchecks                                         chan bool
+	backendConnectivityCheckState                                               BackendConnectivityCheckState
 }
 
 // IsDaemonShuttingDown implements protocol.Service.
@@ -200,6 +210,15 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 		_vpnConnectedCallback: evtReceiver.LastVpnStateIsConnected,
 	}
 
+	// init connectivityHealthchecksBackgroundMonitorDef
+	serv.stopPollingConnectivityHealthchecks = make(chan bool, 1)
+	serv.connectivityHealthchecksBackgroundMonitorDef = &srvhelpers.ServiceBackgroundMonitor{
+		MonitorName:          "connectivityHealthchecksBackgroundMonitor",
+		MonitorFunc:          serv.connectivityHealthchecksBackgroundMonitor,
+		MonitorEndChan:       serv.stopPollingConnectivityHealthchecks,
+		MonitorRunningMutex:  &serv.connectivityHealthchecksRunningMutex,
+		MonitorStopFuncMutex: &serv.connectivityHealthchecksStopFuncMutex}
+
 	// register the current service as a 'Connectivity checker' for API object
 	serv._api.SetConnectivityChecker(serv)
 
@@ -211,6 +230,9 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 }
 
 func (s *Service) init() error {
+	s._pingServers._notifyClients = true
+	// s._pingInternalApiHosts._notifyClients = false // false by default
+
 	// Start waiting for IP stack initialization
 	//
 	// _ipStackInitializationWaiter - channel closes as soon as IP stack initialized OR after timeout
@@ -428,18 +450,20 @@ func (s *Service) unInitialise(isLogout bool) error {
 
 // IsConnectivityBlocked - returns nil if connectivity NOT blocked
 func (s *Service) IsConnectivityBlocked() error {
-	preferences := s._preferences
-	if !preferences.IsFwAllowApiServers &&
-		preferences.Session.IsLoggedIn() &&
-		(!s.ConnectedOrConnecting() || s.IsPaused()) {
-		enabled, err := s.FirewallEnabled()
-		if err != nil {
-			return fmt.Errorf("access to privateLINE servers is blocked: %w", err)
-		}
-		if enabled {
-			return fmt.Errorf("access to privateLINE servers is blocked (check privateLINE Connect Firewall settings)")
-		}
-	}
+	// preferences := s._preferences
+	// if !preferences.IsFwAllowApiServers &&
+	// 	preferences.Session.IsLoggedIn() &&
+	// 	(!s.ConnectedOrConnecting() || s.IsPaused()) {
+	// 	enabled, err := s.FirewallEnabled()
+	// 	if err != nil {
+	// 		return fmt.Errorf("access to privateLINE servers is blocked: %w", err)
+	// 	}
+	// 	if enabled {
+	// 		return fmt.Errorf("access to privateLINE servers is blocked (check privateLINE Connect Firewall settings)")
+	// 	}
+	// }
+
+	// In principle, connectivity to Wireguard and API servers is never expected to be blocked in privateLINE - both are available over the public internet
 	return nil
 }
 
@@ -602,11 +626,16 @@ func (s *Service) IsCanConnectMultiHop() error {
 	return s._preferences.Account.IsCanConnectMultiHop()
 }
 
-func (s *Service) reconnect() {
+func (s *Service) reconnect() error {
+	if s.IsDaemonStopping() {
+		log.ErrorFE("error - daemon is stopping")
+		return nil
+	}
+
 	// Just call disconnect
 	// The reconnection will be performed automatically in method 'keepConnection(...)'
 	// (according to s._requiredVpnState value == KeepConnection)
-	s.disconnect()
+	return s.disconnect()
 }
 
 // Disconnect disconnect vpn
@@ -633,8 +662,8 @@ func (s *Service) disconnect() error {
 	}
 
 	// stop firewall background monitors 1st thing - as legacy one is prone to lengthy timeouts (2-3min) on xtables lock
-	for _, firewallBackgroundMonitor := range firewall.GetFirewallBackgroundMonitors() {
-		go firewallBackgroundMonitor.StopFirewallBackgroundMonitor() // async, as iptables-legacy one sleeps for 5s between each polling loop iteration
+	for _, serviceBackgroundMonitor := range s.listAllServiceBackgroundMonitors() {
+		go serviceBackgroundMonitor.StopServiceBackgroundMonitor() // async, as iptables-legacy one sleeps for 5s between each polling loop iteration
 	}
 
 	// stop detections for routing changes
@@ -1211,7 +1240,7 @@ func (s *Service) KillSwitchReregister(canStopOtherVpn bool) (err error) {
 	// Otherwise, if we're trying to connect VPN and reregister our firewall in parallel - we tend to get errors in firewall.HaveTopFirewallPriority() (looking up meet.privateline.network)
 	go s.Disconnect()
 
-	if err = firewall.TryReregisterFirewallAtTopPriority(canStopOtherVpn); err != nil {
+	if err = firewall.TryReregisterFirewallAtTopPriority(canStopOtherVpn, false); err != nil {
 		return err
 	}
 
@@ -2744,4 +2773,10 @@ func (s *Service) setPreferences(p preferences.Preferences) {
 		s._preferences = p
 		s._preferences.SavePreferences()
 	}
+}
+
+func (s *Service) listAllServiceBackgroundMonitors() (allBackgroundMonitors []*srvhelpers.ServiceBackgroundMonitor) {
+	allBackgroundMonitors = firewall.GetFirewallBackgroundMonitors()
+	allBackgroundMonitors = append(allBackgroundMonitors, s.connectivityHealthchecksBackgroundMonitorDef)
+	return allBackgroundMonitors
 }
