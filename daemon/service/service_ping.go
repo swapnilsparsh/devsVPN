@@ -34,10 +34,10 @@ import (
 	"sync"
 	"time"
 
+	probing "github.com/prometheus-community/pro-bing"
 	"github.com/swapnilsparsh/devsVPN/daemon/api"
 	"github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
-	"github.com/swapnilsparsh/devsVPN/daemon/ping"
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
@@ -239,7 +239,7 @@ func (s *Service) PingInternalApiHosts() (success bool, err error) {
 
 	log.Debug("Pinging API hosts...")
 
-	// Fast ping. Doing it fast. 'Ping_DefaultApiHostTimeout' ms max for each API host
+	// Fast probing. Doing it fast. 'Ping_DefaultApiHostTimeout' ms max for each API host
 	firstPhaseDeadline := startTime.Add(time.Millisecond * time.Duration(Ping_DefaultApiHostTimeout))
 	var scanInterruptedMsg string
 	if isInterrupted := s._pingInternalApiHosts.ping_iteration(s, apiHostIPsToPing, Ping_DefaultApiHostTimeout, result, &firstPhaseDeadline, true, nil); isInterrupted {
@@ -431,7 +431,7 @@ func (p *pingSet) ping_iteration(s *Service, hostsToPing []pingHost, hostTimeout
 					wg.Done()
 				}()
 
-				pinger, err := ping.NewPinger(hostIp)
+				pinger, err := probing.NewPinger(hostIp)
 				if err != nil {
 					log.Error("Pinger creation error: " + err.Error())
 					return
@@ -440,24 +440,28 @@ func (p *pingSet) ping_iteration(s *Service, hostsToPing []pingHost, hostTimeout
 				pinger.SetPrivileged(true)
 				pinger.Count = 2
 				pinger.Timeout = timeout
-				pinger.Run()
-				stat := pinger.Statistics()
+				pinger.Interval = 50 * time.Millisecond
 
-				if stat.MinRtt > 0 {
-					ttl := int(stat.MinRtt / time.Millisecond)
+				if err := pinger.Run(); err != nil {
+					log.ErrorFE("error in pinger.Run(): %w", err) // and continue
+				} else {
+					stat := pinger.Statistics()
+					if stat.MinRtt > 0 {
+						ttl := int(stat.MinRtt / time.Millisecond)
 
-					resultMutex.Lock()
-					pingedResult[hostIp] = ttl
-					resultMutex.Unlock()
+						resultMutex.Lock()
+						pingedResult[hostIp] = ttl
+						resultMutex.Unlock()
+					}
+
+					resultMutex.RLock()
+					if p._notifyClients && phaseDeadline == nil && time.Now().After(lastUpdateSentTime.Add(time.Second*2)) {
+						// periodically notify ping results when pinging in background
+						p.ping_resultNotify(s, pingedResult)
+						lastUpdateSentTime = time.Now()
+					}
+					resultMutex.RUnlock()
 				}
-
-				resultMutex.RLock()
-				if p._notifyClients && phaseDeadline == nil && time.Now().After(lastUpdateSentTime.Add(time.Second*2)) {
-					// periodically notify ping results when pinging in background
-					p.ping_resultNotify(s, pingedResult)
-					lastUpdateSentTime = time.Now()
-				}
-				resultMutex.RUnlock()
 			}(ipStr, hostTimeout)
 		}
 		if !needRetry {

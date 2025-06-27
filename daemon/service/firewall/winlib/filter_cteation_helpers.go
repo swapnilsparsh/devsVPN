@@ -486,7 +486,7 @@ func NewFilterBlockDNS(
 
 	f.AddCondition(&ConditionIPRemotePort{Match: FwpMatchEqual, Port: 53})
 
-	if exceptionIP != nil && len(exceptionIP) > 0 && exceptionIP.To4() != nil {
+	if len(exceptionIP) > 0 && exceptionIP.To4() != nil {
 		f.AddCondition(&ConditionIPRemoteAddressV4{Match: FwpMatchNotEqual, IP: exceptionIP, Mask: net.IPv4bcast})
 	}
 	return f
