@@ -245,7 +245,7 @@ func (s *Service) PingInternalApiHosts() (success bool, err error) {
 	if isInterrupted := s._pingInternalApiHosts.ping_iteration(s, apiHostIPsToPing, Ping_DefaultApiHostTimeout, result, &firstPhaseDeadline, true, nil); isInterrupted {
 		scanInterruptedMsg = ". Scan was interrupted."
 	}
-	log.Debugf("Fast ping of internal API hosts finished in (%v): %d of %d pinged%s", time.Since(startTime), len(result), len(apiHostIPsToPing), scanInterruptedMsg)
+	log.Debug(fmt.Sprintf("Fast ping of internal API hosts finished in (%v): %d of %d pinged%s", time.Since(startTime), len(result), len(apiHostIPsToPing), scanInterruptedMsg))
 
 	// Return true if at least one of the API hosts responded to ping on internal IP
 	return len(result) > 0, nil
