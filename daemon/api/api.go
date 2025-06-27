@@ -102,6 +102,7 @@ const (
 	_migrateSsoUserPath         = "/user/migrate-sso-user"
 	_wgKeySetPath               = _apiPathPrefix + "/session/wg/set"
 	_geoLookupPath              = _apiPathPrefix + "/geo-lookup"
+	_publicGetPlans             = "/public/get-plans"
 )
 
 var log *logger.Logger
@@ -685,6 +686,32 @@ func (a *API) SessionStatus(session string) (
 	}
 
 	return nil, &apiErr, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+}
+
+// SessionStatus - get session status
+func (a *API) PublicGetPlans() (success bool, retErr error) {
+	var apiErr types.APIErrorResponse
+
+	if !a.getApiHost().DefaultIP.IsPrivate() {
+		return false, errors.New("error - we wan't to test connectivity to API host by its private IP, but API host resolves to public IP " + a.getApiHost().DefaultIP.String())
+	}
+
+	request := &types.SessionStatusRequest{Session: ""}
+	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, a.getApiHost().Hostname, _publicGetPlans, "GET", "application/json", request, 10000, 0)
+	if err != nil {
+		return false, err
+	}
+
+	// Check is it API error
+	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
+		return false, fmt.Errorf("failed to deserialize API response: %w", err)
+	}
+
+	if !apiErr.Status || apiErr.HttpStatusCode != types.CodeSuccess {
+		return false, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	}
+
+	return true, nil
 }
 
 func (a *API) DeviceList(session string, Search string, Page int, Limit int, DeleteId int) (deviceList *types.DeviceListResponse, err error) {

@@ -2509,6 +2509,10 @@ func (s *Service) OnSessionStatus(sessionToken string, sessionData preferences.S
 	s._evtReceiver.OnSessionStatus(sessionToken, sessionData)
 }
 
+func (s *Service) CheckBackendConnectivity() (success bool, err error) {
+	return s._api.PublicGetPlans()
+}
+
 // RequestSessionStatus receives session status
 func (s *Service) RequestSessionStatus() (
 	apiCode int,

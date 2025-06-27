@@ -221,6 +221,10 @@ type Service interface {
 		sessionData preferences.SessionMutableData,
 		err error)
 
+	CheckBackendConnectivity() (
+		success bool,
+		err error)
+
 	WireGuardGenerateKeys(updateIfNecessary bool) error
 	WireGuardSetKeysRotationInterval(interval int64)
 

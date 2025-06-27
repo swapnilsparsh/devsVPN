@@ -278,7 +278,7 @@ func implDeployPostConnectionRules() (retErr error) {
 	return retErr
 }
 
-func implSetEnabled(isEnabled, _, _ bool) error {
+func implSetEnabled(isEnabled, _, _, _ bool) error {
 	log.Debug("implSetEnabled=", isEnabled)
 
 	var (
@@ -323,7 +323,7 @@ func implSetPersistent(persistent bool) error {
 			if isDaemonStoppingCallback() {
 				return log.ErrorFE("error - daemon is stopping")
 			}
-			return implSetEnabled(true, false, false)
+			return implSetEnabled(true, false, false, false)
 		}
 
 		// Some Linux distributions erasing IVPN rules during system boot
@@ -336,7 +336,7 @@ func implSetPersistent(persistent bool) error {
 }
 
 func implCleanupRegistration() (err error) {
-	return implSetEnabled(false, false, false)
+	return implSetEnabled(false, false, false, false)
 }
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
@@ -435,7 +435,7 @@ func ensurePersistent(secondsToWait int) {
 		}
 		if isPersistent && !enabled {
 			log.Warning("[ensurePersistent] Persistent FW rules not available. Retry to apply...")
-			implSetEnabled(true, false, false)
+			implSetEnabled(true, false, false, false)
 		}
 	}
 	log.Info("[ensurePersistent] stopped.")

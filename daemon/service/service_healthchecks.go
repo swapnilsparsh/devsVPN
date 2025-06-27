@@ -24,15 +24,14 @@ func (s *Service) checkConnectivityFixAsNeeded() (retErr error) {
 		return nil
 	}
 
-	if apiHostsPingable, err := s.PingInternalApiHosts(); err != nil {
-		s.backendConnectivityCheckState = PHASE0_CLEAN
-		return log.ErrorFE("error in PingInternalApiHosts(), skipping this loop iteration. error=%w", err)
-	} else if apiHostsPingable {
+	if backendReachable, err := s.CheckBackendConnectivity(); backendReachable && err == nil {
 		s.backendConnectivityCheckState = PHASE0_CLEAN
 		return nil
+	} else if err != nil {
+		retErr = log.ErrorFE("error in CheckBackendConnectivity(): %w", err)
 	}
 
-	switch s.backendConnectivityCheckState { // by now we know that there were no errors, but that backend resources are not reachable
+	switch s.backendConnectivityCheckState { // by now we know that backend resources are not reachable
 	case PHASE0_CLEAN: // phase 0: fully redeploy firewall and VPN coexistence rules
 		s.backendConnectivityCheckState = PHASE1_TRY_RECONNECT // next time, if no errors - don't try firewall reconfig, try VPN disconnect-reconnect
 		log.Debug("PHASE0_CLEAN: about to fully redeploy firewall and VPN coexistence rules")
@@ -40,8 +39,8 @@ func (s *Service) checkConnectivityFixAsNeeded() (retErr error) {
 			return log.ErrorFE("error in firewall.TryReregisterFirewallAtTopPriority(true, true): %w", err)
 		}
 	case PHASE1_TRY_RECONNECT: // phase 1: disable Total Shield and disconnect-reconnect the VPN
-		s.backendConnectivityCheckState = PHASE0_CLEAN
-		if !s._vpnConnectedCallback() { // reconnect only if VPN is currently CONNECTED
+		s.backendConnectivityCheckState = PHASE0_CLEAN // next time don't try to reconnect, reset to phase0
+		if !s._vpnConnectedCallback() {                // reconnect only if VPN is currently CONNECTED
 			return nil
 		}
 
@@ -57,7 +56,7 @@ func (s *Service) checkConnectivityFixAsNeeded() (retErr error) {
 		}
 	}
 
-	return nil
+	return retErr
 }
 
 // connectivityHealthchecksBackgroundMonitor runs asynchronously as a forked thread.
