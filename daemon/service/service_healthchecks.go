@@ -33,7 +33,7 @@ func (s *Service) checkConnectivityFixAsNeeded() (retErr error) {
 
 	switch s.backendConnectivityCheckState { // by now we know that backend resources are not reachable
 	case PHASE0_CLEAN: // phase 0: fully redeploy firewall and VPN coexistence rules
-		s.backendConnectivityCheckState = PHASE1_TRY_RECONNECT // next time, if no errors - don't try firewall reconfig, try VPN disconnect-reconnect
+		s.backendConnectivityCheckState = PHASE1_TRY_RECONNECT // if backend again not reachable on next try - don't try firewall reconfig, try VPN disconnect-reconnect
 		log.Debug("PHASE0_CLEAN: about to fully redeploy firewall and VPN coexistence rules")
 		if err := firewall.TryReregisterFirewallAtTopPriority(true, true); err != nil {
 			return log.ErrorFE("error in firewall.TryReregisterFirewallAtTopPriority(true, true): %w", err)
