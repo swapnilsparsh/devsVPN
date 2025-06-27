@@ -407,6 +407,17 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 	return retErr
 }
 
+// reDetectOtherVpnsImpl - re-detect the other VPNs present, and optionally adjust the current MTU accordingly.
+// If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
+// Else it will run re-detection only if the previous detection data is older than 5 seconds.
+func reDetectOtherVpnsImpl(forceRedetection, _ bool) (recommendedNewMTU int, err error) {
+	if isDaemonStoppingCallback() {
+		return 0, log.ErrorFE("error - daemon is stopping")
+	}
+
+	return 0, reDetectVpnsWithCliAndRunTheirCliActions(forceRedetection)
+}
+
 var reDetectVpnsWithCliAndRunTheirCliActionsMutex sync.Mutex
 
 // reDetectVpnsWithCliAndRunTheirCliActions - detect the other VPNs installed, that have a CLI present.

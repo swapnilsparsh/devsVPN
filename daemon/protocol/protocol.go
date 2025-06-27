@@ -66,7 +66,7 @@ type ServiceRecoverableError struct {
 }
 
 func (se *ServiceRecoverableError) Error() string {
-	ret := string(se.errorCode) + ": " + se.errorDescription
+	ret := strconv.FormatUint(uint64(se.errorCode), 10) + ": " + se.errorDescription
 	if se.containedErr != nil {
 		ret += ": " + se.containedErr.Error()
 	}
@@ -799,13 +799,13 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 
 		if err := p._service.KillSwitchReregister(req.CanStopOtherVpn); err != nil { // try to reregister at top firewall pri
 			var fe *firewall_types.FirewallError
-			if errors.As(err, &fe) && fe.OtherVpnUnknownToUs() { // if grabbing 0xFFFF failed, and other VPN is not registered in our database - report to client
+			if errors.As(err, &fe) && fe.GetOtherVpnUnknownToUs() { // if grabbing 0xFFFF failed, and other VPN is not registered in our database - report to client
 				log.Error(fmt.Errorf("%sError processing request '%s': %w", p.connLogID(conn), req.Command, fe.GetContainedErr()))
 				resp := types.KillSwitchReregisterErrorResp{
 					ErrorMessage:        helpers.CapitalizeFirstLetter(fe.GetContainedErr().Error()),
-					OtherVpnUnknownToUs: fe.OtherVpnUnknownToUs(),
-					OtherVpnName:        fe.OtherVpnName(),
-					OtherVpnGUID:        fe.OtherVpnGUID()}
+					OtherVpnUnknownToUs: fe.GetOtherVpnUnknownToUs(),
+					OtherVpnName:        fe.GetOtherVpnName(),
+					OtherVpnGUID:        fe.GetOtherVpnGUID()}
 				p.sendResponse(conn, &resp, req.Idx)
 			} else {
 				p.sendErrorResponse(conn, reqCmd, err)

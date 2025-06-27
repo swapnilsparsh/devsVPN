@@ -4,29 +4,29 @@
 package types
 
 type FirewallError struct {
-	containedErr error
+	ContainedErr error
 
-	otherVpnUnknownToUs bool
-	otherVpnName        string
-	otherVpnGUID        string
+	OtherVpnUnknownToUs bool
+	OtherVpnName        string
+	OtherVpnGUID        string
 }
 
 func (fe *FirewallError) Error() string {
-	return fe.containedErr.Error()
+	return fe.ContainedErr.Error()
 }
 
 func (fe *FirewallError) GetContainedErr() error {
-	return fe.containedErr
+	return fe.ContainedErr
 }
 
-func (fe *FirewallError) OtherVpnName() string {
-	return fe.otherVpnName
+func (fe *FirewallError) GetOtherVpnName() string {
+	return fe.OtherVpnName
 }
 
-func (fe *FirewallError) OtherVpnGUID() string {
-	return fe.otherVpnGUID
+func (fe *FirewallError) GetOtherVpnGUID() string {
+	return fe.OtherVpnGUID
 }
 
-func (fe *FirewallError) OtherVpnUnknownToUs() bool {
-	return fe.otherVpnUnknownToUs
+func (fe *FirewallError) GetOtherVpnUnknownToUs() bool {
+	return fe.OtherVpnUnknownToUs
 }
