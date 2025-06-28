@@ -32,7 +32,12 @@ func (s *Service) checkConnectivityFixAsNeeded() (retErr error) {
 		retErr = log.ErrorFE("error in CheckBackendConnectivity(): %w", err)
 	}
 
-	// by now we know that backend resources are not reachable
+	if !s._vpnConnectedCallback() { // only apply recovery logic if VPN is still CONNECTED; else we may hit a race condition
+		s.backendConnectivityCheckState = PHASE0_CLEAN // ... if a disconnect request was received while we were waiting for the REST API call in s.CheckBackendConnectivity()
+		return nil
+	}
+
+	// by now we know that backend resources are not reachable, and VPN was just checked to be CONNECTED
 	go s._evtReceiver.NotifyClientsVpnConnecting() // make the clients show VPN CONNECTING state
 	switch s.backendConnectivityCheckState {
 	case PHASE0_CLEAN: // phase 0: fully redeploy firewall and VPN coexistence rules
@@ -43,10 +48,6 @@ func (s *Service) checkConnectivityFixAsNeeded() (retErr error) {
 		}
 	case PHASE1_TRY_RECONNECT: // phase 1: disable Total Shield and disconnect-reconnect the VPN
 		s.backendConnectivityCheckState = PHASE0_CLEAN // next time don't try to reconnect, reset to phase0
-		if !s._vpnConnectedCallback() {                // reconnect only if VPN is currently CONNECTED
-			return nil
-		}
-
 		log.Debug("PHASE1_TRY_RECONNECT: about to disable Total Shield and disconnect-reconnect the VPN")
 		prefs := s._preferences // disable Total Shield in preferences
 		if prefs.IsTotalShieldOn {
