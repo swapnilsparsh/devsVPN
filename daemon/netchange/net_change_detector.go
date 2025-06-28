@@ -30,6 +30,7 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/service"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 )
 
 var log *logger.Logger
@@ -63,6 +64,7 @@ type Detector struct {
 	props osSpecificProperties
 
 	routingChangeCallback service.RoutingChangeCallbackFunc
+	getPrefsCallback      preferences.GetPrefsCallback
 }
 
 // Create - create new network change detector
@@ -87,7 +89,7 @@ func Create() *Detector {
 // Start - start route change detector (asynchronous)
 //
 //	'routingUpdateChan' is the channel for notifying when there were some routing changes (but 'interfaceToProtect' is still is the default route or 'interfaceToProtect' not defined)
-func (d *Detector) Init(routingChangeChan chan<- struct{}, routingUpdateChan chan<- struct{}, currentDefaultInterface *net.Interface, callback service.RoutingChangeCallbackFunc) error {
+func (d *Detector) Init(routingChangeChan chan<- struct{}, routingUpdateChan chan<- struct{}, currentDefaultInterface *net.Interface, callback service.RoutingChangeCallbackFunc, _getPrefsCallback preferences.GetPrefsCallback) error {
 	// Ensure that detector is stopped
 	d.Stop()
 
@@ -100,6 +102,7 @@ func (d *Detector) Init(routingChangeChan chan<- struct{}, routingUpdateChan cha
 
 	// Callback function to be called when routing info changes
 	d.routingChangeCallback = callback
+	d.getPrefsCallback = _getPrefsCallback
 
 	// save current default interface
 	d.interfaceToProtect = currentDefaultInterface
@@ -159,7 +162,9 @@ func (d *Detector) Stop() error {
 func (d *Detector) routingChangeDetected() {
 	log.Debug("net_change_detector.go routingChangeDetected()")
 	d.timerNotifyAfterDelay.Reset(d.delayBeforeNotify)
-	go d.routingChangeCallback(false)
+	if d.getPrefsCallback().IsTotalShieldOn { // If routing change detected, and Total Shield on - try detecting new other VPNs by their network interface name, and, if new VPN found - disable Total Shield.
+		go d.routingChangeCallback(false)
+	}
 }
 
 // Immediately notify about routing change.

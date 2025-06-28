@@ -1748,7 +1748,7 @@ func (s *Service) splitTunnelling_ApplyConfig(applyTotalShieldUnconditionally bo
 
 	if applyTotalShieldUnconditionally {
 		return firewall.TotalShieldApply() // synchronously
-	} else if s._preferences.IsTotalShieldOn { // If routing change detected, and Total Shield on - try detecting new other VPNs by their network interface name, and, if new VPN found - disable Total Shield.
+	} else {
 		go firewall.ReDetectOtherVpns(true, true, true) // scan for other VPNs only by interface names, asynchronously; force redetection
 	}
 

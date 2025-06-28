@@ -31,7 +31,8 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
-	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	protocol_types "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
@@ -39,7 +40,6 @@ import (
 
 var log *logger.Logger
 
-type GetPrefsCallback func() preferences.Preferences
 type DisableTotalShieldAsyncCallback func()
 type OnKillSwitchStateChangedCallback func()
 type GetRestApiHostsCallback func() (restApiHosts []*helpers.HostnameAndIP)
@@ -69,20 +69,20 @@ var (
 	stateAllowLan          bool
 	stateAllowLanMulticast bool
 
-	getPrefsCallback                 GetPrefsCallback
+	getPrefsCallback                 preferences.GetPrefsCallback
 	disableTotalShieldAsyncCallback  DisableTotalShieldAsyncCallback
 	onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback
-	vpnConnectedOrConnectingCallback types.VpnConnectedCallback // whether VPN is connected or connecting
-	vpnConnectedCallback             types.VpnConnectedCallback // whether VPN is in CONNECTED state
+	vpnConnectedOrConnectingCallback protocol_types.VpnConnectedCallback // whether VPN is connected or connecting
+	vpnConnectedCallback             protocol_types.VpnConnectedCallback // whether VPN is in CONNECTED state
 	getRestApiHostsCallback          GetRestApiHostsCallback
-	isDaemonStoppingCallback         types.VpnConnectedCallback
+	isDaemonStoppingCallback         protocol_types.VpnConnectedCallback
 )
 
 // Initialize is doing initialization stuff
 // Must be called on application start
-func Initialize(_getPrefsCallback GetPrefsCallback, _disableTotalShieldAsyncCallback DisableTotalShieldAsyncCallback,
+func Initialize(_getPrefsCallback preferences.GetPrefsCallback, _disableTotalShieldAsyncCallback DisableTotalShieldAsyncCallback,
 	_onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback,
-	_vpnConnectedOrConnectingCallback, _vpnConnectedCallback, _isDaemonStoppingCallback types.VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
+	_vpnConnectedOrConnectingCallback, _vpnConnectedCallback, _isDaemonStoppingCallback protocol_types.VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
