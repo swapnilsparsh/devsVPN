@@ -1749,7 +1749,7 @@ func (s *Service) splitTunnelling_ApplyConfig(applyTotalShieldUnconditionally bo
 	if applyTotalShieldUnconditionally {
 		return firewall.TotalShieldApply() // synchronously
 	} else {
-		go firewall.ReDetectOtherVpns(false, true, true) // scan for other VPNs only by interface names, asynchronously
+		go firewall.ReDetectOtherVpns(true, true, true) // scan for other VPNs only by interface names, asynchronously; force redetection
 		return nil
 	}
 }
