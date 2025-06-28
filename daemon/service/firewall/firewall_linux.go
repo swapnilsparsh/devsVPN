@@ -137,7 +137,7 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn, forceReconfigureFirewa
 		firewallReconfiguredNft, firewallReconfiguredLegacy bool
 	)
 
-	if _, err := reDetectOtherVpnsImpl(true, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableNft() needs otherVpnsNftMutex
+	if _, err := reDetectOtherVpnsImpl(true, false, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableNft() needs otherVpnsNftMutex
 		log.ErrorFE("error reDetectOtherVpnsImpl(true, true): %w", err) // and continue
 	}
 
@@ -219,7 +219,7 @@ func implReEnable() (retErr error) {
 		errNft, errLegacy  error
 	)
 
-	if _, err := reDetectOtherVpnsImpl(false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before reenable logic
+	if _, err := reDetectOtherVpnsImpl(false, false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before reenable logic
 		log.ErrorFE("error reDetectOtherVpnsLinux(false, true): %w", err) // and continue
 	}
 
@@ -290,7 +290,7 @@ func implSetEnabled(isEnabled, _, _, _ bool) error {
 
 	implSetEnabledWaiter.Add(2)
 	if isEnabled {
-		if _, err := reDetectOtherVpnsImpl(false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before enable logic
+		if _, err := reDetectOtherVpnsImpl(false, false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before enable logic
 			log.ErrorFE("error reDetectOtherVpnsLinux(false, true): %w", err) // and continue
 		}
 		go func() { errLegacy = doEnableLegacy(false); implSetEnabledWaiter.Done() }()

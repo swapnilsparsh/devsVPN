@@ -362,7 +362,7 @@ func implGetEnabled(_ bool) (isEnabled bool, err error) {
 
 func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress, rescanForOtherVpns, forceRedetectOtherVpns bool) (retErr error) {
 	if rescanForOtherVpns {
-		go reDetectVpnsWithCliAndRunTheirCliActions(forceRedetectOtherVpns)
+		go reDetectVpnsWithCliAndRunTheirCliActions(forceRedetectOtherVpns, false)
 	}
 
 	if !wfpTransactionAlreadyInProgress {
@@ -558,7 +558,7 @@ func implOnUserExceptionsUpdated() error {
 
 // implReEnable unconditionally starts WFP transaction, so callers must not have started one already
 func implReEnable() (retErr error) {
-	go reDetectVpnsWithCliAndRunTheirCliActions(false)
+	go reDetectVpnsWithCliAndRunTheirCliActions(false, false)
 
 	log.Info("implReEnable")
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction

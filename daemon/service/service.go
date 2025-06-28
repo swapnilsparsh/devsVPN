@@ -303,7 +303,7 @@ func (s *Service) init() error {
 		go func() {
 			<-_ipStackInitializationWaiter // Wait for IP stack initialization
 			// apply Split Tunneling configuration
-			s.splitTunnelling_ApplyConfig()
+			s.splitTunnelling_ApplyConfig(true)
 		}()
 	}
 
@@ -747,7 +747,7 @@ func (s *Service) Pause(durationSeconds uint32) error {
 	// Update SplitTunnel state (if enabled)
 	prefs := s.Preferences()
 	if !prefs.IsTotalShieldOn {
-		if err := s.splitTunnelling_ApplyConfig(); err != nil {
+		if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 			log.Error(err)
 		}
 	}
@@ -812,7 +812,7 @@ func (s *Service) Resume() error {
 	// Update SplitTunnel state (if enabled)
 	prefs := s.Preferences()
 	if !prefs.IsTotalShieldOn {
-		if err := s.splitTunnelling_ApplyConfig(); err != nil {
+		if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 			log.Error(err)
 			return err
 		}
@@ -938,7 +938,7 @@ func (s *Service) SetManualDNS(dnsCfg dns.DnsSettings, antiTracker types.AntiTra
 	defer func() {
 		if isChanged {
 			// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servers or to manually defined server
-			if err := s.splitTunnelling_ApplyConfig(); err != nil {
+			if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 				log.Error(err)
 			}
 		}
@@ -1371,11 +1371,11 @@ func (s *Service) disableTotalShieldAsync() {
 	disableTotalShieldAsyncMutex.Lock()
 	defer disableTotalShieldAsyncMutex.Unlock()
 
-	prefs := s._preferences
-	if !prefs.IsTotalShieldOn { // if already disabled - nothing to do
+	if !s._preferences.IsTotalShieldOn { // if already disabled - nothing to do
 		return
 	}
 
+	prefs := s._preferences
 	prefs.IsTotalShieldOn = false
 	s.setPreferences(prefs)
 
@@ -1600,11 +1600,11 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhit
 	fmt.Print("\n========================Split Tunnel Service value As Passed from Frontend END===============================\n")
 	// ======================== Split Tunnel Service value As Passed from Frontend END ==============================
 
-	if ret = s.splitTunnelling_ApplyConfig(); ret != nil {
+	if ret = s.splitTunnelling_ApplyConfig(true); ret != nil {
 		ret = log.ErrorFE("failed to apply SplitTunnel configuration, error in s.splitTunnelling_ApplyConfig(): %w", ret)
 		// if error - restore old preferences and apply configuration
 		s.setPreferences(prefsOld)
-		if err := s.splitTunnelling_ApplyConfig(); err != nil {
+		if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 			log.ErrorFE("failed to restore SplitTunnel configuration: %w", err)
 		}
 	}
@@ -1625,7 +1625,7 @@ func (s *Service) splitTunnelling_Reset() error {
 	splittun.Reset()
 
 	// Apply configuration
-	return s.splitTunnelling_ApplyConfig()
+	return s.splitTunnelling_ApplyConfig(true)
 }
 
 // splitTunnelling_ApplyConfig() applies the required SplitTunnel configuration based on:
@@ -1636,7 +1636,12 @@ func (s *Service) splitTunnelling_Reset() error {
 // - VPN connection state changed
 // - SplitTunnel configuration changed
 // - DNS configuration changed (needed for updating Inverse Split Tunnel firewal rule)
-func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
+//
+// applyTotalShieldUnconditionally:
+//
+//	true - propagate Total Shield setting from preferences to firewall unconditionally (well, if firewall is up); run firewall.TotalShieldApply() synchronously
+//	false - fork firewall.ReDetectOtherVpns() asynchronously; instruct it to scan for other VPNs only by interface names
+func (s *Service) splitTunnelling_ApplyConfig(applyTotalShieldUnconditionally bool) (retError error) {
 	defer func() {
 		// notify changed ST configuration status (even if functionality not available)
 		s._evtReceiver.OnSplitTunnelStatusChanged()
@@ -1661,21 +1666,21 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	// }
 
 	// Network changes detection must be disabled for Inverse SplitTunneling
-	if prefs.IsInverseSplitTunneling() {
-		// If inverse SplitTunneling is enabled - stop detection of network changes (if it already started)
-		if err := s._netChangeDetector.Stop(); err != nil {
-			log.Error(fmt.Sprintf("Unable to stop network changes detection: %v", err.Error()))
-		}
-	} else {
-		defer func() {
-			// If inverse SplitTunneling is disabled - start detection of network changes (if it is not already started)
-			if s.ConnectedOrConnecting() {
-				if err := s._netChangeDetector.Start(); err != nil {
-					log.Error(fmt.Sprintf("Unable to start network changes detection: %v", err.Error()))
-				}
+	// if prefs.IsInverseSplitTunneling() {
+	// 	// If inverse SplitTunneling is enabled - stop detection of network changes (if it already started)
+	// 	if err := s._netChangeDetector.Stop(); err != nil {
+	// 		log.Error(fmt.Sprintf("Unable to stop network changes detection: %v", err.Error()))
+	// 	}
+	// } else {
+	defer func() {
+		// If inverse SplitTunneling is disabled - start detection of network changes (if it is not already started)
+		if s.ConnectedOrConnecting() {
+			if err := s._netChangeDetector.Start(); err != nil {
+				log.Error(fmt.Sprintf("Unable to start network changes detection: %v", err.Error()))
 			}
-		}()
-	}
+		}
+	}()
+	// }
 
 	// sInf := s.GetVpnSessionInfo()
 
@@ -1736,10 +1741,17 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	// Apply Split-Tun config
 	// if runtime.GOOS == "windows" {
 	// log.Debug("splitTunnelling_ApplyConfig calling firewall.TotalShieldApply() with prefs.IsTotalShieldOn=", prefs.IsTotalShieldOn)
-	return firewall.TotalShieldApply()
+	// return firewall.TotalShieldApply()
 	// } else {
 	// 	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
 	// }
+
+	if applyTotalShieldUnconditionally {
+		return firewall.TotalShieldApply() // synchronously
+	} else {
+		go firewall.ReDetectOtherVpns(false, true, true) // scan for other VPNs only by interface names, asynchronously
+		return nil
+	}
 }
 
 func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAlreadyRunning bool, err error) {
@@ -1747,13 +1759,13 @@ func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAl
 	// 	return "", false, fmt.Errorf("unable to run application in Split Tunnel environment: Split Tunnel is disabled")
 	// }
 	// apply ST configuration after function ends
-	defer s.splitTunnelling_ApplyConfig()
+	defer s.splitTunnelling_ApplyConfig(true)
 	return s.implSplitTunnelling_AddApp(exec)
 }
 
 func (s *Service) SplitTunnelling_RemoveApp(pid int, exec string) (err error) {
 	// apply ST configuration after function ends
-	defer s.splitTunnelling_ApplyConfig()
+	defer s.splitTunnelling_ApplyConfig(true)
 	return s.implSplitTunnelling_RemoveApp(pid, exec)
 }
 
@@ -2091,7 +2103,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
 	// Apply SplitTunnel configuration. It is applicable for Inverse mode of SplitTunnel
-	if err := s.splitTunnelling_ApplyConfig(); err != nil {
+	if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 		log.Error(fmt.Errorf("splitTunnelling_ApplyConfig failed: %v", err))
 		return apiCode, "", accountInfo, "", err
 	}
@@ -2301,7 +2313,7 @@ func (s *Service) SsoLogin(code string, sessionCode string, disableFirewallOnExi
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
 	// Apply SplitTunnel configuration. It is applicable for Inverse mode of SplitTunnel
-	if err := s.splitTunnelling_ApplyConfig(); err != nil {
+	if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 		log.Error(fmt.Errorf("splitTunnelling_ApplyConfig failed: %v", err))
 		return apiCode, "", rawResponse, err
 	}

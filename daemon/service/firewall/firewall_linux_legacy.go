@@ -209,7 +209,7 @@ func implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, forceRe
 	log.Debug("implReregisterFirewallAtTopPriorityLegacy - ", entryMsg)
 
 	if forceRedetectOtherVpns {
-		if _, err := reDetectOtherVpnsImpl(true, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableLegacy() needs otherVpnsLegacyMutex
+		if _, err := reDetectOtherVpnsImpl(true, false, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableLegacy() needs otherVpnsLegacyMutex
 			log.ErrorFE("error reDetectOtherVpnsImpl(true, true): %w", err) // and continue
 		}
 	}

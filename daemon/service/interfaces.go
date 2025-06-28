@@ -49,7 +49,7 @@ type IServersUpdater interface {
 }
 
 // Return won't be checked
-type RoutingChangeCallbackFunc func() error
+type RoutingChangeCallbackFunc func(applyTotalShieldUnconditionally bool) error
 
 // INetChangeDetector - object is detecting routing changes on a PC
 type INetChangeDetector interface {

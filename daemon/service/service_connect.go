@@ -701,7 +701,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		s._vpn = nil
 
 		// Notify Split-Tunneling module about disconnected VPN status. Firewall will know the VPN state via vpnConnectedCallback()
-		s.splitTunnelling_ApplyConfig()
+		s.splitTunnelling_ApplyConfig(true)
 
 		log.Info("VPN process stopped")
 	}()
@@ -803,16 +803,16 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						if err := s._netChangeDetector.Init(routingChangeChan, routingUpdateChan, nil, s.splitTunnelling_ApplyConfig); err != nil {
 							log.Error(fmt.Errorf("failed to init route change detection: %w", err))
 						}
-						if s._preferences.IsInverseSplitTunneling() {
-							// Inversed split-tunneling: disable monitoring of the default route to the VPN server.
-							// Note: the monitoring must be enabled as soon as the inverse split-tunneling is disabled!
-							log.Info("Disabled the monitoring of the default route to the VPN server due to Inverse Split-Tunnel")
-						} else {
-							log.Info("Starting route change detection")
-							if err := s._netChangeDetector.Start(); err != nil {
-								log.Error(fmt.Errorf("failed to start route change detection: %w", err))
-							}
+						// if s._preferences.IsInverseSplitTunneling() {
+						// 	// Inversed split-tunneling: disable monitoring of the default route to the VPN server.
+						// 	// Note: the monitoring must be enabled as soon as the inverse split-tunneling is disabled!
+						// 	log.Info("Disabled the monitoring of the default route to the VPN server due to Inverse Split-Tunnel")
+						// } else {
+						log.Info("Starting route change detection")
+						if err := s._netChangeDetector.Start(); err != nil {
+							log.Error(fmt.Errorf("failed to start route change detection: %w", err))
 						}
+						// }
 						// }
 
 					case vpn.CONNECTED:
@@ -851,7 +851,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 						// Notify Split-Tunneling module about VPN state CONNECTED. Firewall will know the VPN state via vpnConnectedCallback()
 						// It is important to call it after 's._vpn' initialised. So ST functionality will be correctly informed about 'VPN connected' status
-						s.splitTunnelling_ApplyConfig()
+						s.splitTunnelling_ApplyConfig(true)
 
 						// Run at the end, as meet.privateline.network lookup fails if it's called too soon after WG connects. Run asynchronously.
 						go firewall.DeployPostConnectionRules()

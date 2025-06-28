@@ -45,7 +45,7 @@ var (
 
 	// Sets of names of other VPNs detected, and whether they change nftables and/or iptables-legacy
 
-	// !!! to avoid the locks, always acquire the mutexes in the same order:
+	// !!! to avoid deadlocks, always acquire the mutexes in the same order:
 	//	otherVpnsNftMutex 1st
 	//	otherVpnsLegacyMutex 2nd
 	//	DisableCoexistenceWithOtherVpnsMutex 3rd
@@ -67,6 +67,8 @@ var (
 		namePrefix:        "nord",
 		recommendedOurMTU: 1340,
 
+		networkInterfaceNames: []string{nordVpnInterfaceName},
+
 		changesNftables: true,
 
 		cli: "nordvpn", // will be checked whether it's in PATH
@@ -82,12 +84,16 @@ var (
 	surfsharkProfile          = OtherVpnInfo{
 		name:                                 "Surfshark",
 		namePrefix:                           "surfshark",
-		changesIptablesLegacy:                true,
-		iptablesLegacyChain:                  "SSKS_OUTPUT", // iptables-legacy chain used by Surfshark killswitch
-		iptablesLegacyHelper:                 surfsharkLegacyHelper,
 		recommendedOurMTU:                    1290,
 		incompatWithTotalShieldWhenConnected: true,
-		cli:                                  "surfshark", // will be checked whether it's in PATH
+
+		networkInterfaceNames: []string{surfsharkInterfaceNameWg, surfsharkInterfaceNameTun},
+
+		changesIptablesLegacy: true,
+		iptablesLegacyChain:   "SSKS_OUTPUT", // iptables-legacy chain used by Surfshark killswitch
+		iptablesLegacyHelper:  surfsharkLegacyHelper,
+
+		cli: "surfshark", // will be checked whether it's in PATH
 	}
 
 	// ExpressVPN
@@ -97,14 +103,13 @@ var (
 		name:       expressVpnName,
 		namePrefix: "expressvpn",
 		//recommendedOurMTU:     1380,
+		incompatWithTotalShieldWhenConnected: true, // but we're not including its interface name, tun0, so Total Shield won't get disabled automatically
 
 		changesNftables:               true,
 		nftablesChain:                 "evpn.OUTPUT",
 		nftablesChainNamePrefix:       "evpn.", // nft monitor watches for new rules in chains with names starting with that prefix - that may signify ExpressVPN is connecting
 		nftablesChainNameExclusionsRE: regexp.MustCompile(`evpn\..*\.allowLAN`),
 		nftablesHelper:                expressVpnNftablesHelper,
-
-		incompatWithTotalShieldWhenConnected: true, // but we're not including its interface name, tun0, so Total Shield won't get disabled automatically
 
 		cli: "expressvpnctl", // will be checked whether it's in PATH
 		cliCmds: otherVpnCliCmds{
@@ -128,14 +133,15 @@ var (
 	mullvadInterfaceNameWg = "wg0-mullvad" // When it uses Wireguard
 	//mullvadInterfaceNameTun = "tun0"        // When it uses OpenVPN, TCP or UDP. Interface name "tun0" is too generic, so not indexing it by this interface name.
 	mullvadProfile = OtherVpnInfo{
-		name:              mullvadName,
-		namePrefix:        "mullvad",
-		recommendedOurMTU: 1200, // = 1280 (safe Mullvad setting) - 80 (Wireguard IPv6 header overhead)
+		name:                                 mullvadName,
+		namePrefix:                           "mullvad",
+		recommendedOurMTU:                    1200, // = 1280 (safe Mullvad setting) - 80 (Wireguard IPv6 header overhead)
+		incompatWithTotalShieldWhenConnected: true,
+
+		networkInterfaceNames: []string{mullvadInterfaceNameWg},
 
 		changesNftables: true,
 		nftablesHelper:  mullvadNftablesHelper,
-
-		incompatWithTotalShieldWhenConnected: true,
 
 		cli: "mullvad", // will be checked whether it's in PATH
 		cliCmds: otherVpnCliCmds{
@@ -429,7 +435,7 @@ func tryCmdLogOnError(binPath string, args ...string) (retErr error) {
 // reDetectOtherVpnsImpl - re-detect the other VPNs present, and optionally adjust the current MTU accordingly.
 // If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
 // Else it will run re-detection only if the previous detection data is older than 5 seconds.
-func reDetectOtherVpnsImpl(forceRedetection, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
+func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
 	if isDaemonStoppingCallback() {
 		return lowestRecommendedMTU, log.ErrorFE("error - daemon is stopping")
 	}
@@ -442,7 +448,7 @@ func reDetectOtherVpnsImpl(forceRedetection, updateCurrentMTU bool) (recommended
 
 	// Now we acquired both mutexes, we're in critical section - check whether the last detection timestamp is too old.
 	// (If it's zero - it means detection wasn't run yet since the daemon start.
-	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < 5*time.Second { // if the timestamp is fresh
+	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < VPN_REDETECT_PERIOD { // if the timestamp is fresh
 		log.Debug("reDetectOtherVpnsLinux exited early")
 		return lowestRecommendedMTU, nil
 	} // else we have to re-detect
@@ -487,34 +493,7 @@ func reDetectOtherVpnsImpl(forceRedetection, updateCurrentMTU bool) (recommended
 	// 	}()
 	// }
 
-	reDetectOtherVpnsWaiter.Add(3)
-
-	go func() { // detect other VPNs by whether their nftables chain is present in table filter
-		defer reDetectOtherVpnsWaiter.Done()
-		// log.Debug("reDetectOtherVpnsLinux nftables worker - entered")
-		// defer log.Debug("reDetectOtherVpnsLinux nftables worker - exited")
-
-		if chains, err := nftConn.ListChainsOfTableFamily(TABLE_TYPE); err != nil {
-			log.ErrorFE("error listing chains: %w", err)
-			return
-		} else {
-			for _, chain := range chains {
-				if otherVpn, ok := otherVpnsByNftablesFilterChain[chain.Name]; ok {
-					log.Info("Other VPN '", otherVpn.name, "' detected by nftables chain: ", otherVpn.nftablesChain)
-					if otherVpn.changesNftables {
-						OtherVpnsDetectedRelevantForNftables.Add(otherVpn.name)
-					}
-					if otherVpn.changesIptablesLegacy {
-						OtherVpnsDetectedRelevantForIptablesLegacy.Add(otherVpn.name)
-					}
-					if otherVpn.recommendedOurMTU != 0 && otherVpn.recommendedOurMTU < newRecommendedMtuByNftablesChain {
-						newRecommendedMtuByNftablesChain = otherVpn.recommendedOurMTU
-					}
-				}
-			}
-		}
-	}()
-
+	reDetectOtherVpnsWaiter.Add(1)
 	go func() { // detect other VPNs by active network interface name
 		defer reDetectOtherVpnsWaiter.Done()
 		// log.Debug("reDetectOtherVpnsLinux interface worker - entered")
@@ -525,7 +504,7 @@ func reDetectOtherVpnsImpl(forceRedetection, updateCurrentMTU bool) (recommended
 			if _, err := netlink.LinkByName(otherVpnInterfaceName); err == nil {
 				log.Info("Other VPN '", otherVpn.name, "' detected by active interface name: ", otherVpnInterfaceName)
 				otherVpn.isConnectedConnecting = true
-				if otherVpn.incompatWithTotalShieldWhenConnected && getPrefsCallback().IsTotalShieldOn && !disabledTotalShield {
+				if !disabledTotalShield && otherVpn.incompatWithTotalShieldWhenConnected && getPrefsCallback().IsTotalShieldOn {
 					log.Warning("When other VPN '", otherVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
 					go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
 					disabledTotalShield = true
@@ -543,31 +522,61 @@ func reDetectOtherVpnsImpl(forceRedetection, updateCurrentMTU bool) (recommended
 		}
 	}()
 
-	go func() { // detect other VPNs by whether their CLI is in PATH
-		defer reDetectOtherVpnsWaiter.Done()
-		// log.Debug("reDetectOtherVpnsLinux CLI worker - entered")
-		// defer log.Debug("reDetectOtherVpnsLinux CLI worker - exited")
+	if !detectOnlyByInterfaceName {
+		reDetectOtherVpnsWaiter.Add(2)
 
-		for _, otherVpn := range otherVpnsByCLI {
-			if otherVpnCliPath, err := exec.LookPath(otherVpn.cli); err != nil || otherVpnCliPath == "" {
-				// log.Debug(fmt.Errorf("CLI '%s' expected to be in PATH for other VPN '%s', but not found in PATH, ignoring. err=%w", otherVpn.cli, otherVpn.name, err))
-				otherVpn.cliPathResolved = ""
+		go func() { // detect other VPNs by whether their nftables chain is present in table filter
+			defer reDetectOtherVpnsWaiter.Done()
+			// log.Debug("reDetectOtherVpnsLinux nftables worker - entered")
+			// defer log.Debug("reDetectOtherVpnsLinux nftables worker - exited")
+
+			if chains, err := nftConn.ListChainsOfTableFamily(TABLE_TYPE); err != nil {
+				log.ErrorFE("error listing chains: %w", err)
+				return
 			} else {
-				log.Info("Other VPN '", otherVpn.name, "' detected by CLI: ", otherVpnCliPath)
-				otherVpn.cliPathResolved = otherVpnCliPath
-
-				if otherVpn.changesNftables {
-					OtherVpnsDetectedRelevantForNftables.Add(otherVpn.name)
-				}
-				if otherVpn.changesIptablesLegacy {
-					OtherVpnsDetectedRelevantForIptablesLegacy.Add(otherVpn.name)
-				}
-				if otherVpn.recommendedOurMTU != 0 && otherVpn.recommendedOurMTU < newRecommendedMtuByCli {
-					newRecommendedMtuByCli = otherVpn.recommendedOurMTU
+				for _, chain := range chains {
+					if otherVpn, ok := otherVpnsByNftablesFilterChain[chain.Name]; ok {
+						log.Info("Other VPN '", otherVpn.name, "' detected by nftables chain: ", otherVpn.nftablesChain)
+						if otherVpn.changesNftables {
+							OtherVpnsDetectedRelevantForNftables.Add(otherVpn.name)
+						}
+						if otherVpn.changesIptablesLegacy {
+							OtherVpnsDetectedRelevantForIptablesLegacy.Add(otherVpn.name)
+						}
+						if otherVpn.recommendedOurMTU != 0 && otherVpn.recommendedOurMTU < newRecommendedMtuByNftablesChain {
+							newRecommendedMtuByNftablesChain = otherVpn.recommendedOurMTU
+						}
+					}
 				}
 			}
-		}
-	}()
+		}()
+
+		go func() { // detect other VPNs by whether their CLI is in PATH
+			defer reDetectOtherVpnsWaiter.Done()
+			// log.Debug("reDetectOtherVpnsLinux CLI worker - entered")
+			// defer log.Debug("reDetectOtherVpnsLinux CLI worker - exited")
+
+			for _, otherVpn := range otherVpnsByCLI {
+				if otherVpnCliPath, err := exec.LookPath(otherVpn.cli); err != nil || otherVpnCliPath == "" {
+					// log.Debug(fmt.Errorf("CLI '%s' expected to be in PATH for other VPN '%s', but not found in PATH, ignoring. err=%w", otherVpn.cli, otherVpn.name, err))
+					otherVpn.cliPathResolved = ""
+				} else {
+					log.Info("Other VPN '", otherVpn.name, "' detected by CLI: ", otherVpnCliPath)
+					otherVpn.cliPathResolved = otherVpnCliPath
+
+					if otherVpn.changesNftables {
+						OtherVpnsDetectedRelevantForNftables.Add(otherVpn.name)
+					}
+					if otherVpn.changesIptablesLegacy {
+						OtherVpnsDetectedRelevantForIptablesLegacy.Add(otherVpn.name)
+					}
+					if otherVpn.recommendedOurMTU != 0 && otherVpn.recommendedOurMTU < newRecommendedMtuByCli {
+						newRecommendedMtuByCli = otherVpn.recommendedOurMTU
+					}
+				}
+			}
+		}()
+	}
 
 	reDetectOtherVpnsWaiter.Wait()
 	// log.Debug("reDetectOtherVpnsLinux: reDetectOtherVpnsWaiter.Wait() ended")
@@ -614,7 +623,7 @@ func implBestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 	// otherVpnsLegacyMutex.Lock()
 	// defer otherVpnsLegacyMutex.Unlock()
 
-	return reDetectOtherVpnsImpl(false, false)
+	return reDetectOtherVpnsImpl(false, false, false)
 	// recommendedMTU = lowestRecommendedMTU
 	// return recommendedMTU, retErr
 }

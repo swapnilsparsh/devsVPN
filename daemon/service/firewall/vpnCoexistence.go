@@ -4,6 +4,7 @@
 package firewall
 
 import (
+	"net"
 	"regexp"
 	"strings"
 	"sync"
@@ -17,6 +18,8 @@ const (
 	// MAX_WINDOWS_SERVICE_CANDIDATES = 10
 
 	MAX_WAIT = 10 * time.Second
+
+	VPN_REDETECT_PERIOD = 5 * time.Second
 )
 
 var (
@@ -68,13 +71,11 @@ type OtherVpnInfo struct {
 	name       string // display name of another VPN
 	namePrefix string // name prefix used to match sublayer, provider names, and Windows service names
 
-	cli                    string // CLI command of that VPN, used to add our binaries & IP ranges to their exception list. If left blank - that means this VPN doesn't have a useful CLI.
-	cliPathResolved        string // resolved at runtime
-	otherVpnCliFound       bool
-	cliCmds                otherVpnCliCmds
-	runVpnCliCommandsMutex sync.Mutex // used to protect RunVpnCliCommands()
+	recommendedOurMTU                    int  // MTU we set on our wgprivateline interface if other VPN is present
+	incompatWithTotalShieldWhenConnected bool // set to true if Total Shield cannot work when this VPN is connected (network interface is up)
+	isConnectedConnecting                bool // whether the other VPN is connected or connecting
 
-	isConnectedConnecting bool // whether the other VPN is connected or connecting
+	networkInterfaceNames []string // names of network interfaces associated with this VPN
 
 	changesNftables               bool // used on Linux
 	nftablesChain                 string
@@ -86,14 +87,24 @@ type OtherVpnInfo struct {
 	iptablesLegacyChain   string
 	iptablesLegacyHelper  otherVpnCoexistenceLegacyHelper // if changesIptablesLegacy=true, then iptablesLegacyHelper must be set to some func ptr
 
-	recommendedOurMTU int // MTU we set on our wgprivateline interface if other VPN is present
-
-	incompatWithTotalShieldWhenConnected bool // set to true if Total Shield cannot work when this VPN is connected (network interface is up)
+	cli                    string // CLI command of that VPN, used to add our binaries & IP ranges to their exception list. If left blank - that means this VPN doesn't have a useful CLI.
+	cliPathResolved        string // resolved at runtime
+	otherVpnCliFound       bool
+	cliCmds                otherVpnCliCmds
+	runVpnCliCommandsMutex sync.Mutex // used to protect RunVpnCliCommands()
 }
 
 // CheckVpnConnectedConnecting checks whether other VPN was connected by running its CLI. Logic is common to Windows and Linux.
-func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, err error) {
-	if !otherVpn.cliCmds.checkCliConnectedStatus {
+func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, retErr error) {
+	if len(otherVpn.networkInterfaceNames) > 0 { // check by interface name 1st, whether one of their interfaces exists
+		for _, ifaceName := range otherVpn.networkInterfaceNames {
+			if _, err := net.InterfaceByName(ifaceName); err == nil {
+				return true, nil
+			}
+		}
+	}
+
+	if !otherVpn.cliCmds.checkCliConnectedStatus { // next check via CLI command
 		return false, nil
 	}
 
@@ -123,7 +134,7 @@ func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, e
 		}
 	}
 
-	if err = shell.ExecAndProcessOutput(log, outProcessFunc, "", otherVpnCli, otherVpn.cliCmds.cmdStatus); err != nil {
+	if retErr = shell.ExecAndProcessOutput(log, outProcessFunc, "", otherVpnCli, otherVpn.cliCmds.cmdStatus); retErr != nil {
 		return false, log.ErrorFE("error matching '%s': %s", otherVpn.cliCmds.statusConnectedRE, strErr.String())
 	}
 
@@ -135,6 +146,6 @@ func BestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 	return implBestWireguardMtuForConditions()
 }
 
-func ReDetectOtherVpns(forceRedetection, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
-	return reDetectOtherVpnsImpl(forceRedetection, updateCurrentMTU)
+func ReDetectOtherVpns(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
+	return reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU)
 }

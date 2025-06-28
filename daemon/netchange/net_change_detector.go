@@ -159,7 +159,7 @@ func (d *Detector) Stop() error {
 func (d *Detector) routingChangeDetected() {
 	log.Debug("net_change_detector.go routingChangeDetected()")
 	d.timerNotifyAfterDelay.Reset(d.delayBeforeNotify)
-	go d.routingChangeCallback()
+	go d.routingChangeCallback(false)
 }
 
 // Immediately notify about routing change.
