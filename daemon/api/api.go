@@ -692,9 +692,9 @@ func (a *API) SessionStatus(session string) (
 func (a *API) PublicGetPlans() (success bool, retErr error) {
 	var apiErr types.APIErrorResponse
 
-	if !a.getApiHost().DefaultIP.IsPrivate() {
-		return false, errors.New("error - we wan't to test connectivity to API host by its private IP, but API host resolves to public IP " + a.getApiHost().DefaultIP.String())
-	}
+	// apiHost := a.getApiHost().Hostname
+	// ...
+	// 	return false, errors.New("error - we wan't to test connectivity to API host by its private IP, but API host resolves to public IP " + a.getApiHost().DefaultIP.String())
 
 	request := &types.SessionStatusRequest{Session: ""}
 	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, a.getApiHost().Hostname, _publicGetPlans, "GET", "application/json", request, 10000, 0)
