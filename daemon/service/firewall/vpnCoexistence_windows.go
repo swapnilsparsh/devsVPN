@@ -65,12 +65,15 @@ var (
 	// Mullvad
 	mullvadSublayerKey = syscall.GUID{Data1: 0xC78056FF, Data2: 0x2BC1, Data3: 0x4211, Data4: [8]byte{0xAA, 0xDD, 0x7F, 0x35, 0x8D, 0xEF, 0x20, 0x2D}}
 	mullvadProfile     = OtherVpnInfo{
-		name:            "Mullvad VPN",
-		namePrefix:      "mullvad",
+		name:       "Mullvad VPN",
+		namePrefix: "mullvad",
+
+		incompatWithTotalShieldWhenConnected: true,
+
 		cliPathResolved: "ProgramFiles/Mullvad VPN/resources/mullvad.exe",
 		cliCmds: otherVpnCliCmds{
 			cmdStatus:               "status",
-			checkCliConnectedStatus: false,
+			checkCliConnectedStatus: true,
 			statusConnectedRE:       commonStatusConnectedRE, // must be 1st line
 			statusDisconnectedRE:    commonStatusDisconnectedRE,
 
@@ -285,7 +288,7 @@ ParseOtherVpn_CheckingStage3_processCLI:
 	}
 
 	// check whether other VPN was connected
-	if _, err := otherVpn.CheckVpnConnected(); err != nil {
+	if _, err := otherVpn.CheckVpnConnectedConnecting(); err != nil {
 		log.ErrorFE("error otherVpn.CheckVpnConnected(): %w", err)
 		return otherVpnInfoParsed
 	}
@@ -381,12 +384,18 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 		}
 	}
 
+	if len(otherVpn.cliCmds.cmdAllowLan) > 0 {
+		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); retErr != nil {
+			retErr = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdAllowLan, otherVpn.name, retErr)
+		}
+	}
+
 	if len(otherVpn.cliCmds.cmdEnableSplitTun) > 0 {
 		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
 			retErr = log.ErrorFE("error enabling Split Tunnel in other VPN '%s': %w", otherVpn.name, retErr) // and continue
 		}
 
-		for _, svcExe := range platform.PLServiceBinariesForFirewallToUnblock() {
+		for _, svcExe := range platform.PLServiceBinariesToAddToOtherVpnSplitTunnel() {
 			cmdWhitelistOurSvcExe := append(otherVpn.cliCmds.cmdAddOurBinaryPathToSplitTunWhitelist, svcExe)
 			if retErr := shell.Exec(log, otherVpn.cliPathResolved, cmdWhitelistOurSvcExe...); retErr != nil {
 				retErr = log.ErrorFE("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, otherVpn.name, retErr) // and continue
@@ -394,9 +403,12 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 		}
 	}
 
-	if len(otherVpn.cliCmds.cmdAllowLan) > 0 {
-		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); retErr != nil {
-			retErr = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdAllowLan, otherVpn.name, retErr)
+	if otherVpn.incompatWithTotalShieldWhenConnected && getPrefsCallback().IsTotalShieldOn {
+		if _, err := otherVpn.CheckVpnConnectedConnecting(); err != nil {
+			log.ErrorFE("error in otherVpn.CheckVpnConnected(): %w", err) // and continue
+		} else if otherVpn.isConnectedConnecting {
+			log.Warning("When other VPN '", otherVpn.name, "' is connected/connecting - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
+			go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
 		}
 	}
 

@@ -1773,6 +1773,22 @@ func (p *Protocol) OnVpnStateChanged_ProcessSavedState() {
 	}
 }
 
+// NotifyClientsVpnConnecting - unconditionally sent clients CONNECTING state for VPN
+// Used to report loss of connectivity, when healthchecks fails
+func (p *Protocol) NotifyClientsVpnConnecting() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("Panic when notifying VPN status to clients! (recovered)")
+			log.Error(string(debug.Stack()))
+			if err, ok := r.(error); ok {
+				log.ErrorTrace(err)
+			}
+		}
+	}()
+
+	p.notifyClients(&types.VpnStateResp{StateVal: vpn.CONNECTING, State: vpn.CONNECTING.String()})
+}
+
 func (p *Protocol) OnVpnPauseChanged() {
 	p.OnVpnStateChanged_ProcessSavedState()
 }

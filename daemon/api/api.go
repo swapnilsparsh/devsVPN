@@ -707,10 +707,11 @@ func (a *API) PublicGetPlans() (success bool, retErr error) {
 		return false, fmt.Errorf("failed to deserialize API response: %w", err)
 	}
 
-	if !apiErr.Status || apiErr.HttpStatusCode != types.CodeSuccess {
+	if /*!apiErr.Status ||*/ apiErr.HttpStatusCode != types.CodeSuccess {
 		return false, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 	}
 
+	log.Debug("PublicGetPlans() = SUCCESS")
 	return true, nil
 }
 

@@ -284,7 +284,7 @@ func commonNftablesHelper(otherVpnName string) (err error) { // logic common to 
 
 	// if Total Shield is enabled, and another VPN is connected/connecting that is incompatible with Total Shield - disable it
 	if otherVpn.incompatWithTotalShieldWhenConnected && getPrefsCallback().IsTotalShieldOn {
-		if otherVpnConnected, err := otherVpn.CheckVpnConnected(); err != nil {
+		if otherVpnConnected, err := otherVpn.CheckVpnConnectedConnecting(); err != nil {
 			return log.ErrorFE("error otherVpn.CheckVpnConnected(): %w", err)
 		} else if otherVpnConnected {
 			log.Warning("When other VPN '", otherVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
@@ -524,7 +524,7 @@ func reDetectOtherVpnsImpl(forceRedetection, updateCurrentMTU bool) (recommended
 		for otherVpnInterfaceName, otherVpn := range otherVpnsByInterfaceName {
 			if _, err := netlink.LinkByName(otherVpnInterfaceName); err == nil {
 				log.Info("Other VPN '", otherVpn.name, "' detected by active interface name: ", otherVpnInterfaceName)
-				otherVpn.isConnected = true
+				otherVpn.isConnectedConnecting = true
 				if otherVpn.incompatWithTotalShieldWhenConnected && getPrefsCallback().IsTotalShieldOn && !disabledTotalShield {
 					log.Warning("When other VPN '", otherVpn.name, "' is connected - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
 					go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes

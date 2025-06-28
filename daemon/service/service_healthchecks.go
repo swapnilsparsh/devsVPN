@@ -26,12 +26,15 @@ func (s *Service) checkConnectivityFixAsNeeded() (retErr error) {
 
 	if backendReachable, err := s.CheckBackendConnectivity(); backendReachable && err == nil {
 		s.backendConnectivityCheckState = PHASE0_CLEAN
+		go s._evtReceiver.OnVpnStateChanged_ProcessSavedState() // notify clients abt the actual VPN state - presumably that it's connected
 		return nil
 	} else if err != nil {
 		retErr = log.ErrorFE("error in CheckBackendConnectivity(): %w", err)
 	}
 
-	switch s.backendConnectivityCheckState { // by now we know that backend resources are not reachable
+	// by now we know that backend resources are not reachable
+	go s._evtReceiver.NotifyClientsVpnConnecting() // make the clients show VPN CONNECTING state
+	switch s.backendConnectivityCheckState {
 	case PHASE0_CLEAN: // phase 0: fully redeploy firewall and VPN coexistence rules
 		s.backendConnectivityCheckState = PHASE1_TRY_RECONNECT // if backend again not reachable on next try - don't try firewall reconfig, try VPN disconnect-reconnect
 		log.Debug("PHASE0_CLEAN: about to fully redeploy firewall and VPN coexistence rules")

@@ -20,8 +20,8 @@ const (
 )
 
 var (
-	FirstWordRE                = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+")   // regexp for the 1st word: "^[^[:space:]_\.-]+"
-	commonStatusConnectedRE    = regexp.MustCompile("^Connected([^a-zA-Z0-9]|$)") // must be 1st line
+	FirstWordRE                = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+")         // regexp for the 1st word: "^[^[:space:]_\.-]+"
+	commonStatusConnectedRE    = regexp.MustCompile("^Connect(ed|ing)([^a-zA-Z0-9]|$)") // must be 1st line
 	commonStatusDisconnectedRE = regexp.MustCompile("^Disconnected([^a-zA-Z0-9]|$)")
 
 	// Must contain all the other VPNs profiles, initialized in platform-specific init()
@@ -74,7 +74,7 @@ type OtherVpnInfo struct {
 	cliCmds                otherVpnCliCmds
 	runVpnCliCommandsMutex sync.Mutex // used to protect RunVpnCliCommands()
 
-	isConnected bool
+	isConnectedConnecting bool // whether the other VPN is connected or connecting
 
 	changesNftables               bool // used on Linux
 	nftablesChain                 string
@@ -91,8 +91,8 @@ type OtherVpnInfo struct {
 	incompatWithTotalShieldWhenConnected bool // set to true if Total Shield cannot work when this VPN is connected (network interface is up)
 }
 
-// CheckVpnConnected checks whether other VPN was connected by running its CLI. Logic is common to Windows and Linux.
-func (otherVpn *OtherVpnInfo) CheckVpnConnected() (isConnected bool, err error) {
+// CheckVpnConnectedConnecting checks whether other VPN was connected by running its CLI. Logic is common to Windows and Linux.
+func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, err error) {
 	if !otherVpn.cliCmds.checkCliConnectedStatus {
 		return false, nil
 	}
@@ -127,8 +127,8 @@ func (otherVpn *OtherVpnInfo) CheckVpnConnected() (isConnected bool, err error) 
 		return false, log.ErrorFE("error matching '%s': %s", otherVpn.cliCmds.statusConnectedRE, strErr.String())
 	}
 
-	otherVpn.isConnected = _isConnected
-	return otherVpn.isConnected, nil
+	otherVpn.isConnectedConnecting = _isConnected
+	return otherVpn.isConnectedConnecting, nil
 }
 
 func BestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
