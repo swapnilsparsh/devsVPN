@@ -342,9 +342,9 @@ func (s *Service) init() error {
 		}()
 	}
 
-	if err := s.initWiFiFunctionality(); err != nil {
-		log.Error("Failed to init WiFi functionality:", err)
-	}
+	// if err := s.initWiFiFunctionality(); err != nil {
+	// 	log.Error("Failed to init WiFi functionality:", err)
+	// }
 
 	// Start session status checker
 	go func() {
