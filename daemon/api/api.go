@@ -711,7 +711,7 @@ func (a *API) PublicGetPlans() (success bool, retErr error) {
 		return false, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 	}
 
-	log.Debug("PublicGetPlans() = SUCCESS")
+	// log.Debug("PublicGetPlans() = SUCCESS")
 	return true, nil
 }
 
