@@ -14,6 +14,12 @@ type BackendConnectivityCheckState int
 const (
 	PHASE0_CLEAN         BackendConnectivityCheckState = iota
 	PHASE1_TRY_RECONNECT BackendConnectivityCheckState = iota
+
+	MAX_CLIENT_NOTIFICATIONS = 2
+)
+
+var (
+	notificationsAfterReconnect = 0 // after we lost connectivity and reconnected, send out the notification to clients (UI, etc.) at most twice
 )
 
 // 2-phase approach: reconfig firewall, then disconnect / disable Total Shield / reconnect
@@ -26,7 +32,10 @@ func (s *Service) checkConnectivityFixAsNeeded() (retErr error) {
 
 	if backendReachable, err := s.CheckBackendConnectivity(); backendReachable && err == nil {
 		s.backendConnectivityCheckState = PHASE0_CLEAN
-		go s._evtReceiver.OnVpnStateChanged_ProcessSavedState() // notify clients abt the actual VPN state - presumably that it's connected
+		if notificationsAfterReconnect < MAX_CLIENT_NOTIFICATIONS {
+			go s._evtReceiver.OnVpnStateChanged_ProcessSavedState() // notify clients abt the actual VPN state - presumably that it's connected; at most 2 notifications
+			notificationsAfterReconnect++
+		}
 		return nil
 	} else if err != nil {
 		retErr = log.ErrorFE("error in CheckBackendConnectivity(): %w", err)
@@ -38,6 +47,7 @@ func (s *Service) checkConnectivityFixAsNeeded() (retErr error) {
 	}
 
 	// by now we know that backend resources are not reachable, and VPN was just checked to be CONNECTED
+	notificationsAfterReconnect = 0                // reset the count of client notifications
 	go s._evtReceiver.NotifyClientsVpnConnecting() // make the clients show VPN CONNECTING state
 	switch s.backendConnectivityCheckState {
 	case PHASE0_CLEAN: // phase 0: fully redeploy firewall and VPN coexistence rules
