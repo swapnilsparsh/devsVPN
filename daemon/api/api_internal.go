@@ -204,6 +204,8 @@ func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, ur
 		}
 	}
 
+	log.Debug(method + " " + host + " " + urlPath)
+
 	if len(host) == 0 || host == a.getApiHost().Hostname {
 		if ipTypeRequired != types.IPvAny {
 			// The specific IP version required to use
