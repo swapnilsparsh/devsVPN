@@ -343,11 +343,12 @@ func (s *Service) ping_getHosts(vpnTypePrioritized vpn.Type, skipSecondPhase boo
 	}
 
 	// sorting by priority
-	ping_sortHosts(ret, nil)
+	// ping_sortHosts(ret, nil)
 
 	return ret, nil
 }
 
+// FIXME: sort.Slice() doesn't work for threadsafe.Array, gotta fix
 // ping_sortHosts - won't get called for s._pingInternalApiHosts
 func ping_sortHosts(hosts *threadsafe.Array[pingHost], currentLocation *types.GeoLookupResponse) {
 	// sorting by priority and by location
