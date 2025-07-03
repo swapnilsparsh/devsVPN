@@ -34,6 +34,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hayageek/threadsafe"
 	probing "github.com/prometheus-community/pro-bing"
 	"github.com/swapnilsparsh/devsVPN/daemon/api"
 	"github.com/swapnilsparsh/devsVPN/daemon/api/types"
@@ -126,8 +127,9 @@ func (s *Service) PingServers(firstPhaseTimeoutMs int, vpnTypePrioritized vpn.Ty
 
 	// OS-specific preparations (e.g. we need to add servers IPs to firewall exceptions list)
 	// Do not forget to call s.implPingServersStopped()!!!
-	hostsToNotifyFirewall := make([]net.IP, 0, len(hostsToPing))
-	for _, h := range hostsToPing {
+	hostsToNotifyFirewall := make([]net.IP, 0, hostsToPing.Length())
+	for hIdx := 0; hIdx < hostsToPing.Length(); hIdx++ {
+		h, _ := hostsToPing.Get(hIdx)
 		hostsToNotifyFirewall = append(hostsToNotifyFirewall, h.host)
 	}
 	if err := s.implPingServersStarting(hostsToNotifyFirewall); err != nil {
@@ -172,7 +174,7 @@ func (s *Service) PingServers(firstPhaseTimeoutMs int, vpnTypePrioritized vpn.Ty
 	isInterrupted := s._pingServers.ping_iteration(s, hostsToPing, Ping_MaxHostTimeoutFirstPhase, result, &firstPhaseDeadline, false, onGeoLookupChan)
 
 	isNoDataSaved := s._pingServers.ping_isEmptyResults()
-	if !skipSecondPhase && len(result) < len(hostsToPing) {
+	if !skipSecondPhase && len(result) < hostsToPing.Length() {
 		// The first ping result already received.
 		// So, now there is no rush to do second ping iteration. Doing it in background.
 
@@ -182,14 +184,14 @@ func (s *Service) PingServers(firstPhaseTimeoutMs int, vpnTypePrioritized vpn.Ty
 			if isNoDataSaved || !isInterrupted {
 				s._pingServers.ping_resultNotify(s, result)
 			}
-			log.Info(fmt.Sprintf("Full ping finished in (%v): %d of %d pinged", time.Since(startTime), len(result), len(hostsToPing)))
+			log.Info(fmt.Sprintf("Full ping finished in (%v): %d of %d pinged", time.Since(startTime), len(result), hostsToPing.Length()))
 			done <- struct{}{}
 		}()
 	} else {
 		if isNoDataSaved || !isInterrupted {
 			s._pingServers.ping_resultNotify(s, result)
 		}
-		log.Info(fmt.Sprintf("Fast ping finished in (%v): %d of %d pinged", time.Since(startTime), len(result), len(hostsToPing)))
+		log.Info(fmt.Sprintf("Fast ping finished in (%v): %d of %d pinged", time.Since(startTime), len(result), hostsToPing.Length()))
 		done <- struct{}{}
 	}
 
@@ -198,61 +200,76 @@ func (s *Service) PingServers(firstPhaseTimeoutMs int, vpnTypePrioritized vpn.Ty
 	return result, nil
 }
 
-// PingInternalApiHosts - pings a few internal API hosts, on internal IPs. Returns true if at least one of them pings successfully.
+// PingInternalApiHosts - pings a few internal API hosts, on internal IPs. Returns true if at least one of them pings successfully, or if there's a problem that's not our fault.
+// If it encounters problems, the reasons for them are outside the current flow, thread - it logs the problem and returns true. Hoping these problems will go away by next iteration.
 func (s *Service) PingInternalApiHosts() (success bool, err error) {
 	s._pingInternalApiHosts._singleRequestLimitMutex.Lock() // single-instance
 	defer s._pingInternalApiHosts._singleRequestLimitMutex.Unlock()
 
-	if !s._vpnConnectedCallback() { // if VPN is not connected, return
-		return false, log.ErrorFE("error - VPN is not connected, so not pinging API hosts")
+	if !s._vpnConnectedCallback() { // if VPN is not connected, it's probably due to either another thread reconnecting, or disconnect in progress - return true.
+		log.Warn("warning - VPN is not connected, so not pinging API hosts")
+		return true, nil
 	}
 
-	// We know the VPN is connected by now. If the firewall is disabled (for whatever reason - i.e., due to VPN reconnect or firewall redeployment being in progress) - return.
-	if fwEnabled, fwErr := firewall.GetEnabled(); fwErr != nil {
-		return false, log.ErrorFE("error checking firewall state: %w", fwErr)
+	// We know the VPN is connected by now. If the firewall is disabled (for whatever reason - i.e., due to VPN reconnect or firewall redeployment being in progress) - return true.
+	if fwEnabled, fwErr := firewall.GetEnabledNoLogs(); fwErr != nil {
+		log.ErrorFE("error checking firewall state: %w", fwErr)
+		return true, nil
 	} else if !fwEnabled {
-		return false, log.ErrorFE("error - firewall not enabled, not enabling it here, not pinging API hosts")
+		log.Warn("warning - firewall not enabled, not enabling it here, not pinging API hosts")
+		return true, nil
 	}
 
 	startTime := time.Now()
 
 	// For API hosts to ping - resolve hostnames to IPs, and check whether IPs are on our private IP range
-	apiHostIPsToPing := make([]pingHost, 0, len(api.RestApiHostnamesToPing))
+	//apiHostIPsToPing := make([]pingHost, 0, len(api.RestApiHostnamesToPing))
+	apiHostIPsToPing := threadsafe.NewArray[pingHost](0)
+	var resolveApiHostsInParallelWG sync.WaitGroup // Resolve all hosts in parallel - one host timeout takes 20 seconds on Linux.
 	for _, apiHostname := range api.RestApiHostnamesToPing {
-		if apiHostIPs, err2 := net.LookupIP(apiHostname); err2 != nil {
-			log.ErrorFE("could not lookup IPs for API hostname '%s': %w", apiHostname, err2)
-			continue
-		} else if len(apiHostIPs) == 0 {
-			log.ErrorFE("no IPs returned for API hostname '%s'", apiHostname)
-			continue
-		} else {
-			for _, apiHostIP := range apiHostIPs {
-				if apiHostIP.To4() != nil && apiHostIP.IsPrivate() { // ping only IPv4 IPs for now, and only if private IP
-					apiHostIPsToPing = append(apiHostIPsToPing, pingHost{host: apiHostIP})
+		resolveApiHostsInParallelWG.Add(1)
+		go func() { // detect other VPNs by active network interface name
+			defer resolveApiHostsInParallelWG.Done()
+
+			if apiHostIPs, err2 := net.LookupIP(apiHostname); err2 != nil {
+				log.ErrorFE("could not lookup IPs for API hostname '%s': %w", apiHostname, err2)
+			} else if len(apiHostIPs) == 0 {
+				log.ErrorFE("no IPs returned for API hostname '%s'", apiHostname)
+			} else {
+				for _, apiHostIP := range apiHostIPs {
+					if apiHostIP.To4() != nil && apiHostIP.IsPrivate() { // ping only IPv4 IPs for now, and only if private IP
+						apiHostIPsToPing.Append(pingHost{host: apiHostIP})
+					}
 				}
 			}
-		}
+		}()
+	}
+	resolveApiHostsInParallelWG.Wait()
+
+	if apiHostIPsToPing.Length() <= 0 {
+		return false, log.ErrorFE("error - resolving API servers doesn't yield any private IPv4 IPs")
 	}
 
 	// Return value: map[host]latency
 	result := make(map[string]int)
 
-	log.Debug("Pinging API hosts...")
+	// log.Debug("Pinging API hosts...")
 
 	// Fast probing. Doing it fast. 'Ping_DefaultApiHostTimeout' ms max for each API host
 	firstPhaseDeadline := startTime.Add(time.Millisecond * time.Duration(Ping_DefaultApiHostTimeout))
 	var scanInterruptedMsg string
 	if isInterrupted := s._pingInternalApiHosts.ping_iteration(s, apiHostIPsToPing, Ping_DefaultApiHostTimeout, result, &firstPhaseDeadline, true, nil); isInterrupted {
 		scanInterruptedMsg = ". Scan was interrupted."
+		log.Debug(fmt.Sprintf("Fast ping of internal API hosts finished in (%v): %d of %d pinged%s", time.Since(startTime), len(result), apiHostIPsToPing.Length(), scanInterruptedMsg))
 	}
-	log.Debug(fmt.Sprintf("Fast ping of internal API hosts finished in (%v): %d of %d pinged%s", time.Since(startTime), len(result), len(apiHostIPsToPing), scanInterruptedMsg))
+	// log.Debug(fmt.Sprintf("Fast ping of internal API hosts finished in (%v): %d of %d pinged%s", time.Since(startTime), len(result), len(apiHostIPsToPing), scanInterruptedMsg))
 
 	// Return true if at least one of the API hosts responded to ping on internal IP
 	return len(result) > 0, nil
 }
 
 // ping_getHosts - Get hosts to ping
-func (s *Service) ping_getHosts(vpnTypePrioritized vpn.Type, skipSecondPhase bool) ([]pingHost, error) {
+func (s *Service) ping_getHosts(vpnTypePrioritized vpn.Type, skipSecondPhase bool) (*threadsafe.Array[pingHost], error) {
 	// get servers info
 	servers, err := s._serversUpdater.GetServers()
 	if err != nil {
@@ -317,10 +334,11 @@ func (s *Service) ping_getHosts(vpnTypePrioritized vpn.Type, skipSecondPhase boo
 		getHostsFunc(svrsOvpn, false, getVpnPriorityFunc(vpn.OpenVPN, vpnTypePrioritized))
 	}
 
-	ret := make([]pingHost, len(uniqueHosts))
+	//ret := make([]pingHost, len(uniqueHosts))
+	ret := threadsafe.NewArray[pingHost](len(uniqueHosts))
 	i := 0
 	for _, v := range uniqueHosts {
-		ret[i] = v
+		ret.Set(i, v)
 		i++
 	}
 
@@ -331,7 +349,7 @@ func (s *Service) ping_getHosts(vpnTypePrioritized vpn.Type, skipSecondPhase boo
 }
 
 // ping_sortHosts - won't get called for s._pingInternalApiHosts
-func ping_sortHosts(hosts []pingHost, currentLocation *types.GeoLookupResponse) {
+func ping_sortHosts(hosts *threadsafe.Array[pingHost], currentLocation *types.GeoLookupResponse) {
 	// sorting by priority and by location
 	cLat, cLot := float64(0), float64(0)
 	if currentLocation != nil {
@@ -339,7 +357,8 @@ func ping_sortHosts(hosts []pingHost, currentLocation *types.GeoLookupResponse) 
 	}
 
 	sort.Slice(hosts, func(i, j int) bool {
-		iHost, jHost := hosts[i], hosts[j]
+		iHost, _ := hosts.Get(i)
+		jHost, _ := hosts.Get(j)
 
 		if iHost.priority != jHost.priority {
 			return iHost.priority < jHost.priority
@@ -354,8 +373,8 @@ func ping_sortHosts(hosts []pingHost, currentLocation *types.GeoLookupResponse) 
 	})
 }
 
-func (p *pingSet) ping_iteration(s *Service, hostsToPing []pingHost, hostTimeout time.Duration, pingedResult map[string]int, phaseDeadline *time.Time, pingWhileConnectedOrConnecting bool, onGeolookupChan <-chan *types.GeoLookupResponse) (isInterrupted bool) {
-	if len(hostsToPing) == 0 {
+func (p *pingSet) ping_iteration(s *Service, hostsToPing *threadsafe.Array[pingHost], hostTimeout time.Duration, pingedResult map[string]int, phaseDeadline *time.Time, pingWhileConnectedOrConnecting bool, onGeolookupChan <-chan *types.GeoLookupResponse) (isInterrupted bool) {
+	if hostsToPing.Length() == 0 {
 		return
 	}
 
@@ -367,7 +386,9 @@ func (p *pingSet) ping_iteration(s *Service, hostsToPing []pingHost, hostTimeout
 
 	for {
 		needRetry := false
-		for _, h := range hostsToPing {
+		for hIdx := 0; hIdx < hostsToPing.Length(); hIdx++ {
+			h, _ := hostsToPing.Get(hIdx)
+
 			if s.ConnectedOrConnecting() && !pingWhileConnectedOrConnecting {
 				log.Info("Servers pinging stopped due to connecting or connected state")
 				isInterrupted = true

@@ -688,7 +688,7 @@ func (a *API) SessionStatus(session string) (
 	return nil, &apiErr, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
 
-// SessionStatus - get session status
+// PublicGetPlans - query a public API, /public/get-plans
 func (a *API) PublicGetPlans() (success bool, retErr error) {
 	var apiErr types.APIErrorResponse
 

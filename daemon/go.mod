@@ -13,7 +13,7 @@ require (
 	github.com/kocmo/go-xtables v1.0.8
 	github.com/panta/machineid v1.0.2
 	github.com/parsiya/golnk v0.0.0-20221103095132-740a4c27c4ff
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/vishvananda/netlink v1.3.0
 	golang.org/x/net v0.41.0
 	golang.org/x/sync v0.15.0
@@ -22,9 +22,12 @@ require (
 	golang.zx2c4.com/wireguard/windows v0.5.3
 )
 
+require github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3 // indirect
+
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/hayageek/threadsafe v1.0.1
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mdlayher/genetlink v1.3.2 // indirect
 	github.com/mdlayher/netlink v1.7.3-0.20250113171957-fbb4dce95f42 // indirect

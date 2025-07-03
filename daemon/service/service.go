@@ -2523,7 +2523,13 @@ func (s *Service) OnSessionStatus(sessionToken string, sessionData preferences.S
 }
 
 func (s *Service) CheckBackendConnectivity() (success bool, err error) {
-	return s._api.PublicGetPlans()
+	// Enable one of implementations
+
+	// Healthchecks implementation using REST API calls
+	// return s._api.PublicGetPlans()
+
+	// Healthchecks implementation via pinging API backend servers
+	return s.PingInternalApiHosts()
 }
 
 // RequestSessionStatus receives session status

@@ -215,6 +215,14 @@ func GetEnabled() (isEnabled bool, err error) {
 	return _getEnabledHelper(true, false)
 }
 
+// Get firewall status without log entry
+func GetEnabledNoLogs() (isEnabled bool, err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return _getEnabledHelper(false, false)
+}
+
 func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
