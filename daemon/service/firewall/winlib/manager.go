@@ -293,8 +293,16 @@ func (m *Manager) GetSubLayerByKey(sublayerKey syscall.GUID) (found bool, sublay
 	} else if found {
 		name := windows.UTF16PtrToString(fwpmSublayer.DisplayData.Name)
 		description := windows.UTF16PtrToString(fwpmSublayer.DisplayData.Description)
+
+		var providerGuid syscall.GUID
+		if fwpmSublayer.ProviderKey != nil { // FwpmSubLayerGetByKey0 can return nil instead of the pointer to provider key
+			providerGuid = syscall.GUID(*fwpmSublayer.ProviderKey)
+		} else {
+			providerGuid = syscall.GUID{}
+		}
+
 		sublayer = CreateSubLayer(syscall.GUID(fwpmSublayer.SublayerKey),
-			syscall.GUID(*fwpmSublayer.ProviderKey),
+			providerGuid,
 			name,
 			description,
 			fwpmSublayer.Weight,
