@@ -204,6 +204,13 @@ func (a *API) doRequest(ipTypeRequired types.RequiredIPProtocol, host string, ur
 		}
 	}
 
+	// log all REST API requests
+	// methodLogging := method
+	// if len(methodLogging) == 0 {
+	// 	methodLogging = "GET"
+	// }
+	// log.Debug(methodLogging + " " + host + " " + urlPath)
+
 	if len(host) == 0 || host == a.getApiHost().Hostname {
 		if ipTypeRequired != types.IPvAny {
 			// The specific IP version required to use

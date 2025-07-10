@@ -34,6 +34,7 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
 
@@ -106,7 +107,9 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 	return topPriNft && topPriLegacy, "", "", "", nil
 }
 
-func implGetEnabled() (isEnabled bool, retErr error) {
+// implGetEnabled - if blockingWait is true, then it'll wait for NFT and legacy mutexes and will lock them for the duration of the function.
+// This is to make sure that if any enable/disable operations are in progress, we'd wait for their completion.
+func implGetEnabled(blockingWait bool) (isEnabled bool, retErr error) {
 	var (
 		implGetEnabledWaiter          sync.WaitGroup
 		errNft, errLegacy             error
@@ -114,8 +117,8 @@ func implGetEnabled() (isEnabled bool, retErr error) {
 	)
 
 	implGetEnabledWaiter.Add(2)
-	go func() { isEnabledLegacy, errLegacy = implGetEnabledLegacy(); implGetEnabledWaiter.Done() }()
-	go func() { isEnabledNft, errNft = implGetEnabledNft(); implGetEnabledWaiter.Done() }()
+	go func() { isEnabledLegacy, errLegacy = implGetEnabledLegacy(blockingWait); implGetEnabledWaiter.Done() }()
+	go func() { isEnabledNft, errNft = implGetEnabledNft(blockingWait); implGetEnabledWaiter.Done() }()
 	implGetEnabledWaiter.Wait()
 
 	if errNft != nil {
@@ -127,20 +130,24 @@ func implGetEnabled() (isEnabled bool, retErr error) {
 	return isEnabledNft && isEnabledLegacy, nil
 }
 
-func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfigured bool, retErr error) {
+func implReregisterFirewallAtTopPriority(canStopOtherVpn, forceReconfigureFirewall bool) (firewallReconfigured bool, retErr error) {
 	var (
 		implReregisterFirewallAtTopPriorityWaiter           sync.WaitGroup
 		errNft, errLegacy                                   error
 		firewallReconfiguredNft, firewallReconfiguredLegacy bool
 	)
 
+	if _, err := reDetectOtherVpnsImpl(true, false, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableNft() needs otherVpnsNftMutex
+		log.ErrorFE("error reDetectOtherVpnsImpl(true, true): %w", err) // and continue
+	}
+
 	implReregisterFirewallAtTopPriorityWaiter.Add(2)
 	go func() {
-		firewallReconfiguredLegacy, errLegacy = implReregisterFirewallAtTopPriorityLegacy()
+		firewallReconfiguredLegacy, errLegacy = implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, false)
 		implReregisterFirewallAtTopPriorityWaiter.Done()
 	}()
 	go func() {
-		firewallReconfiguredNft, errNft = implReregisterFirewallAtTopPriorityNft()
+		firewallReconfiguredNft, errNft = implReregisterFirewallAtTopPriorityNft(forceReconfigureFirewall, false)
 		implReregisterFirewallAtTopPriorityWaiter.Done()
 	}()
 	implReregisterFirewallAtTopPriorityWaiter.Wait()
@@ -154,15 +161,26 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfig
 	return firewallReconfiguredNft || firewallReconfiguredLegacy, nil
 }
 
-func implGetFirewallBackgroundMonitors() (monitors []*FirewallBackgroundMonitor) {
-	monitors = []*FirewallBackgroundMonitor{{MonitorFunc: implFirewallBackgroundMonitorNft,
-		MonitorEndChan:  stopMonitoringFirewallChangesNft,
-		MonitorEndMutex: &implFirewallBackgroundMonitorNftMutex}}
+var (
+	firewallNftBackgroundMonitorDef = srvhelpers.ServiceBackgroundMonitor{
+		MonitorName:          "implFirewallBackgroundMonitorNft",
+		MonitorFunc:          implFirewallBackgroundMonitorNft,
+		MonitorEndChan:       stopMonitoringFirewallChangesNft,
+		MonitorRunningMutex:  &implFirewallBackgroundMonitorNftRunningMutex,
+		MonitorStopFuncMutex: &implFirewallBackgroundMonitorNftStopFuncMutex}
 
+	firewallLegacyBackgroundMonitorDef = srvhelpers.ServiceBackgroundMonitor{
+		MonitorName:          "implFirewallBackgroundMonitorLegacy",
+		MonitorFunc:          implFirewallBackgroundMonitorLegacy,
+		MonitorEndChan:       stopMonitoringFirewallChangesLegacy,
+		MonitorRunningMutex:  &implFirewallBackgroundMonitorLegacyRunningMutex,
+		MonitorStopFuncMutex: &implFirewallBackgroundMonitorLegacyStopFuncMutex}
+)
+
+func implGetFirewallBackgroundMonitors() (monitors []*srvhelpers.ServiceBackgroundMonitor) {
+	monitors = []*srvhelpers.ServiceBackgroundMonitor{&firewallNftBackgroundMonitorDef}
 	if iptablesLegacyInitialized() {
-		monitors = append(monitors, &FirewallBackgroundMonitor{MonitorFunc: implFirewallBackgroundMonitorLegacy,
-			MonitorEndChan:  stopMonitoringFirewallChangesLegacy,
-			MonitorEndMutex: &implFirewallBackgroundMonitorLegacyMutex})
+		monitors = append(monitors, &firewallLegacyBackgroundMonitorDef)
 	}
 
 	return monitors
@@ -182,11 +200,13 @@ func waitForTopFirewallPriAfterWeLostIt() {
 	for vpnConnectedOrConnectingCallback() { // if VPN is no longer connected - terminate this waiting loop
 		time.Sleep(time.Second * 5)
 
-		if weHaveTopFirewallPriority, err := implGetEnabled(); err != nil {
+		if weHaveTopFirewallPriority, err := implGetEnabled(false); err != nil {
 			log.ErrorFE("error in implGetEnabled(): %w", err)
 			break
 		} else if weHaveTopFirewallPriority {
 			break
+		} else if isDaemonStoppingCallback() {
+			return
 		}
 	}
 
@@ -199,7 +219,7 @@ func implReEnable() (retErr error) {
 		errNft, errLegacy  error
 	)
 
-	if _, err := reDetectOtherVpnsLinux(false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before reenable logic
+	if _, err := reDetectOtherVpnsImpl(false, false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before reenable logic
 		log.ErrorFE("error reDetectOtherVpnsLinux(false, true): %w", err) // and continue
 	}
 
@@ -223,10 +243,22 @@ func implDeployPostConnectionRules() (retErr error) {
 		errNft, errLegacy                   error
 	)
 
-	// TODO FIXME: Vlad - do we still need to run them from here?
-	// re-run VPN coexistence rules, since presumably now we're CONNECTED
+	log.Debug("implDeployPostConnectionRules entered")
+	defer log.Debug("implDeployPostConnectionRules exited")
+
+	// Re-run VPN coexistence rules, since presumably now we're CONNECTED
+	// Required for Mullvad on Linux after CONNECTED, to set custom DNS in its settings.
 	if err := enableVpnCoexistenceLinuxNft(); err != nil {
 		retErr = log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
+	}
+
+	// time.Sleep(time.Second * 1) // May need to sleep 1-2s. If multiple other VPNs are installed - enable/reenable can take a long time.
+
+	// check whether firewall is enabled
+	if enabled, err := _getEnabledHelper(true, true); err != nil { // blocking wait in implGetEnabled, to wait for any enable/disable/reenable operations to finish
+		return log.ErrorFE("status check error: %w", err)
+	} else if !enabled {
+		return log.ErrorFE("error - unexpectedly firewall is still disabled in implDeployPostConnectionRules()")
 	}
 
 	implDeployPostConnectionRulesWaiter.Add(2)
@@ -246,7 +278,7 @@ func implDeployPostConnectionRules() (retErr error) {
 	return retErr
 }
 
-func implSetEnabled(isEnabled, _ bool) error {
+func implSetEnabled(isEnabled, _, _, _ bool) error {
 	log.Debug("implSetEnabled=", isEnabled)
 
 	var (
@@ -258,7 +290,7 @@ func implSetEnabled(isEnabled, _ bool) error {
 
 	implSetEnabledWaiter.Add(2)
 	if isEnabled {
-		if _, err := reDetectOtherVpnsLinux(false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before enable logic
+		if _, err := reDetectOtherVpnsImpl(false, false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before enable logic
 			log.ErrorFE("error reDetectOtherVpnsLinux(false, true): %w", err) // and continue
 		}
 		go func() { errLegacy = doEnableLegacy(false); implSetEnabledWaiter.Done() }()
@@ -285,10 +317,13 @@ func implSetPersistent(persistent bool) error {
 		// 	- daemon is starting as on system boot
 		// 	- SetPersistent() called by service object on daemon start
 		// This means we just have to ensure that firewall enabled.
-		if isEnabled, err := implGetEnabled(); err != nil {
+		if isEnabled, err := implGetEnabled(false); err != nil {
 			return log.ErrorFE("Status check error: %w", err)
 		} else if !isEnabled {
-			return implSetEnabled(true, false)
+			if isDaemonStoppingCallback() {
+				return log.ErrorFE("error - daemon is stopping")
+			}
+			return implSetEnabled(true, false, false, false)
 		}
 
 		// Some Linux distributions erasing IVPN rules during system boot
@@ -301,7 +336,7 @@ func implSetPersistent(persistent bool) error {
 }
 
 func implCleanupRegistration() (err error) {
-	return implSetEnabled(false, false)
+	return implSetEnabled(false, false, false, false)
 }
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
@@ -314,7 +349,7 @@ func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
 
 	customDnsServers = *dnsServers
 
-	if enabled, err := implGetEnabled(); err != nil {
+	if enabled, err := implGetEnabled(false); err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	} else if !enabled {
 		return nil
@@ -393,14 +428,14 @@ func ensurePersistent(secondsToWait int) {
 		if !isPersistent {
 			break
 		}
-		enabled, err := implGetEnabled()
+		enabled, err := implGetEnabled(false)
 		if err != nil {
 			log.Error("[ensurePersistent] ", err)
 			continue
 		}
 		if isPersistent && !enabled {
 			log.Warning("[ensurePersistent] Persistent FW rules not available. Retry to apply...")
-			implSetEnabled(true, false)
+			implSetEnabled(true, false, false, false)
 		}
 	}
 	log.Info("[ensurePersistent] stopped.")

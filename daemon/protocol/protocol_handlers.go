@@ -59,7 +59,7 @@ func (p *Protocol) OnKillSwitchStateChanged() {
 	OnKillSwitchStateChangedMutex.Lock() // single instance.
 	defer OnKillSwitchStateChangedMutex.Unlock()
 
-	if p._service == nil {
+	if p._service == nil || !p._isRunning {
 		return
 	}
 

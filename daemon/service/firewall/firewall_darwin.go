@@ -50,7 +50,7 @@ func init() {
 
 func implInitialize() error { return nil }
 
-func implGetEnabled() (bool, error) {
+func implGetEnabled(_ bool) (bool, error) {
 	err := shell.Exec(nil, platform.FirewallScript(), "-status")
 
 	if err != nil {

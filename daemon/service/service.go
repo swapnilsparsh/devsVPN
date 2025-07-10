@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/api"
@@ -51,6 +52,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform/filerights"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
@@ -80,8 +82,17 @@ const (
 	SessionCheckInterval time.Duration = time.Hour * 1
 )
 
+type pingSet struct {
+	_results_mutex           sync.RWMutex
+	_result                  map[string]int //[host]latency
+	_singleRequestLimitMutex sync.Mutex
+	_notifyClients           bool
+}
+
 // Service - PrivateLINE service
 type Service struct {
+	_daemonStopping atomic.Bool // false from start, will be set to true on daemon shutdown (protocol.Stop())
+
 	_evtReceiver       IServiceEventsReceiver
 	_api               *api.API
 	_serversUpdater    IServersUpdater
@@ -114,11 +125,7 @@ type Service struct {
 
 	_systemLog chan<- SystemLogMessage
 
-	_ping struct {
-		_results_mutex           sync.RWMutex
-		_result                  map[string]int //[host]latency
-		_singleRequestLimitMutex sync.Mutex
-	}
+	_pingServers, _pingInternalApiHosts pingSet
 
 	// variables needed for automatic resume
 	_pause struct {
@@ -140,6 +147,22 @@ type Service struct {
 
 	_statsCallbacks       protocol.StatsCallbacks
 	_vpnConnectedCallback protocolTypes.VpnConnectedCallback
+
+	// connectivityHealthchecksBackgroundMonitor data
+	connectivityHealthchecksBackgroundMonitorDef                                *srvhelpers.ServiceBackgroundMonitor
+	connectivityHealthchecksRunningMutex, connectivityHealthchecksStopFuncMutex sync.Mutex
+	stopPollingConnectivityHealthchecks                                         chan bool
+	backendConnectivityCheckState                                               BackendConnectivityCheckState
+}
+
+// IsDaemonShuttingDown implements protocol.Service.
+func (s *Service) IsDaemonStopping() bool {
+	return s._daemonStopping.Load()
+}
+
+// MarkDaemonShuttingDown implements protocol.Service.
+func (s *Service) MarkDaemonStopping() {
+	s._daemonStopping.Store(true)
 }
 
 // SetRestApiBackend - send true for development REST API backend, false for production one
@@ -187,6 +210,15 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 		_vpnConnectedCallback: evtReceiver.LastVpnStateIsConnected,
 	}
 
+	// init connectivityHealthchecksBackgroundMonitorDef
+	serv.stopPollingConnectivityHealthchecks = make(chan bool, 1)
+	serv.connectivityHealthchecksBackgroundMonitorDef = &srvhelpers.ServiceBackgroundMonitor{
+		MonitorName:          "connectivityHealthchecksBackgroundMonitor",
+		MonitorFunc:          serv.connectivityHealthchecksBackgroundMonitor,
+		MonitorEndChan:       serv.stopPollingConnectivityHealthchecks,
+		MonitorRunningMutex:  &serv.connectivityHealthchecksRunningMutex,
+		MonitorStopFuncMutex: &serv.connectivityHealthchecksStopFuncMutex}
+
 	// register the current service as a 'Connectivity checker' for API object
 	serv._api.SetConnectivityChecker(serv)
 
@@ -198,6 +230,9 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 }
 
 func (s *Service) init() error {
+	s._pingServers._notifyClients = true
+	// s._pingInternalApiHosts._notifyClients = false // false by default
+
 	// Start waiting for IP stack initialization
 	//
 	// _ipStackInitializationWaiter - channel closes as soon as IP stack initialized OR after timeout
@@ -249,7 +284,7 @@ func (s *Service) init() error {
 
 	// initialize firewall functionality
 	if err := firewall.Initialize(s.Preferences, s.disableTotalShieldAsync, s._evtReceiver.OnKillSwitchStateChanged, s.ConnectedOrConnecting,
-		s._vpnConnectedCallback, s._api.GetRestApiHosts); err != nil {
+		s._vpnConnectedCallback, s.IsDaemonStopping, s._api.GetRestApiHosts); err != nil {
 		return fmt.Errorf("firewall initialization error : %w", err)
 	}
 
@@ -268,7 +303,7 @@ func (s *Service) init() error {
 		go func() {
 			<-_ipStackInitializationWaiter // Wait for IP stack initialization
 			// apply Split Tunneling configuration
-			s.splitTunnelling_ApplyConfig()
+			s.splitTunnelling_ApplyConfig(true)
 		}()
 	}
 
@@ -307,9 +342,9 @@ func (s *Service) init() error {
 		}()
 	}
 
-	if err := s.initWiFiFunctionality(); err != nil {
-		log.Error("Failed to init WiFi functionality:", err)
-	}
+	// if err := s.initWiFiFunctionality(); err != nil {
+	// 	log.Error("Failed to init WiFi functionality:", err)
+	// }
 
 	// Start session status checker
 	go func() {
@@ -369,7 +404,7 @@ func (s *Service) UnInitialise() error {
 // - enable Split Tunnel mode
 // - etc. ...
 func (s *Service) unInitialise(isLogout bool) error {
-	log.Info("Uninitialising service...")
+	log.Info(fmt.Sprintf("Uninitialising service... isLogout=%t", isLogout))
 	var retErr error
 	updateRetErr := func(e error) {
 		if retErr != nil {
@@ -415,18 +450,20 @@ func (s *Service) unInitialise(isLogout bool) error {
 
 // IsConnectivityBlocked - returns nil if connectivity NOT blocked
 func (s *Service) IsConnectivityBlocked() error {
-	preferences := s._preferences
-	if !preferences.IsFwAllowApiServers &&
-		preferences.Session.IsLoggedIn() &&
-		(!s.ConnectedOrConnecting() || s.IsPaused()) {
-		enabled, err := s.FirewallEnabled()
-		if err != nil {
-			return fmt.Errorf("access to privateLINE servers is blocked: %w", err)
-		}
-		if enabled {
-			return fmt.Errorf("access to privateLINE servers is blocked (check privateLINE Connect Firewall settings)")
-		}
-	}
+	// preferences := s._preferences
+	// if !preferences.IsFwAllowApiServers &&
+	// 	preferences.Session.IsLoggedIn() &&
+	// 	(!s.ConnectedOrConnecting() || s.IsPaused()) {
+	// 	enabled, err := s.FirewallEnabled()
+	// 	if err != nil {
+	// 		return fmt.Errorf("access to privateLINE servers is blocked: %w", err)
+	// 	}
+	// 	if enabled {
+	// 		return fmt.Errorf("access to privateLINE servers is blocked (check privateLINE Connect Firewall settings)")
+	// 	}
+	// }
+
+	// In principle, connectivity to Wireguard and API servers is never expected to be blocked in privateLINE - both are available over the public internet
 	return nil
 }
 
@@ -589,11 +626,16 @@ func (s *Service) IsCanConnectMultiHop() error {
 	return s._preferences.Account.IsCanConnectMultiHop()
 }
 
-func (s *Service) reconnect() {
+func (s *Service) reconnect() error {
+	if s.IsDaemonStopping() {
+		log.ErrorFE("error - daemon is stopping")
+		return nil
+	}
+
 	// Just call disconnect
 	// The reconnection will be performed automatically in method 'keepConnection(...)'
 	// (according to s._requiredVpnState value == KeepConnection)
-	s.disconnect()
+	return s.disconnect()
 }
 
 // Disconnect disconnect vpn
@@ -617,6 +659,12 @@ func (s *Service) disconnect() error {
 		log.Info("Disconnecting (going to reconnect)...")
 	} else {
 		log.Info("Disconnecting...")
+	}
+
+	// stop all service background monitors 1st thing - as the iptables-legacy one is prone to lengthy timeouts (2-3min) on xtables lock
+	for _, serviceBackgroundMonitor := range s.listAllServiceBackgroundMonitors() {
+		log.Debug("forking StopServiceBackgroundMonitor() for '", serviceBackgroundMonitor.MonitorName, "' from disconnect()")
+		go serviceBackgroundMonitor.StopServiceBackgroundMonitor() // async, as iptables-legacy one sleeps for 5s between each polling loop iteration
 	}
 
 	// stop detections for routing changes
@@ -699,7 +747,7 @@ func (s *Service) Pause(durationSeconds uint32) error {
 	// Update SplitTunnel state (if enabled)
 	prefs := s.Preferences()
 	if !prefs.IsTotalShieldOn {
-		if err := s.splitTunnelling_ApplyConfig(); err != nil {
+		if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 			log.Error(err)
 		}
 	}
@@ -764,7 +812,7 @@ func (s *Service) Resume() error {
 	// Update SplitTunnel state (if enabled)
 	prefs := s.Preferences()
 	if !prefs.IsTotalShieldOn {
-		if err := s.splitTunnelling_ApplyConfig(); err != nil {
+		if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 			log.Error(err)
 			return err
 		}
@@ -890,7 +938,7 @@ func (s *Service) SetManualDNS(dnsCfg dns.DnsSettings, antiTracker types.AntiTra
 	defer func() {
 		if isChanged {
 			// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servers or to manually defined server
-			if err := s.splitTunnelling_ApplyConfig(); err != nil {
+			if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 				log.Error(err)
 			}
 		}
@@ -1193,7 +1241,7 @@ func (s *Service) KillSwitchReregister(canStopOtherVpn bool) (err error) {
 	// Otherwise, if we're trying to connect VPN and reregister our firewall in parallel - we tend to get errors in firewall.HaveTopFirewallPriority() (looking up meet.privateline.network)
 	go s.Disconnect()
 
-	if err = firewall.TryReregisterFirewallAtTopPriority(canStopOtherVpn); err != nil {
+	if err = firewall.TryReregisterFirewallAtTopPriority(canStopOtherVpn, false); err != nil {
 		return err
 	}
 
@@ -1323,11 +1371,11 @@ func (s *Service) disableTotalShieldAsync() {
 	disableTotalShieldAsyncMutex.Lock()
 	defer disableTotalShieldAsyncMutex.Unlock()
 
-	prefs := s._preferences
-	if !prefs.IsTotalShieldOn { // if already disabled - nothing to do
+	if !s._preferences.IsTotalShieldOn { // if already disabled - nothing to do
 		return
 	}
 
+	prefs := s._preferences
 	prefs.IsTotalShieldOn = false
 	s.setPreferences(prefs)
 
@@ -1552,11 +1600,11 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhit
 	fmt.Print("\n========================Split Tunnel Service value As Passed from Frontend END===============================\n")
 	// ======================== Split Tunnel Service value As Passed from Frontend END ==============================
 
-	if ret = s.splitTunnelling_ApplyConfig(); ret != nil {
+	if ret = s.splitTunnelling_ApplyConfig(true); ret != nil {
 		ret = log.ErrorFE("failed to apply SplitTunnel configuration, error in s.splitTunnelling_ApplyConfig(): %w", ret)
 		// if error - restore old preferences and apply configuration
 		s.setPreferences(prefsOld)
-		if err := s.splitTunnelling_ApplyConfig(); err != nil {
+		if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 			log.ErrorFE("failed to restore SplitTunnel configuration: %w", err)
 		}
 	}
@@ -1577,7 +1625,7 @@ func (s *Service) splitTunnelling_Reset() error {
 	splittun.Reset()
 
 	// Apply configuration
-	return s.splitTunnelling_ApplyConfig()
+	return s.splitTunnelling_ApplyConfig(true)
 }
 
 // splitTunnelling_ApplyConfig() applies the required SplitTunnel configuration based on:
@@ -1588,7 +1636,12 @@ func (s *Service) splitTunnelling_Reset() error {
 // - VPN connection state changed
 // - SplitTunnel configuration changed
 // - DNS configuration changed (needed for updating Inverse Split Tunnel firewal rule)
-func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
+//
+// applyTotalShieldUnconditionally:
+//
+//	true - propagate Total Shield setting from preferences to firewall unconditionally (well, if firewall is up); run firewall.TotalShieldApply() synchronously
+//	false - fork firewall.ReDetectOtherVpns() asynchronously; instruct it to scan for other VPNs only by interface names
+func (s *Service) splitTunnelling_ApplyConfig(applyTotalShieldUnconditionally bool) (retError error) {
 	defer func() {
 		// notify changed ST configuration status (even if functionality not available)
 		s._evtReceiver.OnSplitTunnelStatusChanged()
@@ -1613,21 +1666,21 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	// }
 
 	// Network changes detection must be disabled for Inverse SplitTunneling
-	if prefs.IsInverseSplitTunneling() {
-		// If inverse SplitTunneling is enabled - stop detection of network changes (if it already started)
-		if err := s._netChangeDetector.Stop(); err != nil {
-			log.Error(fmt.Sprintf("Unable to stop network changes detection: %v", err.Error()))
-		}
-	} else {
-		defer func() {
-			// If inverse SplitTunneling is disabled - start detection of network changes (if it is not already started)
-			if s.ConnectedOrConnecting() {
-				if err := s._netChangeDetector.Start(); err != nil {
-					log.Error(fmt.Sprintf("Unable to start network changes detection: %v", err.Error()))
-				}
+	// if prefs.IsInverseSplitTunneling() {
+	// 	// If inverse SplitTunneling is enabled - stop detection of network changes (if it already started)
+	// 	if err := s._netChangeDetector.Stop(); err != nil {
+	// 		log.Error(fmt.Sprintf("Unable to stop network changes detection: %v", err.Error()))
+	// 	}
+	// } else {
+	defer func() {
+		// If inverse SplitTunneling is disabled - start detection of network changes (if it is not already started)
+		if s.ConnectedOrConnecting() {
+			if err := s._netChangeDetector.Start(); err != nil {
+				log.Error(fmt.Sprintf("Unable to start network changes detection: %v", err.Error()))
 			}
-		}()
-	}
+		}
+	}()
+	// }
 
 	// sInf := s.GetVpnSessionInfo()
 
@@ -1688,10 +1741,18 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 	// Apply Split-Tun config
 	// if runtime.GOOS == "windows" {
 	// log.Debug("splitTunnelling_ApplyConfig calling firewall.TotalShieldApply() with prefs.IsTotalShieldOn=", prefs.IsTotalShieldOn)
-	return firewall.TotalShieldApply()
+	// return firewall.TotalShieldApply()
 	// } else {
 	// 	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.EnableAppWhitelist, prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
 	// }
+
+	if applyTotalShieldUnconditionally {
+		return firewall.TotalShieldApply() // synchronously
+	} else {
+		go firewall.ReDetectOtherVpns(true, true, true) // scan for other VPNs only by interface names, asynchronously; force redetection
+	}
+
+	return nil
 }
 
 func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAlreadyRunning bool, err error) {
@@ -1699,13 +1760,13 @@ func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAl
 	// 	return "", false, fmt.Errorf("unable to run application in Split Tunnel environment: Split Tunnel is disabled")
 	// }
 	// apply ST configuration after function ends
-	defer s.splitTunnelling_ApplyConfig()
+	defer s.splitTunnelling_ApplyConfig(true)
 	return s.implSplitTunnelling_AddApp(exec)
 }
 
 func (s *Service) SplitTunnelling_RemoveApp(pid int, exec string) (err error) {
 	// apply ST configuration after function ends
-	defer s.splitTunnelling_ApplyConfig()
+	defer s.splitTunnelling_ApplyConfig(true)
 	return s.implSplitTunnelling_RemoveApp(pid, exec)
 }
 
@@ -2043,7 +2104,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
 	// Apply SplitTunnel configuration. It is applicable for Inverse mode of SplitTunnel
-	if err := s.splitTunnelling_ApplyConfig(); err != nil {
+	if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 		log.Error(fmt.Errorf("splitTunnelling_ApplyConfig failed: %v", err))
 		return apiCode, "", accountInfo, "", err
 	}
@@ -2253,7 +2314,7 @@ func (s *Service) SsoLogin(code string, sessionCode string, disableFirewallOnExi
 	log.Info(fmt.Sprintf("(logging in) WG keys updated (%s:%s; psk:%v)", localIP, publicKey, len(wgPresharedKey) > 0))
 
 	// Apply SplitTunnel configuration. It is applicable for Inverse mode of SplitTunnel
-	if err := s.splitTunnelling_ApplyConfig(); err != nil {
+	if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 		log.Error(fmt.Errorf("splitTunnelling_ApplyConfig failed: %v", err))
 		return apiCode, "", rawResponse, err
 	}
@@ -2459,6 +2520,16 @@ func (s *Service) OnSessionStatus(sessionToken string, sessionData preferences.S
 	s._preferences.UpdateSessionData(sessionData)
 	// notify about account status
 	s._evtReceiver.OnSessionStatus(sessionToken, sessionData)
+}
+
+func (s *Service) CheckBackendConnectivity() (success bool, err error) {
+	// Enable one of implementations
+
+	// Healthchecks implementation using REST API calls
+	// return s._api.PublicGetPlans()
+
+	// Healthchecks implementation via pinging API backend servers
+	return s.PingInternalApiHosts()
 }
 
 // RequestSessionStatus receives session status
@@ -2726,4 +2797,10 @@ func (s *Service) setPreferences(p preferences.Preferences) {
 		s._preferences = p
 		s._preferences.SavePreferences()
 	}
+}
+
+func (s *Service) listAllServiceBackgroundMonitors() (allBackgroundMonitors []*srvhelpers.ServiceBackgroundMonitor) {
+	allBackgroundMonitors = firewall.GetFirewallBackgroundMonitors()
+	allBackgroundMonitors = append(allBackgroundMonitors, s.connectivityHealthchecksBackgroundMonitorDef)
+	return allBackgroundMonitors
 }

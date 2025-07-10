@@ -123,8 +123,8 @@ func rctl_applySetManual(dnsCfg DnsSettings, localInterfaceIP net.IP) (dnsInfoFo
 	if err = shell.Exec(log, binPath, "default-route", localInterfaceName, "true"); err != nil {
 		return DnsSettings{}, rctl_error(err)
 	}
-	// resolvectl dns wgprivateline <dnsSrv1> <dnsSrv1> ...
-	resolvectlDnsCmdArgs := append([]string{"dns", localInterfaceName})
+	// resolvectl dns wgprivateline <dnsSrv1> <dnsSrv2> ...
+	resolvectlDnsCmdArgs := []string{"dns", localInterfaceName}
 	for _, dnsSrvIP := range dnsCfg.DnsServers {
 		resolvectlDnsCmdArgs = append(resolvectlDnsCmdArgs, dnsSrvIP.String())
 	}

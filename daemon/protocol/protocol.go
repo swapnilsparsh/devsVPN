@@ -43,7 +43,8 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
-	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
+	firewall_types "github.com/swapnilsparsh/devsVPN/daemon/service/firewall/types"
+
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
@@ -65,7 +66,7 @@ type ServiceRecoverableError struct {
 }
 
 func (se *ServiceRecoverableError) Error() string {
-	ret := string(se.errorCode) + ": " + se.errorDescription
+	ret := strconv.FormatUint(uint64(se.errorCode), 10) + ": " + se.errorDescription
 	if se.containedErr != nil {
 		ret += ": " + se.containedErr.Error()
 	}
@@ -100,6 +101,9 @@ var (
 
 // Service - service interface
 type Service interface {
+	MarkDaemonStopping()
+	IsDaemonStopping() bool
+
 	UnInitialise() error
 
 	SetRestApiBackend(devEnv bool) error // true to use development REST API backend servers, false for production ones
@@ -122,6 +126,7 @@ type Service interface {
 	ServersListForceUpdate() (*api_types.ServersInfoResponse, error)
 
 	PingServers(timeoutMs int, vpnTypePrioritized vpn.Type, skipSecondPhase bool) (map[string]int, error)
+	PingInternalApiHosts() (success bool, err error)
 
 	APIRequest(apiAlias string, ipTypeRequired types.RequiredIPProtocol) (responseData []byte, err error)
 	DetectAccessiblePorts(portsToTest []api_types.PortInfo) (retPorts []api_types.PortInfo, err error)
@@ -216,6 +221,10 @@ type Service interface {
 		sessionData preferences.SessionMutableData,
 		err error)
 
+	CheckBackendConnectivity() (
+		success bool,
+		err error)
+
 	WireGuardGenerateKeys(updateIfNecessary bool) error
 	WireGuardSetKeysRotationInterval(interval int64)
 
@@ -293,6 +302,7 @@ func (p *Protocol) Stop() {
 	listener := p._connListener
 	if listener != nil {
 		// keep info that stop command requested
+		p._service.MarkDaemonStopping()
 		p._isRunning = false
 		// do not accept new incoming connections
 		listener.Close()
@@ -792,14 +802,14 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 
 		if err := p._service.KillSwitchReregister(req.CanStopOtherVpn); err != nil { // try to reregister at top firewall pri
-			var fe *firewall.FirewallError
-			if errors.As(err, &fe) && fe.OtherVpnUnknownToUs() { // if grabbing 0xFFFF failed, and other VPN is not registered in our database - report to client
+			var fe *firewall_types.FirewallError
+			if errors.As(err, &fe) && fe.GetOtherVpnUnknownToUs() { // if grabbing 0xFFFF failed, and other VPN is not registered in our database - report to client
 				log.Error(fmt.Errorf("%sError processing request '%s': %w", p.connLogID(conn), req.Command, fe.GetContainedErr()))
 				resp := types.KillSwitchReregisterErrorResp{
 					ErrorMessage:        helpers.CapitalizeFirstLetter(fe.GetContainedErr().Error()),
-					OtherVpnUnknownToUs: fe.OtherVpnUnknownToUs(),
-					OtherVpnName:        fe.OtherVpnName(),
-					OtherVpnGUID:        fe.OtherVpnGUID()}
+					OtherVpnUnknownToUs: fe.GetOtherVpnUnknownToUs(),
+					OtherVpnName:        fe.GetOtherVpnName(),
+					OtherVpnGUID:        fe.GetOtherVpnGUID()}
 				p.sendResponse(conn, &resp, req.Idx)
 			} else {
 				p.sendErrorResponse(conn, reqCmd, err)
@@ -1761,6 +1771,22 @@ func (p *Protocol) OnVpnStateChanged_ProcessSavedState() {
 	default:
 		p.notifyClients(&types.VpnStateResp{StateVal: state.State, State: state.State.String(), StateAdditionalInfo: state.StateAdditionalInfo})
 	}
+}
+
+// NotifyClientsVpnConnecting - unconditionally sent clients CONNECTING state for VPN
+// Used to report loss of connectivity, when healthchecks fails
+func (p *Protocol) NotifyClientsVpnConnecting() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("Panic when notifying VPN status to clients! (recovered)")
+			log.Error(string(debug.Stack()))
+			if err, ok := r.(error); ok {
+				log.ErrorTrace(err)
+			}
+		}
+	}()
+
+	p.notifyClients(&types.VpnStateResp{StateVal: vpn.CONNECTING, State: vpn.CONNECTING.String()})
 }
 
 func (p *Protocol) OnVpnPauseChanged() {

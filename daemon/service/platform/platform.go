@@ -384,6 +384,10 @@ func KemHelperBinaryPath() string {
 	return kemHelperBinaryPath
 }
 
+func PLServiceBinariesToAddToOtherVpnSplitTunnel() []string {
+	return []string{WgBinaryPath(), WgToolBinaryPath()}
+}
+
 func PLServiceBinariesForFirewallToUnblock() []string {
 	daemonBinaryPath, _ := os.Executable()
 	return []string{daemonBinaryPath, WgBinaryPath(), WgToolBinaryPath()}

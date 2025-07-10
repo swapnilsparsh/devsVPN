@@ -34,8 +34,10 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/netinfo"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
 	"golang.org/x/sys/windows"
 )
 
@@ -126,7 +128,7 @@ func createAddSublayer() error {
 	return nil
 }
 
-func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfigured bool, retErr error) {
+func implReregisterFirewallAtTopPriority(canStopOtherVpn, _ bool) (firewallReconfigured bool, retErr error) {
 	// Can't delete the sublayer if there are rules registered under it. So if VPN is connected - disable firewall, reregister sublayer, enable firewall.
 
 	// if err := manager.TransactionStart(); err != nil { // start WFP transaction
@@ -152,20 +154,20 @@ func implReregisterFirewallAtTopPriority(canStopOtherVpn bool) (firewallReconfig
 	// }()
 
 	var wasEnabled bool
-	wasEnabled, retErr = implGetEnabled()
+	wasEnabled, retErr = implGetEnabled(false)
 	if retErr != nil {
 		return false, log.ErrorFE("status check error: %w", retErr)
 	}
 
 	if wasEnabled {
-		if retErr = implSetEnabled(false, false); retErr != nil {
+		if retErr = implSetEnabled(false, false, false, false); retErr != nil {
 			return false, log.ErrorFE("error disabling firewall: %w", retErr)
 		}
 	}
 	var retErr2 error = nil
 	defer func() {
 		if wasEnabled {
-			if retErr2 = implSetEnabled(true, false); retErr != nil {
+			if retErr2 = implSetEnabled(true, false, true, true); retErr != nil {
 				retErr2 = log.ErrorFE("error re-enabling firewall: %w", retErr)
 				return
 			}
@@ -214,13 +216,13 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 		_otherSublayerGUID                                           syscall.GUID
 		otherVpn                                                     *OtherVpnInfoParsed = nil
 
-		otherVpnUnknownErr FirewallError = FirewallError{containedErr: nil, otherVpnUnknownToUs: false}
+		otherVpnUnknownErr = types.FirewallError{ContainedErr: nil, OtherVpnUnknownToUs: false}
 	)
 
 	defer func() { // if other VPN was not registered in our db - propagate that info up, to be shown in client
-		if otherVpnUnknownErr.otherVpnUnknownToUs && (err != nil || otherVpnUnknownErr.containedErr != nil) {
+		if otherVpnUnknownErr.OtherVpnUnknownToUs && (err != nil || otherVpnUnknownErr.ContainedErr != nil) {
 			if err != nil {
-				otherVpnUnknownErr.containedErr = err
+				otherVpnUnknownErr.ContainedErr = err
 			}
 			err = &otherVpnUnknownErr
 		}
@@ -256,11 +258,11 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 			return log.ErrorFE("failed to check for sublayer with max weight: %w", err)
 		}
 		if maxWeightSublayerFound {
-			otherVpnUnknownErr.otherVpnGUID = windows.GUID(_otherSublayerGUID).String()
+			otherVpnUnknownErr.OtherVpnGUID = windows.GUID(_otherSublayerGUID).String()
 			otherSublayerMsg := fmt.Sprintf("Another sublayer with key/UUID '%s' is registered with max weight", windows.GUID(_otherSublayerGUID).String())
 			otherSublayerFound, otherSublayer, err = manager.GetSubLayerByKey(_otherSublayerGUID)
 			if err == nil && otherSublayerFound {
-				otherVpnUnknownErr.otherVpnName = otherSublayer.Name
+				otherVpnUnknownErr.OtherVpnName = otherSublayer.Name
 				otherSublayerMsg += ". Other sublayer information:\n" + otherSublayer.String()
 			} else {
 				otherSublayer.Key = _otherSublayerGUID
@@ -278,7 +280,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 					log.Warning(err)
 				} else {
 					log.Debug(fmt.Sprintf("otherVpn = %+v", otherVpn))
-					otherVpnUnknownErr.otherVpnUnknownToUs = !otherVpn.OtherVpnKnown
+					otherVpnUnknownErr.OtherVpnUnknownToUs = !otherVpn.OtherVpnKnownFromDB
 					if err = otherVpn.PreSteps(); err != nil {
 						err = fmt.Errorf("error taking pre-steps for other VPN '%s' '%s', continuing with generic interoperation approach. Error: %w",
 							windows.GUID(_otherSublayerGUID).String(), otherSublayer.Name, err)
@@ -324,7 +326,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canStopOthe
 				log.Info(reregisterMsg + ": SUCCESS")
 				return nil
 			} else {
-				otherVpnUnknownErr.containedErr = fmt.Errorf("error registering our sublayer with max weight 0x%04X", winlib.SUBLAYER_MAX_WEIGHT)
+				otherVpnUnknownErr.ContainedErr = fmt.Errorf("error registering our sublayer with max weight 0x%04X", winlib.SUBLAYER_MAX_WEIGHT)
 			}
 		}
 	}
@@ -349,7 +351,7 @@ func implInitialize() (retErr error) {
 	return checkCreateProviderAndSublayer(false, false)
 }
 
-func implGetEnabled() (isEnabled bool, err error) {
+func implGetEnabled(_ bool) (isEnabled bool, err error) {
 	if found, pInfo, err := manager.GetProviderInfo(providerKey); err != nil {
 		_isEnabled = false
 		return false, log.ErrorFE("failed to get provider info: %w", err)
@@ -358,7 +360,11 @@ func implGetEnabled() (isEnabled bool, err error) {
 	}
 }
 
-func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress bool) (retErr error) {
+func implSetEnabled(isEnabled, wfpTransactionAlreadyInProgress, rescanForOtherVpns, forceRedetectOtherVpns bool) (retErr error) {
+	if rescanForOtherVpns {
+		go reDetectVpnsWithCliAndRunTheirCliActions(forceRedetectOtherVpns, false)
+	}
+
 	if !wfpTransactionAlreadyInProgress {
 		if retErr = manager.TransactionStart(); retErr != nil { // start WFP transaction
 			return log.ErrorFE("failed to start transaction: %w", retErr)
@@ -496,7 +502,7 @@ func implAllowLAN(allowLan bool, allowLanMulticast bool) error {
 	isAllowLAN = allowLan
 	isAllowLANMulticast = allowLanMulticast
 
-	enabled, err := implGetEnabled()
+	enabled, err := implGetEnabled(false)
 	if err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
@@ -516,7 +522,7 @@ func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
 
 	customDnsServers = *dnsServers
 
-	if enabled, err := implGetEnabled(); err != nil {
+	if enabled, err := implGetEnabled(false); err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	} else if !enabled {
 		return nil
@@ -539,7 +545,7 @@ func implOnChangeDNS(dnsServers *[]net.IP) (err error) {
 
 // implOnUserExceptionsUpdated() called when 'userExceptions' value were updated. Necessary to update firewall rules.
 func implOnUserExceptionsUpdated() error {
-	enabled, err := implGetEnabled()
+	enabled, err := implGetEnabled(false)
 	if err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
@@ -552,6 +558,8 @@ func implOnUserExceptionsUpdated() error {
 
 // implReEnable unconditionally starts WFP transaction, so callers must not have started one already
 func implReEnable() (retErr error) {
+	go reDetectVpnsWithCliAndRunTheirCliActions(false, false)
+
 	log.Info("implReEnable")
 	if err := manager.TransactionStart(); err != nil { // start WFP transaction
 		return log.ErrorFE("failed to start transaction: %w", err)
@@ -631,7 +639,7 @@ func doEnable(wfpTransactionAlreadyInProgress bool) (err error) {
 	log.Info("doEnable")
 	implSingleDnsRuleOff()
 
-	if enabled, err := implGetEnabled(); err != nil {
+	if enabled, err := implGetEnabled(false); err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	} else if enabled {
 		return nil
@@ -1011,7 +1019,7 @@ func doDisable(wfpTransactionAlreadyInProgress bool) (err error) {
 
 	implSingleDnsRuleOff()
 
-	if fwEnabled, err2 := implGetEnabled(); err2 != nil {
+	if fwEnabled, err2 := implGetEnabled(false); err2 != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err2) // and continue
 	} else if !fwEnabled { // Vlad - doDisable() is essentially cleaning out old rules, may need to run this even if firewall was disabled to begin with
 		log.Info("firewall was already disabled, but cleaning out rules in all our layers anyway")
@@ -1239,7 +1247,7 @@ func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr 
 		return nil
 	}
 
-	enabled, err := implGetEnabled()
+	enabled, err := implGetEnabled(false)
 	if err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
@@ -1279,7 +1287,7 @@ func doRemoveClientIPFilters() (retErr error) {
 		clientLocalIPFilterIDs = nil
 	}()
 
-	enabled, err := implGetEnabled()
+	enabled, err := implGetEnabled(false)
 	if err != nil {
 		return log.ErrorFE("failed to get info if firewall is on: %w", err)
 	}
@@ -1542,8 +1550,8 @@ func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriorit
 	return implHaveTopFirewallPriority(recursionDepth + 1)
 }
 
-func implGetFirewallBackgroundMonitors() []*FirewallBackgroundMonitor {
-	return []*FirewallBackgroundMonitor{}
+func implGetFirewallBackgroundMonitors() (monitors []*srvhelpers.ServiceBackgroundMonitor) {
+	return []*srvhelpers.ServiceBackgroundMonitor{}
 }
 
 func DisableCoexistenceWithOtherVpns() error {

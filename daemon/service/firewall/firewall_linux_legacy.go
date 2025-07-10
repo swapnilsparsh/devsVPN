@@ -50,9 +50,10 @@ const (
 )
 
 var (
-	fwLinuxLegacyMutex                       sync.Mutex           // global lock for firewall_linux_legacy read and write operations
-	stopMonitoringFirewallChangesLegacy      = make(chan bool, 2) // used to send a stop signal to implFirewallBackgroundMonitorLegacy() thread
-	implFirewallBackgroundMonitorLegacyMutex sync.Mutex           // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy function
+	fwLinuxLegacyMutex                               sync.Mutex           // global lock for firewall_linux_legacy read and write operations
+	stopMonitoringFirewallChangesLegacy              = make(chan bool, 1) // used to send a stop signal to implFirewallBackgroundMonitorLegacy() thread
+	implFirewallBackgroundMonitorLegacyRunningMutex  sync.Mutex           // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy function
+	implFirewallBackgroundMonitorLegacyStopFuncMutex sync.Mutex           // to ensure there's only one instance of StopFirewallBackgroundMonitor function for this instance
 
 	// iptablesLegacyWasInitialized starts as false on daemon startup - so iptables-legacy support by default is uninitialized. If reDetectOtherVpnsLinux() detects
 	// another VPN that affects legacy tables, it will call implInitializeIptablesLegacyWhenNeeded() to initialize iptables-legacy support. iptablesLegacyInitialized
@@ -69,6 +70,10 @@ var (
 )
 
 func printIptablesLegacy() {
+	if !iptablesLegacyWasInitialized.Load() || isDaemonStoppingCallback() {
+		return // if iptables-legacy not initialized - don't print it
+	}
+
 	// iptables-legacy -L -nv
 	outText, outErrText, exitCode, isBufferTooSmall, err := shell.ExecAndGetOutput(log, 32768, "", iptablesLegacyPath, "-L", "-nv")
 	// trim trailing newlines
@@ -83,6 +88,10 @@ func implInitializeIptablesLegacy() (err error) { // Does nothing. Actual implem
 
 var implInitializeIptablesLegacyWhenNeededMutex sync.Mutex // single instance
 func implInitializeIptablesLegacyWhenNeeded() (err error) {
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	implInitializeIptablesLegacyWhenNeededMutex.Lock()
 	defer implInitializeIptablesLegacyWhenNeededMutex.Unlock()
 
@@ -115,15 +124,23 @@ func iptablesLegacyInitialized() bool {
 }
 
 func implHaveTopFirewallPriorityLegacy() (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
-	weHaveTopFirewallPriority, retErr = implGetEnabledLegacy()
+	weHaveTopFirewallPriority, retErr = implGetEnabledLegacy(false)
 	return weHaveTopFirewallPriority, "", "", "", retErr
 }
 
 // implGetEnabledLegacy checks whether 1st rules in INPUT, OUTPUT chains are jumps to our chains. Never returns error, because go-xtables parsing may fail.
-func implGetEnabledLegacy() (exists bool, retErr error) {
-	if !iptablesLegacyWasInitialized.Load() {
+func implGetEnabledLegacy(blockingWait bool) (exists bool, retErr error) {
+	if !iptablesLegacyWasInitialized.Load() || isDaemonStoppingCallback() {
 		return true, nil // if iptables-legacy functionality is disabled altogether, then return true to avoid triggering further actions
 	}
+
+	if blockingWait {
+		fwLinuxLegacyMutex.Lock()
+		defer fwLinuxLegacyMutex.Unlock()
+	}
+
+	// log.Debug("implGetEnabledLegacy entered")
+	// defer log.Debug("implGetEnabledLegacy exited")
 
 	var err2 error
 	defer func() {
@@ -131,9 +148,6 @@ func implGetEnabledLegacy() (exists bool, retErr error) {
 			printIptablesLegacy()
 		}
 	}()
-
-	// log.Debug("implGetEnabledLegacy entered")
-	// defer log.Debug("implGetEnabledLegacy exited")
 
 	// TODO: ? implement check-reenable logic? if the 1st rule in INPUT, OUTPUT not a jump to our chains - just add
 
@@ -162,8 +176,8 @@ func implGetEnabledLegacy() (exists bool, retErr error) {
 	return true, nil
 }
 
-func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, retErr error) {
-	if !iptablesLegacyWasInitialized.Load() {
+func implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, forceRedetectOtherVpns bool) (firewallReconfigured bool, retErr error) {
+	if !iptablesLegacyWasInitialized.Load() || isDaemonStoppingCallback() {
 		return false, nil
 	}
 
@@ -174,19 +188,30 @@ func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, ret
 	// log.Debug("implReregisterFirewallAtTopPriorityLegacy entered")
 	// defer log.Debug("implReregisterFirewallAtTopPriorityLegacy exited")
 
-	if weHaveTopFirewallPriority, err := implGetEnabledLegacy(); err != nil {
-		return false, log.ErrorFE("error in implGetEnabledLegacy(): %w", err)
-	} else if weHaveTopFirewallPriority {
-		return false, nil
+	entryMsg := ""
+	if !forceReconfigureFirewall {
+		if weHaveTopFirewallPriority, err := implGetEnabledLegacy(false); err != nil {
+			return false, log.ErrorFE("error in implGetEnabledLegacy(): %w", err)
+		} else if weHaveTopFirewallPriority {
+			return false, nil
+		} else if isDaemonStoppingCallback() {
+			return false, log.ErrorFE("error - daemon is stopping")
+		}
+
+		entryMsg = "don't have top pri, need to reenable firewall"
+	} else {
+		entryMsg = "forced to reenable firewall"
 	}
 
 	// signal loss of top firewall priority to UI
 	go waitForTopFirewallPriAfterWeLostIt()
 
-	log.Debug("implReregisterFirewallAtTopPriorityLegacy - don't have top pri, need to reenable firewall")
+	log.Debug("implReregisterFirewallAtTopPriorityLegacy - ", entryMsg)
 
-	if _, err := reDetectOtherVpnsLinux(true, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableLegacy() needs otherVpnsLegacyMutex
-		log.ErrorFE("error reDetectOtherVpnsLinux(true, true): %w", err) // and continue
+	if forceRedetectOtherVpns {
+		if _, err := reDetectOtherVpnsImpl(true, false, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableLegacy() needs otherVpnsLegacyMutex
+			log.ErrorFE("error reDetectOtherVpnsImpl(true, true): %w", err) // and continue
+		}
 	}
 	if err := implReEnableLegacy(true); err != nil {
 		return true, log.ErrorFE("error in implReEnableLegacy: %w", err)
@@ -202,25 +227,34 @@ func implReregisterFirewallAtTopPriorityLegacy() (firewallReconfigured bool, ret
 // It polls regularly whether we have top firewall priority. If don't have top pri - it recreates our firewall objects.
 // To stop this thread - send to stopMonitoringFirewallChangesLegacy chan.
 func implFirewallBackgroundMonitorLegacy() {
-	if !iptablesLegacyWasInitialized.Load() {
+	if !iptablesLegacyWasInitialized.Load() || isDaemonStoppingCallback() {
 		return
 	}
 
-	implFirewallBackgroundMonitorLegacyMutex.Lock() // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy
-	defer implFirewallBackgroundMonitorLegacyMutex.Unlock()
+	implFirewallBackgroundMonitorLegacyRunningMutex.Lock() // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy
+	defer implFirewallBackgroundMonitorLegacyRunningMutex.Unlock()
 
 	log.Debug("implFirewallBackgroundMonitorLegacy entered")
 	defer log.Debug("implFirewallBackgroundMonitorLegacy exited")
 
+	loopIteration := 0
 	for {
-		time.Sleep(time.Second * 5)
 		select {
 		case _ = <-stopMonitoringFirewallChangesLegacy:
 			log.Debug("implFirewallBackgroundMonitorLegacy exiting on stop signal")
 			return
 		default: // no message received
-			if _, err := implReregisterFirewallAtTopPriorityLegacy(); err != nil {
-				log.ErrorFE("error in implReregisterFirewallAtTopPriorityLegacy(): %w", err) // and continue
+			if isDaemonStoppingCallback() {
+				log.ErrorFE("error - daemon is stopping")
+				return
+			}
+
+			time.Sleep(time.Second) // sleep 1 second per each loop iteration
+			loopIteration = (loopIteration + 1) % 5
+			if loopIteration == 0 { // poll iptables-legacy only every 5th iteration - that is, once every 5 seconds
+				if _, err := implReregisterFirewallAtTopPriorityLegacy(false, true); err != nil {
+					log.ErrorFE("error in implReregisterFirewallAtTopPriorityLegacy(): %w", err) // and continue
+				}
 			}
 		}
 	}
@@ -231,12 +265,17 @@ func implReEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 		return nil
 	}
 
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	if !fwLinuxLegacyMutexGrabbed {
 		fwLinuxLegacyMutex.Lock()
 		defer fwLinuxLegacyMutex.Unlock()
 	}
 
-	log.Debug("implReEnableLegacy")
+	log.Debug("implReEnableLegacy entered")
+	defer log.Debug("implReEnableLegacy exited")
 
 	if err := doDisableLegacy(true); err != nil {
 		log.ErrorFE("failed to disable iptables-legacy firewall: %w", err) // and continue
@@ -255,6 +294,10 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 		return nil
 	}
 
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	if !fwLinuxLegacyMutexGrabbed {
 		fwLinuxLegacyMutex.Lock()
 		defer fwLinuxLegacyMutex.Unlock()
@@ -269,7 +312,7 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 		}
 	}()
 
-	if enabled, err := implGetEnabledLegacy(); err != nil {
+	if enabled, err := implGetEnabledLegacy(false); err != nil {
 		return log.ErrorFE("error implGetEnabledLegacy(): %w", err)
 	} else if enabled {
 		log.Debug("iptables-legacy already enabled, not enabling again")
@@ -440,6 +483,10 @@ func implDeployPostConnectionRulesLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr
 		return nil
 	}
 
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	if !fwLinuxLegacyMutexGrabbed {
 		fwLinuxLegacyMutex.Lock()
 		defer fwLinuxLegacyMutex.Unlock()
@@ -448,7 +495,7 @@ func implDeployPostConnectionRulesLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr
 	log.Debug("implDeployPostConnectionRulesLegacy entered")
 	defer log.Debug("implDeployPostConnectionRulesLegacy exited")
 
-	if firewallEnabled, err := implGetEnabledLegacy(); err != nil {
+	if firewallEnabled, err := implGetEnabledLegacy(false); err != nil {
 		return log.ErrorFE("status check error: %w", err)
 	} else if !firewallEnabled || !vpnConnectedOrConnectingCallback() {
 		return nil // our tables not up or VPN not connected/connecting, so skipping

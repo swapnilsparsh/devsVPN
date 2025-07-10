@@ -149,7 +149,7 @@ func Launch() {
 
 	defer func() {
 		doBeforeStop() // OS-specific steps required before shutdown
-		log.Info(helpers.ServiceName + " daemon stopped.")
+		log.Info(helpers.ServiceName + " daemon " + version.GetFullVersion() + " stopped.")
 		doStopped() // OS-specific service finalizer
 	}()
 

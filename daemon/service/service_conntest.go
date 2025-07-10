@@ -130,7 +130,7 @@ func (s *Service) doDetectAccessiblePorts(portsToTest []types.PortInfo) ([]types
 	const theTimeout = time.Millisecond * 500
 
 	checkPort := func(p types.PortInfo) error {
-		servAddr := fmt.Sprintf("%s:%d", remoteEchoServerIP, p.Port)
+		servAddr := fmt.Sprintf("%v:%d", remoteEchoServerIP, p.Port)
 
 		if p.IsUDP() {
 			conn, err := net.Dial("udp", servAddr)

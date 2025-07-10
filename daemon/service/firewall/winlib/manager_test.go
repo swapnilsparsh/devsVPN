@@ -31,7 +31,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/swapnilsparsh/devsVPN/daemon/ping"
+	probing "github.com/prometheus-community/pro-bing"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 )
 
@@ -49,7 +49,7 @@ func TestBlockAll(t *testing.T) {
 	v6Layers := []syscall.GUID{winlib.FwpmLayerAleAuthConnectV6, winlib.FwpmLayerAleAuthRecvAcceptV6}
 
 	isPingableFunc := func(ip net.IP) bool {
-		pinger, err := ping.NewPinger(ip.String())
+		pinger, err := probing.NewPinger(ip.String())
 		if err != nil {
 			return false
 		}
@@ -62,10 +62,7 @@ func TestBlockAll(t *testing.T) {
 		pinger.Run()
 
 		stat := pinger.Statistics()
-		if stat.PacketsRecv > 0 {
-			return true
-		}
-		return false
+		return stat.PacketsRecv > 0
 	}
 
 	enableFunc := func() {
