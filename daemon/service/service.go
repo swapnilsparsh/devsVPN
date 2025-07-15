@@ -1333,6 +1333,13 @@ func (s *Service) SetPreference(key protocolTypes.ServicePreference, val string)
 			prefs.IsAutoconnectOnLaunchDaemon = val
 		}
 
+	case protocolTypes.Prefs_HealthchecksType:
+		if val == "Ping" || val == "RestApiCall" || val == "Disabled" {
+			isChanged = val != prefs.HealthchecksType
+			prefs.HealthchecksType = val
+		} else {
+			return false, fmt.Errorf("invalid HealthchecksType value: %s. Must be one of: Ping, RestApiCall, Disabled", val)
+		}
 	default:
 		log.Warning(fmt.Sprintf("Preference key '%s' not supported", key))
 	}

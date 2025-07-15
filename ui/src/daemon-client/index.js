@@ -1888,6 +1888,17 @@ async function SetLogging(enable) {
   });
 }
 
+async function SetHealthchecksType(healthchecksType) {
+  const Key = "healthchecks_type";
+  let Value = `${healthchecksType}`;
+
+  await sendRecv({
+    Command: daemonRequests.SetPreference,
+    Key,
+    Value,
+  });
+}
+
 async function WgRegenerateKeys() {
   await sendRecv({
     Command: daemonRequests.WireGuardGenerateNewKeys,
@@ -2012,6 +2023,7 @@ export default {
 
   SetAutoconnectOnLaunch,
   SetLogging,
+  SetHealthchecksType,
   WgRegenerateKeys,
   WgSetKeysRotationInterval,
 

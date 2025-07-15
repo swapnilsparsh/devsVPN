@@ -366,50 +366,61 @@
         <div class="settingsBoldFont">WireGuard key information:</div>
 
         <spinner :loading="isProcessing" />
-        <div style="display: flex; flex-direction: column; gap: 5px;">
-        <div class="flexRow paramBlockDetailedConfig">
-          <div class="defColor paramName">Protocol:</div>
-          <div class="detailedParamValue">
-            {{ "Wireguard" }}
+        <div style="display: flex; flex-direction: column; gap: 5px">
+          <div class="flexRow paramBlockDetailedConfig">
+            <div class="defColor paramName">Protocol:</div>
+            <div class="detailedParamValue">
+              {{ "Wireguard" }}
+            </div>
           </div>
-        </div>
-        <div class="flexRow paramBlockDetailedConfig">
-          <div class="defColor paramName">Local IP Address:</div>
-          <div class="detailedParamValue">
-            {{ this.$store.state.account.session.WgLocalIP }}
+          <div class="flexRow paramBlockDetailedConfig">
+            <div class="defColor paramName">Local IP Address:</div>
+            <div class="detailedParamValue">
+              {{ this.$store.state.account.session.WgLocalIP }}
+            </div>
           </div>
-        </div>
-        <!-- <div class="flexRow paramBlockDetailedConfig">
+          <!-- <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Port:</div>
           <div class="detailedParamValue">
             {{ 'Port' }}
           </div>
         </div> -->
-        <div class="flexRow paramBlockDetailedConfig">
-          <div class="defColor paramName">Public key:</div>
-          <div class="detailedParamValue">
-            {{ this.$store.state.account.session.WgPublicKey }}
+          <div class="flexRow paramBlockDetailedConfig">
+            <div class="defColor paramName">Public key:</div>
+            <div class="detailedParamValue">
+              {{ this.$store.state.account.session.WgPublicKey }}
+            </div>
           </div>
-        </div>
-        <div class="flexRow paramBlockDetailedConfig">
-          <div class="defColor paramName">Generated:</div>
-          <div class="detailedParamValue">
-            {{ wgKeysGeneratedDateStr }}
+          <div class="flexRow paramBlockDetailedConfig">
+            <div class="defColor paramName">Generated:</div>
+            <div class="detailedParamValue">
+              {{ wgKeysGeneratedDateStr }}
+            </div>
           </div>
-        </div>
-        <!-- <div class="flexRow paramBlockDetailedConfig">
+          <!-- <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Scheduled rotation date:</div>
           <div class="detailedParamValue">
             {{ wgKeysWillBeRegeneratedStr }}
           </div>
         </div> -->
-        <div class="flexRow paramBlockDetailedConfig">
-          <div class="defColor paramName">Expiration date:</div>
-          <div class="detailedParamValue">
-            {{ wgKeysExpirationDateStr }}
+          <div class="flexRow paramBlockDetailedConfig">
+            <div class="defColor paramName">Expiration date:</div>
+            <div class="detailedParamValue">
+              {{ wgKeysExpirationDateStr }}
+            </div>
           </div>
-        </div>
-        <!-- <div class="flexRow paramBlockDetailedConfig">
+
+          <div class="flexRow paramBlockDetailedConfig">
+            <div class="defColor paramName" style="min-width: 102px">
+              Healthchecks type:
+            </div>
+            <select v-model="healthchecksType">
+              <option value="Ping">Ping</option>
+              <option value="RestApiCall">REST API Call</option>
+              <option value="Disabled">Disabled</option>
+            </select>
+          </div>
+          <!-- <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Quantum Resistance:</div>
           <div class="detailedParamValue">
             {{ wgQuantumResistanceStr }}
@@ -688,6 +699,16 @@ export default {
       )
         return true;
       return this.$store.state.account?.accountStatus?.Active === true;
+    },
+    healthchecksType: {
+      get() {
+        return (
+          this.$store.state.settings?.daemonSettings?.HealthchecksType ?? "Ping"
+        );
+      },
+      async set(value) {
+        await sender.SetHealthchecksType(value);
+      },
     },
     mtu: {
       get() {
@@ -1087,7 +1108,6 @@ div.defInputWidth {
   width: 100px;
   background: red;
 }
-
 
 div.settingsRadioBtnProxy {
   @extend .settingsRadioBtn;

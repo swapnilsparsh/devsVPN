@@ -73,6 +73,7 @@ const getDefaultState = () => {
       IsAutoconnectOnLaunchDaemon: false,
       UserDefinedOvpnFile: "",
       IsLogging: false,
+      HealthchecksType: "Ping",
 
       WiFi: {
         // canApplyInBackground:

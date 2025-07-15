@@ -74,6 +74,7 @@ const (
 	Prefs_IsEnableLogging              ServicePreference = "enable_logging"
 	Prefs_IsAutoconnectOnLaunch        ServicePreference = "autoconnect_on_launch"
 	Prefs_IsAutoconnectOnLaunch_Daemon ServicePreference = "autoconnect_on_launch_daemon"
+	Prefs_HealthchecksType             ServicePreference = "healthchecks_type"
 )
 
 func (sp ServicePreference) Equals(key string) bool {

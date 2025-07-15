@@ -242,6 +242,10 @@ ipcMain.handle("renderer-request-set-logging", async (event, enable) => {
   return await client.SetLogging(enable);
 });
 
+ipcMain.handle("renderer-request-set-healthchecks-type", async (event, healthchecksType) => {
+  return await client.SetHealthchecksType(healthchecksType);
+});
+
 ipcMain.handle("renderer-request-set-dns", async () => {
   return await client.SetDNS();
 });

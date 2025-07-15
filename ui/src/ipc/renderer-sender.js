@@ -268,6 +268,10 @@ export default {
     return await invoke("renderer-request-set-logging", isEnabled);
   },
 
+  SetHealthchecksType: async (healthchecksType) => {
+    return await invoke("renderer-request-set-healthchecks-type", healthchecksType);
+  },
+
   SetDNS: async () => {
     return await invoke("renderer-request-set-dns");
   },
