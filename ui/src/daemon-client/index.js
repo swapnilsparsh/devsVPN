@@ -364,7 +364,7 @@ function commitSession(sessionRespObj) {
     SessionInfoReceived: true, // signal to .vue components we have Account ID, etc.
   };
   store.commit(`account/session`, session);
-  // let logmsg = "ui/src/daemon-client/index.js: commitSession(): store.state.session.SessionInfoReceived=" 
+  // let logmsg = "ui/src/daemon-client/index.js: commitSession(): store.state.session.SessionInfoReceived="
   //   + " sessionRespObj.AccountID=" + sessionRespObj.AccountID
   //   + (store.state.session != null ? "store.state.session.SessionInfoReceived=" + store.state.session.SessionInfoReceived : "");
   // log.debug(logmsg);
@@ -1425,7 +1425,7 @@ async function Connect() {
     };
 
     // TODO FIXME: Vlad - disabling pinging servers for now, till PLCON-112
-    /* 
+    /*
     // ENTRY SERVER
     if (store.getters["settings/isFastestServer"]) {
       const funcGetPing = store.getters["vpnState/funcGetPing"];
@@ -1454,13 +1454,13 @@ async function Connect() {
       }
       if (fastest != null) store.dispatch("settings/serverEntry", fastest);
     } else if (store.getters["settings/isRandomServer"]) {*/
-      // random server
-      let servers = store.getters["vpnState/activeServers"];
-      if (!isRandomExitSvr) {
-        servers = filterSvrsExcludeSameCountryIsp(servers, settings.serverExit);
-      }
-      let randomIdx = Math.floor(Math.random() * Math.floor(servers.length));
-      store.dispatch("settings/serverEntry", servers[randomIdx]);
+    // random server
+    let servers = store.getters["vpnState/activeServers"];
+    if (!isRandomExitSvr) {
+      servers = filterSvrsExcludeSameCountryIsp(servers, settings.serverExit);
+    }
+    let randomIdx = Math.floor(Math.random() * Math.floor(servers.length));
+    store.dispatch("settings/serverEntry", servers[randomIdx]);
     /*}*/
 
     // EXIT SERVER
@@ -1899,6 +1899,17 @@ async function SetHealthchecksType(healthchecksType) {
   });
 }
 
+async function SetVpnCoexistPermission(permission) {
+  const Key = "vpn_coexist_permission";
+  let Value = `${permission}`;
+
+  await sendRecv({
+    Command: daemonRequests.SetPreference,
+    Key,
+    Value,
+  });
+}
+
 async function WgRegenerateKeys() {
   await sendRecv({
     Command: daemonRequests.WireGuardGenerateNewKeys,
@@ -2024,6 +2035,7 @@ export default {
   SetAutoconnectOnLaunch,
   SetLogging,
   SetHealthchecksType,
+  SetVpnCoexistPermission,
   WgRegenerateKeys,
   WgSetKeysRotationInterval,
 

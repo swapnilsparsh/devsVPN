@@ -246,6 +246,10 @@ ipcMain.handle("renderer-request-set-healthchecks-type", async (event, healthche
   return await client.SetHealthchecksType(healthchecksType);
 });
 
+ipcMain.handle("renderer-request-set-vpn-coexistence", async (event, isEnabled) => {
+  return await client.SetVpnCoexistPermission(isEnabled);
+});
+
 ipcMain.handle("renderer-request-set-dns", async () => {
   return await client.SetDNS();
 });

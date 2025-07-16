@@ -420,6 +420,18 @@
               <option value="Disabled">Disabled</option>
             </select>
           </div>
+
+          <div class="flexRow paramBlockDetailedConfig">
+            <div class="defColor paramName" style="min-width: 102px">
+              VPN Coexist Permission:
+            </div>
+            <input
+              type="checkbox"
+              v-model="vpnCoexistPermission"
+              style="margin-left: 10px"
+            />
+          </div>
+
           <!-- <div class="flexRow paramBlockDetailedConfig">
           <div class="defColor paramName">Quantum Resistance:</div>
           <div class="detailedParamValue">
@@ -708,6 +720,17 @@ export default {
       },
       async set(value) {
         await sender.SetHealthchecksType(value);
+      },
+    },
+    vpnCoexistPermission: {
+      get() {
+        return (
+          this.$store.state.settings?.daemonSettings?.VpnCoexistPermission ??
+          false
+        );
+      },
+      async set(value) {
+        await sender.SetVpnCoexistPermission(value);
       },
     },
     mtu: {

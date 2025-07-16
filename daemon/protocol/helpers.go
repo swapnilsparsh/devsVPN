@@ -43,6 +43,7 @@ func (p *Protocol) createSettingsResponse() *types.SettingsResp {
 		WiFi:                        prefs.WiFiControl,
 		IsLogging:                   prefs.IsLogging,
 		HealthchecksType:            prefs.HealthchecksType,
+		VpnCoexistPermission:        prefs.VpnCoexistPermission,
 		// AntiTracker:                 p._service.GetAntiTrackerStatus(),
 		// TODO: implement the rest of daemon settings
 	}

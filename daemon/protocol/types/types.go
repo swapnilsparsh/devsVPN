@@ -75,6 +75,7 @@ const (
 	Prefs_IsAutoconnectOnLaunch        ServicePreference = "autoconnect_on_launch"
 	Prefs_IsAutoconnectOnLaunch_Daemon ServicePreference = "autoconnect_on_launch_daemon"
 	Prefs_HealthchecksType             ServicePreference = "healthchecks_type"
+	Prefs_VpnCoexistPermission         ServicePreference = "vpn_coexist_permission"
 )
 
 func (sp ServicePreference) Equals(key string) bool {

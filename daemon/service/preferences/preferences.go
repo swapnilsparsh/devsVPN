@@ -115,6 +115,7 @@ type Preferences struct {
 	//		-	on user session LogOn
 	IsAutoconnectOnLaunchDaemon bool
 	HealthchecksType            string
+	VpnCoexistPermission        bool
 
 	// split-tunnelling
 	IsTotalShieldOn           bool // note that privateLINE definition of Total Shield is the opposite of the IVPN definition of Split Tunnel
@@ -152,10 +153,11 @@ func Create() *Preferences {
 	return &Preferences{
 		// SettingsSessionUUID is unique for Preferences object
 		// It allow to detect situations when settings was erased (created new Preferences object)
-		SettingsSessionUUID: uuid.New().String(),
-		IsFwAllowApiServers: true,
-		HealthchecksType:    "Ping",
-		WiFiControl:         WiFiParamsCreate(),
+		SettingsSessionUUID:  uuid.New().String(),
+		IsFwAllowApiServers:  true,
+		HealthchecksType:     "Ping",
+		VpnCoexistPermission: false,
+		WiFiControl:          WiFiParamsCreate(),
 	}
 }
 

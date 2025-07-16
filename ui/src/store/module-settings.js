@@ -74,6 +74,7 @@ const getDefaultState = () => {
       UserDefinedOvpnFile: "",
       IsLogging: false,
       HealthchecksType: "Ping",
+      VpnCoexistPermission: false,
 
       WiFi: {
         // canApplyInBackground:
@@ -246,7 +247,7 @@ export default {
         throw new Error("Unable to change server. Wrong server object.");
       }
       if (!isServerContainsHost(srv, state.serverEntryHostId)) {}
-        state.serverEntryHostId = null;
+      state.serverEntryHostId = null;
       state.serverEntry = srv;
     },
     serverExit(state, srv) {

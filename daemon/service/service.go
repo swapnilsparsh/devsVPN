@@ -1340,6 +1340,15 @@ func (s *Service) SetPreference(key protocolTypes.ServicePreference, val string)
 		} else {
 			return false, fmt.Errorf("invalid HealthchecksType value: %s. Must be one of: Ping, RestApiCall, Disabled", val)
 		}
+
+	case protocolTypes.Prefs_VpnCoexistPermission:
+		if val, err := strconv.ParseBool(val); err == nil {
+			isChanged = val != prefs.VpnCoexistPermission
+			prefs.VpnCoexistPermission = val
+		} else {
+			return false, fmt.Errorf("invalid VpnCoexistPermission value: %t. Must be a boolean", val)
+		}
+
 	default:
 		log.Warning(fmt.Sprintf("Preference key '%s' not supported", key))
 	}
