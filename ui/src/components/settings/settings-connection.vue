@@ -423,11 +423,11 @@
 
           <div class="flexRow paramBlockDetailedConfig">
             <div class="defColor paramName" style="min-width: 102px">
-              VPN Coexist Permission:
+              Permission To Reconfigure Other VPNs:
             </div>
             <input
               type="checkbox"
-              v-model="vpnCoexistPermission"
+              v-model="permissionReconfigureOtherVPNs"
               style="margin-left: 10px"
             />
           </div>
@@ -722,15 +722,15 @@ export default {
         await sender.SetHealthchecksType(value);
       },
     },
-    vpnCoexistPermission: {
+    permissionReconfigureOtherVPNs: {
       get() {
         return (
-          this.$store.state.settings?.daemonSettings?.VpnCoexistPermission ??
+          this.$store.state.settings?.daemonSettings?.PermissionReconfigureOtherVPNs ??
           false
         );
       },
       async set(value) {
-        await sender.SetVpnCoexistPermission(value);
+        await sender.SetPermissionReconfigureOtherVPNs(value);
       },
     },
     mtu: {

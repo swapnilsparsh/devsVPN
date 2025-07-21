@@ -126,15 +126,15 @@ type ParanoidModeStatus struct {
 type SettingsResp struct {
 	CommandBase
 
-	IsAutoconnectOnLaunch       bool
-	IsAutoconnectOnLaunchDaemon bool
-	UserDefinedOvpnFile         string
-	UserPrefs                   preferences.UserPreferences
-	WiFi                        preferences.WiFiParams
-	IsLogging                   bool
-	AntiTracker                 service_types.AntiTrackerMetadata
-	HealthchecksType            string
-	VpnCoexistPermission        bool
+	IsAutoconnectOnLaunch          bool
+	IsAutoconnectOnLaunchDaemon    bool
+	UserDefinedOvpnFile            string
+	UserPrefs                      preferences.UserPreferences
+	WiFi                           preferences.WiFiParams
+	IsLogging                      bool
+	AntiTracker                    service_types.AntiTrackerMetadata
+	HealthchecksType               string
+	PermissionReconfigureOtherVPNs bool
 
 	// TODO: implement the rest of daemon settings
 	IsFwPersistent        bool

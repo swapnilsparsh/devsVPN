@@ -272,8 +272,8 @@ export default {
     return await invoke("renderer-request-set-healthchecks-type", healthchecksType);
   },
 
-  SetVpnCoexistPermission: async (isEnabled) => {
-    return await invoke("renderer-request-set-vpn-coexistence", isEnabled);
+  SetPermissionReconfigureOtherVPNs: async (isEnabled) => {
+    return await invoke("renderer-request-set-permission-reconfigure-other-vpns", isEnabled);
   },
 
   SetDNS: async () => {

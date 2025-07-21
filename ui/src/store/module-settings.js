@@ -74,7 +74,7 @@ const getDefaultState = () => {
       UserDefinedOvpnFile: "",
       IsLogging: false,
       HealthchecksType: "Ping",
-      VpnCoexistPermission: false,
+      PermissionReconfigureOtherVPNs: false,
 
       WiFi: {
         // canApplyInBackground:

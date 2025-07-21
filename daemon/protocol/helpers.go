@@ -29,6 +29,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/version"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 )
@@ -36,14 +37,14 @@ import (
 func (p *Protocol) createSettingsResponse() *types.SettingsResp {
 	prefs := p._service.Preferences()
 	return &types.SettingsResp{
-		IsAutoconnectOnLaunch:       prefs.IsAutoconnectOnLaunch,
-		IsAutoconnectOnLaunchDaemon: prefs.IsAutoconnectOnLaunchDaemon,
-		UserDefinedOvpnFile:         platform.OpenvpnUserParamsFile(),
-		UserPrefs:                   prefs.UserPrefs,
-		WiFi:                        prefs.WiFiControl,
-		IsLogging:                   prefs.IsLogging,
-		HealthchecksType:            prefs.HealthchecksType,
-		VpnCoexistPermission:        prefs.VpnCoexistPermission,
+		IsAutoconnectOnLaunch:          prefs.IsAutoconnectOnLaunch,
+		IsAutoconnectOnLaunchDaemon:    prefs.IsAutoconnectOnLaunchDaemon,
+		UserDefinedOvpnFile:            platform.OpenvpnUserParamsFile(),
+		UserPrefs:                      prefs.UserPrefs,
+		WiFi:                           prefs.WiFiControl,
+		IsLogging:                      prefs.IsLogging,
+		HealthchecksType:               service_types.HealthcheckTypeNames[prefs.HealthchecksType],
+		PermissionReconfigureOtherVPNs: prefs.PermissionReconfigureOtherVPNs,
 		// AntiTracker:                 p._service.GetAntiTrackerStatus(),
 		// TODO: implement the rest of daemon settings
 	}

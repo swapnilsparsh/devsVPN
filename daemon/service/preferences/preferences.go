@@ -113,9 +113,9 @@ type Preferences struct {
 	//		-	when UI app connected
 	//		-	after daemon initialization
 	//		-	on user session LogOn
-	IsAutoconnectOnLaunchDaemon bool
-	HealthchecksType            string
-	VpnCoexistPermission        bool
+	IsAutoconnectOnLaunchDaemon    bool
+	HealthchecksType               types.HealthchecksTypeEnum
+	PermissionReconfigureOtherVPNs bool
 
 	// split-tunnelling
 	IsTotalShieldOn           bool // note that privateLINE definition of Total Shield is the opposite of the IVPN definition of Split Tunnel
@@ -153,11 +153,11 @@ func Create() *Preferences {
 	return &Preferences{
 		// SettingsSessionUUID is unique for Preferences object
 		// It allow to detect situations when settings was erased (created new Preferences object)
-		SettingsSessionUUID:  uuid.New().String(),
-		IsFwAllowApiServers:  true,
-		HealthchecksType:     "Ping",
-		VpnCoexistPermission: false,
-		WiFiControl:          WiFiParamsCreate(),
+		SettingsSessionUUID:            uuid.New().String(),
+		IsFwAllowApiServers:            true,
+		HealthchecksType:               types.HealthchecksType_Ping,
+		PermissionReconfigureOtherVPNs: false,
+		WiFiControl:                    WiFiParamsCreate(),
 	}
 }
 
@@ -362,11 +362,6 @@ func (p *Preferences) LoadPreferences() error {
 			}
 
 		}
-	}
-
-	if p.HealthchecksType == "" {
-		p.HealthchecksType = "Ping"
-		log.Info("Setting default HealthchecksType to Ping")
 	}
 
 	// also parse VPN entry hosts here, to use as input for firewall rules

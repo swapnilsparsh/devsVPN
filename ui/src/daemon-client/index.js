@@ -1899,8 +1899,8 @@ async function SetHealthchecksType(healthchecksType) {
   });
 }
 
-async function SetVpnCoexistPermission(permission) {
-  const Key = "vpn_coexist_permission";
+async function SetPermissionReconfigureOtherVPNs(permission) {
+  const Key = "permission_reconfigure_other_vpns";
   let Value = `${permission}`;
 
   await sendRecv({
@@ -2035,7 +2035,7 @@ export default {
   SetAutoconnectOnLaunch,
   SetLogging,
   SetHealthchecksType,
-  SetVpnCoexistPermission,
+  SetPermissionReconfigureOtherVPNs,
   WgRegenerateKeys,
   WgSetKeysRotationInterval,
 

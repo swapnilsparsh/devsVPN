@@ -71,11 +71,11 @@ type RequestBase struct {
 type ServicePreference string
 
 const (
-	Prefs_IsEnableLogging              ServicePreference = "enable_logging"
-	Prefs_IsAutoconnectOnLaunch        ServicePreference = "autoconnect_on_launch"
-	Prefs_IsAutoconnectOnLaunch_Daemon ServicePreference = "autoconnect_on_launch_daemon"
-	Prefs_HealthchecksType             ServicePreference = "healthchecks_type"
-	Prefs_VpnCoexistPermission         ServicePreference = "vpn_coexist_permission"
+	Prefs_IsEnableLogging                ServicePreference = "enable_logging"
+	Prefs_IsAutoconnectOnLaunch          ServicePreference = "autoconnect_on_launch"
+	Prefs_IsAutoconnectOnLaunch_Daemon   ServicePreference = "autoconnect_on_launch_daemon"
+	Prefs_HealthchecksType               ServicePreference = "healthchecks_type"
+	Prefs_PermissionReconfigureOtherVPNs ServicePreference = "permission_reconfigure_other_vpns"
 )
 
 func (sp ServicePreference) Equals(key string) bool {

@@ -306,7 +306,7 @@ export default {
 
     async vpnCoexistRetryConfirmPopup() {
       const hasPermission =
-        this.$store.state.settings?.daemonSettings?.VpnCoexistPermission ??
+        this.$store.state.settings?.daemonSettings?.PermissionReconfigureOtherVPNs ??
         false;
 
       let shouldProceed = hasPermission;
@@ -317,8 +317,8 @@ export default {
             type: "warning",
             buttons: ["OK", "Cancel"],
             message: "Please Confirm",
-            detail: `Do you allow privateLINE to stop temporarily the other VPN '${this.$store.state.vpnState.firewallState.OtherVpnName}' and get permissions automatically? Press Ok to continue`,
-            checkboxLabel: `Give permission to restart other VPNs`,
+            detail: `Do you allow privateLINE to stop temporarily the other VPN '${this.$store.state.vpnState.firewallState.OtherVpnName}' and reconfigure it as needed for privateLINE connectivity? Press Ok to continue`,
+            checkboxLabel: `Give permission to reconfigure other VPNs when needed`,
             checkboxChecked: false,
           },
           true
@@ -328,7 +328,7 @@ export default {
         shouldProceed = ret.response == 0;
 
         if (ret.checkboxChecked) {
-          await sender.SetVpnCoexistPermission(true);
+          await sender.SetPermissionReconfigureOtherVPNs(true);
         }
       }
 
