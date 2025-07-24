@@ -14,6 +14,12 @@
             v-model="searchQuery"
             placeholder="Search"
             class="search-input"
+            :disabled="hasNetworkError"
+            :title="
+              hasNetworkError
+                ? 'Search is disabled due to network connectivity issues'
+                : ''
+            "
           />
         </div>
 
@@ -47,9 +53,22 @@
               <tr v-else-if="devicePageList.length === 0">
                 <td colspan="12">
                   <div class="no-results">
-                    <p>No devices found</p>
-                    <p class="no-results-detail" v-if="searchQuery">
+                    <p v-if="hasNetworkError">Network Connection Error</p>
+                    <p v-else-if="searchQuery">No devices found</p>
+                    <p v-else>Unable to load devices</p>
+                    <p class="no-results-detail" v-if="hasNetworkError">
+                      Please check your internet connection and try again.
+                      Search is temporarily disabled.
+                      <br />
+                      <button class="retry-button" @click="retryConnection">
+                        Retry Connection
+                      </button>
+                    </p>
+                    <p class="no-results-detail" v-else-if="searchQuery">
                       Try adjusting your search criteria
+                    </p>
+                    <p class="no-results-detail" v-else>
+                      Please check your network connection and try again
                     </p>
                   </div>
                 </td>
@@ -128,7 +147,7 @@
           </table>
         </div>
         <!-- Pagination Controls -->
-        <div class="pagination">
+        <div class="pagination" v-if="!hasNetworkError">
           <button
             @click="changePage(1)"
             :disabled="currentPage === 1"
@@ -259,6 +278,8 @@ export default {
       isDeviceListLoading: true,
       currentDeviceId: null,
       isDeleteDialogOpen: false,
+      apiDeviceListTimeout: null,
+      hasNetworkError: false,
     };
   },
   computed: {
@@ -282,8 +303,15 @@ export default {
       this.getCurrentDeviceId(); // Call this after initial device list is loaded
     });
   },
+  activated() {
+    // This lifecycle hook is called when the component becomes active
+    // (useful for components used in keep-alive scenarios or tab switching)
+    // Refresh the device list to check current network state
+    if (this.hasNetworkError) {
+      this.deviceList(this.searchQuery, this.currentPage, this.itemsPerPage, 0);
+    }
+  },
   methods: {
-    // Add to settings-manage-device.vue methods
     async getCurrentDeviceId() {
       try {
         // Get WireGuard public key from store
@@ -359,6 +387,11 @@ export default {
       try {
         this.isProcessing = true;
         this.isDeviceListLoading = true;
+        // Don't reset hasNetworkError here - only reset it on successful API response
+
+        this.apiDeviceListTimeout = setTimeout(() => {
+          throw Error("Device List API Time Out");
+        }, 10 * 1000);
 
         const deviceListResp = await sender.DeviceList(
           search,
@@ -366,6 +399,10 @@ export default {
           limit,
           deleteId
         );
+
+        // Only reset network error if we get here (successful API response)
+        this.hasNetworkError = false;
+
         this.deviceListData = deviceListResp.rows || [];
         this.totalCount = deviceListResp?.count || 0;
 
@@ -385,21 +422,42 @@ export default {
 
         this.isDeviceListLoading = false;
       } catch (err) {
-        const errorMessage =
-          err?.split("=")[1]?.trim() || "An unexpected error occurred";
-        sender.showMessageBox({
-          type: "error",
-          buttons: ["OK"],
-          message: "Error deleting device",
-          detail: errorMessage,
-        });
-        // Refresh list after
+        console.error("Error loading device list:", err);
+
         // Reset data on error
         this.deviceListData = [];
         this.totalCount = 0;
-        this.deviceList();
+        this.isDeviceListLoading = false;
+
+        // Set network error state for ALL errors - this is safer than trying to detect specific error types
+        // We'll reset this only when we successfully get data
+        this.hasNetworkError = true;
+
+        // Check if this is a delete operation or regular list loading
+        if (deleteId > 0) {
+          // This was a delete operation
+          const errorMessage =
+            err?.split("=")[1]?.trim() ||
+            "Unable to delete device due to connectivity issues. Please check your network connection.";
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "Network Error",
+            detail: errorMessage,
+          });
+        } else {
+          // This was a regular list loading operation
+          sender.showMessageBoxSync({
+            type: "error",
+            buttons: ["OK"],
+            message: "API Error",
+            detail: `Device list couldn't be fetched at this moment, please check your internet connection!`,
+          });
+        }
       } finally {
         this.isProcessing = false;
+        clearTimeout(this.apiDeviceListTimeout);
+        this.apiDeviceListTimeout = null;
       }
     },
 
@@ -418,6 +476,10 @@ export default {
       if (this.currentPage < this.totalPages) this.currentPage++;
     },
     async changePage(page) {
+      if (this.hasNetworkError) {
+        return; // Don't allow page changes when there's a network error
+      }
+
       if (page >= 1 && page <= this.totalPages) {
         this.currentPage = page;
         await this.deviceList(
@@ -464,9 +526,19 @@ export default {
       this.$refs.viewDeviceDetails.showModal();
       this.showDetails = device;
     },
+    async retryConnection() {
+      this.hasNetworkError = false;
+      this.searchQuery = ""; // Clear search query
+      await this.deviceList("", 1, this.itemsPerPage, 0);
+    },
   },
   watch: {
     searchQuery(newQuery) {
+      // Don't perform search if there's a network error
+      if (this.hasNetworkError) {
+        return;
+      }
+
       clearTimeout(this.debounceTimeout); // Clear previous timeout
 
       this.debounceTimeout = setTimeout(() => {
@@ -483,6 +555,7 @@ export default {
   },
   beforeUnmount() {
     clearTimeout(this.debounceTimeout); // Cleanup on component unmount
+    clearTimeout(this.apiDeviceListTimeout); // Cleanup API timeout
   },
 };
 </script>
@@ -647,6 +720,17 @@ export default {
   color: white;
 }
 
+.search-input:disabled {
+  background-color: #505050;
+  border-color: #505050;
+  color: #808080;
+  cursor: not-allowed;
+}
+
+.search-input:disabled::placeholder {
+  color: #808080;
+}
+
 // ========= device info card =======
 .device-info {
   background: inherit;
@@ -708,5 +792,21 @@ h2 {
 
 .no-results-detail {
   font-size: 14px;
+}
+
+.retry-button {
+  margin-top: 10px;
+  padding: 8px 16px;
+  background-color: #662d91;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.retry-button:hover {
+  background-color: #552378;
 }
 </style>
