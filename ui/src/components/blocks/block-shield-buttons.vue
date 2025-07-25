@@ -348,7 +348,7 @@ export default {
       }
     },
     async checkPlanBeforeChangeShield(value) {
-      const subscriptionData = this.$store.state.account.subscriptionData;
+      // const subscriptionData = this.$store.state.account.subscriptionData;
 
       // Check if the plan is "Free"
       // if (subscriptionData?.Plan.name === "Free" && value === false) {

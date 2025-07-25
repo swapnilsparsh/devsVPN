@@ -123,5 +123,4 @@ func DoTest() {
 	fmt.Println(errEC)
 
 	winlib.DeleteWfpSessionObject(sess)
-	return
 }

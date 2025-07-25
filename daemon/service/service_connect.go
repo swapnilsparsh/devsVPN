@@ -46,6 +46,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform/filerights"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/v2r"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
@@ -700,7 +701,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		s._vpn = nil
 
 		// Notify Split-Tunneling module about disconnected VPN status. Firewall will know the VPN state via vpnConnectedCallback()
-		s.splitTunnelling_ApplyConfig()
+		s.splitTunnelling_ApplyConfig(true)
 
 		log.Info("VPN process stopped")
 	}()
@@ -726,23 +727,15 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 	// if firewall background monitors are available on the platform - start them all in the background
 	for _, firewallBackgroundMonitor := range firewall.GetFirewallBackgroundMonitors() {
 		connectRoutinesWaiter.Add(1)
-		go func(fbm *firewall.FirewallBackgroundMonitor) {
-			fbmName := helpers.GetFunctionName(fbm.MonitorFunc)
-			log.Info("Firewall background monitor '", fbmName, "' started")
-
+		go func(fbm *srvhelpers.ServiceBackgroundMonitor) {
 			defer func() {
-				// must check whether the monitor func is still running (it could've exited due to an error), else don't send to EndChan
-				if !fbm.MonitorEndMutex.TryLock() {
-					fbm.MonitorEndChan <- true // send MonitorFunc a stop signal
-					fbm.MonitorEndMutex.Lock() // wait for it to stop
-				}
-				fbm.MonitorEndMutex.Unlock() // release its mutex, to allow it to be restarted later
-
-				log.Info("Firewall background monitor '", fbmName, "' stopped")
+				go fbm.StopServiceBackgroundMonitor() // async, as iptables-legacy one sleeps for 5s between each polling loop iteration
 				connectRoutinesWaiter.Done()
 			}()
 
 			go fbm.MonitorFunc()
+			log.Debug("Monitor '", fbm.MonitorName, "' started")
+
 			<-stopChannel // triggered when the stopChannel is closed
 		}(firewallBackgroundMonitor)
 	}
@@ -807,19 +800,19 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						// 	log.Error(fmt.Sprintf("Unable to initialize routing change detection. Failed to get interface '%s'", state.ClientIP.String()))
 						// } else {
 						//if err := s._netChangeDetector.Init(routingChangeChan, routingUpdateChan, netInterface, s.splitTunnelling_ApplyConfig); err != nil {
-						if err := s._netChangeDetector.Init(routingChangeChan, routingUpdateChan, nil, s.splitTunnelling_ApplyConfig); err != nil {
+						if err := s._netChangeDetector.Init(routingChangeChan, routingUpdateChan, nil, s.splitTunnelling_ApplyConfig, s.Preferences); err != nil {
 							log.Error(fmt.Errorf("failed to init route change detection: %w", err))
 						}
-						if s._preferences.IsInverseSplitTunneling() {
-							// Inversed split-tunneling: disable monitoring of the default route to the VPN server.
-							// Note: the monitoring must be enabled as soon as the inverse split-tunneling is disabled!
-							log.Info("Disabled the monitoring of the default route to the VPN server due to Inverse Split-Tunnel")
-						} else {
-							log.Info("Starting route change detection")
-							if err := s._netChangeDetector.Start(); err != nil {
-								log.Error(fmt.Errorf("failed to start route change detection: %w", err))
-							}
+						// if s._preferences.IsInverseSplitTunneling() {
+						// 	// Inversed split-tunneling: disable monitoring of the default route to the VPN server.
+						// 	// Note: the monitoring must be enabled as soon as the inverse split-tunneling is disabled!
+						// 	log.Info("Disabled the monitoring of the default route to the VPN server due to Inverse Split-Tunnel")
+						// } else {
+						log.Info("Starting route change detection")
+						if err := s._netChangeDetector.Start(); err != nil {
+							log.Error(fmt.Errorf("failed to start route change detection: %w", err))
 						}
+						// }
 						// }
 
 					case vpn.CONNECTED:
@@ -858,10 +851,26 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 						// Notify Split-Tunneling module about VPN state CONNECTED. Firewall will know the VPN state via vpnConnectedCallback()
 						// It is important to call it after 's._vpn' initialised. So ST functionality will be correctly informed about 'VPN connected' status
-						s.splitTunnelling_ApplyConfig()
+						s.splitTunnelling_ApplyConfig(true)
 
-						// Run at the end, as meet.privateline.network lookup fails if it's called too soon after WG connects. Run asynchronously, it'll sleep for 5s.
-						firewall.DeployPostConnectionRules(true)
+						// Run at the end, as meet.privateline.network lookup fails if it's called too soon after WG connects. Run asynchronously.
+						go firewall.DeployPostConnectionRules()
+
+						// Finally start the connectivityHealthchecksBackgroundMonitor
+						connectRoutinesWaiter.Add(1)
+						go func(chbm *srvhelpers.ServiceBackgroundMonitor) {
+							defer func() {
+								log.Debug("forking chbm.StopServiceBackgroundMonitor() from 'Finally start the connectivityHealthchecksBackgroundMonitor' block")
+								go chbm.StopServiceBackgroundMonitor() // async
+								connectRoutinesWaiter.Done()
+							}()
+
+							go chbm.MonitorFunc()
+							log.Debug("Monitor '", chbm.MonitorName, "' started")
+
+							<-stopChannel // triggered when the stopChannel is closed
+						}(s.connectivityHealthchecksBackgroundMonitorDef)
+
 					default:
 					}
 				}()

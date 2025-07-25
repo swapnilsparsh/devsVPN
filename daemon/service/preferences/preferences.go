@@ -40,7 +40,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/obfsproxy"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
-	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/version"
 )
 
@@ -132,12 +132,14 @@ type Preferences struct {
 	// NOTE: update this type when adding new preferences which can be exposed to clients
 	UserPrefs UserPreferences
 
-	LastConnectionParams service_types.ConnectionParams
+	LastConnectionParams types.ConnectionParams
 	VpnEntryHostsParsed  []*VpnEntryHostParsed
 	AllDnsServersIPv4Set mapset.Set[string]
 
 	WiFiControl WiFiParams
 }
+
+type GetPrefsCallback func() Preferences
 
 type SessionMutableData struct {
 	Account    AccountStatus

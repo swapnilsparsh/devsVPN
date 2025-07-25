@@ -106,7 +106,7 @@ func (s *Service) implSplitTunnelling_AddApp(execCmd string) (requiredCmdToExec 
 	}
 
 	// ensure ST is initialized
-	err = s.splitTunnelling_ApplyConfig()
+	err = s.splitTunnelling_ApplyConfig(true)
 	if err != nil {
 		return "", false, err
 	}

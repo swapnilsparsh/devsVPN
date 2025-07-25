@@ -31,14 +31,15 @@ import (
 
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
-	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	protocol_types "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
 )
 
 var log *logger.Logger
 
-type GetPrefsCallback func() preferences.Preferences
 type DisableTotalShieldAsyncCallback func()
 type OnKillSwitchStateChangedCallback func()
 type GetRestApiHostsCallback func() (restApiHosts []*helpers.HostnameAndIP)
@@ -68,47 +69,20 @@ var (
 	stateAllowLan          bool
 	stateAllowLanMulticast bool
 
-	getPrefsCallback                 GetPrefsCallback
+	getPrefsCallback                 preferences.GetPrefsCallback
 	disableTotalShieldAsyncCallback  DisableTotalShieldAsyncCallback
 	onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback
-	vpnConnectedOrConnectingCallback types.VpnConnectedCallback // whether VPN is connected or connecting
-	vpnConnectedCallback             types.VpnConnectedCallback // whether VPN is in CONNECTED state
+	vpnConnectedOrConnectingCallback protocol_types.VpnConnectedCallback // whether VPN is connected or connecting
+	vpnConnectedCallback             protocol_types.VpnConnectedCallback // whether VPN is in CONNECTED state
 	getRestApiHostsCallback          GetRestApiHostsCallback
+	isDaemonStoppingCallback         protocol_types.VpnConnectedCallback
 )
-
-type FirewallError struct {
-	containedErr error
-
-	otherVpnUnknownToUs bool
-	otherVpnName        string
-	otherVpnGUID        string
-}
-
-func (fe *FirewallError) Error() string {
-	return fe.containedErr.Error()
-}
-
-func (fe *FirewallError) GetContainedErr() error {
-	return fe.containedErr
-}
-
-func (fe *FirewallError) OtherVpnName() string {
-	return fe.otherVpnName
-}
-
-func (fe *FirewallError) OtherVpnGUID() string {
-	return fe.otherVpnGUID
-}
-
-func (fe *FirewallError) OtherVpnUnknownToUs() bool {
-	return fe.otherVpnUnknownToUs
-}
 
 // Initialize is doing initialization stuff
 // Must be called on application start
-func Initialize(_getPrefsCallback GetPrefsCallback, _disableTotalShieldAsyncCallback DisableTotalShieldAsyncCallback,
+func Initialize(_getPrefsCallback preferences.GetPrefsCallback, _disableTotalShieldAsyncCallback DisableTotalShieldAsyncCallback,
 	_onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback,
-	_vpnConnectedOrConnectingCallback, _vpnConnectedCallback types.VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
+	_vpnConnectedOrConnectingCallback, _vpnConnectedCallback, _isDaemonStoppingCallback protocol_types.VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -121,11 +95,17 @@ func Initialize(_getPrefsCallback GetPrefsCallback, _disableTotalShieldAsyncCall
 	vpnConnectedOrConnectingCallback = _vpnConnectedOrConnectingCallback
 	vpnConnectedCallback = _vpnConnectedCallback
 
+	isDaemonStoppingCallback = _isDaemonStoppingCallback
+
 	return implInitialize()
 }
 
 // SetEnabled - change firewall state
 func SetEnabled(enable bool) (err error) {
+	if enable && isDaemonStoppingCallback() {
+		return log.ErrorFE("error - can't enable the firewall when daemon is stopping")
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -135,7 +115,7 @@ func SetEnabled(enable bool) (err error) {
 		log.Info("Disabling...")
 	}
 
-	if err = implSetEnabled(enable, false); err != nil {
+	if err = implSetEnabled(enable, false, false, false); err != nil {
 		return log.ErrorFE("failed to change firewall state : %w", err)
 	}
 
@@ -172,9 +152,16 @@ func ReEnable() error {
 	// 	log.Info("firewall was not enabled, but disabling-then-enabling anyway")
 	// }
 
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - can't re-enable the firewall when daemon is stopping")
+	}
+
 	// GetEnabled() also grabs mutex, so have to wait for it to finish
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	log.Debug("ReEnable entered")
+	defer log.Debug("ReEnable exited")
 
 	return implReEnable()
 }
@@ -184,7 +171,7 @@ func CleanupRegistration() (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if err = implSetEnabled(false, false); err != nil {
+	if err = implSetEnabled(false, false, false, false); err != nil {
 		return log.ErrorE(fmt.Errorf("failed to disable firewall: %w", err), 0)
 	}
 
@@ -209,12 +196,12 @@ func SetPersistent(persistent bool) (err error) {
 }
 
 // _getEnabledHelper is a helper, it doesn't grab the mutex - parent callers do
-func _getEnabledHelper(logState bool) (isEnabled bool, err error) {
-	if isEnabled, err = implGetEnabled(); err != nil {
+func _getEnabledHelper(logState, blockingWait bool) (isEnabled bool, err error) {
+	if isEnabled, err = implGetEnabled(blockingWait); err != nil {
 		err = log.ErrorFE("Firewall status check error: %w", err)
 	}
 	if logState {
-		log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t", isEnabled, stateAllowLan, stateAllowLanMulticast, TotalShieldDeployedState()))
+		log.Info(fmt.Sprintf("isEnabled:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t blockingWait:%t", isEnabled, stateAllowLan, stateAllowLanMulticast, TotalShieldDeployedState(), blockingWait))
 	}
 
 	return isEnabled, err
@@ -225,14 +212,22 @@ func GetEnabled() (isEnabled bool, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return _getEnabledHelper(true)
+	return _getEnabledHelper(true, false)
+}
+
+// Get firewall status without log entry
+func GetEnabledNoLogs() (isEnabled bool, err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return _getEnabledHelper(false, false)
 }
 
 func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if isEnabled, err = _getEnabledHelper(false); err != nil {
+	if isEnabled, err = _getEnabledHelper(false, false); err != nil {
 		return isEnabled, false, false, false, "", "", "", err
 	}
 
@@ -247,13 +242,17 @@ func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFire
 
 // EnableIfNeeded - atomic operation on firewall.mutex. Will check firewall status and, if disabled, will enable it.
 func EnableIfNeeded() error {
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if isEnabled, err := _getEnabledHelper(true); err != nil {
+	if isEnabled, err := _getEnabledHelper(true, false); err != nil {
 		return err
 	} else if !isEnabled {
-		return implSetEnabled(true, false)
+		return implSetEnabled(true, false, true, false)
 	}
 
 	return nil
@@ -290,35 +289,17 @@ func ClientResumed() {
 	isClientPaused = false
 }
 
-func deployPostConnectionRulesAsync() {
-	// Now that we're deploying VPN coexistence resolvectl fix after CONNECTED, and also presetting rules for default IPs for meet.privateline.network -
-	// probably don't need to wait anymore. If facing problems - try 1-2s sleep.
-	//
-	// time.Sleep(time.Second * 5)
+// If Mullvad stays connected, PL Connect has max firewall priority (0xFFFF sublayer weight), and goes from disconnected to connected - then looking up
+// hosts immediately after WG connection is established fails. In that case need to fork post-connection rules to run asynchronously 1-2sec later.
+func DeployPostConnectionRules() (retErr error) {
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	// check whether firewall is still enabled after timeout
-	if enabled, err := implGetEnabled(); err != nil {
-		log.Error(fmt.Errorf("status check error: %w", err))
-	} else if enabled {
-		implDeployPostConnectionRules()
-	}
-}
-
-// If Mullvad stays connected, PL Connect has max firewall priority (0xFFFF sublayer weight), and goes from disconnected to connected - then looking up
-// hosts immediately after WG connection is established fails. In that case need to fork post-connection rules to run asynchronously 5-10sec later.
-func DeployPostConnectionRules(async bool) (retErr error) {
-	if async {
-		go deployPostConnectionRulesAsync()
-		return nil
-	} else {
-		mutex.Lock()
-		defer mutex.Unlock()
-
-		return implDeployPostConnectionRules()
-	}
+	return implDeployPostConnectionRules()
 }
 
 func TotalShieldDeployedState() bool {
@@ -332,10 +313,14 @@ func TotalShieldApply() (err error) {
 	// log.Debug("TotalShieldApply entered")
 	// defer log.Debug("TotalShieldApply exited")
 
-	if fwEnabled, err := _getEnabledHelper(true); err != nil {
+	if fwEnabled, err := _getEnabledHelper(true, false); err != nil {
 		return err
 	} else if !fwEnabled { // if fw is disabled - don't do anything
 		return nil
+	}
+
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
 	}
 
 	return implTotalShieldApply(false, TotalShieldDeployedState())
@@ -367,6 +352,10 @@ func ClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net.IP,
 func ClientDisconnected() error {
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	log.Debug("ClientDisconnected entered")
+	defer log.Debug("ClientDisconnected exited")
+
 	ClientResumed()
 
 	// Remove client interface from exceptions
@@ -542,34 +531,19 @@ func HaveTopFirewallPriority() (weHaveTopFirewallPriority bool, otherVpnID, othe
 	return implHaveTopFirewallPriority(0)
 }
 
-func TryReregisterFirewallAtTopPriority(canStopOtherVpn bool) (err error) {
+func TryReregisterFirewallAtTopPriority(canStopOtherVpn, forceReconfigureFirewall bool) (err error) {
+	if isDaemonStoppingCallback() {
+		return log.ErrorFE("error - daemon is stopping")
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	_, err = implReregisterFirewallAtTopPriority(canStopOtherVpn)
+	_, err = implReregisterFirewallAtTopPriority(canStopOtherVpn, forceReconfigureFirewall)
 	return err
 }
 
-// procedure to stop a running monitor is:
-//
-//	if !MonitorEndMutex.TryLock() {
-//		MonitorEndChan <- true
-//		MonitorEndMutex.Lock()
-//	}
-//	MonitorEndMutex.Unlock()
-type FirewallBackgroundMonitorFunc func()
-type FirewallBackgroundMonitor struct {
-	MonitorFunc     FirewallBackgroundMonitorFunc
-	MonitorEndChan  chan bool
-	MonitorEndMutex *sync.Mutex
-}
-
 // GetFirewallBackgroundMonitors  - caller should them all in forked threads
-func GetFirewallBackgroundMonitors() (monitors []*FirewallBackgroundMonitor) {
+func GetFirewallBackgroundMonitors() (monitors []*srvhelpers.ServiceBackgroundMonitor) {
 	return implGetFirewallBackgroundMonitors()
 }
-
-// // StopFirewallBackgroundMonitor returns the locked mutex of the FirewallBackgroundMonitor, caller must unlock it. Returns nil on error.
-// func StopFirewallBackgroundMonitor() (mutex *sync.Mutex) {
-// 	return implStopFirewallBackgroundMonitor()
-// }

@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
@@ -67,7 +68,7 @@ func SendCustom(conn net.Conn, data, cmdName string, idx int) error {
 	bytesToSend, err := json.Marshal(map[string]string{
 		"Data":    data,
 		"Command": cmdName,
-		"Idx":     string(idx),
+		"Idx":     strconv.Itoa(idx),
 	})
 
 	if err != nil {
