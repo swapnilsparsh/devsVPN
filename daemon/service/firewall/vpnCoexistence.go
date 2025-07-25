@@ -17,7 +17,7 @@ const (
 	MIN_BRAND_FIRST_WORD_LEN = 4 // first word must be at least 4 characters long to be a candidate for brand name
 	// MAX_WINDOWS_SERVICE_CANDIDATES = 10
 
-	MAX_WAIT = 10 * time.Second
+	MAX_WAIT = 30 * time.Second
 
 	VPN_REDETECT_PERIOD = 5 * time.Second
 )
