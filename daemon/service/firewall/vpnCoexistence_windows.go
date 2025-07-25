@@ -428,6 +428,26 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 	return retErr
 }
 
+func reconfigurableOtherVpnsDetectedImpl() (detected bool, otherVpnNames mapset.Set[string], retErr error) {
+	// check whether we have top WFP sublayer priority
+	weHaveTopFirewallPriority /*otherVpnID*/, _, otherVpnNameWithTopSublayerPri /*otherVpnDescription*/, _, err := implHaveTopFirewallPriority(0)
+	if err != nil {
+		return false, otherVpnNames, log.ErrorFE("error checking whether we have top firewall priority: %w", err)
+	}
+
+	// re-detect VPNs w/ CLI
+	if _, err := reDetectOtherVpnsImpl(false, false, false); err != nil {
+		return false, otherVpnNames, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
+	}
+
+	otherVpnNames = otherVpnsInstalledWithCliPresent.Clone()
+	if otherVpnNameWithTopSublayerPri != "" {
+		otherVpnNames.Add(otherVpnNameWithTopSublayerPri)
+	}
+
+	return !weHaveTopFirewallPriority || !otherVpnsInstalledWithCliPresent.IsEmpty(), otherVpnNames, nil
+}
+
 // reDetectOtherVpnsImpl - re-detect the other VPNs present, and optionally adjust the current MTU accordingly.
 // If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
 // Else it will run re-detection only if the previous detection data is older than 5 seconds.
@@ -436,17 +456,17 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, _ bool) 
 		return 0, log.ErrorFE("error - daemon is stopping")
 	}
 
-	return 0, reDetectVpnsWithCliAndRunTheirCliActions(forceRedetection, detectOnlyByInterfaceName)
+	return 0, reDetectVpnsWithCli(forceRedetection, detectOnlyByInterfaceName)
 }
 
-var reDetectVpnsWithCliAndRunTheirCliActionsMutex sync.Mutex
+var reDetectVpnsWithCliMutex sync.Mutex
 
-// reDetectVpnsWithCliAndRunTheirCliActions - detect the other VPNs installed, that have a CLI present.
+// reDetectVpnsWithCli - detect the other VPNs installed, that have a CLI present.
 // If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
 // Else it will run re-detection only if the previous detection data is older than 5 seconds.
-func reDetectVpnsWithCliAndRunTheirCliActions(forceRedetection, detectOnlyByInterfaceName bool) (retErr error) {
-	reDetectVpnsWithCliAndRunTheirCliActionsMutex.Lock()
-	defer reDetectVpnsWithCliAndRunTheirCliActionsMutex.Unlock()
+func reDetectVpnsWithCli(forceRedetection, detectOnlyByInterfaceName bool) (retErr error) {
+	reDetectVpnsWithCliMutex.Lock()
+	defer reDetectVpnsWithCliMutex.Unlock()
 	log.Debug("reDetectVpnsWithCliAndRunTheirCliActions entered")
 
 	// Check whether the last detection timestamp is too old. (If it's zero - it means detection wasn't run yet since the daemon start.
@@ -457,6 +477,7 @@ func reDetectVpnsWithCliAndRunTheirCliActions(forceRedetection, detectOnlyByInte
 	defer log.Debug("reDetectVpnsWithCliAndRunTheirCliActions exited - redetected")
 
 	var reDetectOtherVpnsWaiter sync.WaitGroup
+	permissionReconfigureOtherVPNs := getPrefsCallback().PermissionReconfigureOtherVPNs
 
 	reDetectOtherVpnsWaiter.Add(1)
 	go func() { // detect other VPNs by existing network interface name
@@ -495,7 +516,7 @@ func reDetectVpnsWithCliAndRunTheirCliActions(forceRedetection, detectOnlyByInte
 					}
 				}
 
-				if otherVpn.otherVpnCliFound && otherVpnCheckErr == nil { // if we have a CLI for another VPN - run its CLI actions asynchronously
+				if permissionReconfigureOtherVPNs && otherVpn.otherVpnCliFound && otherVpnCheckErr == nil { // if we have a CLI for another VPN - run its CLI actions asynchronously
 					go otherVpn.runVpnCliCommands()
 				}
 			}
@@ -668,15 +689,18 @@ func StopService(s *mgr.Service) error {
 }
 
 func StartService(s *mgr.Service) error {
-	serviceStatus, err := QueryServiceStatusEx(s)
-	if err != nil {
-		return log.ErrorE(fmt.Errorf("error QueryServiceStatusEx(): %w", err), 0)
-	}
-
-	if serviceStatus.State == svc.Running {
-		log.Debug(fmt.Sprintf("service '%s' already running", s.Name))
-		return nil
-	}
+	// Don't check here whether the service is running - in case of degenerate condition where a service may be shutting down, but still running.
+	// Just send a start signal unconditionally.
+	//
+	// serviceStatus, err := QueryServiceStatusEx(s)
+	// if err != nil {
+	// 	return log.ErrorE(fmt.Errorf("error QueryServiceStatusEx(): %w", err), 0)
+	// }
+	//
+	// if serviceStatus.State == svc.Running {
+	// 	log.Debug(fmt.Sprintf("service '%s' already running", s.Name))
+	// 	return nil
+	// }
 
 	return s.Start()
 }

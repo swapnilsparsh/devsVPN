@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
 
@@ -150,6 +151,6 @@ func ReDetectOtherVpns(forceRedetection, detectOnlyByInterfaceName, updateCurren
 	return reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU)
 }
 
-func ReconfigurableOtherVpnsDetected() (detected bool, err error) {
+func ReconfigurableOtherVpnsDetected() (detected bool, otherVpnNames mapset.Set[string], err error) {
 	return reconfigurableOtherVpnsDetectedImpl()
 }

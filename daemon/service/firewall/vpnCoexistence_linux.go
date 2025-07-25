@@ -771,10 +771,12 @@ func DisableCoexistenceWithOtherVpns() (retErr error) {
 	return retErr
 }
 
-func reconfigurableOtherVpnsDetectedImpl() (detected bool, err error) {
+func reconfigurableOtherVpnsDetectedImpl() (detected bool, otherVpnNames mapset.Set[string], err error) {
 	if _, err = reDetectOtherVpnsImpl(false, false, false); err != nil {
-		return false, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
+		return false, otherVpnNames, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
 	}
 
-	return !OtherVpnsDetectedRelevantForNftables.IsEmpty() || !OtherVpnsDetectedRelevantForIptablesLegacy.IsEmpty(), nil
+	otherVpnNames = OtherVpnsDetectedRelevantForNftables.Union(OtherVpnsDetectedRelevantForIptablesLegacy)
+
+	return !OtherVpnsDetectedRelevantForNftables.IsEmpty() || !OtherVpnsDetectedRelevantForIptablesLegacy.IsEmpty(), otherVpnNames, nil
 }
