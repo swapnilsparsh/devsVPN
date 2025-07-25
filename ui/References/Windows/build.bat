@@ -101,6 +101,15 @@ goto :success
 	echo ==================================================
   cd %SCRIPTDIR%\..\..  || exit /b 1
 
+	@SET NODE_VER=
+	FOR /F %%I IN ('node -v') DO @SET "NODE_VER=%%I"
+	echo NODE=%NODE_VER%
+
+	@SET NPM_VER=
+	FOR /F %%I IN ('npm -v') DO @SET "NPM_VER=%%I"
+	echo NPM=%NPM_VER%
+
+	echo.
 	echo [*] Installing NPM dependencies...
 	call npm install  || exit /b 1
 
