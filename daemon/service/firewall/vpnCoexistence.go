@@ -149,3 +149,7 @@ func BestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 func ReDetectOtherVpns(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
 	return reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU)
 }
+
+func ReconfigurableOtherVpnsDetected() (detected bool, err error) {
+	return reconfigurableOtherVpnsDetectedImpl()
+}
