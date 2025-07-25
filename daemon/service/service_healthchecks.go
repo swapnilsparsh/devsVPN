@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
+	"github.com/swapnilsparsh/devsVPN/daemon/service/types"
 )
 
 type BackendConnectivityCheckState int
@@ -20,6 +21,12 @@ const (
 
 var (
 	notificationsAfterReconnect = 0 // after we lost connectivity and reconnected, send out the notification to clients (UI, etc.) at most twice
+
+	HealthcheckDelaysByType = map[types.HealthchecksTypeEnum]int{
+		types.HealthchecksType_Ping:        5,  // for ping healthchecks type, wait 5 seconds between requests
+		types.HealthchecksType_RestApiCall: 30, // for REST API healthchecks type, wait 30 seconds between requests
+		types.HealthchecksType_Disabled:    60, // if disabled, wait 60 seconds between retries
+	}
 )
 
 // 2-phase approach: reconfig firewall, then disconnect / disable Total Shield / reconnect
@@ -101,8 +108,9 @@ func (s *Service) connectivityHealthchecksBackgroundMonitor() {
 			}
 
 			time.Sleep(time.Second) // sleep 1 second per each loop iteration
-			loopIteration = (loopIteration + 1) % 5
-			if loopIteration == 0 { // test connectivity only every 5th iteration - that is, once every 5 seconds
+			delay := HealthcheckDelaysByType[s.Preferences().HealthchecksType]
+			loopIteration = (loopIteration + 1) % delay
+			if loopIteration == 0 { // test connectivity only every n-th iteration - that is, once every n seconds (specific for healthchecks type)
 				if err := s.checkConnectivityFixAsNeeded(); err != nil {
 					log.ErrorFE("error returned by checkConnectivityFixAsNeeded(): %w", err) // and continue
 				}

@@ -54,6 +54,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/service/srverrors"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/types"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
@@ -1333,6 +1334,23 @@ func (s *Service) SetPreference(key protocolTypes.ServicePreference, val string)
 			prefs.IsAutoconnectOnLaunchDaemon = val
 		}
 
+	case protocolTypes.Prefs_HealthchecksType:
+		if healthchecksType, ok := service_types.HealthcheckTypesByName[val]; ok {
+			isChanged = healthchecksType != prefs.HealthchecksType
+			prefs.HealthchecksType = healthchecksType
+			log.Debug("SetPreference(): val=", val, "; prefs.HealthchecksType=", prefs.HealthchecksType)
+		} else {
+			return false, log.ErrorFE("invalid HealthchecksType value: %s. Must be one of: Ping, RestApiCall, Disabled", val)
+		}
+
+	case protocolTypes.Prefs_PermissionReconfigureOtherVPNs:
+		if val, err := strconv.ParseBool(val); err == nil {
+			isChanged = val != prefs.PermissionReconfigureOtherVPNs
+			prefs.PermissionReconfigureOtherVPNs = val
+		} else {
+			return false, fmt.Errorf("invalid PermissionReconfigureOtherVPNs value: %t. Must be a boolean", val)
+		}
+
 	default:
 		log.Warning(fmt.Sprintf("Preference key '%s' not supported", key))
 	}
@@ -2525,11 +2543,16 @@ func (s *Service) OnSessionStatus(sessionToken string, sessionData preferences.S
 func (s *Service) CheckBackendConnectivity() (success bool, err error) {
 	// Enable one of implementations
 
-	// Healthchecks implementation using REST API calls
-	// return s._api.PublicGetPlans()
+	// log.Debug("s.Preferences().HealthchecksType = ", s.Preferences().HealthchecksType)
 
-	// Healthchecks implementation via pinging API backend servers
-	return s.PingInternalApiHosts()
+	switch s.Preferences().HealthchecksType {
+	case types.HealthchecksType_Ping: // Healthchecks implementation via pinging API backend servers
+		return s.PingInternalApiHosts()
+	case types.HealthchecksType_RestApiCall: // Healthchecks implementation using REST API calls
+		return s._api.PublicGetPlans()
+	default:
+		return true, nil
+	}
 }
 
 // RequestSessionStatus receives session status

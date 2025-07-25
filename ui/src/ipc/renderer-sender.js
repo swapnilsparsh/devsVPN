@@ -268,6 +268,14 @@ export default {
     return await invoke("renderer-request-set-logging", isEnabled);
   },
 
+  SetHealthchecksType: async (healthchecksType) => {
+    return await invoke("renderer-request-set-healthchecks-type", healthchecksType);
+  },
+
+  SetPermissionReconfigureOtherVPNs: async (isEnabled) => {
+    return await invoke("renderer-request-set-permission-reconfigure-other-vpns", isEnabled);
+  },
+
   SetDNS: async () => {
     return await invoke("renderer-request-set-dns");
   },

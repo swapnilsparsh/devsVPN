@@ -37,3 +37,23 @@ type KillSwitchStatus struct {
 	OtherVpnName        string
 	OtherVpnDescription string
 }
+
+// Type - VPN type
+type HealthchecksTypeEnum int
+
+// Supported VPN protocols
+const (
+	HealthchecksType_Ping        HealthchecksTypeEnum = iota
+	HealthchecksType_RestApiCall HealthchecksTypeEnum = iota
+	HealthchecksType_Disabled    HealthchecksTypeEnum = iota
+)
+
+var (
+	HealthcheckTypeNames = []string{"Ping", "RestApiCall", "Disabled"}
+
+	HealthcheckTypesByName = map[string]HealthchecksTypeEnum{
+		HealthcheckTypeNames[HealthchecksType_Ping]:        HealthchecksType_Ping,
+		HealthcheckTypeNames[HealthchecksType_RestApiCall]: HealthchecksType_RestApiCall,
+		HealthcheckTypeNames[HealthchecksType_Disabled]:    HealthchecksType_Disabled,
+	}
+)

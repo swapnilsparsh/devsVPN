@@ -305,17 +305,34 @@ export default {
     },
 
     async vpnCoexistRetryConfirmPopup() {
-      let ret = await sender.showMessageBox(
-        {
-          type: "warning",
-          buttons: ["OK", "Cancel"],
-          message: "Please Confirm",
-          detail: `Do you allow privateLINE to stop temporarily the other VPN '${this.$store.state.vpnState.firewallState.OtherVpnName}' and get permissions automatically? Press Ok to continue`,
-        },
-        true
-      );
-      if (ret.response == 1) return; // cancel
-      if (ret.response == 0) {
+      const hasPermission =
+        this.$store.state.settings?.daemonSettings?.PermissionReconfigureOtherVPNs ??
+        false;
+
+      let shouldProceed = hasPermission;
+
+      if (!hasPermission) {
+        let ret = await sender.showMessageBox(
+          {
+            type: "warning",
+            buttons: ["OK", "Cancel"],
+            message: "Please Confirm",
+            detail: `Do you allow privateLINE to stop temporarily the other VPN '${this.$store.state.vpnState.firewallState.OtherVpnName}' and reconfigure it as needed for privateLINE connectivity? Press Ok to continue`,
+            checkboxLabel: `Give permission to reconfigure other VPNs when needed`,
+            checkboxChecked: false,
+          },
+          true
+        );
+
+        if (ret.response == 1) return; // cancel
+        shouldProceed = ret.response == 0;
+
+        if (ret.checkboxChecked) {
+          await sender.SetPermissionReconfigureOtherVPNs(true);
+        }
+      }
+
+      if (shouldProceed) {
         let errMsg =
           "Error: failed to get top firewall permissions - please disconnect PL Connect or stop the connection attempt, and retry VPN Coexistence wizard again.";
         try {
