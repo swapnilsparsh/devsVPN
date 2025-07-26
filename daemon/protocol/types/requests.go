@@ -333,3 +333,21 @@ type CheckAccessiblePorts struct {
 	RequestBase
 	PortsToTest []api_types.PortInfo // in case of empty - will be tested all known ports
 }
+
+// CrashReportType defines the type of crash report
+type CrashReportType string
+
+const (
+	CrashReportTypeManual             CrashReportType = "manual"
+	CrashReportTypeUncaughtException  CrashReportType = "uncaught_exception"
+	CrashReportTypeUnhandledRejection CrashReportType = "unhandled_rejection"
+	CrashReportTypePanic              CrashReportType = "panic"
+	CrashReportTypeError              CrashReportType = "error"
+)
+
+// GenerateCrashReport request to generate a crash report
+type GenerateCrashReport struct {
+	RequestBase
+	CrashType      CrashReportType
+	AdditionalData map[string]interface{}
+}
