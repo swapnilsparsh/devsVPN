@@ -506,7 +506,22 @@ ipcMain.handle("renderer-request-shell-open-external", async (event, uri) => {
 
 // OS
 ipcMain.on("renderer-request-os-version-release", (event) => {
-  event.returnValue = os.version() + " " + os.release();
+  // Workaround for bug https://github.com/nodejs/node/issues/40862: Windows 11 gets reported as Windows 10.
+  let osVersion = os.version();
+  let osRelease = os.release();
+
+  // If build number is above 10.0.22000.0 - it's Win 11. If (dwMajorVersion == 10 && dwBuildNumber < 22000) - then it's Win 10.
+  const releaseParsed = /^([\d]+)\.[\d]+\.([\d]+).*$/.exec(osRelease);
+  if (releaseParsed) {
+    let releaseParsedNumeric = releaseParsed.slice(1).map((p) => parseInt(p, 10));
+    if (releaseParsedNumeric != null && releaseParsedNumeric.length >=2) {
+      if (releaseParsedNumeric[0] == 10 && releaseParsedNumeric[1] >= 22000 && osVersion.startsWith("Windows 10")) {
+        osVersion = osVersion.replaceAll("Windows 10", "Windows 11");
+      }
+    }
+  }
+
+  event.returnValue = osVersion + " " + osRelease;
 });
 ipcMain.on("renderer-request-os-release", (event) => {
   event.returnValue = os.release();
