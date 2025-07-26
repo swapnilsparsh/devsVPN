@@ -18,6 +18,9 @@ import path from "path";
 import { SentryInit } from "./sentry/sentry.js";
 SentryInit();
 
+// Initialize Rageshake crash reporting
+import rageshake from "./rageshake/index.js";
+
 // start waiting for events from Renderer processes
 import "./ipc/main-listener";
 
@@ -312,6 +315,8 @@ if (gotTheLock && isAllowedToStart) {
   // initialization and is ready to create browser windows.
   // Some APIs can only be used after this event occurs.
   app.on("ready", async () => {
+    // Initialize Rageshake crash reporting
+    rageshake.init();
     daemonClient.RegisterMsgBoxFunc(dialog.showMessageBox);
 
     // MACOS: Check is application is located in correct place (path)
@@ -452,6 +457,32 @@ if (gotTheLock && isAllowedToStart) {
       });
     }
   }
+
+  // Handle uncaught exceptions and unhandled rejections
+  process.on('uncaughtException', async (error) => {
+    console.error('Uncaught Exception:', error);
+    try {
+      await rageshake.showCrashReportDialog('uncaught_exception', {
+        error: error.message,
+        stack: error.stack
+      });
+    } catch (e) {
+      console.error('Failed to show crash report dialog:', e);
+    }
+    app.quit();
+  });
+
+  process.on('unhandledRejection', async (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    try {
+      await rageshake.showCrashReportDialog('unhandled_rejection', {
+        reason: String(reason),
+        promise: promise.toString()
+      });
+    } catch (e) {
+      console.error('Failed to show crash report dialog:', e);
+    }
+  });
 
   // subscribe to any changes in a store
   store.subscribe((mutation) => {

@@ -45,6 +45,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	firewall_types "github.com/swapnilsparsh/devsVPN/daemon/service/firewall/types"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/rageshake"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
@@ -232,6 +233,7 @@ type Service interface {
 	GetWiFiAvailableNetworks() ([]string, error)
 
 	GetDiagnosticLogs() (logActive string, logPrevSession string, extraInfo string, err error)
+	GenerateCrashReport(crashType string, additionalData map[string]interface{}) (*rageshake.CrashReport, error)
 
 	GetStatsCallbacks() StatsCallbacks
 	SetStatsCallbacks(StatsCallbacks)
@@ -1004,6 +1006,20 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			p.sendErrorResponse(conn, reqCmd, err)
 		} else {
 			p.sendResponse(conn, &types.DiagnosticsGeneratedResp{Log1_Active: log, Log0_Old: log0, ExtraInfo: extraInfo}, reqCmd.Idx)
+		}
+
+	case "GenerateCrashReport":
+		var req types.GenerateCrashReport
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		report, err := p._service.GenerateCrashReport(string(req.CrashType), req.AdditionalData)
+		if err != nil {
+			p.sendErrorResponse(conn, reqCmd, err)
+		} else {
+			p.sendResponse(conn, &types.CrashReportGeneratedResp{Report: report}, reqCmd.Idx)
 		}
 
 	case "SetAlternateDns":

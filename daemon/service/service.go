@@ -46,6 +46,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/rageshake"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
@@ -149,6 +150,9 @@ type Service struct {
 	_statsCallbacks       protocol.StatsCallbacks
 	_vpnConnectedCallback protocolTypes.VpnConnectedCallback
 
+	// Rageshake crash reporting
+	_rageshake *rageshake.Rageshake
+
 	// connectivityHealthchecksBackgroundMonitor data
 	connectivityHealthchecksBackgroundMonitorDef                                *srvhelpers.ServiceBackgroundMonitor
 	connectivityHealthchecksRunningMutex, connectivityHealthchecksStopFuncMutex sync.Mutex
@@ -209,6 +213,7 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 		_globalEvents:         globalEvents,
 		_systemLog:            systemLog,
 		_vpnConnectedCallback: evtReceiver.LastVpnStateIsConnected,
+		_rageshake:            rageshake.New(),
 	}
 
 	// init connectivityHealthchecksBackgroundMonitorDef
@@ -545,7 +550,7 @@ func (s *Service) ServersListForceUpdate() (*api_types.ServersInfoResponse, erro
 func (s *Service) APIRequest(apiAlias string, ipTypeRequired protocolTypes.RequiredIPProtocol) (responseData []byte, err error) {
 
 	if ipTypeRequired == protocolTypes.IPv6 {
-		// IPV6-LOC-200 - IVPN Apps should request only IPv4 location information when connected  to the gateway, which doesn’t support IPv6
+		// IPV6-LOC-200 - IVPN Apps should request only IPv4 location information when connected  to the gateway, which doesn't support IPv6
 		vpn := s._vpn
 		if vpn != nil && !vpn.IsPaused() && !vpn.IsIPv6InTunnel() {
 			return nil, fmt.Errorf("no IPv6 support inside tunnel for current connection")
@@ -2826,4 +2831,42 @@ func (s *Service) listAllServiceBackgroundMonitors() (allBackgroundMonitors []*s
 	allBackgroundMonitors = firewall.GetFirewallBackgroundMonitors()
 	allBackgroundMonitors = append(allBackgroundMonitors, s.connectivityHealthchecksBackgroundMonitorDef)
 	return allBackgroundMonitors
+}
+
+func (s *Service) GetDiagnosticLogsRageshake() (logActive string, logPrevSession string, extraInfo string, err error) {
+	log, log0, err := logger.GetLogText(1024 * 64)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	extraInfo, err1 := s.implGetDiagnosticExtraInfo()
+	if err1 != nil {
+		extraInfo = fmt.Sprintf("<failed to obtain extra info> : %s : %s", err1.Error(), extraInfo)
+	}
+
+	return log, log0, extraInfo, nil
+}
+
+// GenerateCrashReport generates a crash report using Rageshake
+func (s *Service) GenerateCrashReport(crashType string, additionalData map[string]interface{}) (*rageshake.CrashReport, error) {
+	if s._rageshake == nil {
+		return nil, fmt.Errorf("rageshake not initialized")
+	}
+	return s._rageshake.CollectCrashReport(crashType, additionalData)
+}
+
+// SaveCrashReport saves a crash report to a file
+func (s *Service) SaveCrashReport(report *rageshake.CrashReport, outputPath string) error {
+	if s._rageshake == nil {
+		return fmt.Errorf("rageshake not initialized")
+	}
+	return s._rageshake.SaveCrashReport(report, outputPath)
+}
+
+// GetCrashReportAsString returns crash report as a formatted string
+func (s *Service) GetCrashReportAsString(report *rageshake.CrashReport) string {
+	if s._rageshake == nil {
+		return "[Rageshake not initialized]"
+	}
+	return s._rageshake.GetCrashReportAsString(report)
 }
