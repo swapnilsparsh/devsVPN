@@ -39,13 +39,7 @@ async function invoke(channel, ...args) {
   }
 }
 
-/**
- * Request system readiness check
- * @returns {Promise<Object>} System check results
- */
-export async function RequestSystemCheck() {
-  return await ipcRenderer.invoke("renderer-request-system-check");
-}
+
 
 export default {
   // This object is using to expose ipcRenderer functionality (send\receive) only for limited channels
@@ -332,9 +326,7 @@ export default {
   CollectCrashReport: async (crashType, additionalData) => {
     return invoke("renderer-request-collect-crash-report", crashType, additionalData);
   },
-  TestRageshakeConnection: async () => {
-    return invoke("renderer-request-test-rageshake-connection");
-  },
+
 
   // UPDATES
   UpdateWindowClose: () => {

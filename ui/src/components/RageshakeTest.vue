@@ -11,62 +11,13 @@
       </p>
     </div>
 
-    <!-- System Check Results -->
-    <div v-if="systemCheckResult" class="system-check">
-      <h3>System Readiness Check</h3>
-      <p><strong>Overall Status:</strong> 
-        <span :class="getStatusClass(systemCheckResult.overallStatus)">
-          {{ systemCheckResult.overallStatus.toUpperCase() }}
-        </span>
-      </p>
-      
-      <div class="check-details">
-        <h4>Check Details:</h4>
-        <div v-for="(check, name) in systemCheckResult.checks" :key="name" class="check-item">
-          <span :class="getStatusClass(check.status)">{{ check.status }}</span>
-          <strong>{{ name }}:</strong> {{ check.details || 'No details' }}
-        </div>
-      </div>
-      
-      <div v-if="systemCheckResult.errors.length > 0" class="errors">
-        <h4>Errors:</h4>
-        <ul>
-          <li v-for="error in systemCheckResult.errors" :key="error.timestamp">
-            {{ error.message }}
-          </li>
-        </ul>
-      </div>
-      
-      <div v-if="systemCheckResult.warnings.length > 0" class="warnings">
-        <h4>Warnings:</h4>
-        <ul>
-          <li v-for="warning in systemCheckResult.warnings" :key="warning.timestamp">
-            {{ warning.message }}
-          </li>
-        </ul>
-      </div>
-      
-      <div v-if="systemCheckResult.recommendations.length > 0" class="recommendations">
-        <h4>Recommendations:</h4>
-        <ul>
-          <li v-for="rec in systemCheckResult.recommendations" :key="rec.timestamp">
-            {{ rec.message }}
-          </li>
-        </ul>
-      </div>
-    </div>
+
 
     <!-- Test Buttons -->
     <div class="test-buttons">
       <h3>Test Functions</h3>
       
-      <button @click="runSystemCheck" :disabled="isLoading">
-        {{ isLoading ? 'Running...' : 'Run System Check' }}
-      </button>
-      
-      <button @click="testServerConnection" :disabled="isLoading">
-        Test Server Connection
-      </button>
+
       
       <button @click="testManualCrashReport" :disabled="isLoading">
         Test Manual Crash Report
@@ -110,7 +61,7 @@ export default {
       serverUrl: 'https://logs.privateline.io/rageshake',
       connectionStatus: 'unknown',
       connectionStatusText: 'Not tested',
-      systemCheckResult: null,
+
       isLoading: false,
       testResults: []
     };
@@ -124,30 +75,7 @@ export default {
     }
   },
   methods: {
-    async testServerConnection() {
-      try {
-        this.connectionStatus = 'testing';
-        this.connectionStatusText = 'Testing...';
-        
-        const result = await sender.TestRageshakeConnection();
-        this.lastResult = result;
-        
-        if (result.success) {
-          this.connectionStatus = 'success';
-          this.connectionStatusText = 'Connected';
-        } else {
-          this.connectionStatus = 'error';
-          this.connectionStatusText = 'Connection failed';
-        }
-        
-        console.log('Server connection test result:', result);
-      } catch (error) {
-        console.error('Error testing server connection:', error);
-        this.connectionStatus = 'error';
-        this.connectionStatusText = 'Test failed';
-        this.lastResult = { error: error.message };
-      }
-    },
+
 
     async testManualCrashReport() {
       try {
@@ -207,28 +135,7 @@ export default {
       }
     },
 
-         async runSystemCheck() {
-       this.isLoading = true;
-       this.testResults = []; // Clear previous results
-       try {
-         const result = await sender.RequestSystemCheck();
-         this.systemCheckResult = result.result;
-         console.log('System readiness check result:', result);
-         this.testResults.push({ test: 'System Readiness Check', success: result.success, message: result.success ? 'System readiness check completed.' : result.error });
-       } catch (error) {
-        console.error('Error running system readiness check:', error);
-        this.systemCheckResult = {
-          overallStatus: 'error',
-          checks: {},
-          errors: [{ message: error.message, timestamp: new Date().toISOString() }],
-          warnings: [],
-          recommendations: []
-        };
-        this.testResults.push({ test: 'System Readiness Check', success: false, message: `System readiness check failed: ${error.message}` });
-      } finally {
-        this.isLoading = false;
-      }
-    },
+
 
     getStatusClass(status) {
       if (status === 'success') return 'success';
@@ -287,49 +194,7 @@ export default {
   }
 }
 
-.system-check {
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  padding: 15px;
-  margin-bottom: 20px;
-  
-  h3 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    color: #495057;
-  }
-  
-  p {
-    margin: 5px 0;
-    font-size: 14px;
-  }
-  
-  .success {
-    color: #28a745;
-    font-weight: bold;
-  }
-  
-  .error {
-    color: #dc3545;
-    font-weight: bold;
-  }
-  
-  .warning {
-    color: #ffc107;
-    font-weight: bold;
-  }
-  
-  .info {
-    color: #17a2b8;
-    font-weight: bold;
-  }
-  
-  .unknown {
-    color: #6c757d;
-    font-weight: bold;
-  }
-}
+
 
 .test-buttons {
   display: flex;

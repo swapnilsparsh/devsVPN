@@ -395,21 +395,7 @@ ipcMain.handle("renderer-request-collect-crash-report", async (event, crashType,
   }
 });
 
-ipcMain.handle("renderer-request-test-rageshake-connection", async (event) => {
-  try {
-    // Import the test module dynamically
-    const { testRageshakeConnection } = await import('../rageshake/test-connection.js');
-    const result = await testRageshakeConnection();
-    return result;
-  } catch (error) {
-    console.error('Error testing Rageshake connection:', error);
-    return { 
-      success: false, 
-      error: error.message,
-      serverUrl: 'https://logs.privateline.io/rageshake'
-    };
-  }
-});
+
 
 // UPDATES
 ipcMain.on("renderer-request-app-updates-is-able-to-update", (event) => {
@@ -597,25 +583,4 @@ ipcMain.handle(
   }
 );
 
-// Add system check handler
-ipcMain.handle("renderer-request-system-check", async () => {
-  try {
-    const { performSystemCheck, getSystemCheckSummary } = await import('../rageshake/system-check.js');
-    const result = await performSystemCheck();
-    const summary = getSystemCheckSummary(result);
-    
-    console.log('System check completed:', summary);
-    
-    return {
-      success: true,
-      result: result,
-      summary: summary
-    };
-  } catch (error) {
-    console.error('System check failed:', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-});
+
