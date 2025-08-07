@@ -30,13 +30,13 @@
         >
           Other
         </button>
-        <!-- <button
+        <button
           v-on:click="onTabSelected('userComment')"
           class="selectableButtonOff"
           v-bind:class="{ selectableButtonOn: activeTabName == 'userComment' }"
         >
           User comment
-        </button> -->
+        </button>
         <button
           style="cursor: auto; flex-grow: 1"
           class="selectableButtonSeparator"
@@ -87,19 +87,22 @@
         <!-- <button class="slave btn" v-on:click="onCancel">Cancel</button> -->
         <button class="slave btn" v-on:click="onCancel">Back</button>
         <div style="width: 10px" />
-        <!-- <button
+        <button
           class="master btn"
           :class="{ btnDisabled: !isLoggingEnabled }"
           v-on:click="onSendLogs"
         >
           Send logs
-        </button> -->
+        </button>
       </div>
     </div>
   </body>
 </template>
 
 <script>
+
+// import { rageshake}  from "./rageshake/index.js";
+
 const sender = window.ipcSender;
 
 const LogProperties = Object.freeze({
@@ -214,15 +217,36 @@ export default {
           return;
         }
 
-        let data = JSON.parse(JSON.stringify(this.diagnosticDataObj));
-        let id = await sender.SubmitDiagnosticLogs(this.userComment, data);
+        // FIXME: Vlad - patching here
 
-        sender.showMessageBoxSync({
-          type: "info",
-          buttons: ["OK"],
-          message: "Report sent to privateLINE",
-          detail: `Report ID: ${id}`,
-        });
+        // let data = JSON.parse(JSON.stringify(this.diagnosticDataObj));
+        // let id = await sender.SubmitDiagnosticLogs(this.userComment, data);
+
+        try {
+          const result = await sender.GenerateCrashReport('manual', {
+            userComment: this.userComment,
+            timestamp: new Date().toISOString()
+          });
+          this.lastResult = result;
+          console.log('Manual crash report result:', result);
+        } catch (error) {
+          console.error('Error generating manual crash report:', error);
+        }
+
+        // try {
+        //   await rageshake.showCrashReportDialog('manual', {
+        //     userComment: this.userComment,
+        //   });
+        // } catch (e) {
+        //   console.error('Failed to show crash report dialog:', e);
+        // }
+
+        // sender.showMessageBoxSync({
+        //   type: "info",
+        //   buttons: ["OK"],
+        //   message: "Report sent to privateLINE",
+        //   detail: `Report ID: ${id}`,
+        // });
       }
 
       if (this.onClose != null) this.onClose();

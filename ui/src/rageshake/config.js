@@ -1,6 +1,6 @@
 /**
  * Rageshake Configuration
- * 
+ *
  * This file contains configuration settings for the Rageshake crash reporting system.
  */
 
@@ -17,12 +17,12 @@ export const RAGESHAKE_CONFIG = {
 
   // File configuration
   FILES: {
-    // Maximum size for individual log files (64KB)
-    MAX_LOG_SIZE: 64 * 1024,
+    // Maximum size for individual log files (4MB)
+    MAX_LOG_SIZE: 4 * 1024 * 1024,
     // Maximum size for crash dumps (5MB)
     MAX_CRASH_DUMP_SIZE: 5 * 1024 * 1024,
-    // Maximum total report size (10MB)
-    MAX_REPORT_SIZE: 10 * 1024 * 1024,
+    // Maximum total report size (25MB)
+    MAX_REPORT_SIZE: 25 * 1024 * 1024,
     // Maximum number of crash dumps to include
     MAX_CRASH_DUMPS: 5,
     // Maximum number of log files to include
@@ -32,11 +32,11 @@ export const RAGESHAKE_CONFIG = {
   // Application configuration
   APP: {
     // Product name for Rageshake
-    PRODUCT_NAME: 'PrivateLINE Connect',
+    PRODUCT_NAME: 'privateLINE Connect desktop',
     // Company name
-    COMPANY_NAME: 'PrivateLINE',
+    COMPANY_NAME: 'privateLINE',
     // Application identifier (matches rageshake config)
-    APP_ID: 'privateline-connect',
+    APP_ID: 'privateline-connect-desktop',
     // Default label for crash reports
     DEFAULT_LABEL: 'crash-report',
     // Rate limiting (reports per hour)
@@ -118,4 +118,4 @@ export function getDataConfig() {
  */
 export function getPrivacyConfig() {
   return RAGESHAKE_CONFIG.PRIVACY;
-} 
+}

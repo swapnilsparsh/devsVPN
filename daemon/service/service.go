@@ -2834,7 +2834,7 @@ func (s *Service) listAllServiceBackgroundMonitors() (allBackgroundMonitors []*s
 }
 
 func (s *Service) GetDiagnosticLogsRageshake() (logActive string, logPrevSession string, extraInfo string, err error) {
-	log, log0, err := logger.GetLogText(1024 * 64)
+	log, log0, err := logger.GetLogText(rageshake.MAX_LOG_SIZE)
 	if err != nil {
 		return "", "", "", err
 	}

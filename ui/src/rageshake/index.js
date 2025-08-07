@@ -22,13 +22,13 @@ class Rageshake {
     try {
       // Set up crash reporter
       this.setupCrashReporter();
-      
+
       // Set up paths
       this.setupPaths();
-      
+
       // Enable crash reporting
       this.isEnabled = true;
-      
+
       console.log('Rageshake crash reporting initialized');
     } catch (error) {
       console.error('Failed to initialize Rageshake:', error);
@@ -41,7 +41,7 @@ class Rageshake {
   setupCrashReporter() {
     const uploadURL = getUploadURL();
     const appConfig = getAppConfig();
-    
+
     crashReporter.start({
       productName: appConfig.PRODUCT_NAME,
       companyName: appConfig.COMPANY_NAME,
@@ -69,7 +69,7 @@ class Rageshake {
     const userDataPath = app.getPath('userData');
     this.crashDumpsPath = path.join(userDataPath, 'CrashDumps');
     this.logsPath = path.join(userDataPath, 'Logs');
-    
+
     // Create directories if they don't exist
     this.ensureDirectoryExists(this.crashDumpsPath);
     this.ensureDirectoryExists(this.logsPath);
@@ -222,7 +222,7 @@ class Rageshake {
   async showCrashReportDialog(crashType = 'manual', additionalData = {}) {
     try {
       const report = await this.collectCrashReport(crashType, additionalData);
-      
+
       const result = await dialog.showMessageBox({
         type: 'info',
         title: 'Crash Report Generated',
@@ -257,7 +257,7 @@ class Rageshake {
       // Convert report to Rageshake API format using the API client
       const api = createRageshakeAPI();
       const rageshakeData = api.createCrashReport(report, report.crashType, report.userDescription);
-      
+
       // Send via Rageshake API
       const result = await api.submitReport(rageshakeData);
 
@@ -288,14 +288,14 @@ class Rageshake {
 
     // Crash dumps info
     if (report.crashDumps.length > 0) {
-      sentryData['Crash Dumps'] = report.crashDumps.map(dump => 
+      sentryData['Crash Dumps'] = report.crashDumps.map(dump =>
         `${dump.name} (${dump.size} bytes)`
       ).join('\n');
     }
 
     // Log files content
     report.logs.forEach(log => {
-      const content = this.readFileSafely(log.path, 64 * 1024); // 64KB per log
+      const content = this.readFileSafely(log.path, 4 * 1024 * 1024); // 4MB per log
       sentryData[`Log: ${log.name}`] = content;
     });
 
@@ -377,4 +377,4 @@ class Rageshake {
 }
 
 // Export singleton instance
-export default new Rageshake(); 
+export default new Rageshake();

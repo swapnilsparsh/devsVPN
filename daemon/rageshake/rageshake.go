@@ -37,7 +37,11 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/version"
 )
 
-var log = logger.NewLogger("rageshake")
+var log = logger.NewLogger("rgshk")
+
+const (
+	MAX_LOG_SIZE = 4 * 1048576 // 4 MB max per logfile
+)
 
 // CrashReport represents a complete crash report
 type CrashReport struct {
@@ -119,7 +123,7 @@ type Rageshake struct {
 // New creates a new Rageshake instance
 func New() *Rageshake {
 	return &Rageshake{
-		maxLogSize: 64 * 1024, // 64KB
+		maxLogSize: 4 * 1048576, // 4MB
 	}
 }
 
