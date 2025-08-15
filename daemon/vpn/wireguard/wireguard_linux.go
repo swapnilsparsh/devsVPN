@@ -300,7 +300,7 @@ func (wg *WireGuard) doOperation(op operation) error {
 		defer wg.internals.mutex.Unlock()
 
 		if wg.internals.resumeDisconnectChan == nil {
-			return fmt.Errorf("not ininialised")
+			return fmt.Errorf("not initialised")
 		}
 
 		if !wg.isRunning() {
