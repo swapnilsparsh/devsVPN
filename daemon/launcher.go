@@ -40,6 +40,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/netchange"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
+	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/service"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
@@ -65,6 +66,7 @@ func init() {
 type IProtocol interface {
 	Start(secret uint64, startedOnPort chan<- int, serv protocol.Service) error
 	Stop()
+	SubmitRageshakeReportInternal(message string) // try to submit panic log via Rageshake
 }
 
 // Launch -  initialize and start service
@@ -112,11 +114,20 @@ func Launch() {
 	// Now that logger is initialized, set up panic handler - ensure we log panic message (at least on this goroutine) before exiting on it
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error(fmt.Errorf("PANIC at runtime: %v", r))
-			logger.Error(string(debug.Stack()))
+			msg := fmt.Errorf("PANIC at runtime: %v", r)
+			logger.Error(msg)
+
+			errMsg := string(debug.Stack())
+			logger.Error(errMsg)
 			if err, ok := r.(error); ok {
 				logger.ErrorTrace(err)
+				errMsg += "\n\n" + err.Error()
 			}
+
+			if p := activeProtocol; p != nil {
+				p.SubmitRageshakeReportInternal(msg.Error() + "\n\n" + errMsg)
+			}
+
 			os.Exit(1)
 		}
 	}()
@@ -322,6 +333,8 @@ func launchService(secret uint64, startedOnPort chan<- int) {
 		serviceEventsChan,
 		systemLog)
 	if err != nil {
+		// we have apiObj - try to submit error message to Rageshake server
+		apiObj.SubmitRageshakeReport(string(types.CrashReportTypeDaemonServiceInit), helpers.ServiceName, version.GetFullVersion(), "Failed to initialize service\n\n"+err.Error(), []string{}, []helpers.JsonFileToAttach{}, map[string]string{})
 		log.Panic("Failed to initialize service:", err)
 	}
 

@@ -24,6 +24,7 @@ import {
   SentryIsAbleToUse,
   SentrySendDiagnosticReport,
 } from "@/sentry/sentry.js";
+import rageshake from "@/rageshake/index.js";
 
 import { GetLinuxSnapEnvVars } from "@/helpers/main_platform";
 import { Platform } from "@/platform/platform";
@@ -373,6 +374,28 @@ ipcMain.handle(
   }
 );
 
+// RAGESHAKE CRASH REPORTING
+ipcMain.handle("renderer-request-submit-rageshake-report", async (event, crashType, errMsg, additionalData) => {
+  try {
+    const resp = await rageshake.showCrashReportDialog(crashType || 'ui - manual', errMsg, additionalData || {});
+    return { success: true, resp };
+  } catch (error) {
+    console.error('Error generating crash report:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("renderer-request-collect-crash-report", async (event, crashType, errMsg, additionalData) => {
+  try {
+    const report = await rageshake.collectCrashReport(crashType || 'ui - manual', errMsg, additionalData || {});
+    return { success: true, report };
+  } catch (error) {
+    console.error('Error collecting crash report:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+
 // UPDATES
 ipcMain.on("renderer-request-app-updates-is-able-to-update", (event) => {
   try {
@@ -558,3 +581,5 @@ ipcMain.handle(
     return await client.SetLocalParanoidModePassword(password);
   }
 );
+
+

@@ -453,7 +453,7 @@ func (p *pingSet) ping_iteration(s *Service, hostsToPing *threadsafe.Array[pingH
 					wg.Done()
 				}()
 
-				//log.Debug("Pinging ", hostIp, " ...") // FIXME: Vlad - disable when fleshed out
+				//log.Debug("Pinging ", hostIp, " ...")
 				pinger, err := probing.NewPinger(hostIp)
 				if err != nil {
 					log.Error("Pinger creation error: " + err.Error())
@@ -476,7 +476,7 @@ func (p *pingSet) ping_iteration(s *Service, hostsToPing *threadsafe.Array[pingH
 						pingedResult[hostIp] = ttl
 						resultMutex.Unlock()
 
-						//log.Debug("SUCCESS pinging ", hostIp) // FIXME: Vlad - disable when fleshed out
+						//log.Debug("SUCCESS pinging ", hostIp)
 					}
 
 					resultMutex.RLock()

@@ -333,3 +333,30 @@ type CheckAccessiblePorts struct {
 	RequestBase
 	PortsToTest []api_types.PortInfo // in case of empty - will be tested all known ports
 }
+
+// CrashReportType defines the type of crash report
+type CrashReportType string
+
+const (
+	CrashReportTypeDaemonInit        CrashReportType = "daemon - init"
+	CrashReportTypeDaemonServiceInit CrashReportType = "daemon - service init"
+	CrashReportTypeDaemonPanic       CrashReportType = "daemon - panic"
+
+	CrashReportTypeUiManual             CrashReportType = "ui - manual"
+	CrashReportTypeUiUncaughtException  CrashReportType = "ui - uncaught_exception"
+	CrashReportTypeUiUnhandledRejection CrashReportType = "ui - unhandled_rejection"
+	CrashReportTypeUiPanic              CrashReportType = "ui - panic"
+	CrashReportTypeUiError              CrashReportType = "ui - error"
+)
+
+// SubmitRageshakeReport request to generate a crash report
+type SubmitRageshakeReport struct {
+	RequestBase
+	App                      string            `json:"app"`
+	Version                  string            `json:"version"`
+	CrashType                CrashReportType   `json:"crash_type"`
+	ErrMsg                   string            `json:"err_msg"`
+	ClientAttachedFilesPaths []string          `json:"client_attached_files_paths"`
+	ClientSystemInfoJson     string            `json:"client_system_info_json"`
+	AdditionalData           map[string]string `json:"additional_data,omitempty"`
+}

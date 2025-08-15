@@ -30,13 +30,13 @@
         >
           Other
         </button>
-        <!-- <button
+        <button
           v-on:click="onTabSelected('userComment')"
           class="selectableButtonOff"
           v-bind:class="{ selectableButtonOn: activeTabName == 'userComment' }"
         >
           User comment
-        </button> -->
+        </button>
         <button
           style="cursor: auto; flex-grow: 1"
           class="selectableButtonSeparator"
@@ -87,19 +87,20 @@
         <!-- <button class="slave btn" v-on:click="onCancel">Cancel</button> -->
         <button class="slave btn" v-on:click="onCancel">Back</button>
         <div style="width: 10px" />
-        <!-- <button
+        <button
           class="master btn"
           :class="{ btnDisabled: !isLoggingEnabled }"
           v-on:click="onSendLogs"
         >
           Send logs
-        </button> -->
+        </button>
       </div>
     </div>
   </body>
 </template>
 
 <script>
+
 const sender = window.ipcSender;
 
 const LogProperties = Object.freeze({
@@ -172,15 +173,18 @@ export default {
         let val = `${this.diagnosticDataObj[pName]}`;
         val = val.trim();
         if (!val) continue;
-        val = val.replace(/\\n/g, "\n");
 
         if (pName == LogProperties.ExtraInfo) {
           text.push("----------------------\n");
           text.push(pName.trim() + "\n");
           text.push("----------------------\n");
+
+          val = JSON.stringify(this.diagnosticDataObj.ExtraInfo, null, "\t");
         } else {
           text.push(pName.trim() + ": ");
         }
+
+        val = val.replace(/\\n/g, "\n");
         text.push(val + "\n\n");
       }
       return text.join("");
@@ -214,15 +218,12 @@ export default {
           return;
         }
 
-        let data = JSON.parse(JSON.stringify(this.diagnosticDataObj));
-        let id = await sender.SubmitDiagnosticLogs(this.userComment, data);
+        try {
+          await sender.SubmitRageshakeReport('ui - manual', this.userComment, {});
+        } catch (error) {
+          console.error('Error generating manual crash report:', error);
+        }
 
-        sender.showMessageBoxSync({
-          type: "info",
-          buttons: ["OK"],
-          message: "Report sent to privateLINE",
-          detail: `Report ID: ${id}`,
-        });
       }
 
       if (this.onClose != null) this.onClose();

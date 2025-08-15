@@ -441,71 +441,45 @@ func (a *API) doRequestAPIHost(ipTypeRequired types.RequiredIPProtocol, isCanUse
 	return nil, fmt.Errorf("unable to access privateLINE API server: %w", firstErr)
 }
 
-// func fix_response_body(responseBody []byte, statusCode int) (reqResponseBody []byte) {
-// 	jsonResponse := string(responseBody)
+func (a *API) doRequestLogsHost(req *http.Request) (responseData []byte, resp *http.Response, err error) {
+	// timeout time for full request
+	timeout := _defaultRequestTimeout
+	// timeout for the dial
+	timeoutDial := _defaultDialTimeout
+	if timeoutDial > timeout {
+		timeoutDial = 0
+	}
 
-// 	// Unmarshal the provided JSON response into a map[string]interface{}
-// 	var responseData map[string]interface{}
-// 	err := json.Unmarshal([]byte(jsonResponse), &responseData)
-// 	if err != nil {
-// 		logger.Warning(fmt.Sprintf("fix_response_body: %s", err))
-// 		return
-// 	}
+	transCfg := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,         // seems, it is redundant (since we use custom DialTLS)
+			ServerName: a.getLogsHost().Hostname, // despite, we using custom DialTLS, we have to define ServerName (this avoids certificate verification problems, for example, when the request is going through a proxy server)
+		},
 
-// 	// Extract necessary data from the response
-// 	if statusCode == 200 {
-// 		token := responseData["data"].(map[string]interface{})["token"].(string)
-// 		logger.Debug("Session token: " + token)
-// 		// Define the desired response structure
-// 		response := Response{
-// 			Status:      statusCode,
-// 			Token:       token,
-// 			VPNUsername: "sfHTNIU3n1p",
-// 			VPNPassword: "6mmXcXRI6g",
-// 			ServiceStatus: ServiceStatus{
-// 				IsActive:         true,
-// 				ActiveUntil:      1718508918,
-// 				CurrentPlan:      "IVPN Pro",
-// 				PaymentMethod:    "prepaid",
-// 				IsRenewable:      true,
-// 				WillAutoRebill:   false,
-// 				IsOnFreeTrial:    false,
-// 				Capabilities:     []string{"multihop", "port-forwarding"},
-// 				Upgradable:       false,
-// 				UpgradeToPlan:    "N.A.",
-// 				UpgradeToURL:     "N.A.",
-// 				DeviceManagement: false,
-// 			},
-// 			// TODO FIXME addr 172.24.237.187
-// 			Wireguard: map[string]interface{}{
-// 				"status":      200,
-// 				"ip_address":  "172.24.237.187",
-// 				"kem_cipher1": "T1VdW9PIBbTBArahADGQzi+ac1+d/XxKyY+K0tJMgkppNNLmgx3ox9bgks1pIDsGsWrn/6nM8peIvxQfaO+0KI64FyYZiZsoeQUyIjlYZddcCSO9eMYoHoB7i/98Q+0KVXDd6YfkprbdYCZ08IRPeSz170T2Nwd0pnQCdk7I/XYVTp26KsLkKHAnKmkZkpeyT6ydA+7/Pd/utHwe0o1cLziRmo6B7LGMsXPiVm3xAr2QesB9jDBvDngAHdMNL2hIQHYS",
-// 			},
-// 			DeviceName: "",
-// 		}
-// 		// Marshal the response into JSON byte slice
-// 		responseJSON, err := json.Marshal(response)
-// 		if err != nil {
-// 			fmt.Println("Error:", err)
-// 			return
-// 		}
-// 		// Print the JSON byte slice
-// 		return responseJSON
-// 	} else {
-// 		response := ErrResponse{
-// 			Status:  statusCode,
-// 			Message: responseData["message"].(string),
-// 		}
-// 		// Marshal the response into JSON byte slice
-// 		responseJSON, err := json.Marshal(response)
-// 		if err != nil {
-// 			fmt.Println("Error:", err)
-// 			return
-// 		}
-// 		return responseJSON
-// 	}
-// }
+		// TODO: Vlad - leave certificate key pinning enabled?
+		DialTLS: makeDialer(APIPrivateLineHashes, a.getLogsHost().Hostname, timeoutDial),
+	}
+
+	// configure http-client with preconfigured TLS transport
+	client := &http.Client{Transport: transCfg, Timeout: timeout}
+
+	// try to access REST API server by host DNS
+	var firstErr error
+
+	resp, firstErr = client.Do(req)
+	if firstErr == nil {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, resp, log.ErrorFE("failed to read API HTTP response body: %w", err)
+		}
+
+		return body, resp, nil
+	}
+	firstErr = fmt.Errorf("bad API response for request %s by DNS name: %w", req.URL, firstErr)
+	log.Debug(firstErr)
+
+	return nil, nil, log.ErrorFE("unable to access privateLINE logs server: %w", firstErr)
+}
 
 // httpResp returned can be nil
 func (a *API) requestRaw(ipTypeRequired types.RequiredIPProtocol, host string, urlPath string, method string, contentType string, requestObject api_types.RequestWithSessionToken, timeoutMs int, timeoutDialMs int) (responseData []byte, httpResp *http.Response, err error) {

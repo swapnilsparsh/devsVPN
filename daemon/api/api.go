@@ -23,13 +23,17 @@
 package api
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -40,9 +44,10 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/rageshake"
 )
 
-// TODO FIXME: Vlad - create types for Production and Dev environments
+// TODO: Vlad - create types for Production and Dev environments
 type RestApiBackendType int
 
 const (
@@ -54,6 +59,7 @@ type RestApiHostsDef struct {
 	ApiHost    helpers.HostnameAndIP
 	SsoHost    helpers.HostnameAndIP
 	UpdateHost helpers.HostnameAndIP
+	LogsHost   helpers.HostnameAndIP
 }
 
 var (
@@ -62,12 +68,14 @@ var (
 		ApiHost:    helpers.HostnameAndIP{Hostname: "deskapi.privateline.io", DefaultIP: net.IPv4(155, 130, 218, 68), DefaultIpString: "155.130.218.68"},
 		SsoHost:    helpers.HostnameAndIP{Hostname: "sso.privateline.io", DefaultIP: net.IPv4(155, 130, 218, 68), DefaultIpString: "155.130.218.68"},
 		UpdateHost: helpers.HostnameAndIP{Hostname: "deskapi.privateline.io", DefaultIP: net.IPv4(155, 130, 218, 68), DefaultIpString: "155.130.218.68"},
+		LogsHost:   helpers.HostnameAndIP{Hostname: "logs.privateline.io", DefaultIP: net.IPv4(155, 130, 218, 68), DefaultIpString: "155.130.218.68"},
 	}
 
 	developmentApiHosts = RestApiHostsDef{
 		ApiHost:    helpers.HostnameAndIP{Hostname: "api.privateline.dev", DefaultIP: net.IPv4(155, 130, 218, 69), DefaultIpString: "155.130.218.69"},
 		SsoHost:    helpers.HostnameAndIP{Hostname: "sso.privateline.dev", DefaultIP: net.IPv4(155, 130, 218, 69), DefaultIpString: "155.130.218.69"},
 		UpdateHost: helpers.HostnameAndIP{Hostname: "api.privateline.dev", DefaultIP: net.IPv4(155, 130, 218, 69), DefaultIpString: "155.130.218.69"},
+		LogsHost:   helpers.HostnameAndIP{Hostname: "logs.privateline.io", DefaultIP: net.IPv4(155, 130, 218, 68), DefaultIpString: "155.130.218.68"},
 	}
 
 	RestApiHostsSet = []*RestApiHostsDef{&productionApiHosts, &developmentApiHosts}
@@ -103,6 +111,7 @@ const (
 	_wgKeySetPath               = _apiPathPrefix + "/session/wg/set"
 	_geoLookupPath              = _apiPathPrefix + "/geo-lookup"
 	_publicGetPlans             = "/public/get-plans"
+	_rageshakeApiSubmit         = "/api/submit"
 )
 
 var log *logger.Logger
@@ -151,6 +160,9 @@ func (a *API) getSsoHost() *helpers.HostnameAndIP {
 }
 func (a *API) getUpdateHost() *helpers.HostnameAndIP {
 	return &RestApiHostsSet[a.currentRestApiBackend].UpdateHost
+}
+func (a *API) getLogsHost() *helpers.HostnameAndIP {
+	return &RestApiHostsSet[a.currentRestApiBackend].LogsHost
 }
 
 // SetRestApiBackend: true for development env, false for production env
@@ -494,7 +506,7 @@ func (a *API) SsoLogin(code string, sessionCode string) (
 	httpClient := &http.Client{}
 
 	// Step 1: Exchange code for token by hitting the Keycloak token endpoint
-	// TODO FIXME: Vlad - clean up, refactor into the same convention as other api.go calls
+	// TODO: Vlad - clean up, refactor into the same convention as other api.go calls
 	payload := url.Values{}
 	payload.Set("grant_type", "authorization_code")
 	payload.Set("code", code)
@@ -926,4 +938,131 @@ func (a *API) GeoLookup(timeoutMs int, ipTypeRequired protocolTypes.RequiredIPPr
 	}
 
 	return location, rawData, nil
+}
+
+// Logic for submitting Rageshake logs
+
+func (a *API) gzipAndAttachFileContents(writer *multipart.Writer, fileContents []byte, filename string) error {
+	var fileContentsGzipped bytes.Buffer
+	gzipWriter, err := gzip.NewWriterLevel(&fileContentsGzipped, gzip.BestCompression)
+	if err != nil {
+		return log.ErrorFE("error gzip.NewWriterLevel: %w", err)
+	}
+
+	if _, err := gzipWriter.Write(fileContents); err != nil {
+		return log.ErrorFE("error gzipWriter.Write: %w", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		return log.ErrorFE("error gzipWriter.Close: %w", err)
+	}
+
+	var fieldname string
+	if strings.HasSuffix(filename, ".log") || strings.HasSuffix(filename, ".log.0") {
+		fieldname = "compressed-log"
+	} else {
+		fieldname = "file"
+	}
+	if part, err := writer.CreateFormFile(fieldname, filename+".gz"); err == nil {
+		part.Write(fileContentsGzipped.Bytes())
+	} else {
+		return log.ErrorFE("error writer.CreateFormFile: %w", err)
+	}
+
+	return nil
+}
+
+func (a *API) newRageshakeRequest(params map[string]string, filesToAttach []string, jsonFilesToAttach []helpers.JsonFileToAttach) (req *http.Request, err error) {
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+
+	for key, val := range params {
+		_ = writer.WriteField(key, val)
+	}
+
+	for _, fileToAttach := range filesToAttach { // process all files we're attaching, gzip them. TODO: Vlad - if the pipeline will be slow - parallellize it.
+		fi, err := os.Stat(fileToAttach)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				log.Warn("logfile `" + fileToAttach + "` does not exist - skipping")
+				continue
+			} else {
+				return nil, log.ErrorFE("error os.Stat(%s): %w", fileToAttach, err)
+			}
+		}
+
+		fileContents, err := helpers.ReadFileTail(fileToAttach, rageshake.MAX_LOG_SIZE)
+		if err != nil {
+			return nil, log.ErrorFE("error rageshake.ReadFileSafely(%s): %w", fileToAttach, err)
+		}
+
+		if err = a.gzipAndAttachFileContents(writer, fileContents, fi.Name()); err != nil {
+			return nil, log.ErrorFE("error gzipAndAttachFileContents: %w", err)
+		}
+	}
+
+	for _, jsonFileContentsToAttach := range jsonFilesToAttach { // also process extra JSON files present in memory
+		if err = a.gzipAndAttachFileContents(writer, jsonFileContentsToAttach.JsonFileContents, jsonFileContentsToAttach.JsonFileName); err != nil {
+			return nil, log.ErrorFE("error gzipAndAttachFileContents: %w", err)
+		}
+	}
+
+	if err = writer.Close(); err != nil {
+		return nil, log.ErrorFE("error writer.Close: %w", err)
+	}
+
+	uri := getURL(a.getLogsHost().Hostname, _rageshakeApiSubmit)
+	if req, err = http.NewRequest("POST", uri, body); err == nil {
+		req.Header.Add("Content-Type", writer.FormDataContentType())
+		return req, nil
+	} else {
+		return nil, log.ErrorFE("error http.NewRequest: %w", err)
+	}
+}
+
+// SubmitRageshakeReport:
+// text - a textual description of the problem
+// filesToAttach - paths to .log, .json files to attach
+func (a *API) SubmitRageshakeReport(crashType, app, version, text string, filesToAttach []string, jsonFilesToAttach []helpers.JsonFileToAttach, additionalData map[string]string) (resp *types.RageshakeServerResponse, httpStatusCode int, err error) {
+	params := map[string]string{
+		"crash_type": crashType,
+		"text":       text,
+		// "user_agent": "test001 user agent",
+		"app":     app,
+		"version": version,
+	}
+
+	for additionalDataKey, additionalDataValue := range additionalData {
+		if currVal, ok := params[additionalDataKey]; !ok || currVal == "" {
+			params[additionalDataKey] = additionalDataValue
+		}
+	}
+
+	req, err := a.newRageshakeRequest(params, filesToAttach, jsonFilesToAttach)
+	if err != nil {
+		return nil, 0, log.ErrorFE("error newRageshakeRequest: %w", err)
+	}
+
+	var _resp types.RageshakeServerResponse
+
+	// log.Debug("sending out Rageshake report")
+	data, httpResp, err := a.doRequestLogsHost(req)
+	if err != nil {
+		var statusCode int
+		if httpResp != nil {
+			statusCode = httpResp.StatusCode
+		}
+		return nil, statusCode, log.ErrorFE("error doRequestLogsHost: %w", err)
+	}
+
+	// success
+	if httpResp.StatusCode == types.CodeSuccess {
+		if err := json.Unmarshal(data, &_resp); err != nil {
+			return nil, httpResp.StatusCode, log.ErrorFE("failed to deserialize API response: %w", err)
+		}
+		_resp.SetHttpStatusCode(httpResp.StatusCode)
+		log.Debug("Rageshake report_url = ", _resp.ReportUrl)
+		return &_resp, httpResp.StatusCode, nil
+	} else {
+		return nil, httpResp.StatusCode, types.CreateAPIError(httpResp.StatusCode, "")
+	}
 }

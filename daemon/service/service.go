@@ -24,6 +24,7 @@ package service
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -46,6 +47,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	protocolTypes "github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/rageshake"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
@@ -57,6 +59,7 @@ import (
 	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
+	"github.com/swapnilsparsh/devsVPN/daemon/version"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn/wireguard"
 	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier"
@@ -149,6 +152,9 @@ type Service struct {
 	_statsCallbacks       protocol.StatsCallbacks
 	_vpnConnectedCallback protocolTypes.VpnConnectedCallback
 
+	// Rageshake crash reporting
+	_rageshake *rageshake.Rageshake
+
 	// connectivityHealthchecksBackgroundMonitor data
 	connectivityHealthchecksBackgroundMonitorDef                                *srvhelpers.ServiceBackgroundMonitor
 	connectivityHealthchecksRunningMutex, connectivityHealthchecksStopFuncMutex sync.Mutex
@@ -209,6 +215,7 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 		_globalEvents:         globalEvents,
 		_systemLog:            systemLog,
 		_vpnConnectedCallback: evtReceiver.LastVpnStateIsConnected,
+		_rageshake:            rageshake.New(),
 	}
 
 	// init connectivityHealthchecksBackgroundMonitorDef
@@ -224,7 +231,7 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 	serv._api.SetConnectivityChecker(serv)
 
 	if err := serv.init(); err != nil {
-		return nil, fmt.Errorf("service initialization error : %w", err)
+		return nil, log.ErrorFE("service initialization error : %w", err)
 	}
 
 	return serv, nil
@@ -545,7 +552,7 @@ func (s *Service) ServersListForceUpdate() (*api_types.ServersInfoResponse, erro
 func (s *Service) APIRequest(apiAlias string, ipTypeRequired protocolTypes.RequiredIPProtocol) (responseData []byte, err error) {
 
 	if ipTypeRequired == protocolTypes.IPv6 {
-		// IPV6-LOC-200 - IVPN Apps should request only IPv4 location information when connected  to the gateway, which doesn’t support IPv6
+		// IPV6-LOC-200 - IVPN Apps should request only IPv4 location information when connected  to the gateway, which doesn't support IPv6
 		vpn := s._vpn
 		if vpn != nil && !vpn.IsPaused() && !vpn.IsIPv6InTunnel() {
 			return nil, fmt.Errorf("no IPv6 support inside tunnel for current connection")
@@ -2130,7 +2137,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	return apiCode, "", accountInfo, rawResponse, nil
 }
 
-// TODO FIXME: Vlad - merge with SessionNew() into a single login pipeline, there's a lot of shared code that was copy-pasted
+// TODO: Vlad - merge with SessionNew() into a single login pipeline, there's a lot of shared code that was copy-pasted
 func (s *Service) SsoLogin(code string, sessionCode string, disableFirewallOnExit, disableFirewallOnErrorOnly bool) (
 	apiCode int,
 	apiErrorMsg string,
@@ -2773,18 +2780,14 @@ func (s *Service) WireGuardGenerateKeys(updateIfNecessary bool) error {
 // ////////////////////////////////////////////////////////
 // Diagnostic
 // ////////////////////////////////////////////////////////
-func (s *Service) GetDiagnosticLogs() (logActive string, logPrevSession string, extraInfo string, err error) {
-	log, log0, err := logger.GetLogText(1024 * 64)
+func (s *Service) GetDiagnosticLogs() (logActive string, logPrevSession string, extraInfo *rageshake.SystemInfo, err error) {
+	logCurr, logPrev, err := logger.GetLogText(1024 * 64)
 	if err != nil {
-		return "", "", "", err
+		return "", "", &rageshake.SystemInfo{}, err
 	}
 
-	extraInfo, err1 := s.implGetDiagnosticExtraInfo()
-	if err1 != nil {
-		extraInfo = fmt.Sprintf("<failed to obtain extra info> : %s : %s", err1.Error(), extraInfo)
-	}
-
-	return log, log0, extraInfo, nil
+	sysInfoVar := s._rageshake.CollectSystemInfo()
+	return logCurr, logPrev, sysInfoVar, nil
 }
 
 func (s *Service) diagnosticGetCommandOutput(command string, args ...string) string {
@@ -2826,4 +2829,34 @@ func (s *Service) listAllServiceBackgroundMonitors() (allBackgroundMonitors []*s
 	allBackgroundMonitors = firewall.GetFirewallBackgroundMonitors()
 	allBackgroundMonitors = append(allBackgroundMonitors, s.connectivityHealthchecksBackgroundMonitorDef)
 	return allBackgroundMonitors
+}
+
+// SubmitRageshakeReport:
+// text - a textual description of the problem
+// filesToAttach - paths to .log, .json files to attach
+func (s *Service) SubmitRageshakeReport(crashType, app, version, text string, filesToAttach []string, jsonFilesToAttach []helpers.JsonFileToAttach, additionalData map[string]string) (resp *api_types.RageshakeServerResponse, httpStatusCode int, err error) {
+	// include daemon logfiles also
+	logPath := platform.LogFile()
+	filesToAttach = append(filesToAttach, logPath)
+	prevLogPath := logPath + ".0"
+	filesToAttach = append(filesToAttach, prevLogPath)
+
+	// and settings.json
+	prefs := s.Preferences()
+	prefs.SavePreferences()
+	filesToAttach = append(filesToAttach, platform.SettingsFile())
+
+	daemonRageshakeSysinfoVar := s._rageshake.CollectSystemInfo( /*additionalData*/ )
+	daemonRageshakeSysinfoData, err := json.Marshal(daemonRageshakeSysinfoVar)
+	if err != nil {
+		return nil, 0, log.ErrorFE("error json.Marshal(daemonRageshakeSysinfoVar): %w", err)
+	}
+	jsonFilesToAttach = append(jsonFilesToAttach,
+		helpers.JsonFileToAttach{JsonFileName: helpers.ServiceName + ".sysinfo.json", JsonFileContents: daemonRageshakeSysinfoData})
+
+	return s._api.SubmitRageshakeReport(crashType, app, version, text, filesToAttach, jsonFilesToAttach, additionalData)
+}
+
+func (s *Service) SubmitRageshakeReportInternal(text string) (resp *api_types.RageshakeServerResponse, httpStatusCode int, err error) {
+	return s.SubmitRageshakeReport(string(protocolTypes.CrashReportTypeDaemonPanic), helpers.ServiceName, version.GetFullVersion(), text, []string{}, []helpers.JsonFileToAttach{}, map[string]string{})
 }
