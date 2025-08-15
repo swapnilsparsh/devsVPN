@@ -320,11 +320,11 @@ export default {
   },
 
   // Rageshake crash reporting
-  GenerateCrashReport: async (crashType, additionalData) => {
-    return invoke("renderer-request-generate-crash-report", crashType, additionalData);
+  SubmitRageshakeReport: async (crashType, errMsg, additionalData) => {
+    return invoke("renderer-request-submit-rageshake-report", crashType, errMsg, additionalData);
   },
-  CollectCrashReport: async (crashType, additionalData) => {
-    return invoke("renderer-request-collect-crash-report", crashType, additionalData);
+  CollectCrashReport: async (crashType, errMsg, additionalData) => {
+    return invoke("renderer-request-collect-crash-report", crashType, errMsg, additionalData);
   },
 
 

@@ -36,7 +36,7 @@ export const RAGESHAKE_CONFIG = {
     // Company name
     COMPANY_NAME: 'privateLINE',
     // Application identifier (matches rageshake config)
-    APP_ID: 'privateline-connect-desktop',
+    APP_ID: 'privateline-connect-ui',
     // Default label for crash reports
     DEFAULT_LABEL: 'crash-report',
     // Rate limiting (reports per hour)

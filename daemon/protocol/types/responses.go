@@ -300,17 +300,16 @@ type KillSwitchGetIsPestistentResp struct {
 // DiagnosticsGeneratedResp returns info from daemon logs
 type DiagnosticsGeneratedResp struct {
 	CommandBase
-	Log0_Old    string // previous daemon session log
-	Log1_Active string // active daemon log
-	ExtraInfo   string // Extra info for logging (e.g. ifconfig, netstat -nr ... etc.)
+	Log0_Old    string               // previous daemon session log
+	Log1_Active string               // active daemon log
+	ExtraInfo   rageshake.SystemInfo // Extra info for logging (e.g. ifconfig, netstat -nr ... etc.)
 }
 
-// CrashReportGeneratedResp returns crash report data
-type CrashReportGeneratedResp struct {
+// RageshakeReportSubmittedResp returns crash report data
+type RageshakeReportSubmittedResp struct {
 	CommandBase
-	Report *rageshake.CrashReport
+	ReportUrl string `json:"report_url"`
 }
-
 type DnsStatus struct {
 	Dns               dns.DnsSettings
 	DnsMgmtStyleInUse dns.DnsMgmtStyle

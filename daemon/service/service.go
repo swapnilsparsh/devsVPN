@@ -24,6 +24,7 @@ package service
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -58,6 +59,7 @@ import (
 	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/splittun"
+	"github.com/swapnilsparsh/devsVPN/daemon/version"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn"
 	"github.com/swapnilsparsh/devsVPN/daemon/vpn/wireguard"
 	"github.com/swapnilsparsh/devsVPN/daemon/wifiNotifier"
@@ -229,7 +231,7 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 	serv._api.SetConnectivityChecker(serv)
 
 	if err := serv.init(); err != nil {
-		return nil, fmt.Errorf("service initialization error : %w", err)
+		return nil, log.ErrorFE("service initialization error : %w", err)
 	}
 
 	return serv, nil
@@ -2135,7 +2137,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	return apiCode, "", accountInfo, rawResponse, nil
 }
 
-// TODO FIXME: Vlad - merge with SessionNew() into a single login pipeline, there's a lot of shared code that was copy-pasted
+// TODO: Vlad - merge with SessionNew() into a single login pipeline, there's a lot of shared code that was copy-pasted
 func (s *Service) SsoLogin(code string, sessionCode string, disableFirewallOnExit, disableFirewallOnErrorOnly bool) (
 	apiCode int,
 	apiErrorMsg string,
@@ -2778,18 +2780,14 @@ func (s *Service) WireGuardGenerateKeys(updateIfNecessary bool) error {
 // ////////////////////////////////////////////////////////
 // Diagnostic
 // ////////////////////////////////////////////////////////
-func (s *Service) GetDiagnosticLogs() (logActive string, logPrevSession string, extraInfo string, err error) {
-	log, log0, err := logger.GetLogText(1024 * 64)
+func (s *Service) GetDiagnosticLogs() (logActive string, logPrevSession string, extraInfo *rageshake.SystemInfo, err error) {
+	logCurr, logPrev, err := logger.GetLogText(1024 * 64)
 	if err != nil {
-		return "", "", "", err
+		return "", "", &rageshake.SystemInfo{}, err
 	}
 
-	extraInfo, err1 := s.implGetDiagnosticExtraInfo()
-	if err1 != nil {
-		extraInfo = fmt.Sprintf("<failed to obtain extra info> : %s : %s", err1.Error(), extraInfo)
-	}
-
-	return log, log0, extraInfo, nil
+	sysInfoVar := s._rageshake.CollectSystemInfo()
+	return logCurr, logPrev, sysInfoVar, nil
 }
 
 func (s *Service) diagnosticGetCommandOutput(command string, args ...string) string {
@@ -2833,40 +2831,32 @@ func (s *Service) listAllServiceBackgroundMonitors() (allBackgroundMonitors []*s
 	return allBackgroundMonitors
 }
 
-func (s *Service) GetDiagnosticLogsRageshake() (logActive string, logPrevSession string, extraInfo string, err error) {
-	log, log0, err := logger.GetLogText(rageshake.MAX_LOG_SIZE)
+// SubmitRageshakeReport:
+// text - a textual description of the problem
+// filesToAttach - paths to .log, .json files to attach
+func (s *Service) SubmitRageshakeReport(crashType, app, version, text string, filesToAttach []string, jsonFilesToAttach []helpers.JsonFileToAttach, additionalData map[string]string) (resp *api_types.RageshakeServerResponse, httpStatusCode int, err error) {
+	// include daemon logfiles also
+	logPath := platform.LogFile()
+	filesToAttach = append(filesToAttach, logPath)
+	prevLogPath := logPath + ".0"
+	filesToAttach = append(filesToAttach, prevLogPath)
+
+	// and settings.json
+	prefs := s.Preferences()
+	prefs.SavePreferences()
+	filesToAttach = append(filesToAttach, platform.SettingsFile())
+
+	daemonRageshakeSysinfoVar := s._rageshake.CollectSystemInfo( /*additionalData*/ )
+	daemonRageshakeSysinfoData, err := json.Marshal(daemonRageshakeSysinfoVar)
 	if err != nil {
-		return "", "", "", err
+		return nil, 0, log.ErrorFE("error json.Marshal(daemonRageshakeSysinfoVar): %w", err)
 	}
+	jsonFilesToAttach = append(jsonFilesToAttach,
+		helpers.JsonFileToAttach{JsonFileName: helpers.ServiceName + ".sysinfo.json", JsonFileContents: daemonRageshakeSysinfoData})
 
-	extraInfo, err1 := s.implGetDiagnosticExtraInfo()
-	if err1 != nil {
-		extraInfo = fmt.Sprintf("<failed to obtain extra info> : %s : %s", err1.Error(), extraInfo)
-	}
-
-	return log, log0, extraInfo, nil
+	return s._api.SubmitRageshakeReport(crashType, app, version, text, filesToAttach, jsonFilesToAttach, additionalData)
 }
 
-// GenerateCrashReport generates a crash report using Rageshake
-func (s *Service) GenerateCrashReport(crashType string, additionalData map[string]interface{}) (*rageshake.CrashReport, error) {
-	if s._rageshake == nil {
-		return nil, fmt.Errorf("rageshake not initialized")
-	}
-	return s._rageshake.CollectCrashReport(crashType, additionalData)
-}
-
-// SaveCrashReport saves a crash report to a file
-func (s *Service) SaveCrashReport(report *rageshake.CrashReport, outputPath string) error {
-	if s._rageshake == nil {
-		return fmt.Errorf("rageshake not initialized")
-	}
-	return s._rageshake.SaveCrashReport(report, outputPath)
-}
-
-// GetCrashReportAsString returns crash report as a formatted string
-func (s *Service) GetCrashReportAsString(report *rageshake.CrashReport) string {
-	if s._rageshake == nil {
-		return "[Rageshake not initialized]"
-	}
-	return s._rageshake.GetCrashReportAsString(report)
+func (s *Service) SubmitRageshakeReportInternal(text string) (resp *api_types.RageshakeServerResponse, httpStatusCode int, err error) {
+	return s.SubmitRageshakeReport(string(protocolTypes.CrashReportTypeDaemonPanic), helpers.ServiceName, version.GetFullVersion(), text, []string{}, []helpers.JsonFileToAttach{}, map[string]string{})
 }

@@ -244,7 +244,7 @@ export default {
     serverEntry(state, srv) {
       if (srv == null || srv.gateway == null) {
         console.log("serverEntry: error: Unable to change server. Wrong server object.");
-        throw new Error("Unable to change server. Wrong server object.");
+        // throw new Error("serverEntry: Unable to change server. Wrong server object.");
       }
       if (!isServerContainsHost(srv, state.serverEntryHostId)) {}
       state.serverEntryHostId = null;
@@ -253,7 +253,7 @@ export default {
     serverExit(state, srv) {
       if (srv == null || srv.gateway == null) {
         console.log("serverExit: error: Unable to change server. Wrong server object.");
-        throw new Error("Unable to change server. Wrong server object.");
+        // throw new Error("serverExit: Unable to change server. Wrong server object.");
       }
       if (!isServerContainsHost(srv, state.serverExitHostId))
         state.serverExitHostId = null;

@@ -24,6 +24,7 @@ package rageshake
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,31 +32,34 @@ import (
 	"strings"
 	"time"
 
+	"github.com/swapnilsparsh/devsVPN/daemon/helpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"github.com/swapnilsparsh/devsVPN/daemon/version"
 )
 
-var log = logger.NewLogger("rgshk")
+var (
+	log = logger.NewLogger("rageshake")
+)
 
 const (
 	MAX_LOG_SIZE = 4 * 1048576 // 4 MB max per logfile
 )
 
-// CrashReport represents a complete crash report
-type CrashReport struct {
-	Timestamp      string                 `json:"timestamp"`
-	CrashType      string                 `json:"crash_type"`
-	System         SystemInfo             `json:"system"`
-	Logs           LogInfo                `json:"logs"`
+// SystemInfo represents a complete crash report
+type SystemInfo struct {
+	Timestamp string `json:"timestamp"`
+	// CrashType string     `json:"crash_type"`
+	PlatformInfo PlatformInfo `json:"system"`
+	//Logs           LogInfo                `json:"logs"` // Logs are sent as multipart attachments instead
 	NetworkInfo    NetworkInfo            `json:"network_info"`
 	ProcessInfo    ProcessInfo            `json:"process_info"`
 	AdditionalData map[string]interface{} `json:"additional_data,omitempty"`
 }
 
-// SystemInfo contains system information
-type SystemInfo struct {
+// PlatformInfo contains system information
+type PlatformInfo struct {
 	Platform      string     `json:"platform"`
 	Architecture  string     `json:"architecture"`
 	GoVersion     string     `json:"go_version"`
@@ -70,10 +74,10 @@ type OSInfo struct {
 	Platform     string `json:"platform"`
 	Release      string `json:"release"`
 	Architecture string `json:"architecture"`
-	Hostname     string `json:"hostname"`
-	Username     string `json:"username"`
-	HomeDir      string `json:"home_dir"`
-	WorkingDir   string `json:"working_dir"`
+	//Hostname     string `json:"hostname"` // we don't collect hostname for privacy reasons
+	Username   string `json:"username"`
+	HomeDir    string `json:"home_dir"`
+	WorkingDir string `json:"working_dir"`
 }
 
 // MemoryInfo contains memory information
@@ -127,27 +131,27 @@ func New() *Rageshake {
 	}
 }
 
-// CollectCrashReport generates a complete crash report
-func (r *Rageshake) CollectCrashReport(crashType string, additionalData map[string]interface{}) (*CrashReport, error) {
-	report := &CrashReport{
-		Timestamp:      time.Now().UTC().Format(time.RFC3339),
-		CrashType:      crashType,
-		System:         r.collectSystemInfo(),
-		Logs:           r.collectLogInfo(),
-		NetworkInfo:    r.collectNetworkInfo(),
-		ProcessInfo:    r.collectProcessInfo(),
-		AdditionalData: additionalData,
+// CollectSystemInfo generates a complete crash report
+func (r *Rageshake) CollectSystemInfo() *SystemInfo {
+	report := &SystemInfo{
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		//CrashType: crashType,
+		PlatformInfo: r.collectPlatformInfo(),
+		//Logs:           r.collectLogInfo(),
+		NetworkInfo: r.collectNetworkInfo(),
+		ProcessInfo: r.collectProcessInfo(),
+		//AdditionalData: additionalData,
 	}
 
-	return report, nil
+	return report
 }
 
-// collectSystemInfo collects system information
-func (r *Rageshake) collectSystemInfo() SystemInfo {
+// collectPlatformInfo collects system information
+func (r *Rageshake) collectPlatformInfo() PlatformInfo {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
-	hostname, _ := os.Hostname()
+	// hostname, _ := os.Hostname()
 	username := os.Getenv("USER")
 	if username == "" {
 		username = os.Getenv("USERNAME")
@@ -155,19 +159,19 @@ func (r *Rageshake) collectSystemInfo() SystemInfo {
 	homeDir, _ := os.UserHomeDir()
 	workingDir, _ := os.Getwd()
 
-	return SystemInfo{
+	return PlatformInfo{
 		Platform:      runtime.GOOS,
 		Architecture:  runtime.GOARCH,
 		GoVersion:     runtime.Version(),
 		DaemonVersion: version.GetFullVersion(),
 		OSInfo: OSInfo{
 			Platform:     runtime.GOOS,
-			Release:      r.getOSRelease(),
+			Release:      platform.OsVersion(), // r.getOSRelease(),
 			Architecture: runtime.GOARCH,
-			Hostname:     hostname,
-			Username:     username,
-			HomeDir:      homeDir,
-			WorkingDir:   workingDir,
+			// Hostname:     hostname,
+			Username:   username,
+			HomeDir:    homeDir,
+			WorkingDir: workingDir,
 		},
 		MemoryInfo: MemoryInfo{
 			TotalMemory:        memStats.Sys,
@@ -183,6 +187,7 @@ func (r *Rageshake) collectSystemInfo() SystemInfo {
 	}
 }
 
+/*
 // collectLogInfo collects log file information
 func (r *Rageshake) collectLogInfo() LogInfo {
 	logPath := platform.LogFile()
@@ -208,12 +213,27 @@ func (r *Rageshake) collectLogInfo() LogInfo {
 		PreviousLogSize: prevLogSize,
 	}
 }
+*/
 
 // collectNetworkInfo collects network information
 func (r *Rageshake) collectNetworkInfo() NetworkInfo {
-	interfaces := r.getNetworkInterfaces()
-	routingTable := r.getRoutingTable()
-	dnsConfig := r.getDNSConfig()
+	interfaces, err := r.getNetworkInterfaces()
+	if err != nil {
+		err = log.ErrorFE("error getNetworkInterfaces: %w", err)
+		interfaces = err.Error()
+	}
+
+	routingTable, err := r.getRoutingTable()
+	if err != nil {
+		err = log.ErrorFE("error getRoutingTable: %w", err)
+		routingTable = err.Error()
+	}
+
+	dnsConfig, err := r.getDNSConfig()
+	if err != nil {
+		err = log.ErrorFE("error getDNSConfig: %w", err)
+		dnsConfig = err.Error()
+	}
 
 	return NetworkInfo{
 		Interfaces:   interfaces,
@@ -255,25 +275,7 @@ func (r *Rageshake) collectProcessInfo() ProcessInfo {
 	}
 }
 
-// readFileSafely reads a file safely with size limits
-func (r *Rageshake) readFileSafely(filePath string, maxSize int64) string {
-	stat, err := os.Stat(filePath)
-	if err != nil {
-		return fmt.Sprintf("[File not found: %s]", filePath)
-	}
-
-	if stat.Size() > maxSize {
-		return fmt.Sprintf("[File too large: %d bytes, max: %d bytes]", stat.Size(), maxSize)
-	}
-
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Sprintf("[Error reading file: %v]", err)
-	}
-
-	return string(data)
-}
-
+/*
 // getOSRelease gets OS release information
 func (r *Rageshake) getOSRelease() string {
 	switch runtime.GOOS {
@@ -296,15 +298,58 @@ func (r *Rageshake) getOSRelease() string {
 			return "macOS " + strings.TrimSpace(output)
 		}
 	case "windows":
-		if output, _, _, _, err := shell.ExecAndGetOutput(nil, 1024, "", "ver"); err == nil {
+		if output, _, _, _, err := shell.ExecAndGetOutput(nil, 1024, "", "cmd", "ver"); err == nil {
 			return strings.TrimSpace(output)
 		}
 	}
 	return "Unknown"
 }
+*/
+
+// mask all patterns looking like a MAC address, and also hostnames
+func maskPrivateFields(cmd string, args ...string) (outText string, err error) {
+	const maxBufSize int = 16384
+	strOut := strings.Builder{}
+	strErr := strings.Builder{}
+
+	outProcessFunc := func(text string, isError bool) {
+		if len(text) == 0 {
+			return
+		}
+		if isError {
+			if strErr.Len() > maxBufSize {
+				return
+			}
+			strErr.WriteString(text)
+		} else {
+			if strOut.Len() > maxBufSize {
+				return
+			}
+			if helpers.HostnameFieldPrefixWinRegex.MatchString(text) { // skip "Host Name ..." on Windows
+				return
+			}
+			macAddressMasked := helpers.MacAddrRegex.ReplaceAllLiteralString(text, helpers.MacAddrReplacement)
+			strOut.WriteString(macAddressMasked + "\n")
+		}
+	}
+
+	// synchronously run platform-specific command to get network interfaces
+	if err = shell.ExecAndProcessOutput(log, outProcessFunc, "", cmd, args...); err == nil {
+		return strOut.String(), nil
+	} else {
+		if strOut.Len() > 0 {
+			log.Info(fmt.Sprintf("Cmd '%s' '%v' ERROR. Output: %s...", cmd, args, strOut.String()))
+		}
+		if strErr.Len() > 0 {
+			log.Info(fmt.Sprintf("Cmd '%s' '%v' ERROR. Errors output : %s...", cmd, args, strErr.String()))
+		}
+
+		return "", log.ErrorFE("failed to exec '%s' '%v': %w", cmd, args, err)
+	}
+}
 
 // getNetworkInterfaces gets network interface information
-func (r *Rageshake) getNetworkInterfaces() string {
+func (r *Rageshake) getNetworkInterfaces() (interfaces string, err error) {
 	var cmd string
 	var args []string
 
@@ -319,19 +364,18 @@ func (r *Rageshake) getNetworkInterfaces() string {
 		cmd = "ipconfig"
 		args = []string{"/all"}
 	default:
-		return "[Unsupported platform]"
+		return "", errors.New("[Unsupported platform]")
 	}
 
-	output, _, _, _, err := shell.ExecAndGetOutput(nil, 1024*10, "", cmd, args...)
-	if err != nil {
-		return fmt.Sprintf("[Error getting network interfaces: %v]", err)
+	if output, err := maskPrivateFields(cmd, args...); err == nil {
+		return output, nil
+	} else {
+		return "", log.ErrorFE("[Error getting network interfaces: %w]", err)
 	}
-
-	return output
 }
 
 // getRoutingTable gets routing table information
-func (r *Rageshake) getRoutingTable() string {
+func (r *Rageshake) getRoutingTable() (routingTable string, err error) {
 	var cmd string
 	var args []string
 
@@ -346,19 +390,18 @@ func (r *Rageshake) getRoutingTable() string {
 		cmd = "route"
 		args = []string{"print"}
 	default:
-		return "[Unsupported platform]"
+		return "", errors.New("[Unsupported platform]")
 	}
 
-	output, _, _, _, err := shell.ExecAndGetOutput(nil, 1024*10, "", cmd, args...)
-	if err != nil {
-		return fmt.Sprintf("[Error getting routing table: %v]", err)
+	if output, err := maskPrivateFields(cmd, args...); err == nil {
+		return output, nil
+	} else {
+		return "", log.ErrorFE("[Error getting routing table: %w]", err)
 	}
-
-	return output
 }
 
 // getDNSConfig gets DNS configuration
-func (r *Rageshake) getDNSConfig() string {
+func (r *Rageshake) getDNSConfig() (dnsConfig string, err error) {
 	var cmd string
 	var args []string
 
@@ -373,15 +416,14 @@ func (r *Rageshake) getDNSConfig() string {
 		cmd = "ipconfig"
 		args = []string{"/displaydns"}
 	default:
-		return "[Unsupported platform]"
+		return "", errors.New("[Unsupported platform]")
 	}
 
-	output, _, _, _, err := shell.ExecAndGetOutput(nil, 1024*10, "", cmd, args...)
-	if err != nil {
-		return fmt.Sprintf("[Error getting DNS config: %v]", err)
+	if output, err := maskPrivateFields(cmd, args...); err == nil {
+		return output, nil
+	} else {
+		return "", log.ErrorFE("[Error getting DNS config: %w]", err)
 	}
-
-	return output
 }
 
 // isSensitiveEnvVar checks if an environment variable is sensitive
@@ -401,7 +443,7 @@ func (r *Rageshake) isSensitiveEnvVar(key string) bool {
 }
 
 // SaveCrashReport saves a crash report to a file
-func (r *Rageshake) SaveCrashReport(report *CrashReport, outputPath string) error {
+func (r *Rageshake) SaveCrashReport(report *SystemInfo, outputPath string) error {
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal crash report: %w", err)
@@ -421,25 +463,25 @@ func (r *Rageshake) SaveCrashReport(report *CrashReport, outputPath string) erro
 	return nil
 }
 
-// GetCrashReportAsString returns crash report as a formatted string
-func (r *Rageshake) GetCrashReportAsString(report *CrashReport) string {
+// GetSystemInfoAsString returns crash report as a formatted string
+func (r *Rageshake) GetSystemInfoAsString(report *SystemInfo) string {
 	var builder strings.Builder
 
-	builder.WriteString("=== CRASH REPORT ===\n")
+	builder.WriteString("=== SYSTEM INFO ===\n")
 	builder.WriteString(fmt.Sprintf("Timestamp: %s\n", report.Timestamp))
-	builder.WriteString(fmt.Sprintf("Crash Type: %s\n", report.CrashType))
-	builder.WriteString(fmt.Sprintf("Platform: %s\n", report.System.Platform))
-	builder.WriteString(fmt.Sprintf("Architecture: %s\n", report.System.Architecture))
-	builder.WriteString(fmt.Sprintf("Daemon Version: %s\n", report.System.DaemonVersion))
-	builder.WriteString(fmt.Sprintf("Go Version: %s\n", report.System.GoVersion))
-	builder.WriteString(fmt.Sprintf("Hostname: %s\n", report.System.OSInfo.Hostname))
-	builder.WriteString(fmt.Sprintf("Username: %s\n", report.System.OSInfo.Username))
-	builder.WriteString(fmt.Sprintf("Working Directory: %s\n", report.System.OSInfo.WorkingDir))
+	//builder.WriteString(fmt.Sprintf("Crash Type: %s\n", report.CrashType))
+	builder.WriteString(fmt.Sprintf("Platform: %s\n", report.PlatformInfo.Platform))
+	builder.WriteString(fmt.Sprintf("Architecture: %s\n", report.PlatformInfo.Architecture))
+	builder.WriteString(fmt.Sprintf("Daemon Version: %s\n", report.PlatformInfo.DaemonVersion))
+	builder.WriteString(fmt.Sprintf("Go Version: %s\n", report.PlatformInfo.GoVersion))
+	// builder.WriteString(fmt.Sprintf("Hostname: %s\n", report.System.OSInfo.Hostname))
+	builder.WriteString(fmt.Sprintf("Username: %s\n", report.PlatformInfo.OSInfo.Username))
+	builder.WriteString(fmt.Sprintf("Working Directory: %s\n", report.PlatformInfo.OSInfo.WorkingDir))
 	builder.WriteString(fmt.Sprintf("PID: %d\n", report.ProcessInfo.PID))
 	builder.WriteString(fmt.Sprintf("PPID: %d\n", report.ProcessInfo.PPID))
 	builder.WriteString(fmt.Sprintf("Command Line: %s\n", report.ProcessInfo.CommandLine))
-	builder.WriteString(fmt.Sprintf("Memory Usage: %.2f%%\n", report.System.MemoryInfo.MemoryUsagePercent))
-	builder.WriteString(fmt.Sprintf("Goroutines: %d\n", report.System.CPUInfo.NumGoroutine))
+	builder.WriteString(fmt.Sprintf("Memory Usage: %.2f%%\n", report.PlatformInfo.MemoryInfo.MemoryUsagePercent))
+	builder.WriteString(fmt.Sprintf("Goroutines: %d\n", report.PlatformInfo.CPUInfo.NumGoroutine))
 
 	if len(report.AdditionalData) > 0 {
 		builder.WriteString("\n=== ADDITIONAL DATA ===\n")

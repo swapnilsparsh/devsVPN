@@ -1107,7 +1107,8 @@ func (s *Service) startV2Ray(params types.ConnectionParams, v2RayType v2r.V2RayT
 		requiredLocalPortTypeStr = "udp"
 	}
 
-	if params.VpnType == vpn.OpenVPN {
+	switch params.VpnType {
+	case vpn.OpenVPN:
 		outboundIp = params.OpenVpnParameters.EntryVpnServer.Hosts[0].V2RayHost
 		remoteSvrDnsName = params.OpenVpnParameters.EntryVpnServer.Hosts[0].DnsName
 		if len(params.OpenVpnParameters.MultihopExitServer.Hosts) > 0 {
@@ -1119,7 +1120,7 @@ func (s *Service) startV2Ray(params types.ConnectionParams, v2RayType v2r.V2RayT
 			inboundIp = params.OpenVpnParameters.EntryVpnServer.Hosts[0].EndpointIP
 			inboundPortsApplicable = svrs.Config.Ports.V2Ray.OpenVPN // for Single-Hop connections we use internal V2Ray ports for inbound connections
 		}
-	} else if params.VpnType == vpn.WireGuard {
+	case vpn.WireGuard:
 		outboundIp = params.WireGuardParameters.EntryVpnServer.Hosts[0].V2RayHost
 		remoteSvrDnsName = params.WireGuardParameters.EntryVpnServer.Hosts[0].DnsName
 		if len(params.WireGuardParameters.MultihopExitServer.Hosts) > 0 {

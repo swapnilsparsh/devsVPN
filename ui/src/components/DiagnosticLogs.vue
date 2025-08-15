@@ -101,8 +101,6 @@
 
 <script>
 
-// import { rageshake}  from "./rageshake/index.js";
-
 const sender = window.ipcSender;
 
 const LogProperties = Object.freeze({
@@ -175,15 +173,18 @@ export default {
         let val = `${this.diagnosticDataObj[pName]}`;
         val = val.trim();
         if (!val) continue;
-        val = val.replace(/\\n/g, "\n");
 
         if (pName == LogProperties.ExtraInfo) {
           text.push("----------------------\n");
           text.push(pName.trim() + "\n");
           text.push("----------------------\n");
+
+          val = JSON.stringify(this.diagnosticDataObj.ExtraInfo, null, "\t");
         } else {
           text.push(pName.trim() + ": ");
         }
+
+        val = val.replace(/\\n/g, "\n");
         text.push(val + "\n\n");
       }
       return text.join("");
@@ -217,36 +218,12 @@ export default {
           return;
         }
 
-        // FIXME: Vlad - patching here
-
-        // let data = JSON.parse(JSON.stringify(this.diagnosticDataObj));
-        // let id = await sender.SubmitDiagnosticLogs(this.userComment, data);
-
         try {
-          const result = await sender.GenerateCrashReport('manual', {
-            userComment: this.userComment,
-            timestamp: new Date().toISOString()
-          });
-          this.lastResult = result;
-          console.log('Manual crash report result:', result);
+          await sender.SubmitRageshakeReport('ui - manual', this.userComment, {});
         } catch (error) {
           console.error('Error generating manual crash report:', error);
         }
 
-        // try {
-        //   await rageshake.showCrashReportDialog('manual', {
-        //     userComment: this.userComment,
-        //   });
-        // } catch (e) {
-        //   console.error('Failed to show crash report dialog:', e);
-        // }
-
-        // sender.showMessageBoxSync({
-        //   type: "info",
-        //   buttons: ["OK"],
-        //   message: "Report sent to privateLINE",
-        //   detail: `Report ID: ${id}`,
-        // });
       }
 
       if (this.onClose != null) this.onClose();

@@ -6,6 +6,7 @@ import { SentrySendDiagnosticReport } from '../sentry/sentry.js';
 import { RAGESHAKE_CONFIG, getUploadURL, getAppConfig, getFileConfig } from './config.js';
 import { createRageshakeAPI, submitCrashReport } from './api.js';
 
+import daemonClient from "@/daemon-client";
 class Rageshake {
   constructor() {
     this.isEnabled = false;
@@ -87,28 +88,28 @@ class Rageshake {
   /**
    * Collect crash report data
    */
-  async collectCrashReport(crashType = 'manual', additionalData = {}) {
+  async collectCrashReport(crashType = 'ui - manual', errMsg, additionalData = {}) {
     const report = {
       crashType,
       timestamp: new Date().toISOString(),
-      userDescription: additionalData.userDescription || '',
-      system: await this.collectSystemInfo(),
+      userDescription: errMsg || additionalData.userDescription || '',
+      systemInfo: await this.collectSystemInfo(),
       crashDumps: await this.collectCrashDumps(),
       logs: await this.collectLogs(),
       additionalData
     };
 
-    // Add content to crash dumps
-    report.crashDumps = report.crashDumps.map(dump => ({
-      ...dump,
-      content: this.readFileSafely(dump.path, getFileConfig().MAX_CRASH_DUMP_SIZE)
-    }));
+    // // Add content to crash dumps
+    // report.crashDumps = report.crashDumps.map(dump => ({
+    //   ...dump,
+    //   content: this.readFileSafely(dump.path, getFileConfig().MAX_CRASH_DUMP_SIZE)
+    // }));
 
-    // Add content to logs
-    report.logs = report.logs.map(log => ({
-      ...log,
-      content: this.readFileSafely(log.path, getFileConfig().MAX_LOG_SIZE)
-    }));
+    // // Add content to logs
+    // report.logs = report.logs.map(log => ({
+    //   ...log,
+    //   content: this.readFileSafely(log.path, getFileConfig().MAX_LOG_SIZE)
+    // }));
 
     return report;
   }
@@ -160,11 +161,14 @@ class Rageshake {
         })
         .slice(0, this.maxCrashDumps);
 
-      return crashFiles.map(file => ({
-        name: file,
-        path: path.join(this.crashDumpsPath, file),
-        size: fs.statSync(path.join(this.crashDumpsPath, file)).size
-      }));
+
+      return crashFiles.map(file => path.join(this.crashDumpsPath, file)); // return only paths to files, daemon will package them
+
+      // return crashFiles.map(file => ({
+      //   name: file,
+      //   path: path.join(this.crashDumpsPath, file),
+      //   size: fs.statSync(path.join(this.crashDumpsPath, file)).size
+      // }));
     } catch (error) {
       console.error('Error collecting crash dumps:', error);
       return [];
@@ -190,11 +194,13 @@ class Rageshake {
         })
         .slice(0, this.maxLogs);
 
-      return logFiles.map(file => ({
-        name: file,
-        path: path.join(this.logsPath, file),
-        size: fs.statSync(path.join(this.logsPath, file)).size
-      }));
+      return logFiles.map(file => path.join(this.logsPath, file)); // return only paths to files, daemon will package them
+
+      // return logFiles.map(file => ({
+      //   name: file,
+      //   path: path.join(this.logsPath, file),
+      //   size: fs.statSync(path.join(this.logsPath, file)).size
+      // }));
     } catch (error) {
       console.error('Error collecting logs:', error);
       return [];
@@ -219,63 +225,77 @@ class Rageshake {
   /**
    * Generate crash report and show dialog
    */
-  async showCrashReportDialog(crashType = 'manual', additionalData = {}) {
+  async showCrashReportDialog(crashType = 'ui - manual', userDescription, additionalData = {}) {
     try {
-      const report = await this.collectCrashReport(crashType, additionalData);
+      const report = await this.collectCrashReport(crashType, userDescription, additionalData);
+      let attachedFilesPaths = [];
+      if (report.logs !== null && report.logs !== undefined)
+          attachedFilesPaths.push(...report.logs);
+      if (report.crashDumps !== null && report.crashDumps !== undefined)
+          attachedFilesPaths.push(...report.crashDumps);
 
       const result = await dialog.showMessageBox({
         type: 'info',
-        title: 'Crash Report Generated',
-        message: 'A crash report has been generated with system information and logs.',
-        detail: `Report contains:\n- System information\n- ${report.crashDumps.length} crash dumps\n- ${report.logs.length} log files\n- Additional data`,
-        buttons: ['Send Report', 'Save Locally', 'Cancel'],
+        title: 'Problem Report Generated',
+        message: `A problem report has been generated with PL Connect logs and system information, to be submitted to privateLINE tech support`,
+        //detail: `Report contains:\n- System information\n- ${report.crashDumps.length} crash dumps\n- ${report.logs.length} log files\n- Additional data`,
+        detail: `Problem description:\n\n${userDescription}`,
+        buttons: ['Send Report', /*'Save Locally',*/ 'Cancel'],
         defaultId: 0,
-        cancelId: 2
+        cancelId: 1
       });
 
+      let resp = '';
       switch (result.response) {
         case 0: // Send Report
-          await this.sendCrashReport(report);
+          resp = await daemonClient.SubmitRageshakeReport(crashType, report.userDescription, attachedFilesPaths, report.systemInfo, additionalData);
           break;
-        case 1: // Save Locally
-          await this.saveCrashReportLocally(report);
-          break;
-        case 2: // Cancel
-          break;
+        // case 1: // Save Locally
+        //   await this.saveCrashReportLocally(report);
+        //   break;
+        case 1: // Cancel
+          return;
       }
+
+      dialog.showMessageBoxSync({
+        type: "info",
+        buttons: ["OK"],
+        message: "Problem report sent to privateLINE",
+        detail: `It can be retrieved at this URL:\n\n${resp.report_url}`,
+      });
     } catch (error) {
       console.error('Error showing crash report dialog:', error);
-      dialog.showErrorBox('Error', `Failed to generate crash report: ${error.message}`);
+      dialog.showErrorBox('Error', `Failed to submit problem report:\n\n${error}`);
     }
   }
 
   /**
    * Send crash report via Rageshake API
    */
-  async sendCrashReport(report) {
-    try {
-      // Convert report to Rageshake API format using the API client
-      const api = createRageshakeAPI();
-      const rageshakeData = api.createCrashReport(report, report.crashType, report.userDescription);
+  // async sendCrashReport(report) {
+  //   try {
+  //     // Convert report to Rageshake API format using the API client
+  //     const api = createRageshakeAPI();
+  //     const rageshakeData = api.createCrashReport(report, report.crashType, report.userDescription);
 
-      // Send via Rageshake API
-      const result = await api.submitReport(rageshakeData);
+  //     // Send via Rageshake API
+  //     const result = await api.submitReport(rageshakeData);
 
-      if (result.success) {
-        dialog.showMessageBox({
-          type: 'info',
-          title: 'Report Sent',
-          message: 'Crash report has been sent successfully.',
-          detail: result.reportUrl ? `Report URL: ${result.reportUrl}` : 'Report submitted to Rageshake server'
-        });
-      } else {
-        throw new Error('Failed to send report');
-      }
-    } catch (error) {
-      console.error('Error sending crash report:', error);
-      dialog.showErrorBox('Error', `Failed to send crash report: ${error.message}`);
-    }
-  }
+  //     if (result.success) {
+  //       dialog.showMessageBox({
+  //         type: 'info',
+  //         title: 'Report Sent',
+  //         message: 'Crash report has been sent successfully.',
+  //         detail: result.reportUrl ? `Report URL: ${result.reportUrl}` : 'Report submitted to Rageshake server'
+  //       });
+  //     } else {
+  //       throw new Error('Failed to send report');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error sending crash report:', error);
+  //     dialog.showErrorBox('Error', `Failed to send crash report: ${error.message}`);
+  //   }
+  // }
 
   /**
    * Convert crash report to Sentry format

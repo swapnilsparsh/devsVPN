@@ -1,12 +1,12 @@
 <template>
   <div class="rageshake-test">
     <h2>Rageshake System Test</h2>
-    
+
     <!-- Server Information -->
     <div class="server-info">
       <h3>Server Configuration</h3>
       <p><strong>Server URL:</strong> {{ serverUrl }}</p>
-      <p><strong>Status:</strong> 
+      <p><strong>Status:</strong>
         <span :class="connectionStatusClass">{{ connectionStatus }}</span>
       </p>
     </div>
@@ -16,21 +16,21 @@
     <!-- Test Buttons -->
     <div class="test-buttons">
       <h3>Test Functions</h3>
-      
 
-      
+
+
       <button @click="testManualCrashReport" :disabled="isLoading">
         Test Manual Crash Report
       </button>
-      
+
       <button @click="testExceptionCrashReport" :disabled="isLoading">
         Test Exception Report
       </button>
-      
+
       <button @click="testRejectionCrashReport" :disabled="isLoading">
         Test Rejection Report
       </button>
-      
+
       <button @click="testCollectReport" :disabled="isLoading">
         Test Collect Report
       </button>
@@ -40,7 +40,7 @@
     <div v-if="testResults.length > 0" class="test-results">
       <h3>Test Results</h3>
       <div v-for="(result, index) in testResults" :key="index" class="result-item">
-        <strong>{{ result.test }}:</strong> 
+        <strong>{{ result.test }}:</strong>
         <span :class="result.success ? 'success' : 'error'">
           {{ result.success ? 'SUCCESS' : 'FAILED' }}
         </span>
@@ -79,7 +79,7 @@ export default {
 
     async testManualCrashReport() {
       try {
-        const result = await sender.GenerateCrashReport('manual', {
+        const result = await sender.SubmitRageshakeReport('ui - manual', {
           testData: 'This is a manual test crash report',
           timestamp: new Date().toISOString()
         });
@@ -93,7 +93,7 @@ export default {
 
     async testExceptionCrashReport() {
       try {
-        const result = await sender.GenerateCrashReport('uncaught_exception', {
+        const result = await sender.SubmitRageshakeReport('uncaught_exception', {
           error: 'Test exception error',
           stack: 'Test stack trace',
           component: 'RageshakeTest.vue'
@@ -108,7 +108,7 @@ export default {
 
     async testRejectionCrashReport() {
       try {
-        const result = await sender.GenerateCrashReport('unhandled_rejection', {
+        const result = await sender.SubmitRageshakeReport('unhandled_rejection', {
           reason: 'Test rejection reason',
           promise: 'Test promise info',
           component: 'RageshakeTest.vue'
@@ -123,7 +123,7 @@ export default {
 
     async testCollectReport() {
       try {
-        const result = await sender.CollectCrashReport('manual', {
+        const result = await sender.CollectCrashReport('ui - manual', {
           testData: 'This is test data for collection',
           timestamp: new Date().toISOString()
         });
@@ -161,33 +161,33 @@ export default {
   border-radius: 4px;
   padding: 15px;
   margin-bottom: 20px;
-  
+
   h3 {
     margin-top: 0;
     margin-bottom: 10px;
     color: #495057;
   }
-  
+
   p {
     margin: 5px 0;
     font-size: 14px;
   }
-  
+
   .success {
     color: #28a745;
     font-weight: bold;
   }
-  
+
   .error {
     color: #dc3545;
     font-weight: bold;
   }
-  
+
   .testing {
     color: #ffc107;
     font-weight: bold;
   }
-  
+
   .unknown {
     color: #6c757d;
     font-weight: bold;
@@ -217,22 +217,22 @@ export default {
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
-  
+
   &:hover {
     background-color: #0056b3;
   }
-  
+
   &:active {
     background-color: #004085;
   }
-  
+
   &.connection-btn {
     background-color: #28a745;
-    
+
     &:hover {
       background-color: #218838;
     }
-    
+
     &:active {
       background-color: #1e7e34;
     }
@@ -251,13 +251,13 @@ export default {
   border-radius: 4px;
   padding: 15px;
   margin-top: 20px;
-  
+
   h3 {
     margin-top: 0;
     margin-bottom: 10px;
     color: #495057;
   }
-  
+
   .result-item {
     margin-bottom: 10px;
     padding-bottom: 10px;
@@ -282,4 +282,4 @@ export default {
     }
   }
 }
-</style> 
+</style>

@@ -462,8 +462,7 @@ if (gotTheLock && isAllowedToStart) {
   process.on('uncaughtException', async (error) => {
     console.error('Uncaught Exception:', error);
     try {
-      await rageshake.showCrashReportDialog('uncaught_exception', {
-        error: error.message,
+      await rageshake.showCrashReportDialog('ui - uncaught_exception', error.message, {
         stack: error.stack
       });
     } catch (e) {
@@ -475,8 +474,8 @@ if (gotTheLock && isAllowedToStart) {
   process.on('unhandledRejection', async (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
     try {
-      await rageshake.showCrashReportDialog('unhandled_rejection', {
-        reason: String(reason),
+      await rageshake.showCrashReportDialog('ui - unhandled_rejection', String(reason), {
+        // reason: String(reason),
         promise: promise.toString()
       });
     } catch (e) {
