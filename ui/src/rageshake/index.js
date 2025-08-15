@@ -69,7 +69,7 @@ class Rageshake {
   setupPaths() {
     const userDataPath = app.getPath('userData');
     this.crashDumpsPath = path.join(userDataPath, 'CrashDumps');
-    this.logsPath = path.join(userDataPath, 'Logs');
+    this.logsPath = path.join(userDataPath, 'logs');
 
     // Create directories if they don't exist
     this.ensureDirectoryExists(this.crashDumpsPath);
