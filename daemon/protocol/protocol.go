@@ -1048,7 +1048,6 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		if err != nil || statusCode != 200 {
 			p.sendErrorResponse(conn, reqCmd, err)
 		} else {
-			log.Debug("Rageshake report_url = ", resp.ReportUrl)
 			p.sendResponse(conn, &types.RageshakeReportSubmittedResp{ReportUrl: resp.ReportUrl}, reqCmd.Idx)
 		}
 

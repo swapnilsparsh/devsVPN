@@ -1060,6 +1060,7 @@ func (a *API) SubmitRageshakeReport(crashType, app, version, text string, filesT
 			return nil, httpResp.StatusCode, log.ErrorFE("failed to deserialize API response: %w", err)
 		}
 		_resp.SetHttpStatusCode(httpResp.StatusCode)
+		log.Debug("Rageshake report_url = ", _resp.ReportUrl)
 		return &_resp, httpResp.StatusCode, nil
 	} else {
 		return nil, httpResp.StatusCode, types.CreateAPIError(httpResp.StatusCode, "")
