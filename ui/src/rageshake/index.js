@@ -1,4 +1,4 @@
-import { app, crashReporter, dialog } from 'electron';
+import { app, crashReporter, dialog, shell } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -230,9 +230,9 @@ class Rageshake {
       const report = await this.collectCrashReport(crashType, userDescription, additionalData);
       let attachedFilesPaths = [];
       if (report.logs !== null && report.logs !== undefined)
-          attachedFilesPaths.push(...report.logs);
+        attachedFilesPaths.push(...report.logs);
       if (report.crashDumps !== null && report.crashDumps !== undefined)
-          attachedFilesPaths.push(...report.crashDumps);
+        attachedFilesPaths.push(...report.crashDumps);
 
       const result = await dialog.showMessageBox({
         type: 'info',
@@ -257,12 +257,18 @@ class Rageshake {
           return;
       }
 
-      dialog.showMessageBoxSync({
+      const urlResult = await dialog.showMessageBox({
         type: "info",
-        buttons: ["OK"],
+        buttons: ["OK", "Open URL"],
         message: "Problem report sent to privateLINE",
         detail: `It can be retrieved at this URL:\n\n${resp.report_url}`,
+        defaultId: 0,
+        cancelId: 0
       });
+
+      if (urlResult.response === 1) {
+        shell.openExternal(resp.report_url);
+      }
     } catch (error) {
       console.error('Error showing crash report dialog:', error);
       dialog.showErrorBox('Error', `Failed to submit problem report:\n\n${error}`);
