@@ -39,6 +39,8 @@ async function invoke(channel, ...args) {
   }
 }
 
+
+
 export default {
   // This object is using to expose ipcRenderer functionality (send\receive) only for limited channels
   // E.g. 'shared-mutation' plugin for vuex is requiring IPC communication
@@ -316,6 +318,15 @@ export default {
   SubmitDiagnosticLogs: async (comment, data) => {
     return invoke("renderer-request-submit-diagnostic-logs", comment, data);
   },
+
+  // Rageshake crash reporting
+  SubmitRageshakeReport: async (crashType, errMsg, additionalData) => {
+    return invoke("renderer-request-submit-rageshake-report", crashType, errMsg, additionalData);
+  },
+  CollectCrashReport: async (crashType, errMsg, additionalData) => {
+    return invoke("renderer-request-collect-crash-report", crashType, errMsg, additionalData);
+  },
+
 
   // UPDATES
   UpdateWindowClose: () => {
