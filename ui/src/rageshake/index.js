@@ -259,7 +259,7 @@ class Rageshake {
 
       const urlResult = await dialog.showMessageBox({
         type: "info",
-        buttons: ["OK", "Open URL"],
+        buttons: ["Close", "Open URL"],
         message: "Problem report sent to privateLINE",
         detail: `It can be retrieved at this URL:\n\n${resp.report_url}`,
         defaultId: 0,
