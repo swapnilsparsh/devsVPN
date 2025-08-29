@@ -326,7 +326,7 @@ func startStopServiceHelper(stopSvc bool, svc *mgr.Service, reportChan chan erro
 
 func (otherVpn *OtherVpnInfoParsed) PreSteps() (retErr error) {
 	if otherVpnEntryForMutex, ok := otherVpnsByName[otherVpn.name]; ok { // can't use OtherVpnInfoParsed var, because it copies the mutex var
-		log.Debug("PreSteps() waiting for mutex for " + otherVpn.name)
+		//log.Debug("PreSteps() waiting for mutex for " + otherVpn.name)
 		otherVpnEntryForMutex.perVpnMutex.Lock() // will be unlocked in PostSteps()
 	}
 
