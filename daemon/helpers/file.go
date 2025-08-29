@@ -131,3 +131,36 @@ func copyFileContents(src, dst string) (err error) {
 	err = out.Sync()
 	return
 }
+
+// ReadFileTail - reads last n bytes of a file
+func ReadFileTail(filePath string, maxLen int64) (contents []byte, err error) {
+	stat, err := os.Stat(filePath)
+	if err != nil {
+		return []byte{}, fmt.Errorf("error - file not found: `%s`: %w", filePath, err)
+	}
+
+	var buf []byte
+	if stat.Size() <= maxLen {
+		buf, err = os.ReadFile(filePath)
+		if err != nil {
+			return []byte{}, fmt.Errorf("error reading file '%s': %w", filePath, err)
+		}
+	} else {
+		file, _ := os.Open(filePath)
+		defer file.Close()
+
+		var offset int64 = -maxLen
+		var whence int = 2 // 2 = End of file, reference point for offset
+		_, err := file.Seek(offset, whence)
+		if err != nil {
+			return []byte{}, fmt.Errorf("error seeking file `%s` of size %d to %d from end: %w", filePath, stat.Size(), offset, err)
+		}
+
+		buf = make([]byte, maxLen)
+		if _, err = io.ReadFull(file, buf); err != nil {
+			return []byte{}, fmt.Errorf("error reading %d bytes from the end of `%s` : %w", maxLen, filePath, err)
+		}
+	}
+
+	return buf, nil
+}

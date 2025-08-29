@@ -24,6 +24,7 @@ import {
   SentryIsAbleToUse,
   SentrySendDiagnosticReport,
 } from "@/sentry/sentry.js";
+import rageshake from "@/rageshake/index.js";
 
 import { GetLinuxSnapEnvVars } from "@/helpers/main_platform";
 import { Platform } from "@/platform/platform";
@@ -375,6 +376,28 @@ ipcMain.handle(
   }
 );
 
+// RAGESHAKE CRASH REPORTING
+ipcMain.handle("renderer-request-submit-rageshake-report", async (event, crashType, errMsg, additionalData) => {
+  try {
+    const resp = await rageshake.showCrashReportDialog(crashType || 'ui - manual', errMsg, additionalData || {});
+    return { success: true, resp };
+  } catch (error) {
+    console.error('Error generating crash report:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("renderer-request-collect-crash-report", async (event, crashType, errMsg, additionalData) => {
+  try {
+    const report = await rageshake.collectCrashReport(crashType || 'ui - manual', errMsg, additionalData || {});
+    return { success: true, report };
+  } catch (error) {
+    console.error('Error collecting crash report:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+
 // UPDATES
 ipcMain.on("renderer-request-app-updates-is-able-to-update", (event) => {
   try {
@@ -508,7 +531,22 @@ ipcMain.handle("renderer-request-shell-open-external", async (event, uri) => {
 
 // OS
 ipcMain.on("renderer-request-os-version-release", (event) => {
-  event.returnValue = os.version() + " " + os.release();
+  // Workaround for bug https://github.com/nodejs/node/issues/40862: Windows 11 gets reported as Windows 10.
+  let osVersion = os.version();
+  let osRelease = os.release();
+
+  // If build number is above 10.0.22000.0 - it's Win 11. If (dwMajorVersion == 10 && dwBuildNumber < 22000) - then it's Win 10.
+  const releaseParsed = /^([\d]+)\.[\d]+\.([\d]+).*$/.exec(osRelease);
+  if (releaseParsed) {
+    let releaseParsedNumeric = releaseParsed.slice(1).map((p) => parseInt(p, 10));
+    if (releaseParsedNumeric != null && releaseParsedNumeric.length >=2) {
+      if (releaseParsedNumeric[0] == 10 && releaseParsedNumeric[1] >= 22000 && osVersion.startsWith("Windows 10")) {
+        osVersion = osVersion.replaceAll("Windows 10", "Windows 11");
+      }
+    }
+  }
+
+  event.returnValue = osVersion + " " + osRelease;
 });
 ipcMain.on("renderer-request-os-release", (event) => {
   event.returnValue = os.release();
@@ -545,3 +583,5 @@ ipcMain.handle(
     return await client.SetLocalParanoidModePassword(password);
   }
 );
+
+

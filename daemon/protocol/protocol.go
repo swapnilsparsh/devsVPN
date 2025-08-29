@@ -1,4 +1,3 @@
-//
 //  Daemon for privateLINE Connect Desktop
 //  https://github.com/swapnilsparsh/devsVPN
 //
@@ -41,6 +40,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/oshelpers"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/eaa"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol/types"
+	"github.com/swapnilsparsh/devsVPN/daemon/rageshake"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	firewall_types "github.com/swapnilsparsh/devsVPN/daemon/service/firewall/types"
@@ -233,7 +233,10 @@ type Service interface {
 	GetWiFiCurrentState() (wifiNotifier.WifiInfo, error)
 	GetWiFiAvailableNetworks() ([]string, error)
 
-	GetDiagnosticLogs() (logActive string, logPrevSession string, extraInfo string, err error)
+	GetDiagnosticLogs() (logActive string, logPrevSession string, extraInfo *rageshake.SystemInfo, err error)
+	//GenerateCrashReport(crashType string, additionalData map[string]interface{}) (*rageshake.CrashReport, error)
+	SubmitRageshakeReport(crashType, app, version, text string, filesToAttach []string, jsonFilesToAttach []helpers.JsonFileToAttach, additionalData map[string]string) (resp *api_types.RageshakeServerResponse, httpStatusCode int, err error)
+	SubmitRageshakeReportInternal(errMsg string) (resp *api_types.RageshakeServerResponse, httpStatusCode int, err error)
 
 	GetStatsCallbacks() StatsCallbacks
 	SetStatsCallbacks(StatsCallbacks)
@@ -387,6 +390,13 @@ func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Servic
 	}
 }
 
+func (p *Protocol) SubmitRageshakeReportInternal(message string) {
+	_serv := p._service
+	if _serv != nil {
+		_serv.SubmitRageshakeReportInternal(message)
+	}
+}
+
 func (p *Protocol) processClient(conn net.Conn) {
 	// The first request from a client should be 'Hello' request with correct secret
 	// In case of wrong secret - the daemon drops connection
@@ -475,11 +485,17 @@ func (p *Protocol) processClient(conn net.Conn) {
 func (p *Protocol) processRequest(conn net.Conn, message string) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Error(fmt.Sprintf("%sPANIC during processing request!: ", p.connLogID(conn)), r)
-			log.Error(string(debug.Stack()))
+			msg := fmt.Sprintf("%sPANIC during processing request!: ", p.connLogID(conn))
+			log.Error(msg, r)
+
+			errMsg := string(debug.Stack())
+			log.Error(errMsg)
 			if err, ok := r.(error); ok {
 				log.ErrorTrace(err)
+				errMsg += "\n\n" + err.Error()
 			}
+			p.SubmitRageshakeReportInternal(msg + "\n\n" + errMsg)
+
 			log.Info(fmt.Sprintf("%sClosing connection and recovering state", p.connLogID(conn)))
 			conn.Close()
 		}
@@ -499,9 +515,10 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		var req types.APIRequest
 		if err := json.Unmarshal(messageData, &req); err == nil {
 			cmdExtraInfo = " " + req.APIPath
-			if req.IPProtocolRequired == types.IPv4 {
+			switch req.IPProtocolRequired {
+			case types.IPv4:
 				cmdExtraInfo += " (IPv4)"
-			} else if req.IPProtocolRequired == types.IPv6 {
+			case types.IPv6:
 				cmdExtraInfo += " (IPv6)"
 			}
 		}
@@ -1006,7 +1023,35 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		if log, log0, extraInfo, err := p._service.GetDiagnosticLogs(); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 		} else {
-			p.sendResponse(conn, &types.DiagnosticsGeneratedResp{Log1_Active: log, Log0_Old: log0, ExtraInfo: extraInfo}, reqCmd.Idx)
+			p.sendResponse(conn, &types.DiagnosticsGeneratedResp{Log1_Active: log, Log0_Old: log0, ExtraInfo: *extraInfo}, reqCmd.Idx)
+		}
+
+	case "SubmitRageshakeReport":
+		var req types.SubmitRageshakeReport
+		log.Debug("SubmitRageshakeReport messageData = ", string(messageData[:]))
+		if err := json.Unmarshal(messageData, &req); err != nil {
+			log.Debug("messageData = ", string(messageData[:]))
+			p.sendErrorResponse(conn, reqCmd, err)
+			break
+		}
+
+		jsonFilesToAttach := []helpers.JsonFileToAttach{{JsonFileName: req.App + ".report.json", JsonFileContents: messageData}}
+		if req.ClientSystemInfoJson != "" {
+			jsonFilesToAttach = append(jsonFilesToAttach, helpers.JsonFileToAttach{JsonFileName: req.App + ".sysinfo.json", JsonFileContents: []byte(req.ClientSystemInfoJson)})
+		}
+
+		resp, statusCode, err := p._service.SubmitRageshakeReport(
+			string(req.CrashType),
+			req.App,
+			req.Version,
+			req.ErrMsg,
+			req.ClientAttachedFilesPaths,
+			jsonFilesToAttach,
+			req.AdditionalData)
+		if err != nil || statusCode != 200 {
+			p.sendErrorResponse(conn, reqCmd, err)
+		} else {
+			p.sendResponse(conn, &types.RageshakeReportSubmittedResp{ReportUrl: resp.ReportUrl}, reqCmd.Idx)
 		}
 
 	case "SetAlternateDns":

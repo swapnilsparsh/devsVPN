@@ -29,6 +29,7 @@ import (
 	api_types "github.com/swapnilsparsh/devsVPN/daemon/api/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/logger"
 	"github.com/swapnilsparsh/devsVPN/daemon/obfsproxy"
+	"github.com/swapnilsparsh/devsVPN/daemon/rageshake"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
@@ -301,11 +302,16 @@ type KillSwitchGetIsPestistentResp struct {
 // DiagnosticsGeneratedResp returns info from daemon logs
 type DiagnosticsGeneratedResp struct {
 	CommandBase
-	Log0_Old    string // previous daemon session log
-	Log1_Active string // active daemon log
-	ExtraInfo   string // Extra info for logging (e.g. ifconfig, netstat -nr ... etc.)
+	Log0_Old    string               // previous daemon session log
+	Log1_Active string               // active daemon log
+	ExtraInfo   rageshake.SystemInfo // Extra info for logging (e.g. ifconfig, netstat -nr ... etc.)
 }
 
+// RageshakeReportSubmittedResp returns crash report data
+type RageshakeReportSubmittedResp struct {
+	CommandBase
+	ReportUrl string `json:"report_url"`
+}
 type DnsStatus struct {
 	Dns               dns.DnsSettings
 	DnsMgmtStyleInUse dns.DnsMgmtStyle

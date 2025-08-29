@@ -41,6 +41,8 @@ import {
   VpnTypeEnum,
 } from "@/store/types";
 
+import { RAGESHAKE_CONFIG } from '@/rageshake/config.js';
+
 const PingServersTimeoutMs = 4000;
 
 const DefaultResponseTimeoutMs = 3 * 60 * 1000;
@@ -63,6 +65,7 @@ const daemonRequests = Object.freeze({
   SetRestApiBackend: "SetRestApiBackend",
 
   GenerateDiagnostics: "GenerateDiagnostics",
+  SubmitRageshakeReport: "SubmitRageshakeReport",
 
   PingServers: "PingServers",
   GetServers: "GetServers",
@@ -1387,6 +1390,24 @@ async function GetDiagnosticLogs() {
   return logs;
 }
 
+async function SubmitRageshakeReport(crashType, errMsg, attachedFilesPaths, systemInfo, additionalData) {
+  let systemInfoJson = JSON.stringify(systemInfo);
+  let resp = await sendRecv({
+    Command:                      daemonRequests.SubmitRageshakeReport,
+    app:                          RAGESHAKE_CONFIG.APP.APP_ID,
+    version:                      store.state.daemonVersion,
+    crash_type:                   crashType,
+    err_msg:                      errMsg,
+    client_attached_files_paths:  attachedFilesPaths,
+    client_system_info_json:      systemInfoJson,
+    additional_data:              additionalData,
+  });
+
+  // Returning whole response object (even in case of error)
+  // it contains details about error
+  return resp;
+}
+
 async function NotifyDaemonConnectionSettings() {
   const paramsObj = InitConnectionParamsObject();
 
@@ -1993,6 +2014,7 @@ export default {
   ConnectToDaemon,
 
   GetDiagnosticLogs,
+  SubmitRageshakeReport,
   SetRestApiBackend,
 
   Login,
