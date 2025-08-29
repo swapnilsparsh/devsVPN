@@ -15,8 +15,8 @@ import {
 
 import path from "path";
 
-import { SentryInit } from "./sentry/sentry.js";
-SentryInit();
+// import { SentryInit } from "./sentry/sentry.js";
+// SentryInit();
 
 // Initialize Rageshake crash reporting
 import rageshake from "./rageshake/index.js";

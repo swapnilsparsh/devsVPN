@@ -20,10 +20,10 @@
 //  along with the UI for IVPN Client Desktop. If not, see <https://www.gnu.org/licenses/>.
 //
 
-import {
-  SentryIsAbleToUse,
-  SentrySendDiagnosticReport,
-} from "@/sentry/sentry.js";
+// import {
+//   SentryIsAbleToUse,
+//   SentrySendDiagnosticReport,
+// } from "@/sentry/sentry.js";
 import rageshake from "@/rageshake/index.js";
 
 import { GetLinuxSnapEnvVars } from "@/helpers/main_platform";
@@ -289,7 +289,8 @@ ipcMain.handle("renderer-request-wifi-get-available-networks", async () => {
 
 // Diagnostic reports
 ipcMain.on("renderer-request-is-can-send-diagnostic-logs", (event) => {
-  event.returnValue = SentryIsAbleToUse();
+  //event.returnValue = SentryIsAbleToUse();
+  event.returnValue = true;
 });
 ipcMain.handle("renderer-request-get-diagnostic-logs", async () => {
   let data = await client.GetDiagnosticLogs();
@@ -366,13 +367,14 @@ ipcMain.handle(
       buildExtraInfo = "SNAP environement";
     }
 
-    return SentrySendDiagnosticReport(
-      accountID,
-      comment,
-      dataObj,
-      store.state.daemonVersion,
-      buildExtraInfo
-    );
+    return {};
+    // return SentrySendDiagnosticReport(
+    //   accountID,
+    //   comment,
+    //   dataObj,
+    //   store.state.daemonVersion,
+    //   buildExtraInfo
+    // );
   }
 );
 
