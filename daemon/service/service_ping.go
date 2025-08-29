@@ -88,10 +88,10 @@ func (s *Service) PingServers(firstPhaseTimeoutMs int, vpnTypePrioritized vpn.Ty
 	startTime := time.Now()
 
 	// temporarily enable the firewall, need VPN coexistence logic up - otherwise, if another VPN is already running, our pings may not go through
-	if err := firewall.EnableIfNeeded(); err != nil {
+	if err := firewall.EnableIfNeeded(true, s._preferences.PermissionReconfigureOtherVPNs); err != nil {
 		return nil, log.ErrorFE("error in firewall.EnableIfNeeded: %w", err)
 	} else {
-		defer firewall.DisableUnlessConnectedConnecting() // want to keep our firewall logic (incl. VPN coexistence rules) disabled most of the time
+		defer firewall.DisableUnlessConnectedConnecting(s._preferences.PermissionReconfigureOtherVPNs) // want to keep our firewall logic (incl. VPN coexistence rules) disabled most of the time
 	}
 
 	if s.ConnectedOrConnecting() {

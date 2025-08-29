@@ -41,7 +41,6 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/netchange"
 	"github.com/swapnilsparsh/devsVPN/daemon/protocol"
 	"github.com/swapnilsparsh/devsVPN/daemon/service"
-	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/wgkeys"
@@ -221,67 +220,67 @@ func doCleanup() (osExitCode int) {
 	log.Info("disabled")
 	return 0
 
-	f := func() (retErr error) {
-		if !doCheckIsAdmin() {
-			return fmt.Errorf("not privileged environment")
-		}
-		var prefs preferences.Preferences
-		if err := prefs.LoadPreferences(); err != nil {
-			return err
-		}
+	// f := func() (retErr error) {
+	// 	if !doCheckIsAdmin() {
+	// 		return fmt.Errorf("not privileged environment")
+	// 	}
+	// 	var prefs preferences.Preferences
+	// 	if err := prefs.LoadPreferences(); err != nil {
+	// 		return err
+	// 	}
 
-		// Try to logout
-		session := prefs.Session
-		if !session.IsLoggedIn() {
-			log.Info("Not logged in")
-		} else {
-			if apiObj, err := api.CreateAPI(); err != nil { // API object
-				retErr = log.ErrorE(fmt.Errorf("api.CreateAPI() failed: %w", err), 0)
-			} else {
-				log.Info("Logging out ...")
-				if err = apiObj.SessionDelete(session.Session, prefs.Session.WGPublicKey); err != nil {
-					retErr = log.ErrorE(fmt.Errorf("apiObj.SessionDelete() failed: %w", err), 0)
-				} else {
-					log.Info("Logging out: done")
-				}
-			}
-		}
+	// 	// Try to logout
+	// 	session := prefs.Session
+	// 	if !session.IsLoggedIn() {
+	// 		log.Info("Not logged in")
+	// 	} else {
+	// 		if apiObj, err := api.CreateAPI(); err != nil { // API object
+	// 			retErr = log.ErrorE(fmt.Errorf("api.CreateAPI() failed: %w", err), 0)
+	// 		} else {
+	// 			log.Info("Logging out ...")
+	// 			if err = apiObj.SessionDelete(session.Session, prefs.Session.WGPublicKey); err != nil {
+	// 				retErr = log.ErrorE(fmt.Errorf("apiObj.SessionDelete() failed: %w", err), 0)
+	// 			} else {
+	// 				log.Info("Logging out: done")
+	// 			}
+	// 		}
+	// 	}
 
-		// Disable firewall (if enabled) - must be done after logging out, because firewall rules assure we have access to api.privateline.io
-		var fwErr error
-		fwEnabled, err := firewall.GetEnabled()
-		if err != nil {
-			fwErr = log.ErrorFE("firewall.GetEnabled() failed: %w", err)
-		} else if fwEnabled {
-			log.Info("Disabling firewall ...")
-			if err = firewall.SetEnabled(false); err != nil {
-				fwErr = log.ErrorE(fmt.Errorf("firewall.SetEnabled() failed: %w", err), 0)
-			} else {
-				log.Info("Firewall disabled")
-			}
-		}
+	// 	// Disable firewall (if enabled) - must be done after logging out, because firewall rules assure we have access to api.privateline.io
+	// 	var fwErr error
+	// 	fwEnabled, err := firewall.GetEnabled()
+	// 	if err != nil {
+	// 		fwErr = log.ErrorFE("firewall.GetEnabled() failed: %w", err)
+	// 	} else if fwEnabled {
+	// 		log.Info("Disabling firewall ...")
+	// 		if err = firewall.SetEnabled(false); err != nil {
+	// 			fwErr = log.ErrorE(fmt.Errorf("firewall.SetEnabled() failed: %w", err), 0)
+	// 		} else {
+	// 			log.Info("Firewall disabled")
+	// 		}
+	// 	}
 
-		// Clean-up our firewall registration, delete all firewall objects
-		log.Info("Cleaning up firewall registration ...")
-		if err = firewall.CleanupRegistration(); err != nil {
-			fwErr = log.ErrorE(fmt.Errorf("firewall.CleanupRegistration() failed: %w", err), 0)
-		} else {
-			log.Info("Firewall registration cleaned up")
-		}
+	// 	// Clean-up our firewall registration, delete all firewall objects
+	// 	log.Info("Cleaning up firewall registration ...")
+	// 	if err = firewall.CleanupRegistration(); err != nil {
+	// 		fwErr = log.ErrorE(fmt.Errorf("firewall.CleanupRegistration() failed: %w", err), 0)
+	// 	} else {
+	// 		log.Info("Firewall registration cleaned up")
+	// 	}
 
-		if retErr != nil {
-			return retErr
-		} else {
-			return fwErr
-		}
-	}
+	// 	if retErr != nil {
+	// 		return retErr
+	// 	} else {
+	// 		return fwErr
+	// 	}
+	// }
 
-	if err := f(); err != nil {
-		log.Error(err)
-		return 2
-	}
+	// if err := f(); err != nil {
+	// 	log.Error(err)
+	// 	return 2
+	// }
 
-	return 0
+	// return 0
 }
 
 // initialize and start service

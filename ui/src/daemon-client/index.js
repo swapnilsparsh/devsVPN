@@ -962,7 +962,8 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
 
 async function Login(
   emailOrAcctID,
-  password
+  password,
+  permissionReconfigureOtherVPNs_Once,
   //  force, captchaID, captcha, confirmation2FA
 ) {
   let resp = await sendRecv({
@@ -970,7 +971,8 @@ async function Login(
     EmailOrAcctID: emailOrAcctID,
     Password: password,
     StableDeviceID: false,
-    // ForceLogin: force,
+    PermissionReconfigureOtherVPNs_Once: permissionReconfigureOtherVPNs_Once,
+  	    // ForceLogin: force,
     // CaptchaID: captchaID,
     // Captcha: captcha,
     // Confirmation2FA: confirmation2FA,

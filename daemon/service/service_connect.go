@@ -120,6 +120,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 	s.setConnectionParams(params)
 
 	prefs := s.Preferences()
+	canReconfigureOtherVpns := params.CanReconfigureOtherVpnsOnce || prefs.PermissionReconfigureOtherVPNs
 
 	// if account not active (OR subscription expired) - request account status from backend
 	if !prefs.Account.Active || time.Now().After(time.Unix(prefs.Account.ActiveUntil, 0)) {
@@ -247,7 +248,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 			params.OpenVpnParameters.Obfs4proxy = obfsproxy.Config{}
 		}
 
-		return s.connectOpenVPN(originalEntryServerInfo, connectionParams, params.ManualDNS, params.Metadata.AntiTracker, params.FirewallOn, params.FirewallOnDuringConnection, params.OpenVpnParameters.Obfs4proxy, v2RayWrapper)
+		return s.connectOpenVPN(originalEntryServerInfo, connectionParams, params.ManualDNS, params.Metadata.AntiTracker, params.FirewallOn, params.FirewallOnDuringConnection, params.OpenVpnParameters.Obfs4proxy, v2RayWrapper, canReconfigureOtherVpns)
 
 	} else if vpn.Type(params.VpnType) == vpn.WireGuard {
 		if len(params.WireGuardParameters.EntryVpnServer.Hosts) < 1 {
@@ -308,14 +309,14 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 			)
 		}
 
-		return s.connectWireGuard(originalEntryServerInfo, connectionParams, params.ManualDNS, params.Metadata.AntiTracker, params.FirewallOn, params.FirewallOnDuringConnection, v2RayWrapper)
+		return s.connectWireGuard(originalEntryServerInfo, connectionParams, params.ManualDNS, params.Metadata.AntiTracker, params.FirewallOn, params.FirewallOnDuringConnection, v2RayWrapper, canReconfigureOtherVpns)
 	}
 
 	return fmt.Errorf("unexpected VPN type to connect (%v)", params.VpnType)
 }
 
 // connectOpenVPN start OpenVPN connection
-func (s *Service) connectOpenVPN(originalEntryServerInfo *svrConnInfo, connectionParams openvpn.ConnectionParams, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, obfsproxyConfig obfsproxy.Config, v2rayWrapper *v2r.V2RayWrapper) error {
+func (s *Service) connectOpenVPN(originalEntryServerInfo *svrConnInfo, connectionParams openvpn.ConnectionParams, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, obfsproxyConfig obfsproxy.Config, v2rayWrapper *v2r.V2RayWrapper, canReconfigureOtherVpns bool) error {
 
 	createVpnObjfunc := func() (vpn.Process, error) {
 		prefs := s.Preferences()
@@ -441,11 +442,11 @@ func (s *Service) connectOpenVPN(originalEntryServerInfo *svrConnInfo, connectio
 		return vpnObj, nil
 	}
 
-	return s.keepConnection(originalEntryServerInfo, createVpnObjfunc, manualDNS, antiTracker, firewallOn, firewallDuringConnection, v2rayWrapper)
+	return s.keepConnection(originalEntryServerInfo, createVpnObjfunc, manualDNS, antiTracker, firewallOn, firewallDuringConnection, v2rayWrapper, canReconfigureOtherVpns)
 }
 
 // connectWireGuard start WireGuard connection
-func (s *Service) connectWireGuard(originalEntryServerInfo *svrConnInfo, connectionParams wireguard.ConnectionParams, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper) error {
+func (s *Service) connectWireGuard(originalEntryServerInfo *svrConnInfo, connectionParams wireguard.ConnectionParams, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper, canReconfigureOtherVpns bool) error {
 	// stop active connection (if exists)
 	if err := s.Disconnect(); err != nil {
 		return fmt.Errorf("failed to connect. Unable to stop active connection: %w", err)
@@ -499,10 +500,10 @@ func (s *Service) connectWireGuard(originalEntryServerInfo *svrConnInfo, connect
 		return vpnObj, nil
 	}
 
-	return s.keepConnection(originalEntryServerInfo, createVpnObjfunc, manualDNS, antiTracker, firewallOn, firewallDuringConnection, v2rayWrapper)
+	return s.keepConnection(originalEntryServerInfo, createVpnObjfunc, manualDNS, antiTracker, firewallOn, firewallDuringConnection, v2rayWrapper, canReconfigureOtherVpns)
 }
 
-func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpnObj func() (vpn.Process, error), initialManualDNS dns.DnsSettings, initialAntiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper) (retError error) {
+func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpnObj func() (vpn.Process, error), initialManualDNS dns.DnsSettings, initialAntiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper, canReconfigureOtherVpns bool) (retError error) {
 	prefs := s.Preferences()
 	if !prefs.Session.IsLoggedIn() {
 		return srverrors.ErrorNotLoggedIn{}
@@ -550,7 +551,14 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 		// isInverseSplitTun := prefs.IsInverseSplitTunneling()
 
 		// start connection
-		connErr := s.connect(originalEntryServerInfo, vpnObj, manualDns, antitracker, firewallOn /* && !isInverseSplitTun */, firewallDuringConnection /* && !isInverseSplitTun */, v2rayWrapper)
+		connErr := s.connect(originalEntryServerInfo,
+			vpnObj,
+			manualDns,
+			antitracker,
+			firewallOn,               /* && !isInverseSplitTun */
+			firewallDuringConnection, /* && !isInverseSplitTun */
+			v2rayWrapper,
+			canReconfigureOtherVpns || s._preferences.PermissionReconfigureOtherVPNs)
 		if connErr != nil {
 			log.Error(fmt.Sprintf("Connection error: %s", connErr))
 			if s._requiredVpnState == Connect {
@@ -608,7 +616,7 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 //     We need this info to notify correct data about vpn.CONNECTED state: for V2Ray connection the original parameters are overwriten by local V2Ray proxy params ('127.0.0.1:local_port')
 //   - Param 'firewallOn' - unconditionally reenable firewall before connection (if true - the parameter 'firewallDuringConnection' will be ignored).
 //   - Param 'firewallDuringConnection' - unconditionally reenable firewall before connection, and disable after disconnection
-func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Process, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper) (err error) {
+func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Process, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper, canReconfigureOtherVpns bool) (err error) {
 	var connectRoutinesWaiter sync.WaitGroup
 
 	// stop active connection (if exists)
@@ -645,7 +653,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 	// Must run it after s._vpn is set, so that firewall will know to enable Total Shield, if needed.
 	log.Info("Initializing firewall")
 	if firewallOn || firewallDuringConnection {
-		if err := s.ReEnableKillSwitch(); err != nil {
+		if err := s.ReEnableKillSwitch(canReconfigureOtherVpns); err != nil {
 			return log.ErrorFE("Failed to reenable firewall: %w", err)
 		}
 	}
@@ -692,7 +700,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		// And initial FW state was disabled - we have to disable it back
 		// if firewallDuringConnection && !fwInitState {
 		if !firewallOn && firewallDuringConnection { // per firewallOn, firewallDuringConnection description
-			if err = s.SetKillSwitchState(false); err != nil {
+			if err = s.SetKillSwitchState(false, canReconfigureOtherVpns); err != nil {
 				log.ErrorFE("(stopping) failed to disable firewall: %w", err)
 			}
 		}
@@ -854,7 +862,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						s.splitTunnelling_ApplyConfig(true)
 
 						// Run at the end, as meet.privateline.network lookup fails if it's called too soon after WG connects. Run asynchronously.
-						go firewall.DeployPostConnectionRules()
+						go firewall.DeployPostConnectionRules(canReconfigureOtherVpns || s._preferences.PermissionReconfigureOtherVPNs)
 
 						// Finally start the connectivityHealthchecksBackgroundMonitor
 						connectRoutinesWaiter.Add(1)

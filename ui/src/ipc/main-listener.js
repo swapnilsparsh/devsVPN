@@ -67,12 +67,14 @@ ipcMain.handle(
   async (
     event,
     emailOrAcctID,
-    password
+    password,
+    permissionReconfigureOtherVPNs_Once,
     // force, captchaID, captcha, confirmation2FA
   ) => {
     return await client.Login(
       emailOrAcctID,
-      password
+      password,
+      permissionReconfigureOtherVPNs_Once,
       // force,
       // captchaID,
       // captcha,

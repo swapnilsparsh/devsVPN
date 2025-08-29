@@ -109,7 +109,7 @@
           Password</button>
         <div style="height: 12px" />
         -->
-        
+
         <!-- SSO login disabled per PLCON-89 Remove SSO login option from main screen from Desktop apps
         <button
           class="slave"
@@ -480,56 +480,114 @@ export default {
         }
 
         // Only send account ID to the daemon in XXXX-XXXX-XXXX format irrespective of whether the user entered account ID as XXXX-XXXX-XXXX, or as a-XXXX-XXXX-XXXX
-        const resp = await sender.Login(
-          this.isAccountIdLogin ? 
-            (this.accountID.startsWith("a-") ? this.accountID.substring(2, 16) : this.accountID)
-            : this.email,
-          this.isAccountIdLogin ? "" : this.password
-          // isForceLogout === true || this.isForceLogoutRequested === true,
-          // this.captchaID,
-          // this.captcha,
-          // confirmation2FA ? confirmation2FA : this.confirmation2FA
-        );
+        let login = this.accountID;
+        let password = "";
+        if (this.isAccountIdLogin) {
+          if (this.accountID.startsWith("a-")) {
+            login = this.accountID.substring(2, 16);
+          }
+        } else {
+          login = this.email;
+          password = this.password;
+        }
 
-        //console.log("resp", resp);
-        //const accountInfoResponse = await sender.AccountInfo();
-        //console.log("accountInfoResponse", accountInfoResponse);
-        if (resp.APIStatus === 429) {
-          // API error: [429] Too many requests from this IP or email, please try again later
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to login",
-            detail: resp.APIErrorMessage,
-          });
-        } else if (resp.APIStatus === 426 || resp.APIStatus === 412) {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to login",
-            detail:
-              resp.APIErrorMessage +
-              "\n\nWe are sorry - we are unable to add this device to your account, because you already registered a maximum number of devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
-          });
-        } else if (resp.APIErrorMessage == "Device limit of 5 reached") {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to login",
-            detail:
-              resp.APIErrorMessage +
-              "\n\nYou can remove the device from your privateLINE account and try again.",
-          });
-        } else if (resp.APIErrorMessage != "") {
-          sender.showMessageBoxSync({
-            type: "error",
-            buttons: ["OK"],
-            message: "Failed to login",
-            detail:
-              resp.APIErrorMessage +
-              "\n\nIf you previously entered your account ID in 'a-XXXX-XXXX-XXXX' format - now you can simply enter it in 'XXXX-XXXX-XXXX' format." +
-              "\n\nIf you don't have a privateLINE account yet, you can create one at https://account.privateline.io/sign-in",
-          });
+        let permissionReconfigureOtherVPNs_Once = false;
+
+        login_loop: for (let loginTry=0; loginTry<2; loginTry++) {
+          const resp = await sender.Login(
+            login,
+            password,
+            permissionReconfigureOtherVPNs_Once,
+            // isForceLogout === true || this.isForceLogoutRequested === true,
+            // this.captchaID,
+            // this.captcha,
+            // confirmation2FA ? confirmation2FA : this.confirmation2FA
+          );
+
+          console.log("resp (login try ",loginTry,"): ", resp);
+          //const accountInfoResponse = await sender.AccountInfo();
+          //console.log("accountInfoResponse", accountInfoResponse);
+          if (resp.APIStatus === 408) { // Connectivity to PL servers blocked. If other VPNs detected - prompt the user to reconfigure them and retry.
+            if (loginTry < 1 && resp.ReconfigurableOtherVpns && resp.ReconfigurableOtherVpns !== null && resp.ReconfigurableOtherVpns.length > 0) {
+              let ret = await sender.showMessageBoxSync(
+                {
+                  type: "warning",
+                  buttons: ["Retry", "Cancel"],
+                  message: "Please Confirm",
+                  detail:
+                    `Could not connect to privateLINE servers. Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpns.toString()}` +
+                    `\n\nDo you allow privateLINE to reconfigure other VPN(s) once (in order to allow privateLINE connectivity) and retry login? Press Retry to continue`,
+                  checkboxLabel: `Give PL Connect permission to reconfigure other VPNs when needed (you can disable it in Settings later)`,
+                  checkboxChecked: false,
+                },
+                true
+              );
+
+              // FIXME: Vlad - check, or invert the condition check
+              if (ret.response == 1) break login_loop; // cancel
+              permissionReconfigureOtherVPNs_Once = true;
+              if (ret.checkboxChecked) {
+                await sender.SetVpnCoexistPermission(true);
+              }
+              continue login_loop;
+            } else {
+              sender.showMessageBoxSync({
+                type: "error",
+                buttons: ["OK"],
+                message: "Failed to login",
+                detail: "Could not connect to privateLINE servers. Please check your internet connection and disable other VPNs (if any).",
+              });
+              break login_loop;
+            }
+          } else if (resp.APIStatus === 429) {
+            // API error: [429] Too many requests from this IP or email, please try again later
+            sender.showMessageBoxSync({
+              type: "error",
+              buttons: ["OK"],
+              message: "Failed to login",
+              detail: resp.APIErrorMessage,
+            });
+            break login_loop;
+          } else if (resp.APIStatus === 426 || resp.APIStatus === 412) {
+            sender.showMessageBoxSync({
+              type: "error",
+              buttons: ["OK"],
+              message: "Failed to login",
+              detail:
+                resp.APIErrorMessage +
+                "\n\nWe are sorry - we are unable to add this device to your account, because you already registered a maximum number of devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
+            });
+            break login_loop;
+          } else if (resp.APIErrorMessage == "Device limit of 5 reached") {
+            sender.showMessageBoxSync({
+              type: "error",
+              buttons: ["OK"],
+              message: "Failed to login",
+              detail:
+                resp.APIErrorMessage +
+                "\n\nYou can remove the device from your privateLINE account and try again.",
+            });
+            break login_loop;
+          } else if (resp.APIErrorMessage != "") {
+            sender.showMessageBoxSync({
+              type: "error",
+              buttons: ["OK"],
+              message: "Failed to login",
+              detail:
+                resp.APIErrorMessage +
+                "\n\nIf you previously entered your account ID in 'a-XXXX-XXXX-XXXX' format - now you can simply enter it in 'XXXX-XXXX-XXXX' format." +
+                "\n\nIf you don't have a privateLINE account yet, you can create one at https://account.privateline.io/sign-in",
+            });
+            break login_loop;
+          } else if (resp.APIStatus !== 200) {
+            sender.showMessageBoxSync({
+              type: "error",
+              buttons: ["OK"],
+              message: "Failed to login",
+              detail:  "\n\nHTTP response code: " + resp.APIStatus
+            });
+            break login_loop;
+          }
         }
 
         // this.isForceLogoutRequested = false;

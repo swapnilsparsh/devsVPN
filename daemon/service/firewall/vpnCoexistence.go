@@ -1,4 +1,4 @@
-// TODO FIXME: prepend license
+// TODO: FIXME: prepend license
 // Copyright (c) 2024 privateLINE, LLC.
 
 package firewall
@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
 
@@ -21,20 +20,6 @@ const (
 	MAX_WAIT = 30 * time.Second
 
 	VPN_REDETECT_PERIOD = 5 * time.Second
-)
-
-var (
-	FirstWordRE                = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+")         // regexp for the 1st word: "^[^[:space:]_\.-]+"
-	commonStatusConnectedRE    = regexp.MustCompile("^Connect(ed|ing)([^a-zA-Z0-9]|$)") // must be 1st line
-	commonStatusDisconnectedRE = regexp.MustCompile("^Disconnected([^a-zA-Z0-9]|$)")
-
-	// Must contain all the other VPNs profiles, initialized in platform-specific init()
-	knownOtherVpnProfiles = []*OtherVpnInfo{}
-
-	// Index (DB) of other VPNs by name, must be initialized in platform-specific init() to avoid initialization cycles
-	otherVpnsByName = map[string]*OtherVpnInfo{}
-
-	otherVpnsLastDetectionTimestamp time.Time // if we last re-detected other VPNs less than 5s ago, usually no reason to re-detect again
 )
 
 type otherVpnCliCmds struct {
@@ -64,8 +49,24 @@ type otherVpnCliCmds struct {
 	cmdAllowLan     []string // used by ExpressVPN on Linux, and by Mullvad on Linux, Windows
 }
 
-type otherVpnCoexistenceLegacyHelper func() (err error)
-type otherVpnCoexistenceNftHelper func() (err error)
+var (
+	FirstWordRE                = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+")         // regexp for the 1st word: "^[^[:space:]_\.-]+"
+	commonStatusConnectedRE    = regexp.MustCompile("^Connect(ed|ing)([^a-zA-Z0-9]|$)") // must be 1st line
+	commonStatusDisconnectedRE = regexp.MustCompile("^Disconnected([^a-zA-Z0-9]|$)")
+
+	// Must contain all the other VPNs profiles, initialized in platform-specific init()
+	knownOtherVpnProfiles = []*OtherVpnInfo{}
+
+	// Index (DB) of other VPNs by name, must be initialized in platform-specific init() to avoid initialization cycles
+	otherVpnsByName = map[string]*OtherVpnInfo{}
+
+	otherVpnsLastDetectionTimestamp time.Time // if we last re-detected other VPNs less than 5s ago, usually no reason to re-detect again
+
+	otherVpnCliCmdsEmpty = otherVpnCliCmds{}
+)
+
+type otherVpnCoexistenceLegacyHelper func(canReconfigureOtherVpn bool) (err error)
+type otherVpnCoexistenceNftHelper func(canReconfigureOtherVpn bool) (err error)
 
 // Contains all the information about another VPN that we need to configure interoperability
 type OtherVpnInfo struct {
@@ -88,11 +89,12 @@ type OtherVpnInfo struct {
 	iptablesLegacyChain   string
 	iptablesLegacyHelper  otherVpnCoexistenceLegacyHelper // if changesIptablesLegacy=true, then iptablesLegacyHelper must be set to some func ptr
 
-	cli                    string // CLI command of that VPN, used to add our binaries & IP ranges to their exception list. If left blank - that means this VPN doesn't have a useful CLI.
-	cliPathResolved        string // resolved at runtime
-	otherVpnCliFound       bool
-	cliCmds                otherVpnCliCmds
-	runVpnCliCommandsMutex sync.Mutex // used to protect RunVpnCliCommands()
+	cli              string // CLI command of that VPN, used to add our binaries & IP ranges to their exception list. If left blank - that means this VPN doesn't have a useful CLI.
+	cliPathResolved  string // resolved at runtime
+	otherVpnCliFound bool
+	cliCmds          otherVpnCliCmds
+	perVpnMutex      sync.Mutex // Used to make sure we don't run PreSteps/PostSteps section and VPN CLI commands simultaneously.
+	// Make sure you use perVpnMutex in OtherVpnInfo struct (can lookup via otherVpnsByName), not in OtherVpnInfoParsed.
 }
 
 // CheckVpnConnectedConnecting checks whether other VPN was connected by running its CLI. Logic is common to Windows and Linux.
@@ -148,9 +150,9 @@ func BestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 }
 
 func ReDetectOtherVpns(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
-	return reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU)
+	return reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU, false, false)
 }
 
-func ReconfigurableOtherVpnsDetected() (detected bool, otherVpnNames mapset.Set[string], err error) {
+func ReconfigurableOtherVpnsDetected() (detected bool, otherVpnNames []string, err error) {
 	return reconfigurableOtherVpnsDetectedImpl()
 }

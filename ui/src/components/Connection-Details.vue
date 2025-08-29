@@ -72,8 +72,8 @@
             <div class="failedText" v-if="!vpnCoexistenceInGoodState">
               <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
               FAILED
-              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()" v-if="isWindows">
-                Retry
+              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()" v-if="!hasPermissionToReconfigureOtherVPNs">
+                Fix
               </button>
             </div>
             <div class="goodText" v-if="vpnCoexistenceInGoodState">GOOD</div>
@@ -304,20 +304,22 @@ export default {
       }
     },
 
-    async vpnCoexistRetryConfirmPopup() {
-      const hasPermission =
-        this.$store.state.settings?.daemonSettings?.PermissionReconfigureOtherVPNs ??
-        false;
+    async vpnCoexistRetryConfirmPopup() { // FIXME: Vlad - show other VPN and/or list of reconfigurable VPNs
+      let shouldProceed = hasPermissionToReconfigureOtherVPNs();
+      let otherVpnsMsg = "";
+      if (this.$store.state.vpnState.firewallState.OtherVpnName && this.$store.state.vpnState.firewallState.OtherVpnName !== "") {
+        otherVpnsMsg = this.$store.state.vpnState.firewallState.OtherVpnName;
+      } else if (this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsDetected) {
+        otherVpnsMsg = this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames.toString();
+      }
 
-      let shouldProceed = hasPermission;
-
-      if (!hasPermission) {
+      if (!hasPermissionToReconfigureOtherVPNs()) {
         let ret = await sender.showMessageBox(
           {
             type: "warning",
             buttons: ["OK", "Cancel"],
             message: "Please Confirm",
-            detail: `Do you allow privateLINE to stop temporarily the other VPN '${this.$store.state.vpnState.firewallState.OtherVpnName}' and reconfigure it as needed for privateLINE connectivity? Press Ok to continue`,
+            detail: `Do you allow privateLINE to stop temporarily the other VPNs '${otherVpnsMsg}' and reconfigure them as needed for privateLINE connectivity? Press Ok to continue`,
             checkboxLabel: `Give permission to reconfigure other VPNs when needed`,
             checkboxChecked: false,
           },
@@ -340,6 +342,9 @@ export default {
           //console.log("resp", resp);
           if (resp && resp !== null) {
             if (resp.OtherVpnUnknownToUs != null && resp.OtherVpnUnknownToUs) {
+              // FIXME: Vlad:
+              //  - re-check what "KillSwitchReregister" request returns
+              //  - add a button to send logs
               errMsg =
                 "Error: failed to get top firewall permissions - please take a screenshot or photo of this error message and email it to support@privateline.io";
               let detailMsg =
@@ -492,6 +497,9 @@ export default {
     },
     isWindows: function () {
       return Platform() === PlatformEnum.Windows;
+    },
+    hasPermissionToReconfigureOtherVPNs: function () {
+      return this.$store.state.settings?.daemonSettings?.PermissionReconfigureOtherVPNs ?? false;
     },
   },
 };

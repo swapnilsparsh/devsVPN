@@ -228,11 +228,13 @@ type SubscriptionDataResp struct {
 // SessionNewResp - information about created session (or error info)
 type SessionNewResp struct {
 	CommandBase
-	APIStatus       int
-	APIErrorMessage string
-	Session         SessionResp
-	Account         preferences.AccountStatus
-	RawResponse     string
+	ConnectivityFailed      bool
+	ReconfigurableOtherVpns []string
+	APIStatus               int
+	APIErrorMessage         string
+	Session                 SessionResp
+	Account                 preferences.AccountStatus
+	RawResponse             string
 }
 type SsoLoginResp struct {
 	CommandBase

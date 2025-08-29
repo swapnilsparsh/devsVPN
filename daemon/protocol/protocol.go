@@ -133,7 +133,7 @@ type Service interface {
 
 	KillSwitchState() (status service_types.KillSwitchStatus, err error)
 	KillSwitchReregister(canStopOtherVpn bool) (err error)
-	SetKillSwitchState(bool) error
+	SetKillSwitchState(isEnabled, canReconfigureOtherVpns bool) error
 	SetKillSwitchIsPersistent(isPersistent bool) error
 	SetKillSwitchAllowLANMulticast(isAllowLanMulticast bool) error
 	SetKillSwitchAllowLAN(isAllowLan bool) error
@@ -175,13 +175,15 @@ type Service interface {
 	IsPaused() bool
 	PausedTill() time.Time
 
-	SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID, notifyClientsOnSessionDelete, disableFirewallOnExit, disableFirewallOnErrorOnly bool) (
+	SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID, notifyClientsOnSessionDelete, disableFirewallOnExit, disableFirewallOnErrorOnly, canReconfigureOtherVPNs bool) (
 		apiCode int,
 		apiErrorMsg string,
 		accountInfo preferences.AccountStatus,
 		rawResponse string,
+		noConnectivity_promptUserToReconfigureOtherVpns bool,
+		otherVpnsToReconfigure []string,
 		err error)
-	SsoLogin(code string, sessionState string, disableFirewallOnExit, disableFirewallOnErrorOnly bool) (
+	SsoLogin(code string, sessionCode string, disableFirewallOnExit, disableFirewallOnErrorOnly, canReconfigureOtherVPNs bool) (
 		apiCode int,
 		apiErrorMsg string,
 		rawResponse *api_types.SsoLoginResponse,
@@ -740,7 +742,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
-		if err := p._service.SetKillSwitchState(req.IsEnabled); err != nil {
+		if err := p._service.SetKillSwitchState(req.IsEnabled, p._service.Preferences().PermissionReconfigureOtherVPNs); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 			break
 		}
@@ -801,7 +803,8 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
-		if err := p._service.KillSwitchReregister(req.CanStopOtherVpn); err != nil { // try to reregister at top firewall pri
+		canReconfigureOtherVpns := p._service.Preferences().PermissionReconfigureOtherVPNs || req.CanStopOtherVpn
+		if err := p._service.KillSwitchReregister(canReconfigureOtherVpns); err != nil { // try to reregister at top firewall pri
 			var fe *firewall_types.FirewallError
 			if errors.As(err, &fe) && fe.GetOtherVpnUnknownToUs() { // if grabbing 0xFFFF failed, and other VPN is not registered in our database - report to client
 				log.Error(fmt.Errorf("%sError processing request '%s': %w", p.connLogID(conn), req.Command, fe.GetContainedErr()))
@@ -1077,14 +1080,18 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
+		log.Debugf("req.PermissionReconfigureOtherVPNs_Once=%t, PermissionReconfigureOtherVPNs=%t", req.PermissionReconfigureOtherVPNs_Once, p._service.Preferences().PermissionReconfigureOtherVPNs)
+		canReconfigureOtherVpns := req.PermissionReconfigureOtherVPNs_Once || p._service.Preferences().PermissionReconfigureOtherVPNs
+
 		var resp types.SessionNewResp
-		apiCode, apiErrMsg, accountInfo, rawResponse, err := p._service.SessionNew(req.EmailOrAcctID, req.Password, req.DeviceName, req.StableDeviceID, true, true, true)
+		apiCode, apiErrMsg, accountInfo, rawResponse, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure, err :=
+			p._service.SessionNew(req.EmailOrAcctID, req.Password, req.DeviceName, req.StableDeviceID, true, true, true, canReconfigureOtherVpns)
 		if err != nil {
-			if apiCode == 0 {
-				// if apiCode == 0 - it is not API error. Sending error response
+			if apiCode == 0 { // if apiCode == 0 - it's a daemon error, not an API error. Sending error response
 				p.sendErrorResponse(conn, reqCmd, err)
 				break
 			}
+
 			// sending API error info
 			resp = types.SessionNewResp{
 				APIStatus:       apiCode,
@@ -1092,6 +1099,11 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				Session:         types.SessionResp{}, // empty session info
 				Account:         accountInfo,
 				RawResponse:     rawResponse}
+
+			if noConnectivity_promptUserToReconfigureOtherVpns {
+				resp.ConnectivityFailed = true
+				resp.ReconfigurableOtherVpns = otherVpnsToReconfigure
+			}
 		} else {
 			// Success. Sending session info
 			resp = types.SessionNewResp{
@@ -1116,7 +1128,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		}
 
 		var resp types.SsoLoginResp
-		apiCode, apiErrMsg, rawResponse, err := p._service.SsoLogin(req.Code, req.SessionState, true, true)
+		apiCode, apiErrMsg, rawResponse, err := p._service.SsoLogin(req.Code, req.SessionState, true, true, p._service.Preferences().PermissionReconfigureOtherVPNs)
 
 		if err != nil {
 			if apiCode == 0 {
@@ -1543,7 +1555,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			return
 		}
 
-		// TODO FIXME: Vlad - unconditionally using the Wireguard entry server info saved in preferences (if we have one), not the passed parameter
+		// TODO: FIXME: Vlad - unconditionally using the Wireguard entry server info saved in preferences (if we have one), not the passed parameter
 		prefs := p._service.Preferences()
 		if len(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) <= 0 {
 			p.sendErrorResponse(conn, reqCmd, fmt.Errorf("error - this device was not yet registered with the privateLINE server, please login first"))
@@ -1679,10 +1691,12 @@ func (p *Protocol) processConnectionRequests() {
 			}
 		}()
 	}
-
 }
 
 func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err error) {
+	r.CanReconfigureOtherVpnsOnce = r.CanReconfigureOtherVpnsOnce || p._service.Preferences().PermissionReconfigureOtherVPNs
+	canReconfigureOtherVpns := r.CanReconfigureOtherVpnsOnce
+
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.New("panic on connect: " + fmt.Sprint(r))
@@ -1690,7 +1704,7 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 			log.Error(string(debug.Stack()))
 		}
 		if err != nil { // disable firewall on error
-			p._service.SetKillSwitchState(false)
+			p._service.SetKillSwitchState(false, canReconfigureOtherVpns)
 		}
 	}()
 
@@ -1700,22 +1714,36 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 	}
 
 	// 1st attempt to connect. If the device registration is stale - try to logout and re-login.
-	if err = p._service.Connect(r); err != nil {
+	var (
+		apiCode                                         int
+		apiErrMsg                                       string
+		accountInfo                                     preferences.AccountStatus
+		rawResp                                         string
+		noConnectivity_promptUserToReconfigureOtherVpns bool
+		otherVpnsToReconfigure                          []string
+	)
+
+	if err = p._service.Connect(r); err != nil { // FIXME: Vlad - patch here, catch appropriate errors
 		var recoverableError *ServiceRecoverableError
 		if errors.As(err, &recoverableError) { // if it's a recoverable error,  we try to logout and re-login
 			log.Info(fmt.Errorf("1st attempt to connect to VPN failed with recoverable error '%w', will logout-login and try to connect again", recoverableError))
 			prefs := p._service.Preferences()
 			if helpers.IsAValidAccountID(prefs.Session.AccountID) { // if we have stored an account ID - try to logout and re-login
-				if apiCode, apiErrMsg, _, _, err := p._service.SessionNew(prefs.Session.AccountID, "", prefs.Session.DeviceName, false, false, false, false); err != nil {
+				if apiCode, apiErrMsg, accountInfo, rawResp, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure, err =
+					p._service.SessionNew(prefs.Session.AccountID, "", prefs.Session.DeviceName, false, false, false, false, canReconfigureOtherVpns); err != nil {
+					// FIXME: Vlad - patch here. If noConnectivity_promptUserToReconfigureOtherVpns - then report to UI accordingly.
 					return log.ErrorFE("error logging in after logout: '%w'. apiCode=%d, apiErrMsg='%s'", err, apiCode, apiErrMsg)
 				}
+				// TODO: Vlad - get rid of the log entry
+				log.Debugf("apiCode=%d, apiErrMsg='%s', accountInfo='%v', rawResp='%s', noConnectivity_promptUserToReconfigureOtherVpns=%t, "+
+					"otherVpnsToReconfigure='%v'", apiCode, apiErrMsg, accountInfo, rawResp, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure)
 				// notify all clients about changed session status
 				p.notifyClients(p.createHelloResponse())
 
 				log.Info("Attempt to logout-login successful, now trying to connect to VPN again")
 
 				// reflect new Wireguard parameters in connection request
-				// TODO FIXME: Vlad - unconditionally using the Wireguard entry server info from Preferences, not the passed parameter
+				// TODO: FIXME: Vlad - unconditionally using the Wireguard entry server info from Preferences, not the passed parameter
 				prefs = p._service.Preferences() // read again, getter returns a copy
 				if len(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) <= 0 {
 					return log.ErrorE(errors.New("error - invalid Preferences after logout-login, zero-length prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts"), 0)
@@ -1734,6 +1762,8 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 
 				err = log.ErrorE(errors.New("Error - this device is not found under this user account. Maybe you deleted this device accidentally? You need to login again"), 0)
 			}
+		} else {
+			// FIXME: Vlad - check whether need to prompt user, even if the error was not a ServiceRecoverableError
 		}
 	}
 
