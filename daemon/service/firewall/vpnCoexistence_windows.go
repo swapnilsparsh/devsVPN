@@ -472,15 +472,15 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, _, _, ca
 
 	reDetectOtherVpnsImplMutex.Lock()
 	defer reDetectOtherVpnsImplMutex.Unlock()
-	log.Debugf("reDetectOtherVpnsImpl entered. forceRedetection=%t, detectOnlyByInterfaceName=%t, canReconfigureOtherVpns=%t",
-		forceRedetection, detectOnlyByInterfaceName, canReconfigureOtherVpns)
-	log.LogCallStack() // to figure out who called us.
+	log.Debugf("reDetectOtherVpnsImpl entered. forceRedetection=%t, detectOnlyByInterfaceName=%t, canReconfigureOtherVpns=%t, PermissionReconfigureOtherVPNs=%t",
+		forceRedetection, detectOnlyByInterfaceName, canReconfigureOtherVpns, getPrefsCallback().PermissionReconfigureOtherVPNs)
 
 	// Check whether the last detection timestamp is too old. (If it's zero - it means detection wasn't run yet since the daemon start.
 	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < VPN_REDETECT_PERIOD { // if the timestamp is fresh
 		log.Debug("reDetectOtherVpnsImpl exited early")
 		return 0, nil
 	} // else we have to re-detect
+	log.LogCallStack() // to figure out who called us
 	defer log.Debug("reDetectOtherVpnsImpl exited - redetected")
 
 	var reDetectOtherVpnsWaiter sync.WaitGroup
