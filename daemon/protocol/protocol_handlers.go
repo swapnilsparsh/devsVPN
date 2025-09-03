@@ -55,7 +55,7 @@ func (p *Protocol) OnSessionStatus(sessionToken string, sessionData preferences.
 var OnKillSwitchStateChangedMutex sync.Mutex
 
 // OnKillSwitchStateChanged - Firewall change handler. Single-instance.
-func (p *Protocol) OnKillSwitchStateChanged() {
+func (p *Protocol) OnKillSwitchStateChanged(forceReportNoTopFirewallPri bool) {
 	OnKillSwitchStateChangedMutex.Lock() // single instance.
 	defer OnKillSwitchStateChangedMutex.Unlock()
 
@@ -67,6 +67,9 @@ func (p *Protocol) OnKillSwitchStateChanged() {
 	if status, err := p._service.KillSwitchState(); err != nil {
 		log.ErrorFE("error in p._service.KillSwitchState(): %w", err)
 	} else {
+		if forceReportNoTopFirewallPri {
+			status.WeHaveTopFirewallPriority = false
+		}
 		p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
 	}
 }

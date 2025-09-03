@@ -475,7 +475,10 @@ if (gotTheLock && isAllowedToStart) {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 
     // For some commands we don't prompt the user to send Rageshake report. Commands: SubscriptionData, ...
-    if (String(reason).includes("not logged in; please visit")) return;
+    if (String(reason).includes("not logged in; please visit") ||
+        String(reason).includes("/user/check-subscription") ||
+        String(reason).includes("/user/profile"))
+      return;
 
     try {
       await rageshake.showCrashReportDialog('ui - unhandled_rejection', String(reason), {

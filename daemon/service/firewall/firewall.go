@@ -41,7 +41,7 @@ import (
 var log *logger.Logger
 
 type DisableTotalShieldAsyncCallback func()
-type OnKillSwitchStateChangedCallback func()
+type OnKillSwitchStateChangedCallback func(forceReportNoTopFirewallPri bool)
 type GetRestApiHostsCallback func() (restApiHosts []*helpers.HostnameAndIP)
 
 func init() {

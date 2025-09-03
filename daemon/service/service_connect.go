@@ -783,7 +783,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 					defer s._evtReceiver.OnVpnStateChanged_ProcessSavedState()
 
 					log.Info(fmt.Sprintf("State: %v", state))
-					go s._evtReceiver.OnKillSwitchStateChanged() // re-notify clients abt VPN coexistence status on state change
+					go s._evtReceiver.OnKillSwitchStateChanged(false) // re-notify clients abt VPN coexistence status on state change
 
 					// internally process VPN state change
 					switch state.State {

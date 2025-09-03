@@ -305,7 +305,7 @@ export default {
     },
 
     async vpnCoexistRetryConfirmPopup() { // FIXME: Vlad - show other VPN and/or list of reconfigurable VPNs
-      let shouldProceed = hasPermissionToReconfigureOtherVPNs();
+      let shouldProceed = this.hasPermissionToReconfigureOtherVPNs;
       let otherVpnsMsg = "";
       if (this.$store.state.vpnState.firewallState.OtherVpnName && this.$store.state.vpnState.firewallState.OtherVpnName !== "") {
         otherVpnsMsg = this.$store.state.vpnState.firewallState.OtherVpnName;
@@ -313,7 +313,7 @@ export default {
         otherVpnsMsg = this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames.toString();
       }
 
-      if (!hasPermissionToReconfigureOtherVPNs()) {
+      if (!shouldProceed) {
         let ret = await sender.showMessageBox(
           {
             type: "warning",
@@ -327,7 +327,7 @@ export default {
         );
 
         if (ret.response == 1) return; // cancel
-        shouldProceed = ret.response == 0;
+        shouldProceed = (ret.response == 0);
 
         if (ret.checkboxChecked) {
           await sender.SetPermissionReconfigureOtherVPNs(true);

@@ -1120,7 +1120,7 @@ func (s *Service) getAntiTrackerInfo(dnsVal dns.DnsSettings) (types.AntiTrackerM
 // KillSwitch
 // ////////////////////////////////////////////////////////
 func (s *Service) onKillSwitchStateChanged() {
-	s._evtReceiver.OnKillSwitchStateChanged()
+	s._evtReceiver.OnKillSwitchStateChanged(false)
 
 	// check if we need try to update account info
 	if s._isNeedToUpdateSessionInfo {

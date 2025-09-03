@@ -811,16 +811,17 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
-		if status, err := p._service.KillSwitchState(); err != nil { // check whether we may have top firewall priority already
-			p.sendErrorResponse(conn, reqCmd, err)
-			break
-		} else if status.WeHaveTopFirewallPriority { // on success notify clients
-			p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
-			p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
-			break
-		}
+		// if status, err := p._service.KillSwitchState(); err != nil { // check whether we may have top firewall priority already
+		// 	p.sendErrorResponse(conn, reqCmd, err)
+		// 	break
+		// } else if status.WeHaveTopFirewallPriority { // on success notify clients
+		// 	p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
+		// 	p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+		// 	break
+		// }
 
 		canReconfigureOtherVpns := p._service.Preferences().PermissionReconfigureOtherVPNs || req.CanStopOtherVpn
+		// log.Debugf("KillSwitchReregister: req.CanStopOtherVpn=%t, PermissionReconfigureOtherVPNs=%t", req.CanStopOtherVpn, p._service.Preferences().PermissionReconfigureOtherVPNs)
 		if err := p._service.KillSwitchReregister(canReconfigureOtherVpns); err != nil { // try to reregister at top firewall pri
 			var fe *firewall_types.FirewallError
 			if errors.As(err, &fe) && fe.GetOtherVpnUnknownToUs() { // if grabbing 0xFFFF failed, and other VPN is not registered in our database - report to client

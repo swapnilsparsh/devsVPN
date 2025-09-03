@@ -343,6 +343,7 @@ export default {
       }
 
       const force = true;
+      // console.log("this.Login() from mounted()")
       this.Login(force, confirmation2FA);
     } else {
       if (this.$store.state.settings.isExpectedAccountToBeLoggedIn === true) {
@@ -403,6 +404,7 @@ export default {
           if (code) {
             this.stopCamera();
             this.accountID = code.data;
+            // console.log("this.Login() from scanQRCode()")
             this.Login();
             return;
           }
@@ -507,9 +509,12 @@ export default {
           console.log("resp (login try ",loginTry,"): ", resp);
           //const accountInfoResponse = await sender.AccountInfo();
           //console.log("accountInfoResponse", accountInfoResponse);
-          if (resp.APIStatus === 408) { // Connectivity to PL servers blocked. If other VPNs detected - prompt the user to reconfigure them and retry.
+
+          if (resp.APIStatus === 200) {
+            return;
+          } else if (resp.APIStatus === 408) { // Connectivity to PL servers blocked. If other VPNs detected - prompt the user to reconfigure them and retry.
             if (loginTry < 1 && resp.ReconfigurableOtherVpns && resp.ReconfigurableOtherVpns !== null && resp.ReconfigurableOtherVpns.length > 0) {
-              let ret = await sender.showMessageBoxSync(
+              let ret = await sender.showMessageBox(
                 {
                   type: "warning",
                   buttons: ["Retry", "Cancel"],
@@ -523,13 +528,12 @@ export default {
                 true
               );
 
-              // FIXME: Vlad - check, or invert the condition check
-              if (ret.response == 1) break login_loop; // cancel
+              if (ret.response == 1) return; // 0 = Retry, 1 = Cancel
               permissionReconfigureOtherVPNs_Once = true;
               if (ret.checkboxChecked) {
                 await sender.SetVpnCoexistPermission(true);
               }
-              continue login_loop;
+              // and continue login_loop
             } else {
               sender.showMessageBoxSync({
                 type: "error",
@@ -537,7 +541,7 @@ export default {
                 message: "Failed to login",
                 detail: "Could not connect to privateLINE servers. Please check your internet connection and disable other VPNs (if any).",
               });
-              break login_loop;
+              return;
             }
           } else if (resp.APIStatus === 429) {
             // API error: [429] Too many requests from this IP or email, please try again later
@@ -547,7 +551,7 @@ export default {
               message: "Failed to login",
               detail: resp.APIErrorMessage,
             });
-            break login_loop;
+            return;
           } else if (resp.APIStatus === 426 || resp.APIStatus === 412) {
             sender.showMessageBoxSync({
               type: "error",
@@ -557,7 +561,7 @@ export default {
                 resp.APIErrorMessage +
                 "\n\nWe are sorry - we are unable to add this device to your account, because you already registered a maximum number of devices possible under your current subscription. You can go to your device list on our website (https://account.privateline.io/pl-connect/page/1) and unregister some of your existing devices from your account, or you can upgrade your subscription at https://privateline.io/order in order to be able to use more devices.",
             });
-            break login_loop;
+            return;
           } else if (resp.APIErrorMessage == "Device limit of 5 reached") {
             sender.showMessageBoxSync({
               type: "error",
@@ -567,7 +571,7 @@ export default {
                 resp.APIErrorMessage +
                 "\n\nYou can remove the device from your privateLINE account and try again.",
             });
-            break login_loop;
+            return;
           } else if (resp.APIErrorMessage != "") {
             sender.showMessageBoxSync({
               type: "error",
@@ -578,15 +582,15 @@ export default {
                 "\n\nIf you previously entered your account ID in 'a-XXXX-XXXX-XXXX' format - now you can simply enter it in 'XXXX-XXXX-XXXX' format." +
                 "\n\nIf you don't have a privateLINE account yet, you can create one at https://account.privateline.io/sign-in",
             });
-            break login_loop;
-          } else if (resp.APIStatus !== 200) {
+            return;
+          } else {
             sender.showMessageBoxSync({
               type: "error",
               buttons: ["OK"],
               message: "Failed to login",
-              detail:  "\n\nHTTP response code: " + resp.APIStatus
+              detail:  "\n\nHTTP response code: " + resp.APIStatus,
             });
-            break login_loop;
+            return;
           }
         }
 
@@ -703,6 +707,7 @@ export default {
         !this.$store.getters["account/isLoggedIn"]
       ) {
         event.preventDefault();
+        // console.log("this.Login() from Enter keypress")
         this.Login();
       }
     },
