@@ -199,7 +199,7 @@ func waitForTopFirewallPriAfterWeLostIt() {
 	log.Debug("waitForTopFirewallPriAfterWeLostIt entered")
 	defer log.Debug("waitForTopFirewallPriAfterWeLostIt exited")
 
-	go onKillSwitchStateChangedCallback() // initial notification out
+	go onKillSwitchStateChangedCallback(false) // initial notification out
 
 	for vpnConnectedOrConnectingCallback() { // if VPN is no longer connected - terminate this waiting loop
 		time.Sleep(time.Second * 5)
@@ -214,7 +214,7 @@ func waitForTopFirewallPriAfterWeLostIt() {
 		}
 	}
 
-	go onKillSwitchStateChangedCallback() // final notification out
+	go onKillSwitchStateChangedCallback(false) // final notification out
 }
 
 func implReEnable(canReconfigureOtherVpns bool) (retErr error) {

@@ -320,7 +320,7 @@ func implReregisterFirewallAtTopPriorityNft(forceReconfigureFirewall, forceRedet
 		return true, log.ErrorFE("error in implReEnableNft: %w", err)
 	}
 
-	go onKillSwitchStateChangedCallback()      // send notification out in case state went from FAIL to GOOD
+	go onKillSwitchStateChangedCallback(false) // send notification out in case state went from FAIL to GOOD
 	go implDeployPostConnectionRulesNft(false) // forking in the background, as otherwise DNS timeouts are up to ~15 sec, they freeze UI changes
 
 	return true, nil
