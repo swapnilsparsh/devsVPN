@@ -441,7 +441,7 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 
 func reconfigurableOtherVpnsDetectedImpl() (detected bool, otherVpnNames []string, retErr error) {
 	// check whether we have top WFP sublayer priority
-	weHaveTopFirewallPriority /*otherVpnID*/, _, otherVpnNameWithTopSublayerPri /*otherVpnDescription*/, _, err := implHaveTopFirewallPriority(0)
+	weHaveTopFirewallPriority /*otherVpnID*/, _, otherVpnNameWithTopSublayerPri /*otherVpnDescription*/, _, err := implHaveTopFirewallPriority(false, 0)
 	if err != nil {
 		return false, otherVpnNames, log.ErrorFE("error checking whether we have top firewall priority: %w", err)
 	}
@@ -480,7 +480,7 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, _, _, ca
 		log.Debug("reDetectOtherVpnsImpl exited early")
 		return 0, nil
 	} // else we have to re-detect
-	log.LogCallStack() // to figure out who called us
+	// log.LogCallStack() // to figure out who called us
 	defer log.Debug("reDetectOtherVpnsImpl exited - redetected")
 
 	var reDetectOtherVpnsWaiter sync.WaitGroup

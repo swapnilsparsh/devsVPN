@@ -278,7 +278,7 @@ func checkCreateProviderAndSublayer(wfpTransactionAlreadyInProgress, canReconfig
 
 			canReconfigureOtherVpn = canReconfigureOtherVpn || getPrefsCallback().PermissionReconfigureOtherVPNs // re-check on whether permission got granted by now
 			if canReconfigureOtherVpn {                                                                          // if requested to stop other VPN and unregister their firewall sublayer, try it
-				log.LogCallStack() // to figure out who called us
+				// log.LogCallStack() // to figure out who called us
 				otherVpn /*, err*/ = ParseOtherVpnBySublayerGUID(otherSublayerFound, &otherSublayer, &manager)
 				/* if err != nil {
 					err = log.ErrorFE("error parsing VPN info for other VPN '%s' - '%s', so not taking any VPN-specific steps, taking only generic interoperation approach",
@@ -1488,7 +1488,7 @@ func getOtherVpnInfo(_otherSublayerGUID syscall.GUID) (otherVpnName, otherVpnDes
 	}
 }
 
-func implHaveTopFirewallPriority(_, recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
+func implHaveTopFirewallPriority(fwIsEnabled bool, recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
 	if recursionDepth == 0 { // start WFP transaction on the 1st recursion call
 		if retErr = manager.TransactionStart(); retErr != nil {
 			return false, "", "", "", log.ErrorFE("failed to start transaction: %w", retErr)
@@ -1529,7 +1529,7 @@ func implHaveTopFirewallPriority(_, recursionDepth uint8) (weHaveTopFirewallPrio
 			if retErr = checkCreateProviderAndSublayer(true, getPrefsCallback().PermissionReconfigureOtherVPNs); retErr != nil {
 				return false, "", "", "", log.ErrorFE("error creating our sublayer: %w", retErr)
 			}
-			return implHaveTopFirewallPriority(recursionDepth + 1)
+			return implHaveTopFirewallPriority(fwIsEnabled, recursionDepth+1)
 		}
 		return false, "", "", "", log.ErrorFE("error - our sublayer isn't installed: %w", retErr) // already tried creating it in the parent call
 	}
@@ -1557,7 +1557,7 @@ func implHaveTopFirewallPriority(_, recursionDepth uint8) (weHaveTopFirewallPrio
 	if retErr = checkCreateProviderAndSublayer(true, false); retErr != nil {
 		return false, "", "", "", retErr
 	}
-	return implHaveTopFirewallPriority(recursionDepth + 1)
+	return implHaveTopFirewallPriority(fwIsEnabled, recursionDepth+1)
 }
 
 func implGetFirewallBackgroundMonitors() (monitors []*srvhelpers.ServiceBackgroundMonitor) {

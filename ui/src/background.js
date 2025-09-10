@@ -477,7 +477,8 @@ if (gotTheLock && isAllowedToStart) {
     // For some commands we don't prompt the user to send Rageshake report. Commands: SubscriptionData, ...
     if (String(reason).includes("not logged in; please visit") ||
         String(reason).includes("/user/check-subscription") ||
-        String(reason).includes("/user/profile"))
+        String(reason).includes("/user/profile") ||
+        String(reason).includes("/user/device-list"))
       return;
 
     try {
