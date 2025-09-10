@@ -272,7 +272,7 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 		if s.ConnectedOrConnecting() {
 			log.Info("Automatic connection manager: disconnecting VPN")
 			if retErr = s.Disconnect(); retErr != nil {
-				log.Error("Auto connection: disconnecting: ", retErr)
+				log.ErrorFE("Auto connection: disconnecting: %w", retErr)
 			}
 		}
 	case VPN_On:
@@ -286,12 +286,12 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 
 			const canFixParams bool = true
 			if connParams, retErr = s.ValidateConnectionParameters(connParams, canFixParams); retErr != nil {
-				log.Error("Auto connection: error validating connection parameters: ", retErr)
+				log.ErrorFE("Auto connection: error validating connection parameters: %w", retErr)
 				return retErr
 			}
 
 			if retErr = s._evtReceiver.RegisterConnectionRequest(connParams); retErr != nil {
-				log.Error("Auto connection: connecting: ", retErr)
+				log.ErrorFE("Auto connection: connecting: %w", retErr)
 			}
 
 		}

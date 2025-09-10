@@ -80,12 +80,17 @@ func implInitialize() (err error) {
 	return nil
 }
 
-func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
+func implHaveTopFirewallPriority(fwIsEnabled bool, recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
 	var (
 		implHaveTopFirewallPriorityWaiter sync.WaitGroup
 		errNft, errLegacy                 error
 		topPriNft, topPriLegacy           bool
 	)
+
+	// Linux-specific logic: if firewall is disabled - just return true, to keep UI happy.
+	if !fwIsEnabled {
+		return true, "", "", "", nil
+	}
 
 	implHaveTopFirewallPriorityWaiter.Add(2)
 	go func() {

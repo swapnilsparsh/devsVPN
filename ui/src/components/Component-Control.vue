@@ -69,7 +69,9 @@
             :onShowFirewallConfig="onFirewallSettings"
             :onShowAntiTrackerConfig="onAntiTrackerSettings"
           />
-          <ConnectionDetails />
+          <ConnectionDetails
+            :isConnectedOrConnecting="isConnectedOrConnecting"
+          />
 
           <transition name="fade">
             <button
@@ -217,8 +219,11 @@ export default {
         this.$store.state.vpnState.connectionState !== VpnStateEnum.DISCONNECTED
       );
     },
+    isConnectedOrConnecting: function () {
+      return (this.isConnectProgress || (this.$store.state.vpnState.connectionState !== VpnStateEnum.DISCONNECTED));
+    },
     // needed for watcher
-    conectionState: function () {
+    connectionState: function () {
       return this.$store.state.vpnState.connectionState;
     },
     isMinimizedUI: function () {
@@ -251,7 +256,7 @@ export default {
   },
 
   watch: {
-    conectionState(newValue, oldValue) {
+    async connectionState(newValue, oldValue) {
       // show connection failure description:
 
       // only in case of changing to DISCONNECTED
@@ -262,11 +267,45 @@ export default {
       let failureInfo = this.$store.state.vpnState.disconnectedInfo;
       if (!failureInfo || !failureInfo.ReasonDescription) return;
 
+      // if connection failed and other VPNs detected - prompt the user to allow PL Connect to reconfigure them
+      if (failureInfo.ReasonDescription.includes("Other VPNs detected")) {
+        const currTime = Date.now();
+        if (Math.floor((currTime - this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns) / 1000) >= 
+          this.$store.state.uiState.delayToRePromptToReconfigureOtherVpns) { // if 3 minutes passed since last prompt to reconfigure other VPNs - prompt again
+          let ret = await sender.showMessageBox({
+              type: "error",
+              buttons: ["Retry", "Cancel"],
+              message: `Failed to connect`,
+              detail:  capitalizeFirstLetter(failureInfo.ReasonDescription) +
+                `\n\nDo you allow privateLINE to reconfigure other VPN(s) once (in order to allow privateLINE connectivity) and retry connecting? Press Retry to continue`,
+              checkboxLabel: `Give PL Connect permission to reconfigure other VPNs when needed (you can disable it in Settings later)`,
+              checkboxChecked: false,
+            },
+            true
+          );
+
+          if (ret.response == 0) {// 0 = Retry, 1 = Cancel
+            this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns = Date.now(); // store the timestamp only when the user agreed to re-configure other VPNs
+            
+            if (ret.checkboxChecked) {
+              sender.SetVpnCoexistPermission(true);
+            }
+            sender.KillSwitchReregister(true); // this will kick off reconnection attempt
+            
+            return;
+          } else {
+            return;
+          }
+        }
+      }
+
+      // 5 minutes have not passed to re-prompt about the other VPNs, or other reason for connection failure - probably no internet connectivity. Show regular prompt.
       sender.showMessageBoxSync({
         type: "error",
         buttons: ["OK"],
         message: `Failed to connect`,
-        detail: capitalizeFirstLetter(failureInfo.ReasonDescription),
+        detail: capitalizeFirstLetter(failureInfo.ReasonDescription) + 
+          "\n\nPlease check your internet connection. If you have other VPNs installed - please disable them and their kill switches.",
       });
     },
     isMinimizedUI() {

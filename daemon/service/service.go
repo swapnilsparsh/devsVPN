@@ -79,6 +79,10 @@ const (
 	Disconnect     RequiredState = 0
 	Connect        RequiredState = 1
 	KeepConnection RequiredState = 2
+
+	// used by connectionAttemptTimeoutMonitor
+	CONNECT_ATTEMPT_TIMEOUT1_NOTIFY_USER = 10 // if connection attempt not finished in 10 seconds - detect other VPNs, and, if detected, show VPN Coexistence status "FAILED|Fix" in UI
+	CONNECT_ATTEMPT_TIMEOUT2_DISCONNECT  = 45 // if connection attempt not finished in 45 seconds - cancel it and show an error MessageBox in UI
 )
 
 const (
@@ -160,6 +164,27 @@ type Service struct {
 	connectivityHealthchecksRunningMutex, connectivityHealthchecksStopFuncMutex sync.Mutex
 	stopPollingConnectivityHealthchecks                                         chan bool
 	backendConnectivityCheckState                                               BackendConnectivityCheckState
+
+	// connectionAttemptTimeoutMonitor data
+	connectionAttemptTimeoutMonitorDef                                                        *srvhelpers.ServiceBackgroundMonitor
+	connectionAttemptTimeoutMonitorRunningMutex, connectionAttemptTimeoutMonitorStopFuncMutex sync.Mutex
+	connectionAttemptTimeoutMonitor_endchan                                                   chan bool
+
+	// connectAttemptTimeout vars protected by connectionAttemptTimeoutMonitorRunningMutex
+
+	// whether we did one-time check for other VPNs present and reported to UI
+	connectAttemptTimeout1Reached_UserNotificationCheckDone bool
+
+	// Whether other VPNs were detected during above one-time check.
+	// If yes - OnKillSwitchStateChanged will unconditionally report WeHaveTopFirewallPriority as true to cliens for the duration of the connection attempt.
+	connectAttemptTimeout1Reached_OtherVpnsDetected atomic.Bool
+
+	// whether the connection attempt timed out and got cancelled
+	connectAttemptTimeout2Reached_CancelledConnectionAttempt bool
+}
+
+func (s *Service) otherVpnsDetectedDuringIncompleteConnectionAttempt() bool {
+	return s.connectAttemptTimeout1Reached_OtherVpnsDetected.Load()
 }
 
 // IsDaemonShuttingDown implements protocol.Service.
@@ -226,6 +251,16 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 		MonitorEndChan:       serv.stopPollingConnectivityHealthchecks,
 		MonitorRunningMutex:  &serv.connectivityHealthchecksRunningMutex,
 		MonitorStopFuncMutex: &serv.connectivityHealthchecksStopFuncMutex}
+
+	// init connectionAttemptTimeoutMonitorDef
+	serv.connectionAttemptTimeoutMonitor_endchan = make(chan bool, 1)
+	serv.connectionAttemptTimeoutMonitorDef = &srvhelpers.ServiceBackgroundMonitor{
+		MonitorName:          "connectionAttemptTimeoutMonitor",
+		MonitorFunc:          serv.connectionAttemptTimeoutMonitor,
+		ResetStateFunc:       serv.connectionAttemptTimeoutMonitor_resetState,
+		MonitorEndChan:       serv.connectionAttemptTimeoutMonitor_endchan,
+		MonitorRunningMutex:  &serv.connectionAttemptTimeoutMonitorRunningMutex,
+		MonitorStopFuncMutex: &serv.connectionAttemptTimeoutMonitorStopFuncMutex}
 
 	// register the current service as a 'Connectivity checker' for API object
 	serv._api.SetConnectivityChecker(serv)
@@ -656,6 +691,9 @@ func (s *Service) Disconnect() error {
 }
 
 func (s *Service) disconnect() error {
+	log.Debug("Service.disconnect() entered")
+	defer log.Debug("Service.disconnect() exited")
+
 	vpn := s._vpn
 	if vpn == nil {
 		return nil
@@ -1169,6 +1207,11 @@ func (s *Service) KillSwitchState() (status types.KillSwitchStatus, retErr error
 		retErr = log.ErrorFE("error firewall.GetState(): %w", err)
 	}
 
+	// If connection not connected yet, and other reconfigurable VPNs detected - report VPN coex as bad. This condition may be up only during connection attempt.
+	if s.otherVpnsDetectedDuringIncompleteConnectionAttempt() {
+		weHaveTopFirewallPriority = false
+	}
+
 	otherVpnsDetected, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected()
 	if err != nil {
 		err := log.ErrorFE("error firewall.ReconfigurableOtherVpnsDetected(): %w", err)
@@ -1257,12 +1300,22 @@ func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) er
 
 // KillSwitchReregister try to reregister our firewall logic at top
 func (s *Service) KillSwitchReregister(canReconfigureOtherVpns bool) (err error) {
+	// log.Debug("KillSwitchReregister entered")
+	defer log.Debug("KillSwitchReregister exited")
+
+	lastConnParams := s.Preferences().LastConnectionParams
+	lastConnParams.VpnType = vpn.WireGuard
+
 	// If we're connected/connecting/etc. - fork disconnect request.
 	// Otherwise, if we're trying to connect VPN and reregister our firewall in parallel - we tend to get errors in firewall.HaveTopFirewallPriority() (looking up meet.privateline.network)
-	go s.Disconnect()
+	go func() {
+		if errDisconnect := s.Disconnect(); errDisconnect != nil {
+			log.ErrorFE("error Service.Disconnect(): %w", errDisconnect)
+		}
+	}()
 
 	if err = firewall.TryReregisterFirewallAtTopPriority(canReconfigureOtherVpns, true); err != nil {
-		return err
+		return log.ErrorFE("error firewall.TryReregisterFirewallAtTopPriority: %w", err)
 	}
 
 	// Vlad - so don't try firewall.DeployPostConnectionRules() here, another VPN connection will take care of that
@@ -1273,6 +1326,23 @@ func (s *Service) KillSwitchReregister(canReconfigureOtherVpns bool) (err error)
 	// 		return firewall.DeployPostConnectionRules(false) // here meet.privateline.network hostname lookup should succeed, no need to wait in the background
 	// 	}
 	// }
+
+	// connect/reconnect if firewall.TryReregisterFirewallAtTopPriority() was successful
+	if len(lastConnParams.WireGuardParameters.EntryVpnServer.Hosts) < 1 {
+		log.ErrorE(errors.New("error - invalid Preferences after logout-login, zero-length prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts"), 0)
+	} else {
+		go func() {
+			var retErr error
+			const canFixParams bool = true
+			if lastConnParams, retErr = s.ValidateConnectionParameters(lastConnParams, canFixParams); retErr != nil {
+				log.ErrorFE("Auto connection: error validating connection parameters: %w", retErr)
+			}
+
+			if retErr = s._evtReceiver.RegisterConnectionRequest(lastConnParams); retErr != nil {
+				log.ErrorFE("Auto connection: connecting: %w", retErr)
+			}
+		}()
+	}
 
 	return err
 }
@@ -1987,10 +2057,11 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 		sessionNewSuccessResp, errorLimitResp, apiErr, apiConnectivityFailed, rawResponse, err = s._api.SessionNew(emailOrAcctID, password /*, false*/)
 		if apiConnectivityFailed { // if it's a connectivity problem
 			if canReconfigureOtherVPNs { // if we already tried to reconfigure other VPNs above - just report the problem
-				return apiCode, "", accountInfo, rawResponse, false, []string{}, log.ErrorFE("Connectivity is blocked: %w", err)
+				return apiCode, "", accountInfo, rawResponse, false, []string{}, log.ErrorFE("Error - could not reach the API server: %w\n\n"+
+					"Please check your internet connection. If you have other VPNs installed - please disable them and their kill switches.", err)
 			} else if _, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected(); err == nil {
 				// if we don't have permission to reconfigure other VPNs, and they are blocking us - prompt the user for permission to reconfigure them
-				err = log.ErrorFE("Our connectivity is blocked. Other VPNs detected, and they're likely the reason. PL Connect doesn't have permission to reconfigure them - will prompt the user for permission.")
+				err = log.ErrorFE("Error - connectivity to the backend API server is blocked. Other VPNs detected, and they're possibly the reason. PL Connect doesn't have permission to reconfigure them - will prompt the user for permission.")
 				return 408, "", accountInfo, rawResponse, true, otherVpnNames, err
 			} else {
 				return apiCode, "", accountInfo, rawResponse, false, []string{}, log.ErrorFE("error firewall.ReconfigurableOtherVpnsDetected: %w", err)

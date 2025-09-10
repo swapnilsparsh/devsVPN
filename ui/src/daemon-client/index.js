@@ -396,16 +396,27 @@ async function processResponse(response) {
   const obj = JSON.parse(response);
 
   if (obj != null && obj.Command != null) {
+    switch (obj.Command) {
+      case "APIResponse":
+        log.debug(`<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` + (obj.Error ? " Error!" : ""));
+        break;
+
+      case "KillSwitchStatusResp":  // log JSON of some command responses, ones being debugged
+      case "DisconnectedResp":
+        log.debug(`<== ${obj.Command} [${obj.Idx}]  ${response.length > 2048 ? " ..." : response}`);
+        break;
+
+      case "TransferredDataResp":   // don't log tx/rx messages, too many of them
+        break;
+
+      default:                      // by default log only the command and index
+        log.debug(`<== ${obj.Command} [${obj.Idx}]`);
+        break;
+    }
+
     // TODO: Full logging is only for debug. Must be removed from production!
-    //log.log(`<== ${obj.Command} ${response.length > 512 ? " ..." : response}`);
-    //log.log(`<== ${response}`);
-    if (obj.Command == "APIResponse")
-      log.debug(
-        `<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` +
-        (obj.Error ? " Error!" : "")
-      );
-    else if (obj.Command != "TransferredDataResp")
-      log.debug(`<== ${obj.Command} [${obj.Idx}]`);
+    //log.debug(`<== ${obj.Command} [${obj.Idx}] ${response.length > 512 ? " ..." : response}`);
+    //log.debug(`<== ${response}`);
   } else log.error(`<== ${response}`);
 
   if (obj == null || obj.Command == null || obj.Command.length <= 0) return;

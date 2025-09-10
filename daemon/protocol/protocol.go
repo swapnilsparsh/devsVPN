@@ -1654,7 +1654,7 @@ func (p *Protocol) RegisterConnectionRequest(r service_types.ConnectionParams) e
 	// Disconnect active connection (if connected).
 	// "Disconnected" notification will not be sent to the clients in this case (because new connection request is pending).
 	// It is important to call it after new connection request registered
-	// Note: new connection will no start untill exit this function (see 'p._connRequestReady.Done()')
+	// Note: new connection will not start untill exit this function (see 'p._connRequestReady.Done()')
 	if p._service != nil {
 		if err := p._service.Disconnect(); err != nil {
 			log.ErrorTrace(err)
@@ -1761,28 +1761,27 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 
 	// 1st attempt to connect. If the device registration is stale - try to logout and re-login.
 	var (
-		apiCode                                         int
-		apiErrMsg                                       string
-		accountInfo                                     preferences.AccountStatus
-		rawResp                                         string
-		noConnectivity_promptUserToReconfigureOtherVpns bool
-		otherVpnsToReconfigure                          []string
+		apiCode   int
+		apiErrMsg string
+		// accountInfo preferences.AccountStatus
+		// rawResp                                         string
+		// noConnectivity_promptUserToReconfigureOtherVpns bool
+		// otherVpnsToReconfigure                          []string
 	)
 
-	if err = p._service.Connect(r); err != nil { // FIXME: Vlad - patch here, catch appropriate errors
+	if err = p._service.Connect(r); err != nil {
+		log.ErrorFE("error p._service.Connect(): %w", err)
 		var recoverableError *ServiceRecoverableError
 		if errors.As(err, &recoverableError) { // if it's a recoverable error,  we try to logout and re-login
 			log.Info(fmt.Errorf("1st attempt to connect to VPN failed with recoverable error '%w', will logout-login and try to connect again", recoverableError))
 			prefs := p._service.Preferences()
 			if helpers.IsAValidAccountID(prefs.Session.AccountID) { // if we have stored an account ID - try to logout and re-login
-				if apiCode, apiErrMsg, accountInfo, rawResp, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure, err =
+				if apiCode, apiErrMsg, _, _, _, _ /* accountInfo, rawResp, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure, */, err =
 					p._service.SessionNew(prefs.Session.AccountID, "", prefs.Session.DeviceName, false, false, false, false, canReconfigureOtherVpns); err != nil {
-					// FIXME: Vlad - patch here. If noConnectivity_promptUserToReconfigureOtherVpns - then report to UI accordingly.
 					return log.ErrorFE("error logging in after logout: '%w'. apiCode=%d, apiErrMsg='%s'", err, apiCode, apiErrMsg)
 				}
-				// TODO: Vlad - get rid of the log entry
-				log.Debugf("apiCode=%d, apiErrMsg='%s', accountInfo='%v', rawResp='%s', noConnectivity_promptUserToReconfigureOtherVpns=%t, "+
-					"otherVpnsToReconfigure='%v'", apiCode, apiErrMsg, accountInfo, rawResp, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure)
+				// log.Debugf("apiCode=%d, apiErrMsg='%s', accountInfo='%v', rawResp='%s', noConnectivity_promptUserToReconfigureOtherVpns=%t, "+
+				// 	"otherVpnsToReconfigure='%v'", apiCode, apiErrMsg, accountInfo, rawResp, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure)
 				// notify all clients about changed session status
 				p.notifyClients(p.createHelloResponse())
 
@@ -1811,6 +1810,8 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 		} else {
 			// FIXME: Vlad - check whether need to prompt user, even if the error was not a ServiceRecoverableError
 		}
+		// } else {
+		// 	log.Debug("[================ p._service.Connect(): SUCCESS ================]") // remove when done
 	}
 
 	return err

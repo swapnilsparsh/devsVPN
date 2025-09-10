@@ -27,6 +27,11 @@ export default {
     // if not empty, then UI settings view will show this message 
     // (e.g. message text about the Location Services permission required for ability to get WiFi info)
     wifiWarningMessage: "",
+
+    // Time when (a) we last prompted the user via MessageBox to reconfigure other VPNs, and (b) the user agreed. 
+    // We want to prompt them at least 3 minutes apart, to avoid duplicate prompts during the same connection attempt.
+    timeOfLastPromptToReconfigureOtherVpns: 0,
+    delayToRePromptToReconfigureOtherVpns: 3*60,
   },
 
   mutations: {

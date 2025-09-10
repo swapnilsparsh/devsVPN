@@ -63,12 +63,14 @@
           </div>
         </div>
 
-        <!-- On Windows show always, on Linux show only when connected -->
-        <div class="flexRow paramBlockDetailedConfig" v-if="isWindows || this.$store.state.vpnState.connectionInfo !== null">
+        <!-- On Windows show always. On Linux show unless DISCONNECTED.
+             This is because on Linux it's only possible to check VPN Coexistence state when the firewall is up. 
+             On Linux the firewall is enabled only when connected/connecting. Thus, when disconnected on Linux -
+             not possible to check VPN Coexistence state.
+          -->
+        <div class="flexRow paramBlockDetailedConfig" v-if="isWindows || (isLinux && isConnectedOrConnecting)">
           <div class="defColor paramName">VPN Coexistence:</div>
           <div class="detailedParamValue">
-            <!-- On Windows always show FAILED status. On Linux VPN coexistence is reported true only if firewall is enabled.-->
-            <!-- So when disconnected on Linux, firewall will be down and VPN coexistence will report false - don't show it. -->
             <div class="failedText" v-if="!vpnCoexistenceInGoodState">
               <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
               FAILED
@@ -163,6 +165,7 @@ const sender = window.ipcSender;
 
 export default {
   components: { ComponentDialog },
+  props: ["isConnectedOrConnecting"],
   data: function () {
     return {
       isPortModified: false,
@@ -338,7 +341,8 @@ export default {
         let errMsg =
           "Error: failed to get top firewall permissions - please disconnect PL Connect or stop the connection attempt, and retry VPN Coexistence wizard again.";
         try {
-          let resp = await sender.KillSwitchReregister(true);
+          this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns = Date.now(); // store the timestamp only when the user agreed to re-configure other VPNs
+          let resp = await sender.KillSwitchReregister(true); // this will also kick off reconnection attempt
           //console.log("resp", resp);
           if (resp && resp !== null) {
             if (resp.OtherVpnUnknownToUs != null && resp.OtherVpnUnknownToUs) {
@@ -497,6 +501,9 @@ export default {
     },
     isWindows: function () {
       return Platform() === PlatformEnum.Windows;
+    },
+    isLinux: function () {
+      return Platform() === PlatformEnum.Linux;
     },
     hasPermissionToReconfigureOtherVPNs: function () {
       return this.$store.state.settings?.daemonSettings?.PermissionReconfigureOtherVPNs ?? false;

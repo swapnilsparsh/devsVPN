@@ -19,6 +19,7 @@ type ServiceBackgroundMonitorFunc func()
 type ServiceBackgroundMonitor struct {
 	MonitorName          string
 	MonitorFunc          ServiceBackgroundMonitorFunc
+	ResetStateFunc       ServiceBackgroundMonitorFunc // Can be nil. Should grab MonitorRunningMutex for its duration.
 	MonitorEndChan       chan bool
 	MonitorRunningMutex  *sync.Mutex
 	MonitorStopFuncMutex *sync.Mutex
@@ -27,7 +28,7 @@ type ServiceBackgroundMonitor struct {
 // StopServiceBackgroundMonitor stops the corresponding background monitor.
 // It will stop it only once, if needed - or won't send stop action if the monitor was already stopped.
 func (sbm *ServiceBackgroundMonitor) StopServiceBackgroundMonitor() {
-	sbm.MonitorStopFuncMutex.Lock() // single-instance function
+	sbm.MonitorStopFuncMutex.Lock() // single-instance function per sbm
 	defer sbm.MonitorStopFuncMutex.Unlock()
 	log.Debug("StopServiceBackgroundMonitor: stopping monitor '", sbm.MonitorName, "'")
 

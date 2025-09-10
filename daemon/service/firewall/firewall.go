@@ -231,7 +231,7 @@ func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFire
 		return isEnabled, false, false, false, "", "", "", err
 	}
 
-	if weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err = implHaveTopFirewallPriority(0); err != nil {
+	if weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err = implHaveTopFirewallPriority(isEnabled, 0); err != nil {
 		log.ErrorFE("error checking whether we have top firewall priority: %w", err)
 	}
 
@@ -528,7 +528,11 @@ func HaveTopFirewallPriority() (weHaveTopFirewallPriority bool, otherVpnID, othe
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implHaveTopFirewallPriority(0)
+	if isEnabled, err := _getEnabledHelper(false, false); err != nil {
+		return false, "", "", "", err
+	} else {
+		return implHaveTopFirewallPriority(isEnabled, 0)
+	}
 }
 
 func TryReregisterFirewallAtTopPriority(canReconfigureOtherVpns, forceReconfigureFirewall bool) (err error) {

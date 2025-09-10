@@ -1488,7 +1488,7 @@ func getOtherVpnInfo(_otherSublayerGUID syscall.GUID) (otherVpnName, otherVpnDes
 	}
 }
 
-func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
+func implHaveTopFirewallPriority(_, recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
 	if recursionDepth == 0 { // start WFP transaction on the 1st recursion call
 		if retErr = manager.TransactionStart(); retErr != nil {
 			return false, "", "", "", log.ErrorFE("failed to start transaction: %w", retErr)

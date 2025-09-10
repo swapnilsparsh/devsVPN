@@ -65,7 +65,7 @@ func (s *Service) ValidateConnectionParameters(params types.ConnectionParams, is
 	if params.VpnType == vpn.WireGuard {
 		// WireGuard connection parameters
 		if len(params.WireGuardParameters.EntryVpnServer.Hosts) <= 0 {
-			return params, fmt.Errorf("no hosts defined for WireGuard connection")
+			return params, log.ErrorFE("no hosts defined for WireGuard connection")
 		}
 		if len(params.WireGuardParameters.MultihopExitServer.Hosts) > 0 {
 			if mhErr := s.IsCanConnectMultiHop(); mhErr != nil {
@@ -79,7 +79,7 @@ func (s *Service) ValidateConnectionParameters(params types.ConnectionParams, is
 	} else {
 		// OpenVPN connection parameters
 		if len(params.OpenVpnParameters.EntryVpnServer.Hosts) <= 0 {
-			return params, fmt.Errorf("no hosts defined for OpenVPN connection")
+			return params, log.ErrorFE("no hosts defined for OpenVPN connection")
 		}
 		if len(params.OpenVpnParameters.MultihopExitServer.Hosts) > 0 {
 			if mhErr := s.IsCanConnectMultiHop(); mhErr != nil {
@@ -95,6 +95,9 @@ func (s *Service) ValidateConnectionParameters(params types.ConnectionParams, is
 }
 
 func (s *Service) Connect(params types.ConnectionParams) (err error) {
+	log.Debug("Service.Connect() entered")
+	defer log.Debug("Service.Connect() exited")
+
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.New("panic on connect: " + fmt.Sprint(r))
@@ -130,9 +133,9 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 			// If account info update failed: do nothing and continue connecting
 			if !prefs.Account.Active {
 				if time.Now().After(time.Unix(prefs.Account.ActiveUntil, 0)) {
-					return fmt.Errorf("your subscription has expired")
+					return log.ErrorFE("your subscription has expired")
 				}
-				return fmt.Errorf("your subscription is not active")
+				return log.ErrorFE("your subscription is not active")
 			}
 
 		}
@@ -142,7 +145,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 	// - in case of multiple entry hosts - take one random host from the list
 	// - in case of multiple exit hosts - take one random host from the list
 	if err := params.NormalizeHosts(); err != nil {
-		return fmt.Errorf("failed to normalize hosts: %w", err)
+		return log.ErrorFE("failed to normalize hosts: %w", err)
 	}
 
 	// ------------------------ Inverse Split Tunnel block start ------------------------
@@ -163,14 +166,14 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 	if params.V2Ray() == v2r.QUIC || params.V2Ray() == v2r.TCP {
 		disabledFuncs := s.GetDisabledFunctions()
 		if len(disabledFuncs.V2RayError) > 0 {
-			return fmt.Errorf(disabledFuncs.V2RayError)
+			return log.ErrorFE(disabledFuncs.V2RayError)
 		}
 
 		log.Info("Starting V2Ray...")
 		// Note! the startV2Ray() modifies original params!
 		params, v2RayWrapper, originalEntryServerInfo, err = s.startV2Ray(params, params.V2Ray())
 		if err != nil {
-			return fmt.Errorf("failed to start V2Ray: %w", err)
+			return log.ErrorFE("failed to start V2Ray: %w", err)
 		}
 		defer func() {
 			if v2RayWrapper != nil {
@@ -187,7 +190,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 	if vpn.Type(params.VpnType) == vpn.OpenVPN {
 		// PARAMETERS VALIDATION
 		if len(params.OpenVpnParameters.EntryVpnServer.Hosts) < 1 {
-			return fmt.Errorf("VPN host not defined")
+			return log.ErrorFE("OpenVPN VPN host not defined")
 		}
 
 		// take first host from the list (if multiple hosts were defined, the random one was taken above)
@@ -215,6 +218,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 		if exitHostValue != nil {
 			// Check is it allowed to connect multihop
 			if mhErr := s.IsCanConnectMultiHop(); mhErr != nil {
+				log.ErrorFE("error %w", mhErr)
 				return mhErr
 			}
 
@@ -252,7 +256,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 
 	} else if vpn.Type(params.VpnType) == vpn.WireGuard {
 		if len(params.WireGuardParameters.EntryVpnServer.Hosts) < 1 {
-			return fmt.Errorf("VPN host not defined")
+			return log.ErrorFE("Wireguard VPN host not defined")
 		}
 
 		// take first host from the list (if multiple hosts were defined, the random one was taken above)
@@ -266,7 +270,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 
 		// prevent user-defined data injection: ensure that nothing except the base64 public key will be stored in the configuration
 		if !helpers.ValidateBase64(hostValue.PublicKey) {
-			return fmt.Errorf("WG public key is not base64 string")
+			return log.ErrorFE("WG public key is not base64 string")
 		}
 
 		hostLocalIP := net.ParseIP(strings.Split(hostValue.LocalIP, "/")[0])
@@ -279,6 +283,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 		if exitHostValue != nil {
 			// Check is it allowed to connect multihop
 			if mhErr := s.IsCanConnectMultiHop(); mhErr != nil {
+				log.ErrorFE("error %w", mhErr)
 				return mhErr
 			}
 
@@ -312,7 +317,7 @@ func (s *Service) Connect(params types.ConnectionParams) (err error) {
 		return s.connectWireGuard(originalEntryServerInfo, connectionParams, params.ManualDNS, params.Metadata.AntiTracker, params.FirewallOn, params.FirewallOnDuringConnection, v2RayWrapper, canReconfigureOtherVpns)
 	}
 
-	return fmt.Errorf("unexpected VPN type to connect (%v)", params.VpnType)
+	return log.ErrorFE("unexpected VPN type to connect (%v)", params.VpnType)
 }
 
 // connectOpenVPN start OpenVPN connection
@@ -449,13 +454,13 @@ func (s *Service) connectOpenVPN(originalEntryServerInfo *svrConnInfo, connectio
 func (s *Service) connectWireGuard(originalEntryServerInfo *svrConnInfo, connectionParams wireguard.ConnectionParams, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper, canReconfigureOtherVpns bool) error {
 	// stop active connection (if exists)
 	if err := s.Disconnect(); err != nil {
-		return fmt.Errorf("failed to connect. Unable to stop active connection: %w", err)
+		return log.ErrorFE("failed to connect. Unable to stop active connection: %w", err)
 	}
 
 	// checking if functionality accessible
 	disabledFuncs := s.GetDisabledFunctions()
 	if len(disabledFuncs.WireGuardError) > 0 {
-		return fmt.Errorf(disabledFuncs.WireGuardError)
+		return log.ErrorFE(disabledFuncs.WireGuardError)
 	}
 
 	// Update WG keys, if necessary
@@ -470,6 +475,7 @@ func (s *Service) connectWireGuard(originalEntryServerInfo *svrConnInfo, connect
 			// continue connection
 			log.Warning(fmt.Errorf("WG KEY generation failed (%w). But we keep connecting (will try to regenerate it next 3 days)", err))
 		} else {
+			log.ErrorFE("%w", err)
 			return err
 		}
 	}
@@ -478,12 +484,12 @@ func (s *Service) connectWireGuard(originalEntryServerInfo *svrConnInfo, connect
 		session := s.Preferences().Session
 
 		if !session.IsWGCredentialsOk() {
-			return nil, fmt.Errorf("WireGuard credentials are not defined (please, regenerate WG credentials or re-login)")
+			return nil, log.ErrorFE("WireGuard credentials are not defined (please, regenerate WG credentials or re-login)")
 		}
 
 		localip := net.ParseIP(session.WGLocalIP)
 		if localip == nil {
-			return nil, fmt.Errorf("error updating WG connection preferences (failed parsing local IP for WG connection)")
+			return nil, log.ErrorFE("error updating WG connection preferences (failed parsing local IP for WG connection)")
 		}
 		connectionParams.SetCredentials(session.Session, session.WGPrivateKey, session.WGPublicKey, session.WGPresharedKey, localip)
 
@@ -495,7 +501,7 @@ func (s *Service) connectWireGuard(originalEntryServerInfo *svrConnInfo, connect
 			s._statsCallbacks)
 
 		if err != nil {
-			return nil, fmt.Errorf("failed to create new WireGuard object: %w", err)
+			return nil, log.ErrorFE("failed to create new WireGuard object: %w", err)
 		}
 		return vpnObj, nil
 	}
@@ -560,10 +566,11 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 			v2rayWrapper,
 			canReconfigureOtherVpns || s._preferences.PermissionReconfigureOtherVPNs)
 		if connErr != nil {
-			log.Error(fmt.Sprintf("Connection error: %s", connErr))
-			if s._requiredVpnState == Connect {
-				// throw error only on first try to connect
-				// if we were already connected (_requiredVpnState==KeepConnection) - ignore error and try to reconnect
+			log.ErrorFE("s._requiredVpnState=%d. Connection error: '%w'", s._requiredVpnState, connErr)
+			var connectionAttemptFailedError *ConnectionAttemptFailedError
+			if s._requiredVpnState == Connect || errors.As(connErr, &connectionAttemptFailedError) {
+				// Throw error only on first try to connect. If we were already connected (_requiredVpnState==KeepConnection) - ignore error and try to reconnect.
+				// But also throw (pass through) error if it's due to connection attempt timeout, detected by connectionAttemptTimeoutMonitor.
 				return connErr
 			}
 		}
@@ -618,6 +625,9 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 //   - Param 'firewallDuringConnection' - unconditionally reenable firewall before connection, and disable after disconnection
 func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Process, manualDNS dns.DnsSettings, antiTracker types.AntiTrackerMetadata, firewallOn bool, firewallDuringConnection bool, v2rayWrapper *v2r.V2RayWrapper, canReconfigureOtherVpns bool) (err error) {
 	var connectRoutinesWaiter sync.WaitGroup
+
+	log.Debug("Service.connect() entered")
+	defer log.Debug("Service.connect() exited")
 
 	// stop active connection (if exists)
 	if err := s.disconnect(); err != nil {
@@ -788,6 +798,10 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 					// internally process VPN state change
 					switch state.State {
 
+					case vpn.DISCONNECTED:
+						// send to connection timeout monitor stop chan - signal for it to stop, now that VPN is DISCONNECTED
+						go s.connectionAttemptTimeoutMonitorDef.StopServiceBackgroundMonitor() // async
+
 					case vpn.RECONNECTING:
 						// Disable routing-change detector when reconnecting
 						s._netChangeDetector.UnInit()
@@ -802,7 +816,25 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 							log.Error("Unable to add host to firewall exceptions:", err.Error())
 						}
 
-					case vpn.INITIALISED:
+					case vpn.INITIALISED: // starting connectionAttemptTimeoutMonitor from INITIALISED stage - because if there's no connectivity, that's where the WG connection hangs before 1st handshake
+						connectRoutinesWaiter.Add(1)
+						go func() { // start connectionAttemptTimeoutMonitor, it will be stopped when CONNECTED or DISCONNECTED
+							defer func() { // to make sure connectionAttemptTimeoutMonitor gets stopped at the end of the function, and its vars reset
+								s.connectionAttemptTimeoutMonitorDef.StopServiceBackgroundMonitor() // should be stopped by now, so sync wait - need it stopped before ResetStateFunc
+								if s.connectionAttemptTimeoutMonitorDef.ResetStateFunc != nil {
+									s.connectionAttemptTimeoutMonitorDef.ResetStateFunc() // synchronously reset connectionAttemptTimeoutMonitor vars
+								} else {
+									log.ErrorFE("error - s.connectionAttemptTimeoutMonitorDef.ResetStateFunc is unexpectedly nil")
+								}
+								connectRoutinesWaiter.Done()
+							}()
+
+							go s.connectionAttemptTimeoutMonitorDef.MonitorFunc()
+							log.Debug("Monitor '", s.connectionAttemptTimeoutMonitorDef.MonitorName, "' started for the duration of the connection attempt")
+
+							<-stopChannel // triggered when the stopChannel is closed
+						}()
+
 						// start routing change detection
 						// if netInterface, err := netinfo.InterfaceByIPAddr(state.ClientIP); err != nil {
 						// 	log.Error(fmt.Sprintf("Unable to initialize routing change detection. Failed to get interface '%s'", state.ClientIP.String()))
@@ -824,6 +856,9 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						// }
 
 					case vpn.CONNECTED:
+						// send to connection timeout monitor stop chan - signal for it to stop, now that VPN is CONNECTED
+						go s.connectionAttemptTimeoutMonitorDef.StopServiceBackgroundMonitor() // async
+
 						// since we are connected - keep connection (reconnect if unexpected disconnection)
 						if s._requiredVpnState == Connect {
 							s._requiredVpnState = KeepConnection
@@ -1049,6 +1084,19 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 		return err
 	}
 
+	s.connectionAttemptTimeoutMonitorDef.StopServiceBackgroundMonitor() // wait till connectionAttemptTimeoutMonitor is stopped, before using its results
+	if s.connectAttemptTimeout2Reached_CancelledConnectionAttempt {     // if this connection attempt got cancelled due to timeout - report to UI client, if any
+		if otherVpnsDetected, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected(); err != nil {
+			return log.ErrorFE("error firewall.ReconfigurableOtherVpnsDetected(): %w", err)
+		} else if otherVpnsDetected {
+			containedErr := log.ErrorFE("Error - connection attempt timed out. Other VPNs detected, that could interfere with privateLINE connection attempt:\n\n%s", strings.Join(otherVpnNames, ", "))
+			return &ConnectionAttemptFailedError{containedErr}
+		} else {
+			containedErr := log.ErrorFE("Error - connection attempt timed out.")
+			return &ConnectionAttemptFailedError{containedErr}
+		}
+	}
+
 	return nil
 }
 
@@ -1237,4 +1285,78 @@ func (s *Service) startV2Ray(params types.ConnectionParams, v2RayType v2r.V2RayT
 	// ------------------------------------------------------------
 
 	return updatedParams, v, origEntrySvr, nil
+}
+
+// connectionAttemptTimeoutMonitor - used to detect when connection attempt times out
+type ConnectionAttemptFailedError struct {
+	containedErr error
+}
+
+func (se *ConnectionAttemptFailedError) Error() string {
+	return fmt.Errorf("%w", se.containedErr).Error()
+}
+
+// connectionAttemptTimeoutMonitor runs asynchronously as a forked thread.
+// If connection attempt is not finished (CONNECTED or DISCONNECTED) within 45 seconds - it will terminate connection attempt.
+// To stop this thread - send to s.connectionAttemptTimeoutMonitor_endchan chan.
+func (s *Service) connectionAttemptTimeoutMonitor() {
+	if s.IsDaemonStopping() {
+		return
+	}
+
+	s.connectionAttemptTimeoutMonitorRunningMutex.Lock() // to ensure there's only one instance of implFirewallBackgroundMonitorLegacy
+	defer s.connectionAttemptTimeoutMonitorRunningMutex.Unlock()
+
+	// log.Debug("connectionAttemptTimeoutMonitor entered")
+	// defer log.Debug("connectionAttemptTimeoutMonitor exited")
+
+	secondsWaited := 0
+	alreadyEstablishedConnection := false
+	for {
+		select {
+		case _ = <-s.connectionAttemptTimeoutMonitor_endchan:
+			log.Debug("connectionAttemptTimeoutMonitor exiting on stop signal")
+			return
+		default: // no stop signal received
+			if s.IsDaemonStopping() {
+				return
+			}
+
+			alreadyEstablishedConnection = alreadyEstablishedConnection || s._vpnConnectedCallback()          // sets true if the VPN entered CONNECTED state even once
+			if !alreadyEstablishedConnection && !s.connectAttemptTimeout2Reached_CancelledConnectionAttempt { // if didn't establish connection yet and didn't reach the last deadline(s) yet
+				secondsWaited = secondsWaited + 1
+
+				if secondsWaited > CONNECT_ATTEMPT_TIMEOUT2_DISCONNECT { // if waited 45 sec - cancel the connection attempt
+					s.connectAttemptTimeout2Reached_CancelledConnectionAttempt = true
+					log.Error("Connection attempt timed out after waiting for ", CONNECT_ATTEMPT_TIMEOUT2_DISCONNECT, " seconds - disconnecting")
+					go s.Disconnect() // Fork a disconnect request. TODO: Vlad - when CHR HA support is implemented, switch to another server instead
+				} else if !s.connectAttemptTimeout1Reached_UserNotificationCheckDone && secondsWaited > CONNECT_ATTEMPT_TIMEOUT1_NOTIFY_USER { // if waited 10 sec - show VPN Coexistence status "FAILED|Fix" in UI
+					s.connectAttemptTimeout1Reached_UserNotificationCheckDone = true
+					if otherVpnsDetected, _, err := firewall.ReconfigurableOtherVpnsDetected(); err != nil {
+						log.ErrorFE("error in firewall.ReconfigurableOtherVpnsDetected(): %w", err)
+					} else if otherVpnsDetected { // other VPNs detected - re-notify clients that we don't have top firewall priority, need permission to reconfigure
+						// Mark vpn coexistence state in service as bad, to keep on reporting it as bad to UI - to override re-detection by other monitors.
+						s.connectAttemptTimeout1Reached_OtherVpnsDetected.Store(true)
+						go s._evtReceiver.OnKillSwitchStateChanged(true) // show on UI that connectivity is blocked, and show Fix button
+					}
+				}
+			}
+
+			time.Sleep(time.Second) // sleep 1 second between checks
+		}
+	}
+}
+
+// ResetStateFunc
+func (s *Service) connectionAttemptTimeoutMonitor_resetState() {
+	s.connectionAttemptTimeoutMonitorRunningMutex.Lock() // to protect vars we're resetting
+	defer s.connectionAttemptTimeoutMonitorRunningMutex.Unlock()
+
+	log.Debug("connectionAttemptTimeoutMonitor_resetState")
+	// log.Debug("connectionAttemptTimeoutMonitor_resetState entered")
+	// defer log.Debug("connectionAttemptTimeoutMonitor_resetState exited")
+
+	s.connectAttemptTimeout1Reached_UserNotificationCheckDone = false
+	s.connectAttemptTimeout1Reached_OtherVpnsDetected.Store(false)
+	s.connectAttemptTimeout2Reached_CancelledConnectionAttempt = false
 }
