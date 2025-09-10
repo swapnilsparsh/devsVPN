@@ -82,7 +82,7 @@ const (
 
 	// used by connectionAttemptTimeoutMonitor
 	CONNECT_ATTEMPT_TIMEOUT1_NOTIFY_USER = 10 // if connection attempt not finished in 10 seconds - detect other VPNs, and, if detected, show VPN Coexistence status "FAILED|Fix" in UI
-	CONNECT_ATTEMPT_TIMEOUT2_DISCONNECT  = 45 // if connection attempt not finished in 45 seconds - cancel it and show an error MessageBox in UI
+	CONNECT_ATTEMPT_TIMEOUT2_DISCONNECT  = 30 // if connection attempt not finished in 30 seconds - cancel it and show an error MessageBox in UI
 )
 
 const (
