@@ -1222,29 +1222,33 @@ func (s *Service) KillSwitchState() (status types.KillSwitchStatus, retErr error
 		weHaveTopFirewallPriority = false
 	}
 
-	otherVpnsDetected, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected()
-	if err != nil {
-		err := log.ErrorFE("error firewall.ReconfigurableOtherVpnsDetected(): %w", err)
-		if retErr == nil {
-			retErr = err
+	_status := types.KillSwitchStatus{
+		IsEnabled:                 enabled,
+		IsPersistent:              prefs.IsFwPersistent,
+		IsAllowLAN:                prefs.IsFwAllowLAN,
+		IsAllowMulticast:          prefs.IsFwAllowLANMulticast,
+		IsAllowApiServers:         prefs.IsFwAllowApiServers,
+		UserExceptions:            prefs.FwUserExceptions,
+		StateLanAllowed:           isLanAllowed,
+		WeHaveTopFirewallPriority: weHaveTopFirewallPriority,
+		OtherVpnID:                otherVpnID,
+		OtherVpnName:              otherVpnName,
+		OtherVpnDescription:       otherVpnDescription,
+	}
+
+	if !weHaveTopFirewallPriority {
+		if otherVpnsDetected, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected(); err == nil {
+			_status.ReconfigurableOtherVpnsDetected = otherVpnsDetected
+			_status.ReconfigurableOtherVpnsNames = otherVpnNames
+		} else {
+			err := log.ErrorFE("error firewall.ReconfigurableOtherVpnsDetected(): %w", err)
+			if retErr == nil {
+				retErr = err
+			}
 		}
 	}
 
-	return types.KillSwitchStatus{
-		IsEnabled:                       enabled,
-		IsPersistent:                    prefs.IsFwPersistent,
-		IsAllowLAN:                      prefs.IsFwAllowLAN,
-		IsAllowMulticast:                prefs.IsFwAllowLANMulticast,
-		IsAllowApiServers:               prefs.IsFwAllowApiServers,
-		UserExceptions:                  prefs.FwUserExceptions,
-		StateLanAllowed:                 isLanAllowed,
-		WeHaveTopFirewallPriority:       weHaveTopFirewallPriority,
-		OtherVpnID:                      otherVpnID,
-		OtherVpnName:                    otherVpnName,
-		OtherVpnDescription:             otherVpnDescription,
-		ReconfigurableOtherVpnsDetected: otherVpnsDetected,
-		ReconfigurableOtherVpnsNames:    otherVpnNames,
-	}, retErr
+	return _status, retErr
 }
 
 // SetKillSwitchIsPersistent change kill-switch value

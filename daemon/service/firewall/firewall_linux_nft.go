@@ -407,13 +407,13 @@ func implFirewallBackgroundMonitorNft() {
 	}
 	defer nftMonitor.Close()
 
-	if _, err := implReregisterFirewallAtTopPriorityNft(false, true, getPrefsCallback().PermissionReconfigureOtherVPNs); err != nil { // check that we have top-pri once on start of this func
+	if _, err := implReregisterFirewallAtTopPriorityNft(false, false, getPrefsCallback().PermissionReconfigureOtherVPNs); err != nil { // check that we have top-pri once on start of this func
 		log.ErrorFE("error in implReregisterFirewallAtTopPriorityNft(): %w", err) // and continue
 	}
 
 	for {
 		select {
-		case _ = <-stopMonitoringFirewallChangesNft:
+		case <-stopMonitoringFirewallChangesNft:
 			go DisableCoexistenceWithOtherVpns() // nah, run asynchronously in the background after all - 8sec is way too long to wait in the UI
 			log.Debug("implFirewallBackgroundMonitorNft exiting on stop signal")
 			return

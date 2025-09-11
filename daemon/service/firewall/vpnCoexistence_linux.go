@@ -453,6 +453,12 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 		return lowestRecommendedMTU, log.ErrorFE("error - daemon is stopping")
 	}
 
+	// Before entering critical section - check whether the last detection timestamp is too old.
+	// (If it's zero - it means detection wasn't run yet since the daemon start.
+	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < VPN_REDETECT_PERIOD { // if the timestamp is fresh
+		return lowestRecommendedMTU, nil
+	} // else we have to re-detect
+
 	if !otherVpnsCliMutexAlreadyGrabbed {
 		otherVpnsCliMutex.Lock()
 		defer otherVpnsCliMutex.Unlock()
@@ -462,14 +468,8 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	defer otherVpnsNftMutex.Unlock()
 	defer otherVpnsLegacyMutex.Unlock()
 
+	// Now we acquired all mutexes, we're in critical section
 	log.Debug("reDetectOtherVpnsLinux entered")
-
-	// Now we acquired both mutexes, we're in critical section - check whether the last detection timestamp is too old.
-	// (If it's zero - it means detection wasn't run yet since the daemon start.
-	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < VPN_REDETECT_PERIOD { // if the timestamp is fresh
-		log.Debug("reDetectOtherVpnsLinux exited early")
-		return lowestRecommendedMTU, nil
-	} // else we have to re-detect
 	defer log.Debug("reDetectOtherVpnsLinux exited - redetected")
 
 	OtherVpnsDetectedRelevantForNftables.Clear()
@@ -800,7 +800,7 @@ func reconfigurableOtherVpnsDetectedImpl() (detected bool, otherVpnNames []strin
 	otherVpnsCliMutex.Lock() // lock it here, because this func uses OtherVpnsDetectedReconfigurableViaCli after reDetectOtherVpnsImpl()
 	defer otherVpnsCliMutex.Unlock()
 
-	if _, err = reDetectOtherVpnsImpl(true, false, false, true, false); err != nil {
+	if _, err = reDetectOtherVpnsImpl(false, false, false, true, false); err != nil {
 		return false, otherVpnNames, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
 	}
 

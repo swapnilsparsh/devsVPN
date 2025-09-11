@@ -78,8 +78,8 @@ func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 	case PHASE0_CLEAN: // phase 0: fully redeploy firewall and VPN coexistence rules
 		s.backendConnectivityCheckPhase = PHASE1_TRY_RECONNECT // if backend again not reachable on next try - don't try firewall reconfig, try VPN disconnect-reconnect
 		log.Debug("PHASE0_CLEAN: about to fully redeploy firewall and VPN coexistence rules")
-		if err := firewall.TryReregisterFirewallAtTopPriority(s._preferences.PermissionReconfigureOtherVPNs, true); err != nil {
-			return log.ErrorFE("error in firewall.TryReregisterFirewallAtTopPriority(%t, true): %w", s._preferences.PermissionReconfigureOtherVPNs, err)
+		if err := firewall.TryReregisterFirewallAtTopPriority(true, true); err != nil {
+			return log.ErrorFE("error in firewall.TryReregisterFirewallAtTopPriority(true, true): %w", err)
 		}
 	case PHASE1_TRY_RECONNECT: // phase 1: disable Total Shield and disconnect-reconnect the VPN
 		s.backendConnectivityCheckPhase = PHASE0_CLEAN // next time don't try to reconnect, reset to phase0

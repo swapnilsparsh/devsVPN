@@ -240,7 +240,7 @@ func implFirewallBackgroundMonitorLegacy() {
 	loopIteration := 0
 	for {
 		select {
-		case _ = <-stopMonitoringFirewallChangesLegacy:
+		case <-stopMonitoringFirewallChangesLegacy:
 			log.Debug("implFirewallBackgroundMonitorLegacy exiting on stop signal")
 			return
 		default: // no message received
@@ -252,7 +252,7 @@ func implFirewallBackgroundMonitorLegacy() {
 			time.Sleep(time.Second) // sleep 1 second per each loop iteration
 			loopIteration = (loopIteration + 1) % 5
 			if loopIteration == 0 { // poll iptables-legacy only every 5th iteration - that is, once every 5 seconds
-				if _, err := implReregisterFirewallAtTopPriorityLegacy(false, true, getPrefsCallback().PermissionReconfigureOtherVPNs); err != nil {
+				if _, err := implReregisterFirewallAtTopPriorityLegacy(false, false, getPrefsCallback().PermissionReconfigureOtherVPNs); err != nil {
 					log.ErrorFE("error in implReregisterFirewallAtTopPriorityLegacy(): %w", err) // and continue
 				}
 			}
