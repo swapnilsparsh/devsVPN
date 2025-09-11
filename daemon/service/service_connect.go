@@ -1086,7 +1086,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 	s.connectionAttemptTimeoutMonitorDef.StopServiceBackgroundMonitor() // wait till connectionAttemptTimeoutMonitor is stopped, before using its results
 	if s.connectAttemptTimeout2Reached_CancelledConnectionAttempt {     // if this connection attempt got cancelled due to timeout - report to UI client, if any
-		if otherVpnsDetected, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected(); err != nil {
+		if otherVpnsDetected, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected(true); err != nil {
 			return log.ErrorFE("error firewall.ReconfigurableOtherVpnsDetected(): %w", err)
 		} else if otherVpnsDetected {
 			containedErr := log.ErrorFE("Error - connection attempt timed out. Other VPNs detected, that could interfere with privateLINE connection attempt:\n\n%s", strings.Join(otherVpnNames, ", "))
@@ -1332,7 +1332,7 @@ func (s *Service) connectionAttemptTimeoutMonitor() {
 					go s.Disconnect() // Fork a disconnect request. TODO: Vlad - when CHR HA support is implemented, switch to another server instead
 				} else if !s.connectAttemptTimeout1Reached_UserNotificationCheckDone && secondsWaited > CONNECT_ATTEMPT_TIMEOUT1_NOTIFY_USER { // if waited 10 sec - show VPN Coexistence status "FAILED|Fix" in UI
 					s.connectAttemptTimeout1Reached_UserNotificationCheckDone = true
-					if otherVpnsDetected, _, err := firewall.ReconfigurableOtherVpnsDetected(); err != nil {
+					if otherVpnsDetected, _, err := firewall.ReconfigurableOtherVpnsDetected(true); err != nil {
 						log.ErrorFE("error in firewall.ReconfigurableOtherVpnsDetected(): %w", err)
 					} else if otherVpnsDetected { // other VPNs detected - re-notify clients that we don't have top firewall priority, need permission to reconfigure
 						// Mark vpn coexistence state in service as bad, to keep on reporting it as bad to UI - to override re-detection by other monitors.

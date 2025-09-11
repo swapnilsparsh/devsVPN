@@ -19,7 +19,7 @@ const (
 
 	MAX_WAIT = 30 * time.Second
 
-	VPN_REDETECT_PERIOD = 120 * time.Second // Normally cache other VPN re-detection results for 120 seconds. Re-detection can be forced sooner.
+	VPN_REDETECT_PERIOD = 30 * time.Second // Normally cache other VPN re-detection results for 120 seconds. Re-detection can be forced sooner.
 )
 
 type otherVpnCliCmds struct {
@@ -153,6 +153,6 @@ func ReDetectOtherVpns(forceRedetection, detectOnlyByInterfaceName, updateCurren
 	return reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU, false, false)
 }
 
-func ReconfigurableOtherVpnsDetected() (detected bool, otherVpnNames []string, err error) {
-	return reconfigurableOtherVpnsDetectedImpl()
+func ReconfigurableOtherVpnsDetected(forceRedetectOtherVpns bool) (detected bool, otherVpnNames []string, err error) {
+	return reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns)
 }

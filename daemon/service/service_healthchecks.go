@@ -66,7 +66,7 @@ func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 	go s._evtReceiver.NotifyClientsVpnConnecting() // make the clients show VPN CONNECTING state
 
 	if !s._preferences.PermissionReconfigureOtherVPNs { // if we don't have permission stored - (a) if other VPNs detected, then show FAILED|Fix in UI, and (b) do nothing ourselves, no correction steps
-		if otherVpnsDetected, _, err := firewall.ReconfigurableOtherVpnsDetected(); err != nil {
+		if otherVpnsDetected, _, err := firewall.ReconfigurableOtherVpnsDetected(false); err != nil {
 			return log.ErrorFE("error in firewall.ReconfigurableOtherVpnsDetected(): %w", err)
 		} else if otherVpnsDetected { // other VPNs detected - re-notify clients that we don't have top firewall priority, need permission to reconfigure
 			s.backendConnectivityCheckPhase = PHASE0_CLEAN

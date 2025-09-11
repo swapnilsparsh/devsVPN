@@ -1215,10 +1215,12 @@ func (s *Service) KillSwitchState() (status types.KillSwitchStatus, retErr error
 	if err != nil {
 		retErr = log.ErrorFE("error firewall.GetState(): %w", err)
 	}
+	forceRedetectOtherVpns := !weHaveTopFirewallPriority
 
-	// override logic - where were report VPN Coexistence to UI as bad unconditionally, so that UI will show FAILED|Fix
-	if s.otherVpnsDetectedDuringIncompleteConnectionAttempt() || // or if we're connecting, but can't connect, and other reconfigurable VPNs detected - report VPN coex as bad (This condition may be up only during connection attempt)
-		s.badConnectivityWhileConnectedAndNoPermissionToReconfigureOtherVpns() { // or if CONNECTED, and connectivity detected as bad, and daemon doesn't have permission stored to reconfig other VPNs automatically
+	// override logic - whether we're to report VPN Coexistence to UI as bad unconditionally, so that UI will show FAILED|Fix
+	if weHaveTopFirewallPriority &&
+		(s.otherVpnsDetectedDuringIncompleteConnectionAttempt() || // or if we're connecting, but can't connect, and other reconfigurable VPNs detected - report VPN coex as bad (This condition may be up only during connection attempt)
+			s.badConnectivityWhileConnectedAndNoPermissionToReconfigureOtherVpns()) { // or if CONNECTED, and connectivity detected as bad, and daemon doesn't have permission stored to reconfig other VPNs automatically
 		weHaveTopFirewallPriority = false
 	}
 
@@ -1237,7 +1239,9 @@ func (s *Service) KillSwitchState() (status types.KillSwitchStatus, retErr error
 	}
 
 	if !weHaveTopFirewallPriority {
-		if otherVpnsDetected, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected(); err == nil {
+		// in case of otherVpnsDetectedDuringIncompleteConnectionAttempt - other VPNs were recently force-redetected in connectionAttemptTimeoutMonitor
+		// in case of badConnectivityWhileConnectedAndNoPermissionToReconfigureOtherVpns - automatic redetection every 30s is good enough
+		if otherVpnsDetected, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected(forceRedetectOtherVpns); err == nil {
 			_status.ReconfigurableOtherVpnsDetected = otherVpnsDetected
 			_status.ReconfigurableOtherVpnsNames = otherVpnNames
 		} else {
@@ -2073,7 +2077,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 			if canReconfigureOtherVPNs { // if we already tried to reconfigure other VPNs above - just report the problem
 				return apiCode, "", accountInfo, rawResponse, false, []string{}, log.ErrorFE("Error - could not reach the API server: %w\n\n"+
 					"Please check your internet connection. If you have other VPNs installed - please disable them and their kill switches.", err)
-			} else if _, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected(); err == nil {
+			} else if _, otherVpnNames, err := firewall.ReconfigurableOtherVpnsDetected(true); err == nil {
 				// if we don't have permission to reconfigure other VPNs, and they are blocking us - prompt the user for permission to reconfigure them
 				err = log.ErrorFE("Error - connectivity to the backend API server is blocked. Other VPNs detected, and they're possibly the reason. PL Connect doesn't have permission to reconfigure them - will prompt the user for permission.")
 				return 408, "", accountInfo, rawResponse, true, otherVpnNames, err

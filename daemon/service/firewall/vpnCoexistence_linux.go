@@ -796,11 +796,11 @@ func DisableCoexistenceWithOtherVpns() (retErr error) {
 	return retErr
 }
 
-func reconfigurableOtherVpnsDetectedImpl() (detected bool, otherVpnNames []string, err error) {
+func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected bool, otherVpnNames []string, err error) {
 	otherVpnsCliMutex.Lock() // lock it here, because this func uses OtherVpnsDetectedReconfigurableViaCli after reDetectOtherVpnsImpl()
 	defer otherVpnsCliMutex.Unlock()
 
-	if _, err = reDetectOtherVpnsImpl(false, false, false, true, false); err != nil {
+	if _, err = reDetectOtherVpnsImpl(forceRedetectOtherVpns, false, false, true, false); err != nil {
 		return false, otherVpnNames, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
 	}
 
