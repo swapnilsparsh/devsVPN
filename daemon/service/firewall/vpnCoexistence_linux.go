@@ -456,7 +456,7 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	reDetectOtherVpnsImplMutex.Lock() // single-instance function
 	defer reDetectOtherVpnsImplMutex.Unlock()
 
-	// Before grabbing other mutexes - check whether the last detection timestamp is too old. (If it's zero - it means detection wasn't run yet since the daemon start.
+	// Before grabbing resource mutexes - check whether the last detection timestamp is too old. (If it's zero - it means detection wasn't run yet since the daemon start.
 	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < VPN_REDETECT_PERIOD { // if the timestamp is fresh
 		return lowestRecommendedMTU, nil
 	} // else we have to re-detect
@@ -470,7 +470,7 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	defer otherVpnsNftMutex.Unlock()
 	defer otherVpnsLegacyMutex.Unlock()
 
-	// Now we acquired all mutexes, we're in critical section
+	// Now we've acquired all mutexes, we're in critical section
 	log.Debug("reDetectOtherVpnsLinux entered")
 	defer log.Debug("reDetectOtherVpnsLinux exited - redetected")
 
