@@ -217,7 +217,7 @@ func implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, forceRe
 		return true, log.ErrorFE("error in implReEnableLegacy: %w", err)
 	}
 
-	go onKillSwitchStateChangedCallback(false)    // send notification out in case state went from FAIL to GOOD
+	go onKillSwitchStateChangedCallback()         // send notification out in case state went from FAIL to GOOD
 	go implDeployPostConnectionRulesLegacy(false) // forking in the background, as otherwise DNS timeouts are up to ~15 sec, they freeze UI changes
 
 	return true, nil

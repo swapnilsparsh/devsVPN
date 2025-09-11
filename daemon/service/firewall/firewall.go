@@ -41,7 +41,7 @@ import (
 var log *logger.Logger
 
 type DisableTotalShieldAsyncCallback func()
-type OnKillSwitchStateChangedCallback func(forceReportBadVpnCoexistenceOnce bool)
+type OnKillSwitchStateChangedCallback func()
 type GetRestApiHostsCallback func() (restApiHosts []*helpers.HostnameAndIP)
 
 func init() {

@@ -56,8 +56,6 @@ var (
 	curStateAllowLAN          bool     // Allow LAN is enabled
 	curStateAllowLanMulticast bool     // Allow Multicast is enabled
 	curStateEnabled           bool     // Firewall is enabled
-
-	waitForTopFirewallPriAfterWeLostItMutex sync.Mutex
 )
 
 func implInitialize() (err error) {
@@ -195,16 +193,18 @@ func implGetFirewallBackgroundMonitors() (monitors []*srvhelpers.ServiceBackgrou
 	return monitors
 }
 
+var waitForTopFirewallPriAfterWeLostItMutex sync.Mutex
+
 // waitForTopFirewallPriAfterWeLostIt is called after we lost top firewall pri. It'll notify clients about the loss, and will keep on checking top-pri every 5s
 // - until we either regain top-pri, or VPN connection gets stopped.
 func waitForTopFirewallPriAfterWeLostIt() {
-	waitForTopFirewallPriAfterWeLostItMutex.Lock() // single instance
+	waitForTopFirewallPriAfterWeLostItMutex.Lock() // single-instance function
 	defer waitForTopFirewallPriAfterWeLostItMutex.Unlock()
 
 	log.Debug("waitForTopFirewallPriAfterWeLostIt entered")
 	defer log.Debug("waitForTopFirewallPriAfterWeLostIt exited")
 
-	go onKillSwitchStateChangedCallback(false) // initial notification out
+	go onKillSwitchStateChangedCallback() // initial notification out
 
 	for vpnConnectedOrConnectingCallback() { // if VPN is no longer connected - terminate this waiting loop
 		time.Sleep(time.Second * 5)
@@ -219,7 +219,7 @@ func waitForTopFirewallPriAfterWeLostIt() {
 		}
 	}
 
-	go onKillSwitchStateChangedCallback(false) // final notification out
+	go onKillSwitchStateChangedCallback() // final notification out
 }
 
 func implReEnable(canReconfigureOtherVpns bool) (retErr error) {

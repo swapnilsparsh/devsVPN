@@ -131,7 +131,7 @@ type Service interface {
 	APIRequest(apiAlias string, ipTypeRequired types.RequiredIPProtocol) (responseData []byte, err error)
 	DetectAccessiblePorts(portsToTest []api_types.PortInfo) (retPorts []api_types.PortInfo, err error)
 
-	KillSwitchState(forceReportNoTopFirewallPriOnce bool) (status service_types.KillSwitchStatus, err error)
+	KillSwitchState() (status service_types.KillSwitchStatus, err error)
 	KillSwitchReregister(canStopOtherVpn bool) (err error)
 	SetKillSwitchState(isEnabled, canReconfigureOtherVpns bool) error
 	SetKillSwitchIsPersistent(isPersistent bool) error
@@ -628,7 +628,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			sendState(req.Idx, false)
 
 			// send Firewall state
-			if status, err := p._service.KillSwitchState(false); err == nil {
+			if status, err := p._service.KillSwitchState(); err == nil {
 				p.sendResponse(conn,
 					&types.KillSwitchStatusResp{KillSwitchStatus: status}, reqCmd.Idx)
 			}
@@ -744,7 +744,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p.sendResponse(conn, &types.CheckAccessiblePortsResponse{Ports: accessiblePorts}, req.Idx)
 
 	case "KillSwitchGetStatus":
-		if status, err := p._service.KillSwitchState(false); err != nil {
+		if status, err := p._service.KillSwitchState(); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)
 		} else {
 			resp := types.KillSwitchStatusResp{KillSwitchStatus: status}
@@ -838,7 +838,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			break
 		}
 
-		if status, err := p._service.KillSwitchState(false); err != nil { // now re-check whether we have top firewall pri
+		if status, err := p._service.KillSwitchState(); err != nil { // now re-check whether we have top firewall pri
 			p.sendErrorResponse(conn, reqCmd, err)
 		} else { // and notify clients
 			p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})

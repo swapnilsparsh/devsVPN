@@ -31,6 +31,10 @@ var (
 
 // 2-phase approach: reconfig firewall, then disconnect / disable Total Shield / reconnect
 func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
+	defer func() {
+		go s._evtReceiver.OnKillSwitchStateChanged() // update VPN Coexistence state in UI - else it may get stuck with stale "FAILED | Fix" status
+	}()
+
 	if s.IsDaemonStopping() {
 		log.ErrorFE("error - daemon is stopping")
 		s.backendConnectivityCheckPhase = PHASE0_CLEAN
@@ -42,7 +46,6 @@ func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 		s.backendConnectivityCheckPhase = PHASE0_CLEAN
 		s.backendConnectivityCheckBad.Store(false)
 		if notificationsAfterReconnect < MAX_CLIENT_NOTIFICATIONS {
-			go s._evtReceiver.OnKillSwitchStateChanged(false)       // update firewall state in UI - else it may get stuck with stale "FAILED | Fix" status
 			go s._evtReceiver.OnVpnStateChanged_ProcessSavedState() // notify clients abt the actual VPN state - presumably that it's connected; at most 2 notifications
 			notificationsAfterReconnect++
 		}
@@ -66,7 +69,6 @@ func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 		if otherVpnsDetected, _, err := firewall.ReconfigurableOtherVpnsDetected(); err != nil {
 			return log.ErrorFE("error in firewall.ReconfigurableOtherVpnsDetected(): %w", err)
 		} else if otherVpnsDetected { // other VPNs detected - re-notify clients that we don't have top firewall priority, need permission to reconfigure
-			go s._evtReceiver.OnKillSwitchStateChanged(true) // otherwise show on UI that connectivity is blocked, and show Fix button
 			s.backendConnectivityCheckPhase = PHASE0_CLEAN
 			return nil
 		}
@@ -116,7 +118,8 @@ func (s *Service) connectivityHealthchecksBackgroundMonitor() {
 		select {
 		case <-s.stopPollingConnectivityHealthchecks:
 			log.Debug("connectivityHealthchecksBackgroundMonitor exiting on stop signal")
-			s.backendConnectivityCheckBad.Store(false) // reset connectivity check state to good on reconnect or disconnect
+			s.backendConnectivityCheckBad.Store(false)   // reset connectivity check state to good on reconnect or disconnect
+			go s._evtReceiver.OnKillSwitchStateChanged() // and reflect that in UI
 			return
 		default: // no message received
 			if s.IsDaemonStopping() {

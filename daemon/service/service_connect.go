@@ -793,7 +793,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 					defer s._evtReceiver.OnVpnStateChanged_ProcessSavedState()
 
 					log.Info(fmt.Sprintf("State: %v", state))
-					go s._evtReceiver.OnKillSwitchStateChanged(false) // re-notify clients abt VPN coexistence status on state change
+					go s._evtReceiver.OnKillSwitchStateChanged() // re-notify clients abt VPN coexistence status on state change
 
 					// internally process VPN state change
 					switch state.State {
@@ -979,7 +979,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 	// Check that firewall is enabled (this check necessary only on Windows)
 	if runtime.GOOS == "windows" {
-		if killSwitchState, err := s.KillSwitchState(false); err != nil {
+		if killSwitchState, err := s.KillSwitchState(); err != nil {
 			return log.ErrorFE("error checking firewall status: %w", err)
 		} else if !killSwitchState.IsEnabled {
 			return log.ErrorE(errors.New("error - firewall must be enabled by now"), 0)
@@ -1337,7 +1337,7 @@ func (s *Service) connectionAttemptTimeoutMonitor() {
 					} else if otherVpnsDetected { // other VPNs detected - re-notify clients that we don't have top firewall priority, need permission to reconfigure
 						// Mark vpn coexistence state in service as bad, to keep on reporting it as bad to UI - to override re-detection by other monitors.
 						s.connectAttemptTimeout1Reached_OtherVpnsDetected.Store(true)
-						go s._evtReceiver.OnKillSwitchStateChanged(true) // show on UI that connectivity is blocked, and show Fix button
+						go s._evtReceiver.OnKillSwitchStateChanged() // show on UI that connectivity is blocked, and show Fix button
 					}
 				}
 			}
@@ -1357,6 +1357,9 @@ func (s *Service) connectionAttemptTimeoutMonitor_resetState() {
 	// defer log.Debug("connectionAttemptTimeoutMonitor_resetState exited")
 
 	s.connectAttemptTimeout1Reached_UserNotificationCheckDone = false
-	s.connectAttemptTimeout1Reached_OtherVpnsDetected.Store(false)
 	s.connectAttemptTimeout2Reached_CancelledConnectionAttempt = false
+
+	// clear VPN coexistence bad state and update UI
+	s.connectAttemptTimeout1Reached_OtherVpnsDetected.Store(false)
+	go s._evtReceiver.OnKillSwitchStateChanged()
 }
