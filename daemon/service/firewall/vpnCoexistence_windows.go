@@ -106,22 +106,22 @@ var (
 		},
 	}
 
-	// index (DB) of other VPNs by sublayer key
+	// Static index (DB) of other VPNs by sublayer key
 	otherVpnsBySublayerGUID = map[syscall.GUID]*OtherVpnInfo{
 		mullvadSublayerKey:              &mullvadProfile,
 		mullvadVpnPersistentSublayerKey: &mullvadProfile,
 		nordVpnSublayerKey:              &nordVpnProfile,
 	}
 
-	// Index (DB) of other VPNs by their network interface names
+	// Static index (DB) of other VPNs by their network interface names
 	otherVpnsByInterfaceName = map[string]*OtherVpnInfo{
 		mullvadInterfaceNameWg: &mullvadProfile,
 	}
 
-	// Index (DB) of other VPNs by their CLI command (to detect them by CLI present in PATH); populated in init()
+	// Static index (DB) of other VPNs by their CLI command (to detect them by CLI present in PATH); populated in init()
 	otherVpnsByCLI = map[string]*OtherVpnInfo{}
 
-	// list of other VPNs with CLI present on the system; indexed by VPN name
+	// List of other VPNs with CLI present on the system; indexed by VPN name. Dynamically updated at runtime.
 	otherVpnsInstalledWithCliPresent mapset.Set[string] = mapset.NewSet[string]()
 )
 
