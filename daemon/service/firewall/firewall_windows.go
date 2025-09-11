@@ -1554,7 +1554,7 @@ func implHaveTopFirewallPriority(fwIsEnabled bool, recursionDepth uint8) (weHave
 	}
 
 	// yay, we haven't reached bottom of recursion yet, and the top slot is vacant - try to occupy it
-	if retErr = checkCreateProviderAndSublayer(true, false); retErr != nil {
+	if retErr = checkCreateProviderAndSublayer(true, getPrefsCallback().PermissionReconfigureOtherVPNs); retErr != nil {
 		return false, "", "", "", retErr
 	}
 	return implHaveTopFirewallPriority(fwIsEnabled, recursionDepth+1)
