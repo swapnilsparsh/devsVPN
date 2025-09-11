@@ -979,7 +979,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 	// Check that firewall is enabled (this check necessary only on Windows)
 	if runtime.GOOS == "windows" {
-		if killSwitchState, err := s.KillSwitchState(); err != nil {
+		if killSwitchState, err := s.KillSwitchState(false); err != nil {
 			return log.ErrorFE("error checking firewall status: %w", err)
 		} else if !killSwitchState.IsEnabled {
 			return log.ErrorE(errors.New("error - firewall must be enabled by now"), 0)
@@ -1297,7 +1297,7 @@ func (se *ConnectionAttemptFailedError) Error() string {
 }
 
 // connectionAttemptTimeoutMonitor runs asynchronously as a forked thread.
-// If connection attempt is not finished (CONNECTED or DISCONNECTED) within 45 seconds - it will terminate connection attempt.
+// If connection attempt is not finished (CONNECTED or DISCONNECTED) within CONNECT_ATTEMPT_TIMEOUT2_DISCONNECT seconds - it will terminate connection attempt.
 // To stop this thread - send to s.connectionAttemptTimeoutMonitor_endchan chan.
 func (s *Service) connectionAttemptTimeoutMonitor() {
 	if s.IsDaemonStopping() {
@@ -1314,7 +1314,7 @@ func (s *Service) connectionAttemptTimeoutMonitor() {
 	alreadyEstablishedConnection := false
 	for {
 		select {
-		case _ = <-s.connectionAttemptTimeoutMonitor_endchan:
+		case <-s.connectionAttemptTimeoutMonitor_endchan:
 			log.Debug("connectionAttemptTimeoutMonitor exiting on stop signal")
 			return
 		default: // no stop signal received

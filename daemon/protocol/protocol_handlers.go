@@ -55,23 +55,20 @@ func (p *Protocol) OnSessionStatus(sessionToken string, sessionData preferences.
 var OnKillSwitchStateChangedMutex sync.Mutex
 
 // OnKillSwitchStateChanged - Firewall change handler. Single-instance.
-// If forceReportNoTopFirewallPriOnce==true, then UI will show VPN Coexistence status as bad - once. It can be overridden by other monitor threads.
-func (p *Protocol) OnKillSwitchStateChanged(forceReportNoTopFirewallPriOnce bool) {
+// If forceReportBadVpnCoexistenceOnce==true, then UI will show VPN Coexistence status as bad - once. It can be overridden by other monitor threads.
+func (p *Protocol) OnKillSwitchStateChanged(forceReportBadVpnCoexistenceOnce bool) {
 	OnKillSwitchStateChangedMutex.Lock() // single instance.
 	defer OnKillSwitchStateChangedMutex.Unlock()
-	// log.Debug("OnKillSwitchStateChanged(): forceReportNoTopFirewallPri=", forceReportNoTopFirewallPriOnce)
+	// log.Debug("OnKillSwitchStateChanged(): forceReportBadVpnCoexistenceOnce=", forceReportBadVpnCoexistenceOnce)
 
 	if p._service == nil || !p._isRunning {
 		return
 	}
 
 	// notify all clients about KillSwitch status
-	if status, err := p._service.KillSwitchState(); err != nil {
+	if status, err := p._service.KillSwitchState(forceReportBadVpnCoexistenceOnce); err != nil {
 		log.ErrorFE("error in p._service.KillSwitchState(): %w", err)
 	} else {
-		if forceReportNoTopFirewallPriOnce {
-			status.WeHaveTopFirewallPriority = false
-		}
 		p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
 	}
 }

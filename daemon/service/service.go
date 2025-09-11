@@ -163,7 +163,8 @@ type Service struct {
 	connectivityHealthchecksBackgroundMonitorDef                                *srvhelpers.ServiceBackgroundMonitor
 	connectivityHealthchecksRunningMutex, connectivityHealthchecksStopFuncMutex sync.Mutex
 	stopPollingConnectivityHealthchecks                                         chan bool
-	backendConnectivityCheckState                                               BackendConnectivityCheckState
+	backendConnectivityCheckPhase                                               BackendConnectivityCheckState
+	backendConnectivityCheckBad                                                 atomic.Bool // whether checkConnectivityFixAsNeeded detected connectivity as bad
 
 	// connectionAttemptTimeoutMonitor data
 	connectionAttemptTimeoutMonitorDef                                                        *srvhelpers.ServiceBackgroundMonitor
@@ -183,8 +184,16 @@ type Service struct {
 	connectAttemptTimeout2Reached_CancelledConnectionAttempt bool
 }
 
+// If we're connecting, but can't connect, and other reconfigurable VPNs detected - report VPN coexistence as bad, to force UI to show it as FAILED|Fix
+// This condition may be up only during connection attempt.
 func (s *Service) otherVpnsDetectedDuringIncompleteConnectionAttempt() bool {
 	return s.connectAttemptTimeout1Reached_OtherVpnsDetected.Load()
+}
+
+// If CONNECTED, and connectivity detected as bad, and daemon doesn't have permission stored to reconfig other VPNs automatically.
+// Likewise then report VPN coexistence as bad, to force UI to show it as FAILED|Fix.
+func (s *Service) badConnectivityWhileConnectedAndNoPermissionToReconfigureOtherVpns() bool {
+	return !s._preferences.PermissionReconfigureOtherVPNs && s.backendConnectivityCheckBad.Load()
 }
 
 // IsDaemonShuttingDown implements protocol.Service.
@@ -766,7 +775,7 @@ func (s *Service) Pause(durationSeconds uint32) error {
 	s._pause._mutex.Lock()
 	defer s._pause._mutex.Unlock()
 
-	fwStatus, err := s.KillSwitchState()
+	fwStatus, err := s.KillSwitchState(false)
 	if err != nil {
 		return fmt.Errorf("failed to check KillSwitch status: %w", err)
 	}
@@ -885,7 +894,7 @@ func (s *Service) resume() error {
 		return err
 	}
 
-	fwStatus, err := s.KillSwitchState()
+	fwStatus, err := s.KillSwitchState(false)
 	if err != nil {
 		log.Error(fmt.Errorf("failed to check KillSwitch status: %w", err))
 	} else {
@@ -1200,15 +1209,17 @@ func (s *Service) SetKillSwitchState(isEnabled, canReconfigureOtherVpns bool) er
 }
 
 // KillSwitchState returns kill-switch state
-func (s *Service) KillSwitchState() (status types.KillSwitchStatus, retErr error) {
+func (s *Service) KillSwitchState(forceReportBadVpnCoexistenceOnce bool) (status types.KillSwitchStatus, retErr error) {
 	prefs := s._preferences
 	enabled, isLanAllowed, _, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err := firewall.GetState()
 	if err != nil {
 		retErr = log.ErrorFE("error firewall.GetState(): %w", err)
 	}
 
-	// If connection not connected yet, and other reconfigurable VPNs detected - report VPN coex as bad. This condition may be up only during connection attempt.
-	if s.otherVpnsDetectedDuringIncompleteConnectionAttempt() {
+	// override logic - where were report VPN Coexistence to UI as bad unconditionally, so that UI will show FAILED|Fix
+	if forceReportBadVpnCoexistenceOnce || // manual override by callers
+		s.otherVpnsDetectedDuringIncompleteConnectionAttempt() || // or if we're connecting, but can't connect, and other reconfigurable VPNs detected - report VPN coex as bad (This condition may be up only during connection attempt)
+		s.badConnectivityWhileConnectedAndNoPermissionToReconfigureOtherVpns() { // or if CONNECTED, and connectivity detected as bad, and daemon doesn't have permission stored to reconfig other VPNs automatically
 		weHaveTopFirewallPriority = false
 	}
 
