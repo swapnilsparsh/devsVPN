@@ -453,8 +453,10 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 		return lowestRecommendedMTU, log.ErrorFE("error - daemon is stopping")
 	}
 
-	// Before entering critical section - check whether the last detection timestamp is too old.
-	// (If it's zero - it means detection wasn't run yet since the daemon start.
+	reDetectOtherVpnsImplMutex.Lock() // single-instance function
+	defer reDetectOtherVpnsImplMutex.Unlock()
+
+	// Before grabbing other mutexes - check whether the last detection timestamp is too old. (If it's zero - it means detection wasn't run yet since the daemon start.
 	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < VPN_REDETECT_PERIOD { // if the timestamp is fresh
 		return lowestRecommendedMTU, nil
 	} // else we have to re-detect
