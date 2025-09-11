@@ -903,7 +903,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 						connectRoutinesWaiter.Add(1)
 						go func(chbm *srvhelpers.ServiceBackgroundMonitor) {
 							defer func() {
-								log.Debug("forking chbm.StopServiceBackgroundMonitor() from 'Finally start the connectivityHealthchecksBackgroundMonitor' block")
+								// log.Debug("forking chbm.StopServiceBackgroundMonitor() from 'Finally start the connectivityHealthchecksBackgroundMonitor' block")
 								go chbm.StopServiceBackgroundMonitor() // async
 								connectRoutinesWaiter.Done()
 							}()

@@ -708,7 +708,7 @@ func (s *Service) disconnect() error {
 
 	// stop all service background monitors 1st thing - as the iptables-legacy one is prone to lengthy timeouts (2-3min) on xtables lock
 	for _, serviceBackgroundMonitor := range s.listAllServiceBackgroundMonitors() {
-		log.Debug("forking StopServiceBackgroundMonitor() for '", serviceBackgroundMonitor.MonitorName, "' from disconnect()")
+		// log.Debug("forking StopServiceBackgroundMonitor() for '", serviceBackgroundMonitor.MonitorName, "' from disconnect()")
 		go serviceBackgroundMonitor.StopServiceBackgroundMonitor() // async, as iptables-legacy one sleeps for 5s between each polling loop iteration
 	}
 
