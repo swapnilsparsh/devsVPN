@@ -459,8 +459,6 @@ func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected 
 	return !weHaveTopFirewallPriority || !otherVpnsInstalledWithCliPresent.IsEmpty(), otherVpnNamesSet.ToSlice(), nil
 }
 
-var reDetectOtherVpnsImplMutex sync.Mutex
-
 // reDetectOtherVpnsImpl - re-detect the other VPNs present (by interface name and by CLI), and optionally adjust the current MTU accordingly.
 // If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
 // Else it will run re-detection only if the previous detection data is older than 5 seconds.
@@ -470,17 +468,17 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, _, _, ca
 		return 0, log.ErrorFE("error - daemon is stopping")
 	}
 
-	reDetectOtherVpnsImplMutex.Lock()
+	reDetectOtherVpnsImplMutex.Lock() // single-instance function
 	defer reDetectOtherVpnsImplMutex.Unlock()
-	log.Debugf("reDetectOtherVpnsImpl entered. forceRedetection=%t, detectOnlyByInterfaceName=%t, canReconfigureOtherVpns=%t, PermissionReconfigureOtherVPNs=%t",
-		forceRedetection, detectOnlyByInterfaceName, canReconfigureOtherVpns, getPrefsCallback().PermissionReconfigureOtherVPNs)
 
 	// Check whether the last detection timestamp is too old. (If it's zero - it means detection wasn't run yet since the daemon start.
 	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < VPN_REDETECT_PERIOD { // if the timestamp is fresh
-		log.Debug("reDetectOtherVpnsImpl exited early")
+		// log.Debug("reDetectOtherVpnsImpl exited early")
 		return 0, nil
 	} // else we have to re-detect
-	// log.LogCallStack() // to figure out who called us
+
+	log.Debugf("reDetectOtherVpnsImpl entered. forceRedetection=%t, detectOnlyByInterfaceName=%t, canReconfigureOtherVpns=%t, PermissionReconfigureOtherVPNs=%t",
+		forceRedetection, detectOnlyByInterfaceName, canReconfigureOtherVpns, getPrefsCallback().PermissionReconfigureOtherVPNs)
 	defer log.Debug("reDetectOtherVpnsImpl exited - redetected")
 
 	var reDetectOtherVpnsWaiter sync.WaitGroup

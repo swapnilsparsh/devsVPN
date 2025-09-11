@@ -54,6 +54,8 @@ var (
 	commonStatusConnectedRE    = regexp.MustCompile("^Connect(ed|ing)([^a-zA-Z0-9]|$)") // must be 1st line
 	commonStatusDisconnectedRE = regexp.MustCompile("^Disconnected([^a-zA-Z0-9]|$)")
 
+	reDetectOtherVpnsImplMutex sync.Mutex
+
 	// Must contain all the other VPNs profiles, initialized in platform-specific init()
 	knownOtherVpnProfiles = []*OtherVpnInfo{}
 
