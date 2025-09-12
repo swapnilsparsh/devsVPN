@@ -54,7 +54,7 @@ func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 	if !s._vpnConnectedCallback() { // only apply recovery logic if VPN is still CONNECTED; else we may hit a race condition
 		s.backendConnectivityCheckPhase = PHASE0_CLEAN // ... if a disconnect request was received while we were waiting for the REST API call in s.CheckBackendConnectivity()
 		s.backendConnectivityCheckBad.Store(false)
-		// go s._evtReceiver.OnKillSwitchStateChanged(true) // update VPN Coexistence state in UI - else it may get stuck with stale state
+		go s._evtReceiver.OnKillSwitchStateChanged(false) // update VPN Coexistence state in UI - else it may get stuck with stale state
 		return nil
 	}
 
@@ -64,6 +64,8 @@ func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 	if !prevConnectivityStateWasBad { // if we switched from good connectivity state to bad state - send VPN Coexistence update to UI once
 		go s._evtReceiver.OnKillSwitchStateChanged(true) // update VPN Coexistence state in UI - else it may get stuck with stale state
 		notificationsAfterReconnect = 0                  // reset the count of client notifications
+	} else {
+		go s._evtReceiver.OnKillSwitchStateChanged(false) // update VPN Coexistence state in UI - else it may get stuck with stale state
 	}
 	go s._evtReceiver.NotifyClientsVpnConnecting() // make the clients show VPN CONNECTING state
 
