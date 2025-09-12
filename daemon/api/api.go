@@ -987,7 +987,7 @@ func (a *API) newRageshakeRequest(params map[string]string, filesToAttach []stri
 		fi, err := os.Stat(fileToAttach)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				log.Warn("logfile `" + fileToAttach + "` does not exist - skipping")
+				log.Warning("logfile `" + fileToAttach + "` does not exist - skipping")
 				continue
 			} else {
 				return nil, log.ErrorFE("error os.Stat(%s): %w", fileToAttach, err)

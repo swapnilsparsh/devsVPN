@@ -207,7 +207,7 @@ func (s *Service) PingInternalApiHosts() (success bool, err error) {
 	defer s._pingInternalApiHosts._singleRequestLimitMutex.Unlock()
 
 	if !s._vpnConnectedCallback() { // if VPN is not connected, it's probably due to either another thread reconnecting, or disconnect in progress - return true.
-		log.Warn("warning - VPN is not connected, so not pinging API hosts")
+		log.Warning("warning - VPN is not connected, so not pinging API hosts")
 		return true, nil
 	}
 
@@ -216,7 +216,7 @@ func (s *Service) PingInternalApiHosts() (success bool, err error) {
 		log.ErrorFE("error checking firewall state: %w", fwErr)
 		return true, nil
 	} else if !fwEnabled {
-		log.Warn("warning - firewall not enabled, not enabling it here, not pinging API hosts")
+		log.Warning("warning - firewall not enabled, not enabling it here, not pinging API hosts")
 		return true, nil
 	}
 

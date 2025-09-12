@@ -1211,7 +1211,7 @@ func (s *Service) SetKillSwitchState(isEnabled, canReconfigureOtherVpns bool) er
 // KillSwitchState returns kill-switch state
 func (s *Service) KillSwitchState(logState bool) (status types.KillSwitchStatus, retErr error) {
 	prefs := s._preferences
-	isEnabled, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err := firewall.GetState(false)
+	isEnabled, stateAllowLan, _, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err := firewall.GetState(false)
 	if err != nil {
 		retErr = log.ErrorFE("error firewall.GetState(): %w", err)
 	}
@@ -1253,8 +1253,8 @@ func (s *Service) KillSwitchState(logState bool) (status types.KillSwitchStatus,
 	}
 
 	if logState {
-		log.Infof("KillSwitchState: isEnabled:%t topFirewallPri:%t otherVpnName:%s otherVpnsDetected:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t",
-			isEnabled, weHaveTopFirewallPriority, otherVpnName, _status.ReconfigurableOtherVpnsDetected, stateAllowLan, stateAllowLanMulticast, firewall.TotalShieldDeployedState())
+		log.Infof("KillSwitchState: isEnabled:%t topFirewallPri:%t otherVpnName:%s otherVpnsDetected:%t totalShieldDeployed:%t",
+			isEnabled, weHaveTopFirewallPriority, otherVpnName, _status.ReconfigurableOtherVpnsDetected, firewall.TotalShieldDeployedState())
 	}
 
 	return _status, retErr

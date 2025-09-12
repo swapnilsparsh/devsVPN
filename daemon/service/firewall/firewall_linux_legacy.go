@@ -606,10 +606,10 @@ func doDisableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 
 	// delete our chains
 	if err := vpnCoexLegacyIn.DeleteChain(); err != nil {
-		log.Warn(fmt.Errorf("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_IN, err)) // and continue
+		log.Warning(fmt.Errorf("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_IN, err)) // and continue
 	}
 	if err := vpnCoexLegacyOut.DeleteChain(); err != nil {
-		log.Warn(fmt.Errorf("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_OUT, err)) // and continue
+		log.Warning(fmt.Errorf("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_OUT, err)) // and continue
 	}
 
 	return nil
