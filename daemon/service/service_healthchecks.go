@@ -31,10 +31,6 @@ var (
 
 // 2-phase approach: reconfig firewall, then disconnect / disable Total Shield / reconnect
 func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
-	defer func() {
-		go s._evtReceiver.OnKillSwitchStateChanged(false) // update VPN Coexistence state in UI - else it may get stuck with stale "FAILED | Fix" status
-	}()
-
 	if s.IsDaemonStopping() {
 		log.ErrorFE("error - daemon is stopping")
 		s.backendConnectivityCheckPhase = PHASE0_CLEAN
@@ -47,6 +43,7 @@ func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 		s.backendConnectivityCheckBad.Store(false)
 		if notificationsAfterReconnect < MAX_CLIENT_NOTIFICATIONS {
 			go s._evtReceiver.OnVpnStateChanged_ProcessSavedState() // notify clients abt the actual VPN state - presumably that it's connected; at most 2 notifications
+			go s._evtReceiver.OnKillSwitchStateChanged(true)        // update VPN Coexistence state in UI - else it may get stuck with stale state
 			notificationsAfterReconnect++
 		}
 		return nil
@@ -57,12 +54,17 @@ func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 	if !s._vpnConnectedCallback() { // only apply recovery logic if VPN is still CONNECTED; else we may hit a race condition
 		s.backendConnectivityCheckPhase = PHASE0_CLEAN // ... if a disconnect request was received while we were waiting for the REST API call in s.CheckBackendConnectivity()
 		s.backendConnectivityCheckBad.Store(false)
+		// go s._evtReceiver.OnKillSwitchStateChanged(true) // update VPN Coexistence state in UI - else it may get stuck with stale state
 		return nil
 	}
 
 	// by now we know that backend resources are not reachable, and VPN was just checked to be CONNECTED
+	prevConnectivityStateWasBad := s.backendConnectivityCheckBad.Load()
 	s.backendConnectivityCheckBad.Store(true)
-	notificationsAfterReconnect = 0                // reset the count of client notifications
+	if !prevConnectivityStateWasBad { // if we switched from good connectivity state to bad state - send VPN Coexistence update to UI once
+		go s._evtReceiver.OnKillSwitchStateChanged(true) // update VPN Coexistence state in UI - else it may get stuck with stale state
+		notificationsAfterReconnect = 0                  // reset the count of client notifications
+	}
 	go s._evtReceiver.NotifyClientsVpnConnecting() // make the clients show VPN CONNECTING state
 
 	if !s._preferences.PermissionReconfigureOtherVPNs { // if we don't have permission stored - (a) if other VPNs detected, then show FAILED|Fix in UI, and (b) do nothing ourselves, no correction steps
