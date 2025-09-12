@@ -793,7 +793,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 					defer s._evtReceiver.OnVpnStateChanged_ProcessSavedState()
 
 					log.Info(fmt.Sprintf("State: %v", state))
-					go s._evtReceiver.OnKillSwitchStateChanged() // re-notify clients abt VPN coexistence status on state change
+					go s._evtReceiver.OnKillSwitchStateChanged(true) // re-notify clients abt VPN coexistence status on state change
 
 					// internally process VPN state change
 					switch state.State {
@@ -979,7 +979,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 	// Check that firewall is enabled (this check necessary only on Windows)
 	if runtime.GOOS == "windows" {
-		if killSwitchState, err := s.KillSwitchState(); err != nil {
+		if killSwitchState, err := s.KillSwitchState(true); err != nil {
 			return log.ErrorFE("error checking firewall status: %w", err)
 		} else if !killSwitchState.IsEnabled {
 			return log.ErrorE(errors.New("error - firewall must be enabled by now"), 0)
@@ -1326,7 +1326,7 @@ func (s *Service) connectionAttemptTimeoutMonitor() {
 			if !alreadyEstablishedConnection && !s.connectAttemptTimeout2Reached_CancelledConnectionAttempt { // if didn't establish connection yet and didn't reach the last deadline(s) yet
 				secondsWaited = secondsWaited + 1
 
-				if secondsWaited > CONNECT_ATTEMPT_TIMEOUT2_DISCONNECT { // if waited 45 sec - cancel the connection attempt
+				if secondsWaited > CONNECT_ATTEMPT_TIMEOUT2_DISCONNECT { // if waited 30 sec - cancel the connection attempt
 					s.connectAttemptTimeout2Reached_CancelledConnectionAttempt = true
 					log.Error("Connection attempt timed out after waiting for ", CONNECT_ATTEMPT_TIMEOUT2_DISCONNECT, " seconds - disconnecting")
 					go s.Disconnect() // Fork a disconnect request. TODO: Vlad - when CHR HA support is implemented, switch to another server instead
@@ -1337,7 +1337,7 @@ func (s *Service) connectionAttemptTimeoutMonitor() {
 					} else if otherVpnsDetected { // other VPNs detected - re-notify clients that we don't have top firewall priority, need permission to reconfigure
 						// Mark vpn coexistence state in service as bad, to keep on reporting it as bad to UI - to override re-detection by other monitors.
 						s.connectAttemptTimeout1Reached_OtherVpnsDetected.Store(true)
-						go s._evtReceiver.OnKillSwitchStateChanged() // show on UI that connectivity is blocked, and show Fix button
+						go s._evtReceiver.OnKillSwitchStateChanged(true) // show on UI that connectivity is blocked, and show Fix button
 					}
 				}
 			}
@@ -1361,5 +1361,5 @@ func (s *Service) connectionAttemptTimeoutMonitor_resetState() {
 
 	// clear VPN coexistence bad state and update UI
 	s.connectAttemptTimeout1Reached_OtherVpnsDetected.Store(false)
-	go s._evtReceiver.OnKillSwitchStateChanged()
+	go s._evtReceiver.OnKillSwitchStateChanged(true)
 }

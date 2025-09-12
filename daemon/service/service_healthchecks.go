@@ -32,7 +32,7 @@ var (
 // 2-phase approach: reconfig firewall, then disconnect / disable Total Shield / reconnect
 func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 	defer func() {
-		go s._evtReceiver.OnKillSwitchStateChanged() // update VPN Coexistence state in UI - else it may get stuck with stale "FAILED | Fix" status
+		go s._evtReceiver.OnKillSwitchStateChanged(false) // update VPN Coexistence state in UI - else it may get stuck with stale "FAILED | Fix" status
 	}()
 
 	if s.IsDaemonStopping() {
@@ -118,8 +118,8 @@ func (s *Service) connectivityHealthchecksBackgroundMonitor() {
 		select {
 		case <-s.stopPollingConnectivityHealthchecks:
 			log.Debug("connectivityHealthchecksBackgroundMonitor exiting on stop signal")
-			s.backendConnectivityCheckBad.Store(false)   // reset connectivity check state to good on reconnect or disconnect
-			go s._evtReceiver.OnKillSwitchStateChanged() // and reflect that in UI
+			s.backendConnectivityCheckBad.Store(false)       // reset connectivity check state to good on reconnect or disconnect
+			go s._evtReceiver.OnKillSwitchStateChanged(true) // and reflect that in UI
 			return
 		default: // no message received
 			if s.IsDaemonStopping() {

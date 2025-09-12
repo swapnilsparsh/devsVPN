@@ -41,7 +41,7 @@ import (
 var log *logger.Logger
 
 type DisableTotalShieldAsyncCallback func()
-type OnKillSwitchStateChangedCallback func()
+type OnKillSwitchStateChangedCallback func(bool)
 type GetRestApiHostsCallback func() (restApiHosts []*helpers.HostnameAndIP)
 
 func init() {
@@ -223,7 +223,7 @@ func GetEnabledNoLogs() (isEnabled bool, err error) {
 	return _getEnabledHelper(false, false)
 }
 
-func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
+func GetState(logState bool) (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -235,7 +235,9 @@ func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFire
 		log.ErrorFE("error checking whether we have top firewall priority: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t", isEnabled, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast, TotalShieldDeployedState()))
+	if logState {
+		log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t", isEnabled, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast, TotalShieldDeployedState()))
+	}
 
 	return isEnabled, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err
 }

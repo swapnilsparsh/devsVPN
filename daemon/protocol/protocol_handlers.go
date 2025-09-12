@@ -56,7 +56,7 @@ var OnKillSwitchStateChangedMutex sync.Mutex
 
 // OnKillSwitchStateChanged - Firewall change handler. Single-instance.
 // If forceReportBadVpnCoexistenceOnce==true, then UI will show VPN Coexistence status as bad - once. It can be overridden by other monitor threads.
-func (p *Protocol) OnKillSwitchStateChanged() {
+func (p *Protocol) OnKillSwitchStateChanged(logState bool) {
 	OnKillSwitchStateChangedMutex.Lock() // single instance.
 	defer OnKillSwitchStateChangedMutex.Unlock()
 	// log.Debug("OnKillSwitchStateChanged(): forceReportBadVpnCoexistenceOnce=", forceReportBadVpnCoexistenceOnce)
@@ -66,7 +66,7 @@ func (p *Protocol) OnKillSwitchStateChanged() {
 	}
 
 	// notify all clients about KillSwitch status
-	if status, err := p._service.KillSwitchState(); err != nil {
+	if status, err := p._service.KillSwitchState(logState); err != nil {
 		log.ErrorFE("error in p._service.KillSwitchState(): %w", err)
 	} else {
 		p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})

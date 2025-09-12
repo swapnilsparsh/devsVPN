@@ -775,7 +775,7 @@ func (s *Service) Pause(durationSeconds uint32) error {
 	s._pause._mutex.Lock()
 	defer s._pause._mutex.Unlock()
 
-	fwStatus, err := s.KillSwitchState()
+	fwStatus, err := s.KillSwitchState(true)
 	if err != nil {
 		return fmt.Errorf("failed to check KillSwitch status: %w", err)
 	}
@@ -894,7 +894,7 @@ func (s *Service) resume() error {
 		return err
 	}
 
-	fwStatus, err := s.KillSwitchState()
+	fwStatus, err := s.KillSwitchState(true)
 	if err != nil {
 		log.Error(fmt.Errorf("failed to check KillSwitch status: %w", err))
 	} else {
@@ -1166,8 +1166,8 @@ func (s *Service) getAntiTrackerInfo(dnsVal dns.DnsSettings) (types.AntiTrackerM
 // ////////////////////////////////////////////////////////
 // KillSwitch
 // ////////////////////////////////////////////////////////
-func (s *Service) onKillSwitchStateChanged() {
-	s._evtReceiver.OnKillSwitchStateChanged()
+func (s *Service) onKillSwitchStateChanged(logState bool) {
+	s._evtReceiver.OnKillSwitchStateChanged(logState)
 
 	// check if we need try to update account info
 	if s._isNeedToUpdateSessionInfo {
@@ -1194,7 +1194,7 @@ func (s *Service) SetKillSwitchState(isEnabled, canReconfigureOtherVpns bool) er
 
 	err := firewall.SetEnabled(isEnabled, canReconfigureOtherVpns)
 	if err == nil {
-		s.onKillSwitchStateChanged()
+		s.onKillSwitchStateChanged(true)
 		// If no any clients connected - connection notification will not be passed to user
 		// In this case we are trying to save info message into system log
 		if !s._evtReceiver.IsClientConnected(false) {
@@ -1209,9 +1209,9 @@ func (s *Service) SetKillSwitchState(isEnabled, canReconfigureOtherVpns bool) er
 }
 
 // KillSwitchState returns kill-switch state
-func (s *Service) KillSwitchState() (status types.KillSwitchStatus, retErr error) {
+func (s *Service) KillSwitchState(logState bool) (status types.KillSwitchStatus, retErr error) {
 	prefs := s._preferences
-	enabled, isLanAllowed, _, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err := firewall.GetState()
+	enabled, isLanAllowed, _, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err := firewall.GetState(logState)
 	if err != nil {
 		retErr = log.ErrorFE("error firewall.GetState(): %w", err)
 	}
@@ -1275,7 +1275,7 @@ func (s *Service) SetKillSwitchIsPersistent(isPersistent bool) error {
 
 	err := firewall.SetPersistent(isPersistent)
 	if err == nil {
-		s.onKillSwitchStateChanged()
+		s.onKillSwitchStateChanged(true)
 	}
 	return err
 }
@@ -1298,7 +1298,7 @@ func (s *Service) setKillSwitchAllowLAN(isAllowLan bool, isAllowLanMulticast boo
 
 	err := s.applyKillSwitchAllowLAN(nil)
 	if err == nil {
-		s.onKillSwitchStateChanged()
+		s.onKillSwitchStateChanged(true)
 	}
 	return err
 }
@@ -1378,7 +1378,7 @@ func (s *Service) SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error {
 	prefs := s._preferences
 	prefs.IsFwAllowApiServers = isAllowAPIServers
 	s.setPreferences(prefs)
-	s.onKillSwitchStateChanged()
+	s.onKillSwitchStateChanged(true)
 	s.updateAPIAddrInFWExceptions()
 	return nil
 }
@@ -1393,7 +1393,7 @@ func (s *Service) SetKillSwitchUserExceptions(exceptions string, ignoreParsingEr
 
 	err := firewall.SetUserExceptions(exceptions, ignoreParsingErrors)
 	if err == nil {
-		s.onKillSwitchStateChanged()
+		s.onKillSwitchStateChanged(true)
 	}
 	return err
 }
