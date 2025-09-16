@@ -45,8 +45,10 @@ type otherVpnCliCmds struct {
 	cmdAddAllowlistOption    []string // used for NordVPN on Linux
 	cmdRemoveAllowlistOption []string // used for NordVPN on Linux
 
-	cmdLockdownMode []string // used by Mullvad on Linux, Windows
-	cmdAllowLan     []string // used by ExpressVPN on Linux, and by Mullvad on Linux, Windows
+	disconnectBeforeCmdLockdown bool     // Used by ExpressVPN on Windows
+	cmdLockdownMode             []string // used by Mullvad on Linux, Windows
+
+	cmdAllowLan []string // used by ExpressVPN on Linux, and by Mullvad on Linux, Windows
 }
 
 var (
@@ -101,6 +103,10 @@ type OtherVpnInfo struct {
 
 // CheckVpnConnectedConnecting checks whether other VPN was connected by running its CLI. Logic is common to Windows and Linux.
 func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, retErr error) {
+	defer func() {
+		otherVpn.isConnectedConnecting = isConnected
+	}()
+
 	if len(otherVpn.networkInterfaceNames) > 0 { // check by interface name 1st, whether one of their interfaces exists
 		for _, ifaceName := range otherVpn.networkInterfaceNames {
 			if _, err := net.InterfaceByName(ifaceName); err == nil {
@@ -120,7 +126,6 @@ func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, r
 		otherVpnCli = otherVpn.cli
 	}
 
-	_isConnected := false
 	const maxErrBufSize int = 1024
 	strErr := strings.Builder{}
 	outProcessFunc := func(text string, isError bool) {
@@ -134,7 +139,8 @@ func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, r
 			strErr.WriteString(text)
 		} else {
 			if otherVpn.cliCmds.statusConnectedRE.MatchString(text) {
-				_isConnected = true
+				isConnected = true
+				log.Debugf("%s is connected", otherVpn.name)
 			}
 		}
 	}
@@ -143,8 +149,7 @@ func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, r
 		return false, log.ErrorFE("error matching '%s': %s", otherVpn.cliCmds.statusConnectedRE, strErr.String())
 	}
 
-	otherVpn.isConnectedConnecting = _isConnected
-	return otherVpn.isConnectedConnecting, nil
+	return isConnected, nil
 }
 
 func BestWireguardMtuForConditions() (recommendedMTU int, retErr error) {

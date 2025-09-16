@@ -40,7 +40,8 @@ var (
 
 	ZeroGUID = syscall.GUID{}
 
-	ProgramFilesResolved = "" // env var expansion for %ProgramFiles%, or "" if there's an error resolving %ProgramFiles%
+	ProgramFilesResolved    = "" // env var expansion for %ProgramFiles%, or "" if there's an error resolving %ProgramFiles%
+	ProgramFilesX86Resolved = "" // env var expansion for %ProgramFiles(x86)%, or "" if there's an error resolving %ProgramFiles(x86)%
 
 	// blacklist of words that can't be brand name candidates
 	// Vlad - don't stop services whose name starts with "Wireguard", because we don't want to kill our own connection, lol
@@ -106,6 +107,33 @@ var (
 		},
 	}
 
+	// ExpressVPN
+	// no high-pri WFP sublayer apparently
+	expressVpnProfile = OtherVpnInfo{
+		name:       "ExpressVPN",
+		namePrefix: "expressvpn",
+
+		// When PL Total Shield on, ExpressVPN itself can't connect, of course.
+		// But PL Connect stays connected, VPN coex logic shakes out, may disable Total Shield automatically.
+		//incompatWithTotalShieldWhenConnected: true,
+
+		cliPathResolved: "ProgramFilesX86/ExpressVPN/services/ExpressVPN.CLI.exe",
+		cliCmds: otherVpnCliCmds{
+			cmdStatus:               "status",
+			checkCliConnectedStatus: true,
+			statusConnectedRE:       regexp.MustCompile("^Connect(ed|ing)"), // must be 1st line
+			statusDisconnectedRE:    regexp.MustCompile("^Not connected"),
+
+			cmdConnect:    "connect",
+			cmdDisconnect: "disconnect",
+
+			// Will run disconnect command for ExpressVPN unconditionally, whether connected or not.
+			// This will shake ExpressVPN out of lockdown mode, if it's gotten into it.
+			disconnectBeforeCmdLockdown: true,
+			cmdLockdownMode:             []string{"network_lock", "off"},
+		},
+	}
+
 	// Static index (DB) of other VPNs by sublayer key
 	otherVpnsBySublayerGUID = map[syscall.GUID]*OtherVpnInfo{
 		mullvadSublayerKey:              &mullvadProfile,
@@ -130,18 +158,29 @@ func init() {
 		log.Warning("error resolving %ProgramFiles% environment variable")
 	}
 
-	knownOtherVpnProfiles = []*OtherVpnInfo{&nordVpnProfile, &mullvadProfile}
+	if ProgramFilesX86Resolved = os.Getenv("ProgramFiles(x86)"); len(ProgramFilesX86Resolved) <= 0 {
+		log.Warning("error resolving %ProgramFiles(x86)% environment variable")
+	}
+
+	knownOtherVpnProfiles = []*OtherVpnInfo{&nordVpnProfile, &mullvadProfile, &expressVpnProfile}
 
 	for _, otherVpn := range knownOtherVpnProfiles {
 		// Index (DB) of other VPNs by name, must be initialized in init() to avoid initialization cycles
 		otherVpnsByName[otherVpn.name] = otherVpn
 
-		if len(ProgramFilesResolved) > 0 && len(otherVpn.cliPathResolved) > 0 {
-			otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "ProgramFiles", ProgramFilesResolved)
-			otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "/", "\\")
-
-			otherVpnsByCLI[otherVpn.cliPathResolved] = otherVpn
+		if len(otherVpn.cliPathResolved) <= 0 {
+			continue
 		}
+
+		if len(ProgramFilesX86Resolved) > 0 {
+			otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "ProgramFilesX86", ProgramFilesX86Resolved)
+		}
+		if len(ProgramFilesResolved) > 0 {
+			otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "ProgramFiles", ProgramFilesResolved)
+		}
+		otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "/", "\\")
+
+		otherVpnsByCLI[otherVpn.cliPathResolved] = otherVpn
 	}
 }
 
@@ -398,38 +437,59 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 	log.Debug("runVpnCliCommands() started for " + otherVpn.name)
 	defer log.Debug("runVpnCliCommands() ended for " + otherVpn.name)
 
-	if len(otherVpn.cliCmds.cmdLockdownMode) > 0 {
-		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdLockdownMode...); retErr != nil {
+	var otherVpnConnected bool // when needed, check whether other VPN is connected
+	if otherVpn.incompatWithTotalShieldWhenConnected || otherVpn.cliCmds.disconnectBeforeCmdLockdown {
+		var err error
+		if otherVpnConnected, err = otherVpn.CheckVpnConnectedConnecting(); err != nil {
+			log.ErrorFE("error checking whether other VPN '%s' is connected: %w", otherVpn.name, err)
+		}
+	}
+
+	//otherVpnConnected
+	if len(otherVpn.cliCmds.cmdLockdownMode) > 0 { // disable lockdown (killswitch) for other VPN
+		if otherVpn.cliCmds.disconnectBeforeCmdLockdown { // if we need to disconnect the other VPN before disabling its lockdown
+			if err := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdDisconnect); err != nil { // run disconnect cmd for other VPN unconditionally
+				log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdDisconnect, otherVpn.name, err)
+			}
+
+			if otherVpnConnected { // if the other VPN was connected, then schedule async reconnect on function exit
+				defer func() {
+					go func() {
+						if err := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdConnect); err != nil {
+							log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdConnect, otherVpn.name, err)
+						}
+					}()
+				}()
+			}
+		}
+
+		if retErr = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdLockdownMode...); retErr != nil {
 			retErr = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdLockdownMode, otherVpn.name, retErr)
 		}
 	}
 
 	if len(otherVpn.cliCmds.cmdAllowLan) > 0 {
-		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); retErr != nil {
+		if retErr = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); retErr != nil {
 			retErr = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdAllowLan, otherVpn.name, retErr)
 		}
 	}
 
 	if len(otherVpn.cliCmds.cmdEnableSplitTun) > 0 {
-		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
+		if retErr = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
 			retErr = log.ErrorFE("error enabling Split Tunnel in other VPN '%s': %w", otherVpn.name, retErr) // and continue
 		}
 
 		for _, svcExe := range platform.PLServiceBinariesToAddToOtherVpnSplitTunnel() {
 			cmdWhitelistOurSvcExe := append(otherVpn.cliCmds.cmdAddOurBinaryPathToSplitTunWhitelist, svcExe)
-			if retErr := shell.Exec(log, otherVpn.cliPathResolved, cmdWhitelistOurSvcExe...); retErr != nil {
+			if retErr = shell.Exec(log, otherVpn.cliPathResolved, cmdWhitelistOurSvcExe...); retErr != nil {
 				retErr = log.ErrorFE("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, otherVpn.name, retErr) // and continue
 			}
 		}
 	}
 
-	if otherVpn.incompatWithTotalShieldWhenConnected && getPrefsCallback().IsTotalShieldOn {
-		if _, err := otherVpn.CheckVpnConnectedConnecting(); err != nil {
-			log.ErrorFE("error in otherVpn.CheckVpnConnected(): %w", err) // and continue
-		} else if otherVpn.isConnectedConnecting {
-			log.Warning("When other VPN '", otherVpn.name, "' is connected/connecting - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
-			go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
-		}
+	if otherVpn.incompatWithTotalShieldWhenConnected && otherVpnConnected && getPrefsCallback().IsTotalShieldOn {
+		log.Warning("When other VPN '", otherVpn.name, "' is connected/connecting - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
+		go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
 	}
 
 	// if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdConnect); retErr != nil {
