@@ -1352,6 +1352,9 @@ func doDisableNft(fwLinuxNftablesMutexGrabbed bool) (err error) {
 }
 
 func implOnChangeDnsNft(newDnsServers *[]net.IP) (err error) { // by now we know customDNS is non-null; just add it to privateLINE_DNS set
+	// log.Debug("implOnChangeDnsNft entered")
+	// defer log.Debug("implOnChangeDnsNft exited")
+
 	fwLinuxNftablesMutex.Lock()
 	defer fwLinuxNftablesMutex.Unlock()
 

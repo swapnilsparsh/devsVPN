@@ -46,12 +46,12 @@ var (
 
 	// Sets of names of other VPNs detected, and whether they change nftables and/or iptables-legacy
 
-	// !!! to avoid deadlocks, always acquire the mutexes in the same order:
-	//	otherVpnsNftMutex 1st
-	//	otherVpnsLegacyMutex 2nd
-	//	DisableCoexistenceWithOtherVpnsMutex 3rd
-	OtherVpnsDetectedReconfigurableViaCli      mapset.Set[string] = mapset.NewSet[string]() // those other VPNs, which we need to reconfigure via their CLI
-	otherVpnsCliMutex                          sync.Mutex                                   // used to protect OtherVpnsDetectedReconfigurableViaCli
+	// !!! to avoid deadlocks, always acquire the mutexes in the same order, and release in reverse order:
+	//	(1) otherVpnsNftMutex
+	//	(2) otherVpnsLegacyMutex
+	//	(3) DisableCoexistenceWithOtherVpnsMutex
+	OtherVpnsDetectedReconfigurableViaCli mapset.Set[string] = mapset.NewSet[string]() // Those other VPNs, which we need to reconfigure via their CLI. Effectively protected by reDetectOtherVpnsImplMutex
+	// otherVpnsCliMutex                          sync.Mutex                                   // used to protect OtherVpnsDetectedReconfigurableViaCli
 	OtherVpnsDetectedRelevantForNftables       mapset.Set[string] = mapset.NewSet[string]()
 	otherVpnsNftMutex                          sync.Mutex         // used to protect OtherVpnsDetectedRelevantForNftables
 	OtherVpnsDetectedRelevantForIptablesLegacy mapset.Set[string] = mapset.NewSet[string]()
@@ -473,35 +473,35 @@ func tryCmdLogOnError(binPath string, args ...string) (retErr error) {
 // reDetectOtherVpnsImpl - re-detect the other VPNs present, and optionally adjust the current MTU accordingly.
 // If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
 // Else it will run re-detection only if the previous detection data is older than 5 seconds.
-func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU, otherVpnsCliMutexAlreadyGrabbed, canReconfigureOtherVpns bool) (recommendedNewMTU int, err error) {
+func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU, reDetectOtherVpnsImplMutex_alreadyGrabbed, canReconfigureOtherVpns bool) (recommendedNewMTU int, err error) {
 	if isDaemonStoppingCallback() {
 		return lowestRecommendedMTU, log.ErrorFE("error - daemon is stopping")
 	}
 
-	reDetectOtherVpnsImplMutex.Lock() // single-instance function
-	defer reDetectOtherVpnsImplMutex.Unlock()
+	if !reDetectOtherVpnsImplMutex_alreadyGrabbed { // single-instance function, but its mutex can be already grabbed by the caller
+		reDetectOtherVpnsImplMutex.Lock()
+		defer reDetectOtherVpnsImplMutex.Unlock()
+	}
 
 	// Before grabbing resource mutexes - check whether the last detection timestamp is too old. (If it's zero - it means detection wasn't run yet since the daemon start.
 	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < VPN_REDETECT_PERIOD { // if the timestamp is fresh
 		return lowestRecommendedMTU, nil
 	} // else we have to re-detect
 
-	if !otherVpnsCliMutexAlreadyGrabbed {
-		otherVpnsCliMutex.Lock()
-		defer otherVpnsCliMutex.Unlock()
-	}
+	// otherVpnsCliMutex.Lock()
+	// defer otherVpnsCliMutex.Unlock()
 	otherVpnsNftMutex.Lock()
-	otherVpnsLegacyMutex.Lock()
 	defer otherVpnsNftMutex.Unlock()
+	otherVpnsLegacyMutex.Lock()
 	defer otherVpnsLegacyMutex.Unlock()
 
 	// Now we've acquired all mutexes, we're in critical section
-	log.Debug("reDetectOtherVpnsLinux entered")
-	defer log.Debug("reDetectOtherVpnsLinux exited - redetected")
+	log.Debug("reDetectOtherVpnsImpl entered")
+	defer log.Debug("reDetectOtherVpnsImpl exited - redetected")
 
+	OtherVpnsDetectedReconfigurableViaCli.Clear()
 	OtherVpnsDetectedRelevantForNftables.Clear()
 	OtherVpnsDetectedRelevantForIptablesLegacy.Clear()
-	OtherVpnsDetectedReconfigurableViaCli.Clear()
 
 	var (
 		reDetectOtherVpnsWaiter          sync.WaitGroup
@@ -518,8 +518,8 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	// 	reDetectOtherVpnsWaiter.Add(1)
 	// 	go func() { // detect other VPNs by whether their iptables-legacy chain is present
 	// 		defer reDetectOtherVpnsWaiter.Done() // This thread tends to freeze on VPN disconnect. Console "iptables-legacy -L -nv" freezes, too.
-	// 		log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - entered")
-	// 		defer log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - exited") // this one can hang for 2-3 minutes
+	// 		log.Debug("reDetectOtherVpnsImpl iptables-legacy worker - entered")
+	// 		defer log.Debug("reDetectOtherVpnsImpl iptables-legacy worker - exited") // this one can hang for 2-3 minutes
 	// 		for _, otherVpn := range otherVpnsByLegacyChain {
 	// 			userDefinedLegacyChain := iptables.ChainTypeUserDefined
 	// 			userDefinedLegacyChain.SetName(otherVpn.iptablesLegacyChain)
@@ -542,8 +542,8 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	reDetectOtherVpnsWaiter.Add(1)
 	go func() { // detect other VPNs by active network interface name
 		defer reDetectOtherVpnsWaiter.Done()
-		// log.Debug("reDetectOtherVpnsLinux interface worker - entered")
-		// defer log.Debug("reDetectOtherVpnsLinux interface worker - exited")
+		// log.Debug("reDetectOtherVpnsImpl interface worker - entered")
+		// defer log.Debug("reDetectOtherVpnsImpl interface worker - exited")
 
 		disabledTotalShield := false
 		for otherVpnInterfaceName, otherVpn := range otherVpnsByInterfaceName {
@@ -573,8 +573,8 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 
 		go func() { // detect other VPNs by whether their nftables chain is present in table filter
 			defer reDetectOtherVpnsWaiter.Done()
-			// log.Debug("reDetectOtherVpnsLinux nftables worker - entered")
-			// defer log.Debug("reDetectOtherVpnsLinux nftables worker - exited")
+			// log.Debug("reDetectOtherVpnsImpl nftables worker - entered")
+			// defer log.Debug("reDetectOtherVpnsImpl nftables worker - exited")
 
 			if chains, err := nftConn.ListChainsOfTableFamily(TABLE_TYPE); err != nil {
 				log.ErrorFE("error listing chains: %w", err)
@@ -599,8 +599,8 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 
 		go func() { // detect other VPNs by whether their CLI is in PATH
 			defer reDetectOtherVpnsWaiter.Done()
-			// log.Debug("reDetectOtherVpnsLinux CLI worker - entered")
-			// defer log.Debug("reDetectOtherVpnsLinux CLI worker - exited")
+			// log.Debug("reDetectOtherVpnsImpl CLI worker - entered")
+			// defer log.Debug("reDetectOtherVpnsImpl CLI worker - exited")
 
 			for _, otherVpn := range otherVpnsByCLI {
 				if otherVpnCliPath, err := exec.LookPath(otherVpn.cli); err != nil || otherVpnCliPath == "" {
@@ -628,11 +628,11 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	}
 
 	reDetectOtherVpnsWaiter.Wait()
-	// log.Debug("reDetectOtherVpnsLinux: reDetectOtherVpnsWaiter.Wait() ended")
+	// log.Debug("reDetectOtherVpnsImpl: reDetectOtherVpnsWaiter.Wait() ended")
 	otherVpnsLastDetectionTimestamp = time.Now()
 
 	if !iptablesLegacyInitialized() && !OtherVpnsDetectedRelevantForIptablesLegacy.IsEmpty() { // if iptables-legacy were not initialized yet,
-		go implInitializeIptablesLegacyWhenNeeded() // and we detected VPNs that affect legacy tables - then initialize it async, it's single-instance
+		go implInitializeIptablesLegacyWhenNeeded() // ... and we detected VPNs that affect legacy tables - then initialize it async, it's single-instance
 	}
 
 	lowestRecommendedMTU = min(newRecommendedMtuByCli, newRecommendedMtuByInterface, newRecommendedMtuByLegacyChain, newRecommendedMtuByNftablesChain)
@@ -644,7 +644,7 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	var ourWgInterface netlink.Link
 	var currMtu = 0
 	if updateCurrentMTU { // if requested, update the current MTU on wgprivateline network interface
-		// log.Debug("reDetectOtherVpnsLinux about to netlink.LinkByName(", platform.WGInterfaceName(), ")")
+		// log.Debug("reDetectOtherVpnsImpl about to netlink.LinkByName(", platform.WGInterfaceName(), ")")
 		if ourWgInterface, err = netlink.LinkByName(platform.WGInterfaceName()); err == nil {
 			currMtu = ourWgInterface.Attrs().MTU
 			// log.Debug("currMtu = ", currMtu)
@@ -655,7 +655,7 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 
 	if updateCurrentMTU && currMtu != 0 { // if requested, update the current MTU on wgprivateline network interface
 		if currMtu != lowestRecommendedMTU && vpnConnectedOrConnectingCallback() { // if we have to change our current MTU
-			log.Debug("reDetectOtherVpnsLinux about to netlink.LinkSetMTU(", lowestRecommendedMTU, ") - changing from ", currMtu)
+			log.Debug("reDetectOtherVpnsImpl about to netlink.LinkSetMTU(", lowestRecommendedMTU, ") - changing from ", currMtu)
 			if err = netlink.LinkSetMTU(ourWgInterface, lowestRecommendedMTU); err != nil {
 				return lowestRecommendedMTU, log.ErrorFE("error netlink.LinkSetMTU(%d): %w", lowestRecommendedMTU, err)
 			}
@@ -709,7 +709,7 @@ func enableVpnCoexistenceLinuxNft(canReconfigureOtherVpns bool) (retErr error) {
 		return log.ErrorFE("error - daemon is stopping")
 	}
 
-	otherVpnsNftMutex.Lock() // we need to make sure reDetectOtherVpnsLinux() is not running, and that we have exclusive access to OtherVpnsDetectedRelevantForNftables
+	otherVpnsNftMutex.Lock() // we need to make sure reDetectOtherVpnsImpl() is not running, and that we have exclusive access to OtherVpnsDetectedRelevantForNftables
 	defer otherVpnsNftMutex.Unlock()
 
 	log.Debug("enableVpnCoexistenceLinuxNft entered")
@@ -824,15 +824,13 @@ func DisableCoexistenceWithOtherVpns() (retErr error) {
 }
 
 func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected bool, otherVpnNames []string, err error) {
-	otherVpnsCliMutex.Lock() // lock it here, because this func uses OtherVpnsDetectedReconfigurableViaCli after reDetectOtherVpnsImpl()
-	defer otherVpnsCliMutex.Unlock()
+	// lock the mutex protecting reDetectOtherVpnsImpl() ourselves, so that OtherVpnsDetectedReconfigurableViaCli doesn't get cleared via detectOnlyByInterfaceName==true
+	reDetectOtherVpnsImplMutex.Lock()
+	defer reDetectOtherVpnsImplMutex.Unlock()
 
 	if _, err = reDetectOtherVpnsImpl(forceRedetectOtherVpns, false, false, true, false); err != nil {
 		return false, otherVpnNames, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
 	}
-
-	// otherVpnNames = OtherVpnsDetectedRelevantForNftables.Union(OtherVpnsDetectedRelevantForIptablesLegacy).ToSlice()
-	// return !OtherVpnsDetectedRelevantForNftables.IsEmpty() || !OtherVpnsDetectedRelevantForIptablesLegacy.IsEmpty(), otherVpnNames, nil
 
 	return !OtherVpnsDetectedReconfigurableViaCli.IsEmpty(), OtherVpnsDetectedReconfigurableViaCli.ToSlice(), nil
 }
