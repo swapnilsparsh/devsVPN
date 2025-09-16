@@ -68,17 +68,17 @@
              On Linux the firewall is enabled only when connected/connecting. Thus, when disconnected on Linux -
              not possible to check VPN Coexistence state.
           -->
-        <div class="flexRow paramBlockDetailedConfig" v-if="isWindows || (isLinux && isConnectedOrConnecting)">
+        <div class="flexRow paramBlockDetailedConfig" v-if="showVpnCoex">
           <div class="defColor paramName">VPN Coexistence:</div>
           <div class="detailedParamValue">
-            <div class="failedText" v-if="!vpnCoexistenceInGoodState">
+            <div class="failedText" v-if="showVpnCoexFailed">
               <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
               FAILED
-              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()" v-if="!hasPermissionToReconfigureOtherVPNs">
+              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()" v-if="showVpnCoexFailedWithFixButton">
                 Fix
               </button>
             </div>
-            <div class="goodText" v-if="vpnCoexistenceInGoodState">GOOD</div>
+            <div class="goodText" v-if="showVpnCoexGood">GOOD</div>
           </div>
         </div>
 
@@ -178,12 +178,12 @@ export default {
       blinkTimeout: null, // Store the timeout ID to stop blinking
       blinkTimeoutReceivedSend: null, // Store the timeout ID to stop blinking
       isReceivedSendChanging: false,
-      vpnCoexistenceInGoodState: false,
+      vpnCoexistenceGood: false,
       isDevRestApiBackend: false,
     };
   },
   mounted() {
-    this.vpnCoexistenceInGoodState = this.weHaveTopFirewallPriority;
+    this.vpnCoexistenceGood = this.weHaveTopFirewallPriority;
     this.isDevRestApiBackend = this.isDevRestApiBackendStore;
 
     // Parse the timestamp
@@ -232,7 +232,7 @@ export default {
       this.checkReceivedSendChange(newValue, oldValue, "sent");
     },
     weHaveTopFirewallPriority() {
-      this.vpnCoexistenceInGoodState = this.weHaveTopFirewallPriority;
+      this.vpnCoexistenceGood = this.weHaveTopFirewallPriority;
     },
     isDevRestApiBackendStore() {
       this.isDevRestApiBackend = this.isDevRestApiBackendStore;
@@ -505,8 +505,57 @@ export default {
     isLinux: function () {
       return Platform() === PlatformEnum.Linux;
     },
+    isFirewallEnabled: function () {
+      return this.$store.state.vpnState.firewallState.IsEnabled ?? false;
+    },
     hasPermissionToReconfigureOtherVPNs: function () {
       return this.$store.state.settings?.daemonSettings?.PermissionReconfigureOtherVPNs ?? false;
+    },
+    /*
+    // Firewall is down when disconnected, both Windows & Linux
+
+    // One of the reasons for the below logic is - we don't want to show the Fix button to the user, while daemon is reconfiguring the firewall 
+    // and/or VPN coexistence. For example, when the firewall is down. This is so daemon doesn't receive repeat requests for reconfiguration.
+
+    Linux:
+      // on Linux VPN coexistence can be measured only when firewall is up,and it's up only when connected/connecting to the VPN
+      !isConnectedOrConnecting																						                                        show	nothing
+
+      isConnectedOrConnecting && isFirewallEnabled && vpnCoexistenceGood												                  show	VPN Coexistence: GOOD
+
+    Windows:
+      vpnCoexistenceGood																								                                          show	VPN Coexistence: GOOD
+
+      !isConnectedOrConnecting && !vpnCoexistenceGood && hasPermissionToReconfigureOtherVPNs						        	show	VPN Coexistence:
+      !isConnectedOrConnecting && !vpnCoexistenceGood && !hasPermissionToReconfigureOtherVPNs							        show	VPN Coexistence: FAILED | Fix
+
+    Windows and Linux, common:
+      // means that reconfiguration is in progress  
+      isConnectedOrConnecting && !isFirewallEnabled																	                              show	VPN Coexistence:
+
+      isConnectedOrConnecting && isFirewallEnabled && !vpnCoexistenceGood && hasPermissionToReconfigureOtherVPNs	show	VPN Coexistence: FAILED
+      isConnectedOrConnecting && isFirewallEnabled && !vpnCoexistenceGood && !hasPermissionToReconfigureOtherVPNs	show	VPN Coexistence: FAILED | Fix
+    */
+    showVpnCoex: function () {
+      return (this.isWindows) || (this.isLinux && this.isConnectedOrConnecting);
+    },
+    showVpnCoexGood: function () {
+      if (this.isWindows)
+        return this.vpnCoexistenceGood;
+      else if (this.isLinux)
+        return this.isConnectedOrConnecting && this.isFirewallEnabled && this.vpnCoexistenceGood;
+      else
+        return false;
+    },
+    showVpnCoexFailed: function () {
+      return this.showVpnCoexFailedWithFixButton ||
+              (this.isConnectedOrConnecting && this.isFirewallEnabled && !this.vpnCoexistenceGood);
+    },
+    showVpnCoexFailedWithFixButton: function () {
+      if (this.isWindows)
+        return !this.isConnectedOrConnecting && !this.vpnCoexistenceGood && !this.hasPermissionToReconfigureOtherVPNs;
+      else
+        return this.isConnectedOrConnecting && this.isFirewallEnabled && !this.vpnCoexistenceGood && !this.hasPermissionToReconfigureOtherVPNs;
     },
   },
 };

@@ -48,7 +48,7 @@ func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 		}
 		return nil
 	} else if err != nil {
-		retErr = log.ErrorFE("error in whileConnectedCheckConnectivityFixAsNeeded(). s.backendConnectivityCheckPhase=%d. Err: %w", s.backendConnectivityCheckPhase, err)
+		retErr = log.ErrorFE("error in CheckBackendConnectivity(). backendConnectivityCheckPhase=%d. err: %w", s.backendConnectivityCheckPhase, err)
 	}
 
 	if !s._vpnConnectedCallback() { // only apply recovery logic if VPN is still CONNECTED; else we may hit a race condition
@@ -136,7 +136,7 @@ func (s *Service) connectivityHealthchecksBackgroundMonitor() {
 			loopIteration = (loopIteration + 1) % delay
 			if loopIteration == 0 { // test connectivity only every n-th iteration - that is, once every n seconds (specific for healthchecks type)
 				if err := s.whileConnectedCheckConnectivityFixAsNeeded(); err != nil {
-					log.ErrorFE("error returned by checkConnectivityFixAsNeeded(): %w", err) // and continue
+					log.ErrorFE("error returned by whileConnectedCheckConnectivityFixAsNeeded(): %w", err) // and continue
 				}
 			}
 		}

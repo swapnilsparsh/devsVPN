@@ -26,6 +26,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -213,11 +214,10 @@ func (s *Service) PingInternalApiHosts() (success bool, err error) {
 
 	// We know the VPN is connected by now. If the firewall is disabled (for whatever reason - i.e., due to VPN reconnect or firewall redeployment being in progress) - return true.
 	if fwEnabled, fwErr := firewall.GetEnabledNoLogs(); fwErr != nil {
-		log.ErrorFE("error checking firewall state: %w", fwErr)
-		return true, nil
+		return false, log.ErrorFE("error checking firewall state: %w", fwErr)
 	} else if !fwEnabled {
 		log.Warning("warning - firewall not enabled, not enabling it here, not pinging API hosts")
-		return true, nil
+		return false, nil
 	}
 
 	startTime := time.Now()
@@ -247,7 +247,7 @@ func (s *Service) PingInternalApiHosts() (success bool, err error) {
 	resolveApiHostsInParallelWG.Wait()
 
 	if apiHostIPsToPing.Length() <= 0 {
-		return false, log.ErrorFE("error - resolving API servers doesn't yield any private IPv4 IPs")
+		return false, errors.New("error - resolving API servers doesn't yield any private IPv4 IPs")
 	}
 
 	// Return value: map[host]latency
