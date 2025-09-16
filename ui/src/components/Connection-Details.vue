@@ -64,7 +64,7 @@
         </div>
 
         <!-- On Windows show always. On Linux show unless DISCONNECTED.
-             This is because on Linux it's only possible to check VPN Coexistence state when the firewall is up. 
+             This is because on Linux it's only possible to check VPN Coexistence state when the firewall is up.
              On Linux the firewall is enabled only when connected/connecting. Thus, when disconnected on Linux -
              not possible to check VPN Coexistence state.
           -->
@@ -514,7 +514,7 @@ export default {
     /*
     // Firewall is down when disconnected, both Windows & Linux
 
-    // One of the reasons for the below logic is - we don't want to show the Fix button to the user, while daemon is reconfiguring the firewall 
+    // One of the reasons for the below logic is - we don't want to show the Fix button to the user, while daemon is reconfiguring the firewall
     // and/or VPN coexistence. For example, when the firewall is down. This is so daemon doesn't receive repeat requests for reconfiguration.
 
     Linux:
@@ -530,7 +530,7 @@ export default {
       !isConnectedOrConnecting && !vpnCoexistenceGood && !hasPermissionToReconfigureOtherVPNs							        show	VPN Coexistence: FAILED | Fix
 
     Windows and Linux, common:
-      // means that reconfiguration is in progress  
+      // means that reconfiguration is in progress
       isConnectedOrConnecting && !isFirewallEnabled																	                              show	VPN Coexistence:
 
       isConnectedOrConnecting && isFirewallEnabled && !vpnCoexistenceGood && hasPermissionToReconfigureOtherVPNs	show	VPN Coexistence: FAILED
@@ -552,10 +552,13 @@ export default {
               (this.isConnectedOrConnecting && this.isFirewallEnabled && !this.vpnCoexistenceGood);
     },
     showVpnCoexFailedWithFixButton: function () {
-      if (this.isWindows)
-        return !this.isConnectedOrConnecting && !this.vpnCoexistenceGood && !this.hasPermissionToReconfigureOtherVPNs;
-      else
-        return this.isConnectedOrConnecting && this.isFirewallEnabled && !this.vpnCoexistenceGood && !this.hasPermissionToReconfigureOtherVPNs;
+      if (!this.vpnCoexistenceGood && !this.hasPermissionToReconfigureOtherVPNs) {
+        if (this.isConnectedOrConnecting)
+          return this.isFirewallEnabled;
+        else
+          return this.isWindows;
+      }
+      return false;
     },
   },
 };
