@@ -301,6 +301,10 @@ export default {
         return "version unknown";
       }
     },
+    hasPermissionToReconfigureOtherVPNs: function () {
+      return this.$store.state.settings?.daemonSettings?.PermissionReconfigureOtherVPNs ?? false;
+    },
+
   },
   watch: {
     isCaptchaRequired() {
@@ -513,7 +517,7 @@ export default {
           if (resp.APIStatus === 200) {
             return;
           } else if (resp.APIStatus === 408) { // Connectivity to PL servers blocked. If other VPNs detected - prompt the user to reconfigure them and retry.
-            if (loginTry < 1 && resp.ReconfigurableOtherVpns && resp.ReconfigurableOtherVpns !== null && resp.ReconfigurableOtherVpns.length > 0) {
+            if (loginTry < 1 && !this.hasPermissionToReconfigureOtherVPNs && resp.ReconfigurableOtherVpns && resp.ReconfigurableOtherVpns !== null && resp.ReconfigurableOtherVpns.length > 0) {
               let ret = await sender.showMessageBox(
                 {
                   type: "warning",
@@ -522,7 +526,7 @@ export default {
                   detail:
                     `Could not connect to privateLINE servers. Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpns.toString()}` +
                     `\n\nDo you allow privateLINE to reconfigure other VPN(s) once (in order to allow privateLINE connectivity) and retry login? Press Retry to continue`,
-                  checkboxLabel: `Give PL Connect permission to reconfigure other VPNs when needed (you can disable it in Settings later)`,
+                  checkboxLabel: `Give PL Connect permission to reconfigure other VPNs automatically when needed (you can disable it in Settings later)`,
                   checkboxChecked: false,
                 },
                 true

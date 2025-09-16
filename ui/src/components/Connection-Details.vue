@@ -323,7 +323,7 @@ export default {
             buttons: ["OK", "Cancel"],
             message: "Please Confirm",
             detail: `Do you allow privateLINE to stop temporarily the other VPNs '${otherVpnsMsg}' and reconfigure them as needed for privateLINE connectivity? Press Ok to continue`,
-            checkboxLabel: `Give permission to reconfigure other VPNs when needed`,
+            checkboxLabel: `Give PL Connect permission to reconfigure other VPNs automatically when needed (you can disable it in Settings later)`,
             checkboxChecked: false,
           },
           true

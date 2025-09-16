@@ -278,7 +278,7 @@ export default {
               message: `Failed to connect`,
               detail:  capitalizeFirstLetter(failureInfo.ReasonDescription) +
                 `\n\nDo you allow privateLINE to reconfigure other VPN(s) once (in order to allow privateLINE connectivity) and retry connecting? Press Retry to continue`,
-              checkboxLabel: `Give PL Connect permission to reconfigure other VPNs when needed (you can disable it in Settings later)`,
+              checkboxLabel: `Give PL Connect permission to reconfigure other VPNs automatically when needed (you can disable it in Settings later)`,
               checkboxChecked: false,
             },
             true

@@ -76,8 +76,19 @@ var (
 
 		cli: "nordvpn", // will be checked whether it's in PATH
 		cliCmds: otherVpnCliCmds{
+			cmdStatus:               "status",
+			checkCliConnectedStatus: true,
+			statusConnectedRE:       regexp.MustCompile(`^Status:[\s]+Connect(ed|ing)`), // must be 1st line
+			statusDisconnectedRE:    regexp.MustCompile(`^Status:[\s]+Disconnected`),
+
+			cmdLockdownMode: []string{"set", "killswitch", "off"},
+			cmdFirewallMode: []string{"set", "firewall", "off"},
+
 			cmdAddAllowlistOption:    []string{"allowlist", "add", "subnet"},
 			cmdRemoveAllowlistOption: []string{"allowlist", "remove", "subnet"},
+
+			// TODO: do we also need to set PL DNS as custom DNS for NordVPN?
+			//	the command would be:	nordvpn set dns 10.0.19.2 10.0.20.2
 		},
 	}
 
@@ -125,6 +136,8 @@ var (
 			cmdAddOurBinaryPathToSplitTunWhitelist:  []string{"set", "split-app"},
 			cmdSplitTunnelOurBinaryPathPrefixAdd:    "bypass:",
 			cmdSplitTunnelOurBinaryPathPrefixRemove: "remove:", // TODO: unused for now
+
+			cmdLockdownMode: []string{"set", "networklock", "false"},
 
 			cmdAllowLan: []string{"set", "allowlan", "true"},
 		},
@@ -285,11 +298,23 @@ func commonNftablesHelper(otherVpnName string, canReconfigureOtherVpn bool) (err
 	}
 
 	canReconfigureOtherVpn = canReconfigureOtherVpn || getPrefsCallback().PermissionReconfigureOtherVPNs
+	if canReconfigureOtherVpn {
+		if len(otherVpn.cliCmds.cmdFirewallMode) > 0 { // disable firewall for other VPN
+			if err = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdFirewallMode...); err != nil {
+				err = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdFirewallMode, otherVpn.name, err)
+			}
+		}
 
-	// if the VPN has allow-LAN command registered, run it
-	if canReconfigureOtherVpn && len(otherVpn.cliCmds.cmdAllowLan) > 0 {
-		if err = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); err != nil {
-			err = log.ErrorFE("error enabling LAN (local area network access) in other VPN '%s': %w", otherVpnName, err) // and continue
+		if len(otherVpn.cliCmds.cmdLockdownMode) > 0 { // disable lockdown (killswitch) for other VPN
+			if err = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdLockdownMode...); err != nil {
+				err = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdLockdownMode, otherVpn.name, err)
+			}
+		}
+
+		if len(otherVpn.cliCmds.cmdAllowLan) > 0 { // if the VPN has allow-LAN command registered, run it
+			if err = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); err != nil {
+				err = log.ErrorFE("error enabling LAN (local area network access) in other VPN '%s': %w", otherVpnName, err) // and continue
+			}
 		}
 	}
 

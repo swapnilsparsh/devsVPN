@@ -445,7 +445,6 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 		}
 	}
 
-	//otherVpnConnected
 	if len(otherVpn.cliCmds.cmdLockdownMode) > 0 { // disable lockdown (killswitch) for other VPN
 		if otherVpn.cliCmds.disconnectBeforeCmdLockdown { // if we need to disconnect the other VPN before disabling its lockdown
 			if err := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdDisconnect); err != nil { // run disconnect cmd for other VPN unconditionally
