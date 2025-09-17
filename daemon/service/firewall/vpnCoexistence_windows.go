@@ -94,12 +94,20 @@ var (
 		},
 	}
 
-	// TODO: NordVPN CLI
 	// NordVPN
 	nordVpnSublayerKey = syscall.GUID{Data1: 0x92C759E5, Data2: 0x03BA, Data3: 0x41AD, Data4: [8]byte{0xA5, 0x99, 0x68, 0xAF, 0x2C, 0x1A, 0x17, 0xE5}}
-	nordVpnProfile     = OtherVpnInfo{
+	// FIXME: index by interface name
+	nordVpnInterfaceNameDef         = "NordLynx"    // NordLynx protocol, and apparently OpenVPN. This interface is active even when NordVPN is disconnected.
+	nordVpnInterfaceNameNordWhisper = "NordWhisper" // NordWhisper protocol
+	nordVpnProfile                  = OtherVpnInfo{
 		name:       "NordVPN",
 		namePrefix: "nord",
+
+		networkInterfaceNames: []string{nordVpnInterfaceNameDef, nordVpnInterfaceNameNordWhisper},
+
+		incompatWithTotalShieldWhenConnected: true,
+
+		// TODO: NordVPN CLI
 		//cliPathResolved:    "ProgramFiles/NordVPN/NordVPN.exe", // disabled for now, since we didn't find yet a programmatic way to check whether VPN is connected
 		cliCmds: otherVpnCliCmds{
 			cmdConnect:    "--connect",
@@ -143,7 +151,9 @@ var (
 
 	// Static index (DB) of other VPNs by their network interface names
 	otherVpnsByInterfaceName = map[string]*OtherVpnInfo{
-		mullvadInterfaceNameWg: &mullvadProfile,
+		mullvadInterfaceNameWg:          &mullvadProfile,
+		nordVpnInterfaceNameDef:         &nordVpnProfile,
+		nordVpnInterfaceNameNordWhisper: &nordVpnProfile,
 	}
 
 	// Static index (DB) of other VPNs by their CLI command (to detect them by CLI present in PATH); populated in init()
