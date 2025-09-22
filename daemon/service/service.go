@@ -2979,12 +2979,26 @@ func (s *Service) SubmitRageshakeReport(crashType, app, version, text string, fi
 	prevLogPath := logPath + ".0"
 	filesToAttach = append(filesToAttach, prevLogPath)
 
-	// and settings.json
-	prefs := s.Preferences()
-	prefs.SavePreferences()
-	filesToAttach = append(filesToAttach, platform.SettingsFile())
+	prefs := s.Preferences() // sanitize and add settings.json
+	if prefs.Session.WGPrivateKey != "" {
+		prefs.Session.WGPrivateKey = "***"
+	}
+	if prefs.Session.Session != "" && len(prefs.Session.Session) >= 40 {
+		sessPrefix := prefs.Session.Session[:20]
+		sessSuffix := prefs.Session.Session[len(prefs.Session.Session)-20:]
+		prefs.Session.Session = sessPrefix + "..." + sessSuffix
+	}
+	if prefs.LastConnectionParams.OpenVpnParameters.Proxy.Password != "" {
+		prefs.LastConnectionParams.OpenVpnParameters.Proxy.Password = "***"
+	}
+	prefsJson, err := json.Marshal(&prefs)
+	if err != nil {
+		return nil, 0, log.ErrorFE("failed to marshal preferences: %w", err)
+	}
+	jsonFilesToAttach = append(jsonFilesToAttach,
+		helpers.JsonFileToAttach{JsonFileName: "settings.json", JsonFileContents: prefsJson})
 
-	daemonRageshakeSysinfoVar := s._rageshake.CollectSystemInfo( /*additionalData*/ )
+	daemonRageshakeSysinfoVar := s._rageshake.CollectSystemInfo( /*additionalData*/ ) // add sysinfo from the daemon side
 	daemonRageshakeSysinfoData, err := json.Marshal(daemonRageshakeSysinfoVar)
 	if err != nil {
 		return nil, 0, log.ErrorFE("error json.Marshal(daemonRageshakeSysinfoVar): %w", err)
