@@ -41,7 +41,7 @@ import (
 var log *logger.Logger
 
 type DisableTotalShieldAsyncCallback func()
-type OnKillSwitchStateChangedCallback func()
+type OnKillSwitchStateChangedCallback func(bool)
 type GetRestApiHostsCallback func() (restApiHosts []*helpers.HostnameAndIP)
 
 func init() {
@@ -101,7 +101,7 @@ func Initialize(_getPrefsCallback preferences.GetPrefsCallback, _disableTotalShi
 }
 
 // SetEnabled - change firewall state
-func SetEnabled(enable bool) (err error) {
+func SetEnabled(enable, canReconfigureOtherVpns bool) (err error) {
 	if enable && isDaemonStoppingCallback() {
 		return log.ErrorFE("error - can't enable the firewall when daemon is stopping")
 	}
@@ -115,7 +115,7 @@ func SetEnabled(enable bool) (err error) {
 		log.Info("Disabling...")
 	}
 
-	if err = implSetEnabled(enable, false, false, false); err != nil {
+	if err = implSetEnabled(enable, false, false, false, canReconfigureOtherVpns); err != nil {
 		return log.ErrorFE("failed to change firewall state : %w", err)
 	}
 
@@ -137,15 +137,15 @@ func SetEnabled(enable bool) (err error) {
 }
 
 // DisableUnlessConnectedConnecting will disable firewall logic unless the VPN is connected or connecting
-func DisableUnlessConnectedConnecting() (err error) {
+func DisableUnlessConnectedConnecting(canReconfigureOtherVpns bool) (err error) {
 	if !vpnConnectedOrConnectingCallback() {
-		return SetEnabled(false)
+		return SetEnabled(false, canReconfigureOtherVpns)
 	} else {
 		return nil
 	}
 }
 
-func ReEnable() error {
+func ReEnable(canReconfigureOtherVpns bool) error {
 	// if enabled, err := GetEnabled(); err != nil {
 	// 	return log.ErrorE(fmt.Errorf("failed to check firewall state: %w", err), 0)
 	// } else if !enabled {
@@ -163,7 +163,7 @@ func ReEnable() error {
 	log.Debug("ReEnable entered")
 	defer log.Debug("ReEnable exited")
 
-	return implReEnable()
+	return implReEnable(canReconfigureOtherVpns)
 }
 
 // CleanupRegistration will completely clean up firewall registation, all of its objects. To be used only during uninstallation.
@@ -171,7 +171,7 @@ func CleanupRegistration() (err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if err = implSetEnabled(false, false, false, false); err != nil {
+	if err = implSetEnabled(false, false, false, false, getPrefsCallback().PermissionReconfigureOtherVPNs); err != nil {
 		return log.ErrorE(fmt.Errorf("failed to disable firewall: %w", err), 0)
 	}
 
@@ -223,7 +223,7 @@ func GetEnabledNoLogs() (isEnabled bool, err error) {
 	return _getEnabledHelper(false, false)
 }
 
-func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
+func GetState(logState bool) (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, err error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -231,17 +231,19 @@ func GetState() (isEnabled, isLanAllowed, isMulticastAllowed bool, weHaveTopFire
 		return isEnabled, false, false, false, "", "", "", err
 	}
 
-	if weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err = implHaveTopFirewallPriority(0); err != nil {
+	if weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err = implHaveTopFirewallPriority(isEnabled, 0); err != nil {
 		log.ErrorFE("error checking whether we have top firewall priority: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t", isEnabled, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast, TotalShieldDeployedState()))
+	if logState {
+		log.Info(fmt.Sprintf("isEnabled:%t topFirewallPri:%t allowLan:%t allowMulticast:%t totalShieldDeployed:%t", isEnabled, weHaveTopFirewallPriority, stateAllowLan, stateAllowLanMulticast, TotalShieldDeployedState()))
+	}
 
 	return isEnabled, stateAllowLan, stateAllowLanMulticast, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err
 }
 
 // EnableIfNeeded - atomic operation on firewall.mutex. Will check firewall status and, if disabled, will enable it.
-func EnableIfNeeded() error {
+func EnableIfNeeded(rescanForOtherVpns, canReconfigureOtherVpns bool) (err error) {
 	if isDaemonStoppingCallback() {
 		return log.ErrorFE("error - daemon is stopping")
 	}
@@ -252,7 +254,7 @@ func EnableIfNeeded() error {
 	if isEnabled, err := _getEnabledHelper(true, false); err != nil {
 		return err
 	} else if !isEnabled {
-		return implSetEnabled(true, false, true, false)
+		return implSetEnabled(true, false, rescanForOtherVpns, false, canReconfigureOtherVpns)
 	}
 
 	return nil
@@ -291,7 +293,7 @@ func ClientResumed() {
 
 // If Mullvad stays connected, PL Connect has max firewall priority (0xFFFF sublayer weight), and goes from disconnected to connected - then looking up
 // hosts immediately after WG connection is established fails. In that case need to fork post-connection rules to run asynchronously 1-2sec later.
-func DeployPostConnectionRules() (retErr error) {
+func DeployPostConnectionRules(canReconfigureOtherVpns bool) (retErr error) {
 	if isDaemonStoppingCallback() {
 		return log.ErrorFE("error - daemon is stopping")
 	}
@@ -299,7 +301,7 @@ func DeployPostConnectionRules() (retErr error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implDeployPostConnectionRules()
+	return implDeployPostConnectionRules(canReconfigureOtherVpns)
 }
 
 func TotalShieldDeployedState() bool {
@@ -528,18 +530,27 @@ func HaveTopFirewallPriority() (weHaveTopFirewallPriority bool, otherVpnID, othe
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return implHaveTopFirewallPriority(0)
+	if isEnabled, err := _getEnabledHelper(false, false); err != nil {
+		return false, "", "", "", err
+	} else {
+		return implHaveTopFirewallPriority(isEnabled, 0)
+	}
 }
 
-func TryReregisterFirewallAtTopPriority(canStopOtherVpn, forceReconfigureFirewall bool) (err error) {
+func TryReregisterFirewallAtTopPriority(canReconfigureOtherVpns, forceReconfigureFirewall bool) (err error) {
 	if isDaemonStoppingCallback() {
 		return log.ErrorFE("error - daemon is stopping")
+	}
+
+	canReconfigureOtherVpns = canReconfigureOtherVpns || getPrefsCallback().PermissionReconfigureOtherVPNs
+	if !canReconfigureOtherVpns {
+		return nil
 	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	_, err = implReregisterFirewallAtTopPriority(canStopOtherVpn, forceReconfigureFirewall)
+	_, err = implReregisterFirewallAtTopPriority( /*canReconfigureOtherVpns,*/ forceReconfigureFirewall)
 	return err
 }
 

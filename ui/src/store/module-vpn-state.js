@@ -28,10 +28,10 @@ export default {
         DnsHost: "",      // string // DNS host IP address
 	      Encryption: 0,    // DnsEncryption [	EncryptionNone = 0,	EncryptionDnsOverTls = 1,	EncryptionDnsOverHttps = 2]
 	      DohTemplate: "",  // string // DoH/DoT template URI (for Encryption = DnsOverHttps or Encryption = DnsOverTls)
-      },      
+      },
       IsTCP:      false,
-      Mtu:        int ,  // (for WireGuard connections)	 
-      IsPaused:   bool,  // When "true" - the actual connection may be "disconnected" (depending on the platform and VPN protocol), but the daemon responds "connected"   
+      Mtu:        int ,  // (for WireGuard connections)
+      IsPaused:   bool,  // When "true" - the actual connection may be "disconnected" (depending on the platform and VPN protocol), but the daemon responds "connected"
       PausedTill  string // pausedTill.Format(time.RFC3339)
     }*/,
 
@@ -46,6 +46,20 @@ export default {
       IsAllowMulticast: null,
       IsAllowApiServers: null,
       UserExceptions: "",
+
+      StateLanAllowed: false, // real state of 'Allow LAN'
+	    WeHaveTopFirewallPriority: false, // whether PL Firewall sublayer is registered at top weight (0xFFFF) in WFP
+
+      // if PL Firewall sublayer is not registered at top weight, then this is the information about the other guy
+
+      // ID, name, description of other VPN that has top firewall priority
+      OtherVpnID: "",
+      OtherVpnName: "",
+      OtherVpnDescription: "",
+
+      // whether other VPNs detected, that are reconfigurable
+      ReconfigurableOtherVpnsDetected: false,
+      ReconfigurableOtherVpnsNames: {},
     },
 
     transferredData: { SentData: "0", ReceivedData: "0" },
@@ -116,8 +130,8 @@ export default {
               dns_name: "",
               public_key: "",
               local_ip: "",
-              ipv6: 
-              {                        
+              ipv6:
+              {
                 local_ip: "",
                 endpoint_ip: "",
                 endpoint_port: 0
@@ -160,7 +174,7 @@ export default {
                "Description":"",
                "Normal":"", // IP string
                "Hardcore":"" // IP string
-            },           
+            },
           ]
         },
         api: { ips: [""], ipv6s:[""] }

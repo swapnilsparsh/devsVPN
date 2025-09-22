@@ -107,13 +107,15 @@ export default {
 
   Login: async (
     emailOrAcctID,
-    password
+    password,
+    permissionReconfigureOtherVPNs_Once,
     //  force, captchaID, captcha, confirmation2FA
   ) => {
     return await invoke(
       "renderer-request-login",
       emailOrAcctID,
-      password
+      password,
+      permissionReconfigureOtherVPNs_Once,
       // accountID,
       // force,
       // captchaID,

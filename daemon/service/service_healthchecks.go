@@ -1,4 +1,4 @@
-// TODO FIXME: prepend license
+// TODO: FIXME: prepend license
 // Copyright (c) 2025 privateLINE, LLC.
 
 package service
@@ -30,41 +30,63 @@ var (
 )
 
 // 2-phase approach: reconfig firewall, then disconnect / disable Total Shield / reconnect
-func (s *Service) checkConnectivityFixAsNeeded() (retErr error) {
+func (s *Service) whileConnectedCheckConnectivityFixAsNeeded() (retErr error) {
 	if s.IsDaemonStopping() {
 		log.ErrorFE("error - daemon is stopping")
-		s.backendConnectivityCheckState = PHASE0_CLEAN
+		s.backendConnectivityCheckPhase = PHASE0_CLEAN
+		s.backendConnectivityCheckBad.Store(false)
 		return nil
 	}
 
 	if backendReachable, err := s.CheckBackendConnectivity(); backendReachable && err == nil {
-		s.backendConnectivityCheckState = PHASE0_CLEAN
+		s.backendConnectivityCheckPhase = PHASE0_CLEAN
+		s.backendConnectivityCheckBad.Store(false)
 		if notificationsAfterReconnect < MAX_CLIENT_NOTIFICATIONS {
 			go s._evtReceiver.OnVpnStateChanged_ProcessSavedState() // notify clients abt the actual VPN state - presumably that it's connected; at most 2 notifications
+			go s._evtReceiver.OnKillSwitchStateChanged(true)        // update VPN Coexistence state in UI - else it may get stuck with stale state
 			notificationsAfterReconnect++
 		}
 		return nil
 	} else if err != nil {
-		retErr = log.ErrorFE("error in CheckBackendConnectivity(): %w", err)
+		retErr = log.ErrorFE("error in CheckBackendConnectivity(). backendConnectivityCheckPhase=%d. err: %w", s.backendConnectivityCheckPhase, err)
 	}
 
 	if !s._vpnConnectedCallback() { // only apply recovery logic if VPN is still CONNECTED; else we may hit a race condition
-		s.backendConnectivityCheckState = PHASE0_CLEAN // ... if a disconnect request was received while we were waiting for the REST API call in s.CheckBackendConnectivity()
+		s.backendConnectivityCheckPhase = PHASE0_CLEAN // ... if a disconnect request was received while we were waiting for the REST API call in s.CheckBackendConnectivity()
+		s.backendConnectivityCheckBad.Store(false)
+		go s._evtReceiver.OnKillSwitchStateChanged(false) // update VPN Coexistence state in UI - else it may get stuck with stale state
 		return nil
 	}
 
 	// by now we know that backend resources are not reachable, and VPN was just checked to be CONNECTED
-	notificationsAfterReconnect = 0                // reset the count of client notifications
+	prevConnectivityStateWasBad := s.backendConnectivityCheckBad.Load()
+	s.backendConnectivityCheckBad.Store(true)
+	if !prevConnectivityStateWasBad { // if we switched from good connectivity state to bad state - send VPN Coexistence update to UI once
+		go s._evtReceiver.OnKillSwitchStateChanged(true) // update VPN Coexistence state in UI - else it may get stuck with stale state
+		notificationsAfterReconnect = 0                  // reset the count of client notifications
+	} else {
+		go s._evtReceiver.OnKillSwitchStateChanged(false) // update VPN Coexistence state in UI - else it may get stuck with stale state
+	}
 	go s._evtReceiver.NotifyClientsVpnConnecting() // make the clients show VPN CONNECTING state
-	switch s.backendConnectivityCheckState {
+
+	if !s._preferences.PermissionReconfigureOtherVPNs { // if we don't have permission stored - (a) if other VPNs detected, then show FAILED|Fix in UI, and (b) do nothing ourselves, no correction steps
+		if otherVpnsDetected, _, err := firewall.ReconfigurableOtherVpnsDetected(false); err != nil {
+			return log.ErrorFE("error in firewall.ReconfigurableOtherVpnsDetected(): %w", err)
+		} else if otherVpnsDetected { // other VPNs detected - re-notify clients that we don't have top firewall priority, need permission to reconfigure
+			s.backendConnectivityCheckPhase = PHASE0_CLEAN
+			return nil
+		}
+	}
+
+	switch s.backendConnectivityCheckPhase {
 	case PHASE0_CLEAN: // phase 0: fully redeploy firewall and VPN coexistence rules
-		s.backendConnectivityCheckState = PHASE1_TRY_RECONNECT // if backend again not reachable on next try - don't try firewall reconfig, try VPN disconnect-reconnect
+		s.backendConnectivityCheckPhase = PHASE1_TRY_RECONNECT // if backend again not reachable on next try - don't try firewall reconfig, try VPN disconnect-reconnect
 		log.Debug("PHASE0_CLEAN: about to fully redeploy firewall and VPN coexistence rules")
 		if err := firewall.TryReregisterFirewallAtTopPriority(true, true); err != nil {
 			return log.ErrorFE("error in firewall.TryReregisterFirewallAtTopPriority(true, true): %w", err)
 		}
 	case PHASE1_TRY_RECONNECT: // phase 1: disable Total Shield and disconnect-reconnect the VPN
-		s.backendConnectivityCheckState = PHASE0_CLEAN // next time don't try to reconnect, reset to phase0
+		s.backendConnectivityCheckPhase = PHASE0_CLEAN // next time don't try to reconnect, reset to phase0
 		log.Debug("PHASE1_TRY_RECONNECT: about to disable Total Shield and disconnect-reconnect the VPN")
 		prefs := s._preferences // disable Total Shield in preferences
 		if prefs.IsTotalShieldOn {
@@ -94,12 +116,14 @@ func (s *Service) connectivityHealthchecksBackgroundMonitor() {
 	log.Debug("connectivityHealthchecksBackgroundMonitor entered")
 	defer log.Debug("connectivityHealthchecksBackgroundMonitor exited")
 
-	s.backendConnectivityCheckState = PHASE0_CLEAN
+	s.backendConnectivityCheckPhase = PHASE0_CLEAN
 	loopIteration := 0
 	for {
 		select {
-		case _ = <-s.stopPollingConnectivityHealthchecks:
+		case <-s.stopPollingConnectivityHealthchecks:
 			log.Debug("connectivityHealthchecksBackgroundMonitor exiting on stop signal")
+			s.backendConnectivityCheckBad.Store(false)       // reset connectivity check state to good on reconnect or disconnect
+			go s._evtReceiver.OnKillSwitchStateChanged(true) // and reflect that in UI
 			return
 		default: // no message received
 			if s.IsDaemonStopping() {
@@ -111,8 +135,8 @@ func (s *Service) connectivityHealthchecksBackgroundMonitor() {
 			delay := HealthcheckDelaysByType[s.Preferences().HealthchecksType]
 			loopIteration = (loopIteration + 1) % delay
 			if loopIteration == 0 { // test connectivity only every n-th iteration - that is, once every n seconds (specific for healthchecks type)
-				if err := s.checkConnectivityFixAsNeeded(); err != nil {
-					log.ErrorFE("error returned by checkConnectivityFixAsNeeded(): %w", err) // and continue
+				if err := s.whileConnectedCheckConnectivityFixAsNeeded(); err != nil {
+					log.ErrorFE("error returned by whileConnectedCheckConnectivityFixAsNeeded(): %w", err) // and continue
 				}
 			}
 		}

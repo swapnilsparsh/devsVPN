@@ -54,7 +54,7 @@ func init() {
 const (
 	// DefaultWGKeysInterval - Default WireGuard keys rotation interval
 	//DefaultWGKeysInterval = time.Hour * 24 * 1
-	// TODO FIXME: Vlad - for now effectively disable updating Wireguard keys, key rotation
+	// TODO: FIXME: Vlad - for now effectively disable updating Wireguard keys, key rotation
 	// Set it to 100 years
 	DefaultWGKeysInterval = time.Hour * 24 * 365 * 100
 )

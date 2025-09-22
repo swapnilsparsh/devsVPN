@@ -239,21 +239,21 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 	switch action.Firewall {
 	case FW_Off:
 		log.Error("Automatic connection manager: received request to disable Firewall, but we cannot. Keeping it enabled.")
-		if retErr = s.SetKillSwitchState(true); retErr != nil {
+		if retErr = s.SetKillSwitchState(true, s._preferences.PermissionReconfigureOtherVPNs); retErr != nil {
 			log.Error("Auto connection: force-enabling Firewall (despite request to disable): ", retErr)
 		}
 		connParams.FirewallOn = false // Ensure Firewall connection params is the same as in action
 		connParams.FirewallOnDuringConnection = true
 	case FW_On:
 		log.Info("Automatic connection manager: enabling Firewall")
-		if retErr = s.SetKillSwitchState(true); retErr != nil {
+		if retErr = s.SetKillSwitchState(true, s._preferences.PermissionReconfigureOtherVPNs); retErr != nil {
 			log.Error("Auto connection: enabling Firewall: ", retErr)
 		}
 		connParams.FirewallOn = false // Ensure Firewall connection params is the same as in action
 		connParams.FirewallOnDuringConnection = true
 	case FW_On_and_blockLan:
 		log.Info("Automatic connection manager: enabling Firewall and block LAN")
-		if retErr = s.SetKillSwitchState(true); retErr != nil {
+		if retErr = s.SetKillSwitchState(true, s._preferences.PermissionReconfigureOtherVPNs); retErr != nil {
 			log.Error("Auto connection: enabling Firewall: ", retErr)
 		}
 		if retErr = s.applyKillSwitchAllowLAN(&wifiInfo); retErr != nil {
@@ -272,7 +272,7 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 		if s.ConnectedOrConnecting() {
 			log.Info("Automatic connection manager: disconnecting VPN")
 			if retErr = s.Disconnect(); retErr != nil {
-				log.Error("Auto connection: disconnecting: ", retErr)
+				log.ErrorFE("Auto connection: disconnecting: %w", retErr)
 			}
 		}
 	case VPN_On:
@@ -286,12 +286,12 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 
 			const canFixParams bool = true
 			if connParams, retErr = s.ValidateConnectionParameters(connParams, canFixParams); retErr != nil {
-				log.Error("Auto connection: error validating connection parameters: ", retErr)
+				log.ErrorFE("Auto connection: error validating connection parameters: %w", retErr)
 				return retErr
 			}
 
 			if retErr = s._evtReceiver.RegisterConnectionRequest(connParams); retErr != nil {
-				log.Error("Auto connection: connecting: ", retErr)
+				log.ErrorFE("Auto connection: connecting: %w", retErr)
 			}
 
 		}
@@ -373,7 +373,7 @@ func (s *Service) getActionForWifiNetwork(wifiInfo wifiNotifier.WifiInfo) (retAc
 
 // updateParamsAccordingToMetadata - update Entry/Exit servers if connection requires 'Fastest' or 'Random'
 func (s *Service) updateParamsAccordingToMetadata(params types.ConnectionParams) (types.ConnectionParams, error) {
-	// TODO FIXME: Vlad - unconditionally using the Wireguard entry server info saved in preferences (if we have one), not the passed parameter
+	// TODO: FIXME: Vlad - unconditionally using the Wireguard entry server info saved in preferences (if we have one), not the passed parameter
 	if len(s._preferences.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) <= 0 {
 		return params, fmt.Errorf("error - this device was not yet registered with the privateLINE server, please login first")
 	}

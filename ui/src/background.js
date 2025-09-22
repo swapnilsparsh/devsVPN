@@ -15,8 +15,8 @@ import {
 
 import path from "path";
 
-import { SentryInit } from "./sentry/sentry.js";
-SentryInit();
+// import { SentryInit } from "./sentry/sentry.js";
+// SentryInit();
 
 // Initialize Rageshake crash reporting
 import rageshake from "./rageshake/index.js";
@@ -473,6 +473,14 @@ if (gotTheLock && isAllowedToStart) {
 
   process.on('unhandledRejection', async (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+
+    // For some commands we don't prompt the user to send Rageshake report. Commands: SubscriptionData, ...
+    if (String(reason).includes("not logged in; please visit") ||
+        String(reason).includes("/user/check-subscription") ||
+        String(reason).includes("/user/profile") ||
+        String(reason).includes("/user/device-list"))
+      return;
+
     try {
       await rageshake.showCrashReportDialog('ui - unhandled_rejection', String(reason), {
         // reason: String(reason),

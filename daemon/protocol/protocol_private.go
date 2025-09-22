@@ -150,6 +150,7 @@ func (p *Protocol) clientSetAuthenticated(c net.Conn) {
 		log.Info("Sending delayed error to client: ", p._lastConnectionErrorToNotifyClient)
 		delayedErr := types.ErrorRespDelayed{}
 		delayedErr.ErrorMessage = p._lastConnectionErrorToNotifyClient
+		log.ErrorFE("clientSetAuthenticated: sending p._lastConnectionErrorToNotifyClient: %v", delayedErr)
 		p.sendResponse(c, &delayedErr, 0)
 	}
 	p._lastConnectionErrorToNotifyClient = ""

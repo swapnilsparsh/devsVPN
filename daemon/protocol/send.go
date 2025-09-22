@@ -125,6 +125,13 @@ func (p *Protocol) sendResponse(conn net.Conn, cmd ICommandBase, idx int) (retEr
 	if err := Send(conn, cmd, idx); err != nil {
 		return fmt.Errorf("%sfailed to send command: %w", p.connLogID(conn), err)
 	}
-	log.Info(fmt.Sprintf("[-->] %s", p.connLogID(conn)), cmd.Name(), fmt.Sprintf(" [%d]", cmd.Index()), " ", cmd.LogExtraInfo())
+	switch cmd.Name() {
+	case "KillSwitchStatusResp": // don't log some responses, if they go out every few seconds
+		return nil
+
+	default:
+		log.Info(fmt.Sprintf("[-->] %s", p.connLogID(conn)), cmd.Name(), fmt.Sprintf(" [%d]", cmd.Index()), " ", cmd.LogExtraInfo())
+	}
+
 	return nil
 }
