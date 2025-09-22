@@ -1,6 +1,6 @@
 {
   "name": "privateline-connect-ui",
-  "version": "1.2.38.26",
+  "version": "1.2.38.27",
   "productName": "privateline-connect-ui",
   "description": "privateLINE Connect UI Client",
   "author": "PrivateLINE Limited",
@@ -42,7 +42,7 @@
     "@rushstack/eslint-patch": "^1.11.0",
     "@vitejs/plugin-vue": "^5.2.2",
     "@vue/eslint-config-prettier": "^10.2.0",
-    "electron": "^28.3.2",
+    "electron": "^35.7.5",
     "electron-builder": "^25.1.8",
     "electron-vite": "^3.1.0-beta.0",
     "eslint": "^9.22.0",
