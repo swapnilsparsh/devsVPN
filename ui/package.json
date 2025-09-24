@@ -41,6 +41,7 @@
     "@rushstack/eslint-patch": "^1.11.0",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/eslint-config-prettier": "^10.2.0",
+    "deepmerge": "^2.1.1",
     "electron": "^38.1.2",
     "electron-builder": "^26.0.12",
     "electron-vite": "^4.0.1",
