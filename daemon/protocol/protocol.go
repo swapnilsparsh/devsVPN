@@ -182,6 +182,7 @@ type Service interface {
 		rawResponse string,
 		noConnectivity_promptUserToReconfigureOtherVpns bool,
 		otherVpnsToReconfigure []string,
+		nordVpnUpOnWindows bool,
 		err error)
 	SsoLogin(code string, sessionCode string, disableFirewallOnExit, disableFirewallOnErrorOnly, canReconfigureOtherVPNs bool) (
 		apiCode int,
@@ -843,6 +844,8 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		} else { // and notify clients
 			p.notifyClients(&types.KillSwitchStatusResp{KillSwitchStatus: status})
 			p.sendResponse(conn, &types.EmptyResp{}, req.Idx)
+
+			//p.sendErrorResponse(conn, reqCmd, errors.New("testing KillSwitchReregister failure")) // Vlad: testing
 		}
 
 	case "KillSwitchSetUserExceptions":
@@ -1130,7 +1133,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		canReconfigureOtherVpns := req.PermissionReconfigureOtherVPNs_Once || p._service.Preferences().PermissionReconfigureOtherVPNs
 
 		var resp types.SessionNewResp
-		apiCode, apiErrMsg, accountInfo, rawResponse, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure, err :=
+		apiCode, apiErrMsg, accountInfo, rawResponse, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure, nordVpnUpOnWindows, err :=
 			p._service.SessionNew(req.EmailOrAcctID, req.Password, req.DeviceName, req.StableDeviceID, true, true, true, canReconfigureOtherVpns)
 		if err != nil {
 			if apiCode == 0 { // if apiCode == 0 - it's a daemon error, not an API error. Sending error response
@@ -1148,7 +1151,8 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 
 			if noConnectivity_promptUserToReconfigureOtherVpns {
 				resp.ConnectivityFailed = true
-				resp.ReconfigurableOtherVpns = otherVpnsToReconfigure
+				resp.ReconfigurableOtherVpnsNames = otherVpnsToReconfigure
+				resp.NordVpnUpOnWindows = nordVpnUpOnWindows
 			}
 		} else {
 			// Success. Sending session info
@@ -1776,7 +1780,7 @@ func (p *Protocol) processConnectRequest(r service_types.ConnectionParams) (err 
 			log.Info(fmt.Errorf("1st attempt to connect to VPN failed with recoverable error '%w', will logout-login and try to connect again", recoverableError))
 			prefs := p._service.Preferences()
 			if helpers.IsAValidAccountID(prefs.Session.AccountID) { // if we have stored an account ID - try to logout and re-login
-				if apiCode, apiErrMsg, _, _, _, _ /* accountInfo, rawResp, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure, */, err =
+				if apiCode, apiErrMsg, _, _, _, _, _ /* accountInfo, rawResp, noConnectivity_promptUserToReconfigureOtherVpns, otherVpnsToReconfigure, nordVpnUpOnWindows, */, err =
 					p._service.SessionNew(prefs.Session.AccountID, "", prefs.Session.DeviceName, false, false, false, false, canReconfigureOtherVpns); err != nil {
 					return log.ErrorFE("error logging in after logout: '%w'. apiCode=%d, apiErrMsg='%s'", err, apiCode, apiErrMsg)
 				}

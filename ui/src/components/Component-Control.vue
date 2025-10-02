@@ -272,34 +272,41 @@ export default {
         const currTime = Date.now();
         if (Math.floor((currTime - this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns) / 1000) >= 
           this.$store.state.uiState.delayToRePromptToReconfigureOtherVpns) { // if 3 minutes passed since last prompt to reconfigure other VPNs - prompt again
-          let ret = await sender.showMessageBox({
-              type: "error",
-              buttons: ["Retry", "Cancel"],
-              message: `Failed to connect`,
-              detail:  capitalizeFirstLetter(failureInfo.ReasonDescription) +
-                `\n\nDo you allow privateLINE to reconfigure other VPN(s) once (in order to allow privateLINE connectivity) and retry connecting? Press Retry to continue`,
-              checkboxLabel: `Give PL Connect permission to reconfigure other VPNs automatically when needed (you can disable it in Settings later)`,
-              checkboxChecked: false,
-            },
-            true
-          );
 
-          if (ret.response == 0) {// 0 = Retry, 1 = Cancel
-            this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns = Date.now(); // store the timestamp only when the user agreed to re-configure other VPNs
+          let nordVpnUpOnWindows = failureInfo.ReasonDescription.includes("NordVPN (up)");
+          //let introDescr = "Could not connect to privateLINE servers. Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpns.toString()}";
+          let introHeader = "Could not connect to privateLINE servers";
+          let introDescr = capitalizeFirstLetter(failureInfo.ReasonDescription);
+          await sender.ShowVpnWizard(introHeader, introDescr, true, nordVpnUpOnWindows, true);
+          
+          // let ret = await sender.showMessageBox({
+          //     type: "error",
+          //     buttons: ["Retry", "Cancel"],
+          //     message: `Failed to connect`,
+          //     detail:  capitalizeFirstLetter(failureInfo.ReasonDescription) +
+          //       `\n\nDo you allow privateLINE to reconfigure other VPN(s) once (in order to allow privateLINE connectivity) and retry connecting? Press Retry to continue`,
+          //     checkboxLabel: `Give PL Connect permission to reconfigure other VPNs automatically when needed (you can disable it in Settings later)`,
+          //     checkboxChecked: false,
+          //   },
+          //   true
+          // );
+
+          // if (ret.response == 0) {// 0 = Retry, 1 = Cancel
+          //   this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns = Date.now(); // store the timestamp only when the user agreed to re-configure other VPNs
             
-            if (ret.checkboxChecked) {
-              sender.SetVpnCoexistPermission(true);
-            }
-            sender.KillSwitchReregister(true); // this will kick off reconnection attempt
+          //   if (ret.checkboxChecked) {
+          //     sender.SetPermissionReconfigureOtherVPNs(true);
+          //   }
+          //   sender.KillSwitchReregister(true); // this will kick off reconnection attempt
             
+          //   return;
+          // } else {
             return;
-          } else {
-            return;
-          }
+          // }
         }
       }
 
-      // 5 minutes have not passed to re-prompt about the other VPNs, or other reason for connection failure - probably no internet connectivity. Show regular prompt.
+      // 3 minutes have not passed to re-prompt about the other VPNs, or other reason for connection failure - probably no internet connectivity. Show regular prompt.
       sender.showMessageBoxSync({
         type: "error",
         buttons: ["OK"],

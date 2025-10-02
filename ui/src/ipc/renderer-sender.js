@@ -39,8 +39,6 @@ async function invoke(channel, ...args) {
   }
 }
 
-
-
 export default {
   // This object is using to expose ipcRenderer functionality (send\receive) only for limited channels
   // E.g. 'shared-mutation' plugin for vuex is requiring IPC communication
@@ -404,6 +402,14 @@ export default {
   },
   ShowContextMenuEdit: function () {
     ipcRenderer.send("renderer-request-show-context-menu-edit");
+  },
+
+  // VPN Wizard window
+  ShowVpnWizard: function (introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect) {
+    ipcRenderer.send("renderer-request-show-vpn-wizard", introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect);
+  },
+  CloseVpnWizardWindow: function () {
+    ipcRenderer.send("renderer-request-close-vpn-wizard");
   },
 
   // DIALOG

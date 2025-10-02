@@ -42,6 +42,7 @@ type KillSwitchStatus struct {
 	// whether other VPNs detected, that are reconfigurable
 	ReconfigurableOtherVpnsDetected bool
 	ReconfigurableOtherVpnsNames    []string
+	NordVpnUpOnWindows              bool // whether UI needs to show the user manual instructions to configure NordVPN on Windows
 }
 
 // Type - VPN type
@@ -52,6 +53,8 @@ const (
 	HealthchecksType_Ping        HealthchecksTypeEnum = iota
 	HealthchecksType_RestApiCall HealthchecksTypeEnum = iota
 	HealthchecksType_Disabled    HealthchecksTypeEnum = iota
+
+	HealthchecksTypeDefault = HealthchecksType_Ping
 )
 
 var (
@@ -63,3 +66,5 @@ var (
 		HealthcheckTypeNames[HealthchecksType_Disabled]:    HealthchecksType_Disabled,
 	}
 )
+
+type SetHealthchecksTypeCallback func(_healthchecksType HealthchecksTypeEnum)

@@ -997,6 +997,15 @@ async function Login(
     ProfileData();
     DeviceList('', 1, 10);
     SubscriptionData();
+  } else { // store names of other VPNs, if any
+    let _firewallState = store.state.vpnState.firewallState;
+    if (resp.ReconfigurableOtherVpnsNames != null && resp.ReconfigurableOtherVpnsNames.length > 0) {
+      _firewallState.ReconfigurableOtherVpnsDetected = true;
+      _firewallState.ReconfigurableOtherVpnsNames = resp.ReconfigurableOtherVpnsNames;
+    }
+    if (resp.NordVpnUpOnWindows != null)
+      _firewallState.NordVpnUpOnWindows = resp.NordVpnUpOnWindows;
+    store.dispatch(`vpnState/firewallState`, _firewallState);
   }
 
   // Returning whole response object (even in case of error)

@@ -280,13 +280,16 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 
 	// prevent user-defined data injection: ensure that nothing except the base64 public key will be stored in the configuration
 	if !helpers.ValidateBase64(wg.connectParams.hostPublicKey) {
-		return nil, fmt.Errorf("WG public key is not base64 string")
+		len := len(wg.connectParams.hostPublicKey)
+		return nil, log.ErrorFE("WG public key '...%s', %d characters long, is not base64 string", helpers.Substring(wg.connectParams.hostPublicKey, len-4, 4), len)
 	}
 	if !helpers.ValidateBase64(wg.connectParams.clientPrivateKey) {
-		return nil, fmt.Errorf("WG private key is not base64 string")
+		len := len(wg.connectParams.clientPrivateKey)
+		return nil, log.ErrorFE("WG private key '...%s', %d characters long, is not base64 string", helpers.Substring(wg.connectParams.clientPrivateKey, len-4, 4), len)
 	}
 	if len(wg.connectParams.presharedKey) > 0 && !helpers.ValidateBase64(wg.connectParams.presharedKey) {
-		return nil, fmt.Errorf("WG PresharedKey is not base64 string")
+		len := len(wg.connectParams.presharedKey)
+		return nil, log.ErrorFE("WG PresharedKey '...%s', %d characters long, is not base64 string", helpers.Substring(wg.connectParams.presharedKey, len-4, 4), len)
 	}
 
 	interfaceCfg := []string{

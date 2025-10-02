@@ -60,6 +60,7 @@ export default {
       // whether other VPNs detected, that are reconfigurable
       ReconfigurableOtherVpnsDetected: false,
       ReconfigurableOtherVpnsNames: {},
+      NordVpnUpOnWindows: false,
     },
 
     transferredData: { SentData: "0", ReceivedData: "0" },
@@ -245,6 +246,12 @@ export default {
     },
     availableWiFiNetworks(state, availableWiFiNetworks) {
       state.availableWiFiNetworks = availableWiFiNetworks;
+    },
+
+    ReconfigurableOtherVpnsNames(state, ReconfigurableOtherVpnsNames) {
+      state.firewallState.ReconfigurableOtherVpnsNames = ReconfigurableOtherVpnsNames;
+      if (ReconfigurableOtherVpnsNames != null && ReconfigurableOtherVpnsNames.length > 0)
+        state.firewallState.ReconfigurableOtherVpnsDetected = true;
     },
   },
 

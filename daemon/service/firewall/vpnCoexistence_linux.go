@@ -65,8 +65,9 @@ var (
 
 	// NordVPN. Apparently it doesn't create any custom firewall chains.
 	nordVpnInterfaceName = "nordlynx"
+	NordVpnName          = "NordVPN"
 	nordVpnProfile       = OtherVpnInfo{
-		name:              "NordVPN",
+		name:              NordVpnName,
 		namePrefix:        "nord",
 		recommendedOurMTU: 1340,
 
@@ -823,14 +824,14 @@ func DisableCoexistenceWithOtherVpns() (retErr error) {
 	return retErr
 }
 
-func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected bool, otherVpnNames []string, err error) {
+func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected bool, otherVpnNames mapset.Set[string], nordVpnUpOnWindows bool, err error) {
 	// lock the mutex protecting reDetectOtherVpnsImpl() ourselves, so that OtherVpnsDetectedReconfigurableViaCli doesn't get cleared via detectOnlyByInterfaceName==true
 	reDetectOtherVpnsImplMutex.Lock()
 	defer reDetectOtherVpnsImplMutex.Unlock()
 
 	if _, err = reDetectOtherVpnsImpl(forceRedetectOtherVpns, false, false, true, false); err != nil {
-		return false, otherVpnNames, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
+		return false, otherVpnNames, false, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
 	}
 
-	return !OtherVpnsDetectedReconfigurableViaCli.IsEmpty(), OtherVpnsDetectedReconfigurableViaCli.ToSlice(), nil
+	return !OtherVpnsDetectedReconfigurableViaCli.IsEmpty(), OtherVpnsDetectedReconfigurableViaCli.Clone(), false, nil
 }

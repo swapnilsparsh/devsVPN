@@ -518,25 +518,36 @@ export default {
             return;
           } else if (resp.APIStatus === 408) { // Connectivity to PL servers blocked. If other VPNs detected - prompt the user to reconfigure them and retry.
             if (loginTry < 1 && !this.hasPermissionToReconfigureOtherVPNs && resp.ReconfigurableOtherVpns && resp.ReconfigurableOtherVpns !== null && resp.ReconfigurableOtherVpns.length > 0) {
-              let ret = await sender.showMessageBox(
-                {
-                  type: "warning",
-                  buttons: ["Retry", "Cancel"],
-                  message: "Please Confirm",
-                  detail:
-                    `Could not connect to privateLINE servers. Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpns.toString()}` +
-                    `\n\nDo you allow privateLINE to reconfigure other VPN(s) once (in order to allow privateLINE connectivity) and retry login? Press Retry to continue`,
-                  checkboxLabel: `Give PL Connect permission to reconfigure other VPNs automatically when needed (you can disable it in Settings later)`,
-                  checkboxChecked: false,
-                },
-                true
-              );
+              // if (!this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames ||
+              //   this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames.length <= 0)
+              //   this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames = resp.ReconfigurableOtherVpns;
+              
+              let introHeader = "Could not connect to privateLINE servers"
+              let introDescr = "Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpns.toString()}";
+              let showNordVpnManualInstructions = (resp.NordVpnUpOnWindows !== null && resp.NordVpnUpOnWindows);
 
-              if (ret.response == 1) return; // 0 = Retry, 1 = Cancel
-              permissionReconfigureOtherVPNs_Once = true;
-              if (ret.checkboxChecked) {
-                await sender.SetVpnCoexistPermission(true);
-              }
+              await sender.ShowVpnWizard(introHeader, introDescr, true, showNordVpnManualInstructions, false);
+
+              // let ret = await sender.showMessageBox(
+              //   {
+              //     type: "warning",
+              //     buttons: ["Retry", "Cancel"],
+              //     message: "Please Confirm",
+              //     detail:
+              //       `Could not connect to privateLINE servers. Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpns.toString()}` +
+              //       `\n\nDo you allow privateLINE to reconfigure other VPN(s) once (in order to allow privateLINE connectivity) and retry login? Press Retry to continue`,
+              //     checkboxLabel: `Give PL Connect permission to reconfigure other VPNs automatically when needed (you can disable it in Settings later)`,
+              //     checkboxChecked: false,
+              //   },
+              //   true
+              // );
+
+              // if (ret.response == 1) return; // 0 = Retry, 1 = Cancel
+              // // permissionReconfigureOtherVPNs_Once = true;
+              // if (ret.checkboxChecked) {
+              //   await sender.SetPermissionReconfigureOtherVPNs(true);
+              // }
+
               // and continue login_loop
             } else {
               sender.showMessageBoxSync({

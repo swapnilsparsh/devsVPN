@@ -3,7 +3,7 @@
     <div class="wizard-container">
       <!-- Wizard Header -->
       <div class="wizard-header">
-        <h2 class="wizard-title">VPN Setup Wizard</h2>
+        <h2 class="wizard-title">Troubleshoot privateLINE Connectivity</h2>
         <button class="wizard-close-btn" @click="closeWizard">
           <span>&times;</span>
         </button>
@@ -34,10 +34,70 @@
 
       <!-- Wizard Content -->
       <div class="wizard-content">
+        <!-- Introductory Screen Step -->
+        <div v-if="currentStep.id === 'intro-screen'" class="wizard-step">
+          <div class="step-header">
+            <h3>{{this.$store.state.uiState.vpnWizard.introHeader}}</h3>
+            <p class="step-description">
+              {{this.$store.state.uiState.vpnWizard.introDescr}}
+            </p>
+          </div>
+          <div v-if="this.otherVpnsDetected" class="step-content">
+            <slot name="intro-screen-content">
+              <div class="info-box">
+                <p><strong>Other VPNs detected, that may be blocking privateLINE connectivity</strong></p>
+                  <ul>
+                    <li v-for="otherVpnName in this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames">
+                      {{ otherVpnName }}
+                    </li>
+                  </ul>
+              </div>
+            </slot>
+          </div>
+        </div>
+        
+        <!-- NordVPN Windows Step -->
+        <div v-if="currentStep.id === 'nordvpn-windows'" class="wizard-step">
+          <div class="step-header">
+            <h3>NordVPN detected</h3>
+            <p class="step-description">
+              Please follow these instructions to configure NordVPN for
+              compatibility with privateLINE:
+            </p>
+          </div>
+          <div class="step-content">
+            <slot name="nordvpn-content">
+              <div class="info-box">
+                <!-- <p><strong>Please configure NordVPN as follows:</strong></p> -->
+                <ol class="no-top-margin">
+                  <li>Open NordVPN Settings</li>
+                  <li>Under Settings / Connection:</li>
+                    <ul><li>Stay invisible on LAN = Off</li></ul>
+                  <li>Under Settings / Killswitch:</li>
+                    <ul><li>Internet Kill Switch = Off</li></ul>
+                  <li>Under Settings / Split tunnelling:</li>
+                    <ul><li>Split tunnelling = On</li></ul>
+                    <ul><li>Add apps / Browse apps:</li>
+                      <ul>
+                        <li class="monospace-text">c:\Program Files\privateLINE Connect\privateline-connect-svc.exe</li>
+                        <li class="monospace-text">c:\Program Files\privateLINE Connect\ui\privateline-connect-ui.exe</li>
+                        <li class="monospace-text">c:\Program Files\privateLINE Connect\WireGuard\x86_64\wg.exe</li>
+                        <li class="monospace-text">c:\Program Files\privateLINE Connect\WireGuard\x86_64\wireguard.exe</li>
+                      </ul>
+                    </ul>
+                </ol>
+              </div>
+            </slot>
+            <p class="warning-text">
+              ⚠️ It is necessary to configure NordVPN this way to ensure privateLINE connectivity.
+            </p>
+          </div>
+       </div>
+
         <!-- Auto-reconfig VPN Step -->
         <div v-if="currentStep.id === 'auto-reconfig'" class="wizard-step">
           <div class="step-header">
-            <h3>Auto-reconfigure VPN</h3>
+            <h3>Auto-Reconfigure Other VPNs</h3>
             <p class="step-description">
               Allow privateLINE to automatically reconfigure other VPN
               applications to prevent conflicts.
@@ -62,66 +122,32 @@
           </div>
         </div>
 
-        <!-- NordVPN Windows Step -->
-        <div v-if="currentStep.id === 'nordvpn-windows'" class="wizard-step">
-          <div class="step-header">
-            <h3>NordVPN on Windows Configuration</h3>
-            <p class="step-description">
-              Follow these instructions to configure NordVPN settings for
-              compatibility with privateLINE.
-            </p>
-          </div>
-          <div class="step-content">
-            <slot name="nordvpn-content">
-              <!-- Default content for NordVPN step -->
-              <div class="info-box">
-                <p><strong>Please follow these steps:</strong></p>
-                <ol>
-                  <li>Open NordVPN application</li>
-                  <li>Go to Settings → General</li>
-                  <li>Disable "Auto-connect" feature</li>
-                  <li>Disconnect from NordVPN if currently connected</li>
-                  <li>Close NordVPN application completely</li>
-                </ol>
-                <p class="warning-text">
-                  ⚠️ These changes are necessary to prevent connection
-                  conflicts.
-                </p>
-              </div>
-            </slot>
-          </div>
-        </div>
-
         <!-- Final Instructions Step -->
         <div v-if="currentStep.id === 'final-instructions'" class="wizard-step">
-          <div class="step-header">
-            <h3>Setup Complete</h3>
-            <p class="step-description">
-              Your VPN configuration is now ready. Here are some final
-              recommendations.
-            </p>
-          </div>
-          <div class="step-content">
-            <slot name="final-instructions-content">
-              <!-- Default content for final instructions -->
-              <div class="info-box success">
-                <p><strong>✓ Configuration completed successfully!</strong></p>
-                <p>
-                  You can now use privateLINE without conflicts. Here are some
-                  tips:
-                </p>
-                <ul>
-                  <li>Use privateLINE as your primary VPN solution</li>
-                  <li>
-                    If you need to use other VPNs, disconnect from privateLINE
-                    first
-                  </li>
-                  <li>Check your connection status in the main application</li>
-                  <li>Contact support if you experience any issues</li>
-                </ul>
-              </div>
-            </slot>
-          </div>
+          <slot name="final-instructions-content">
+            <div class="step-header">
+              <h3>Troubleshooting Complete</h3>
+              <p class="step-description">
+                Your VPN configuration is now ready. Here are some final
+                recommendations.
+              </p>
+            </div>
+            <div class="step-content">
+                <!-- Default content for final instructions -->
+                <div class="info-box success">
+                  <p><strong>✓ Re-configuration completed successfully!</strong></p>
+                  <p>
+                    You should now be able to use privateLINE without conflicts. Here are some
+                    tips:
+                  </p>
+                  <ul>
+                    <li>Check your connection status in the main application</li>
+                    <li>If you need to use other VPNs, disable Total Shield in privateLINE first </li>
+                    <li>Contact support if you experience any issues</li>
+                  </ul>
+                </div>
+            </div>
+          </slot>
         </div>
       </div>
 
@@ -166,18 +192,23 @@
 export default {
   name: "VpnWizard",
   props: {
+    // Custom message to show on intro screen
+    introDescr: {
+      type: String,
+      default: "",
+    },
     // If true, show only the final instructions tab
     endOfFlowParam: {
       type: Boolean,
       default: false,
     },
-    // If true, show auto-reconfig VPN step
-    autoReconfigAvailable: {
+    // If true, show NordVPN on Windows step
+    nordVPNWindows: {
       type: Boolean,
       default: false,
     },
-    // If true, show NordVPN on Windows step
-    nordVPNWindows: {
+    // If true, show auto-reconfig VPN step
+    autoReconfigAvailable: {
       type: Boolean,
       default: false,
     },
@@ -188,14 +219,21 @@ export default {
       isProcessing: false,
       allSteps: [
         {
-          id: "auto-reconfig",
-          title: "Auto-reconfig VPN",
-          condition: () => this.autoReconfigAvailable,
+          id: "intro-screen",
+          title: "Introductory screen",
+          condition: () => true, // Always show
         },
         {
           id: "nordvpn-windows",
           title: "NordVPN Windows",
-          condition: () => this.nordVPNWindows,
+          // condition: () => this.nordVPNWindows,
+          condition: () => this.$store.state.uiState.vpnWizard.showNordVpnWindowsStep,
+        },
+        {
+          id: "auto-reconfig",
+          title: "Auto-reconfig VPN",
+          // condition: () => this.autoReconfigAvailable,
+          condition: () => this.$store.state.uiState.vpnWizard.showAutoReconfigVpnStep,
         },
         {
           id: "final-instructions",
@@ -227,6 +265,9 @@ export default {
     progressPercentage() {
       if (this.availableSteps.length === 0) return 100;
       return ((this.currentStepIndex + 1) / this.availableSteps.length) * 100;
+    },
+    otherVpnsDetected() {
+      return this.$store.state.vpnState?.firewallState?.ReconfigurableOtherVpnsDetected;
     },
   },
   mounted() {
@@ -310,7 +351,7 @@ export default {
   background: var(--background-color);
   border-radius: 12px;
   width: 90%;
-  max-width: 600px;
+  max-width: 740px;
   max-height: 80vh;
   overflow: hidden;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
@@ -438,6 +479,12 @@ export default {
 
 .step-content {
   flex: 1;
+
+  .warning-text {
+    color: var(--warning-color);
+    font-weight: 500;
+    margin-top: 16px;
+  }
 }
 
 .info-box {
@@ -469,10 +516,12 @@ export default {
     }
   }
 
-  .warning-text {
-    color: var(--warning-color);
-    font-weight: 500;
-    margin-top: 16px;
+  .no-top-margin {
+        margin-top: 0;
+  }
+
+  .monospace-text {
+    font-family: monospace, monospace;
   }
 }
 

@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
 
@@ -83,6 +85,8 @@ type OtherVpnInfo struct {
 	isConnectedConnecting                bool // whether the other VPN is connected or connecting
 
 	networkInterfaceNames []string // names of network interfaces associated with this VPN
+
+	customHealthchecksType service_types.HealthchecksTypeEnum
 
 	changesNftables               bool // used on Linux
 	nftablesChain                 string
@@ -161,6 +165,6 @@ func ReDetectOtherVpns(forceRedetection, detectOnlyByInterfaceName, updateCurren
 	return reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU, false, false)
 }
 
-func ReconfigurableOtherVpnsDetected(forceRedetectOtherVpns bool) (detected bool, otherVpnNames []string, err error) {
+func ReconfigurableOtherVpnsDetected(forceRedetectOtherVpns bool) (detected bool, otherVpnNames mapset.Set[string], nordVpnUpOnWindows bool, err error) {
 	return reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns)
 }

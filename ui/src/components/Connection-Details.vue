@@ -74,7 +74,7 @@
             <div class="failedText" v-if="showVpnCoexFailed">
               <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
               FAILED
-              <button class="retryBtn" @click="vpnCoexistRetryConfirmPopup()" v-if="showVpnCoexFailedWithFixButton">
+              <button class="retryBtn" @click="runVpnCoexistenceWizard()" v-if="showVpnCoexFailedWithFixButton">
                 Fix
               </button>
             </div>
@@ -307,77 +307,82 @@ export default {
       }
     },
 
-    async vpnCoexistRetryConfirmPopup() { // FIXME: Vlad - show other VPN and/or list of reconfigurable VPNs
-      let shouldProceed = this.hasPermissionToReconfigureOtherVPNs;
+    async runVpnCoexistenceWizard() { // FIXME: Vlad - show other VPN and/or list of reconfigurable VPNs
+      //let shouldProceed = this.hasPermissionToReconfigureOtherVPNs;
       let otherVpnsMsg = "";
       if (this.$store.state.vpnState.firewallState.OtherVpnName && this.$store.state.vpnState.firewallState.OtherVpnName !== "") {
         otherVpnsMsg = this.$store.state.vpnState.firewallState.OtherVpnName;
       } else if (this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsDetected) {
         otherVpnsMsg = this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames.toString();
       }
+      let introHeader = "privateLINE connectivity is blocked"
+      let introDescr = `Other VPNs detected which may block our connectivity: ${otherVpnsMsg}`
+                     `\n\nIt it necessary to reconfigure them. Press Next to continue.`;
 
-      if (!shouldProceed) {
-        let ret = await sender.showMessageBox(
-          {
-            type: "warning",
-            buttons: ["OK", "Cancel"],
-            message: "Please Confirm",
-            detail: `Do you allow privateLINE to stop temporarily the other VPNs '${otherVpnsMsg}' and reconfigure them as needed for privateLINE connectivity? Press Ok to continue`,
-            checkboxLabel: `Give PL Connect permission to reconfigure other VPNs automatically when needed (you can disable it in Settings later)`,
-            checkboxChecked: false,
-          },
-          true
-        );
+      // if (!shouldProceed) {
+      //   let ret = await sender.showMessageBox(
+      //     {
+      //       type: "warning",
+      //       buttons: ["OK", "Cancel"],
+      //       message: "Please Confirm",
+      //       detail: `Do you allow privateLINE to stop temporarily the other VPNs '${otherVpnsMsg}' and reconfigure them as needed for privateLINE connectivity? Press Ok to continue`,
+      //       checkboxLabel: `Give PL Connect permission to reconfigure other VPNs automatically when needed (you can disable it in Settings later)`,
+      //       checkboxChecked: false,
+      //     },
+      //     true
+      //   );
 
-        if (ret.response == 1) return; // cancel
-        shouldProceed = (ret.response == 0);
+      //   if (ret.response == 1) return; // cancel
+      //   shouldProceed = (ret.response == 0);
 
-        if (ret.checkboxChecked) {
-          await sender.SetPermissionReconfigureOtherVPNs(true);
-        }
-      }
+      //   if (ret.checkboxChecked) {
+      //     await sender.SetPermissionReconfigureOtherVPNs(true);
+      //   }
+      // }
 
-      if (shouldProceed) {
+      // if (shouldProceed) {
         let errMsg =
-          "Error: failed to get top firewall permissions - please disconnect PL Connect or stop the connection attempt, and retry VPN Coexistence wizard again.";
+          "Error: failed to get top firewall permissions and/or reconfigure other VPNs - please disconnect PL Connect or stop the connection attempt, and retry VPN Coexistence wizard again.";
         try {
-          this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns = Date.now(); // store the timestamp only when the user agreed to re-configure other VPNs
-          let resp = await sender.KillSwitchReregister(true); // this will also kick off reconnection attempt
-          //console.log("resp", resp);
-          if (resp && resp !== null) {
-            if (resp.OtherVpnUnknownToUs != null && resp.OtherVpnUnknownToUs) {
-              // FIXME: Vlad:
-              //  - re-check what "KillSwitchReregister" request returns
-              //  - add a button to send logs
-              errMsg =
-                "Error: failed to get top firewall permissions - please take a screenshot or photo of this error message and email it to support@privateline.io";
-              let detailMsg =
-                `Error: ${resp.ErrorMessage}\n\n` +
-                `Other VPN \'${resp.OtherVpnName}\' - \'${resp.OtherVpnGUID}\' is not registered in our database, we don't know how to stop it.\n\n` +
-                "You can also try the following manual steps to try to allow PL Connect get the necessary top firewall permissions:\n\n" +
-                "(1) Disconnect the other VPN and click Retry in PL Connect again. If successful - then reconnect to the other VPN.\n\n" +
-                "(2) If previous step failed - stop the Windows service of the other VPN (via Services tab in Task Manager) and click Retry " +
-                "in PL Connect again. If successful - then restart the service of the other VPN and reconnect to the other VPN.\n\n" +
-                "(3) If previous step failed - uninstall the other VPN and click Retry in PL Connect again. Then reinstall the other VPN and reconnect to it.";
-              sender.showMessageBoxSync({
-                type: "error",
-                buttons: ["OK"],
-                message: errMsg,
-                detail: detailMsg,
-              });
-            } else if (resp.ErrorMessage != null && resp.ErrorMessage) {
-              console.error(resp.ErrorMessage);
-              sender.showMessageBoxSync({
-                type: "error",
-                buttons: ["OK"],
-                message: errMsg,
-                detail: resp.ErrorMessage,
-              });
-            }
-          }
-
-          // Check the result. If good - start connection attempt, as daemon disconnected VPN during KillSwitchReregister() call.
-          if (this.weHaveTopFirewallPriority) await sender.Connect(); // Re-connect
+          // this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns = Date.now(); // store the timestamp only when the user agreed to re-configure other VPNs
+          await sender.ShowVpnWizard(introHeader, introDescr, true, this.$store.state.vpnState.firewallState.NordVpnUpOnWindows, true);
+          
+          // let resp = await sender.KillSwitchReregister(true); // this will also kick off reconnection attempt
+          // //console.log("resp", resp);
+          // if (resp && resp !== null) {
+          //   if (resp.OtherVpnUnknownToUs != null && resp.OtherVpnUnknownToUs) {
+          //     // FIXME: Vlad:
+          //     //  - re-check what "KillSwitchReregister" request returns
+          //     //  - add a button to send logs
+          //     errMsg =
+          //       "Error: failed to get top firewall permissions - please take a screenshot or photo of this error message and email it to support@privateline.io";
+          //     let detailMsg =
+          //       `Error: ${resp.ErrorMessage}\n\n` +
+          //       `Other VPN \'${resp.OtherVpnName}\' - \'${resp.OtherVpnGUID}\' is not registered in our database, we don't know how to stop it.\n\n` +
+          //       "You can also try the following manual steps to try to allow PL Connect get the necessary top firewall permissions:\n\n" +
+          //       "(1) Disconnect the other VPN and click Retry in PL Connect again. If successful - then reconnect to the other VPN.\n\n" +
+          //       "(2) If previous step failed - stop the Windows service of the other VPN (via Services tab in Task Manager) and click Retry " +
+          //       "in PL Connect again. If successful - then restart the service of the other VPN and reconnect to the other VPN.\n\n" +
+          //       "(3) If previous step failed - uninstall the other VPN and click Retry in PL Connect again. Then reinstall the other VPN and reconnect to it.";
+          //     sender.showMessageBoxSync({
+          //       type: "error",
+          //       buttons: ["OK"],
+          //       message: errMsg,
+          //       detail: detailMsg,
+          //     });
+          //   } else if (resp.ErrorMessage != null && resp.ErrorMessage) {
+          //     console.error(resp.ErrorMessage);
+          //     sender.showMessageBoxSync({
+          //       type: "error",
+          //       buttons: ["OK"],
+          //       message: errMsg,
+          //       detail: resp.ErrorMessage,
+          //     });
+          //   }
+          // }
+          
+          // start connection attempt, as daemon disconnected VPN during KillSwitchReregister() call
+          // await sender.Connect(); // Re-connect
         } catch (e) {
           console.error(e);
           sender.showMessageBoxSync({
@@ -388,7 +393,7 @@ export default {
           });
           return;
         }
-      }
+      // }
     },
   },
   computed: {

@@ -20,6 +20,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
@@ -95,15 +96,16 @@ var (
 	}
 
 	// NordVPN
-	nordVpnSublayerKey = syscall.GUID{Data1: 0x92C759E5, Data2: 0x03BA, Data3: 0x41AD, Data4: [8]byte{0xA5, 0x99, 0x68, 0xAF, 0x2C, 0x1A, 0x17, 0xE5}}
-	// FIXME: index by interface name
+	nordVpnSublayerKey              = syscall.GUID{Data1: 0x92C759E5, Data2: 0x03BA, Data3: 0x41AD, Data4: [8]byte{0xA5, 0x99, 0x68, 0xAF, 0x2C, 0x1A, 0x17, 0xE5}}
 	nordVpnInterfaceNameDef         = "NordLynx"    // NordLynx protocol, and apparently OpenVPN. This interface is active even when NordVPN is disconnected.
 	nordVpnInterfaceNameNordWhisper = "NordWhisper" // NordWhisper protocol
+	NordVpnName                     = "NordVPN"
 	nordVpnProfile                  = OtherVpnInfo{
-		name:       "NordVPN",
+		name:       NordVpnName,
 		namePrefix: "nord",
 
-		networkInterfaceNames: []string{nordVpnInterfaceNameDef, nordVpnInterfaceNameNordWhisper},
+		networkInterfaceNames:  []string{nordVpnInterfaceNameDef, nordVpnInterfaceNameNordWhisper},
+		customHealthchecksType: service_types.HealthchecksType_RestApiCall, // have to use REST API for healthchecks w/ NordVPN, can't use ping
 
 		incompatWithTotalShieldWhenConnected: true,
 
@@ -508,24 +510,31 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 	return retErr
 }
 
-func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected bool, otherVpnNames []string, retErr error) {
+func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected bool, otherVpnNames mapset.Set[string], nordVpnUpOnWindows bool, retErr error) {
 	// check whether we have top WFP sublayer priority
 	weHaveTopFirewallPriority /*otherVpnID*/, _, otherVpnNameWithTopSublayerPri /*otherVpnDescription*/, _, err := implHaveTopFirewallPriority(false, 0)
 	if err != nil {
-		return false, otherVpnNames, log.ErrorFE("error checking whether we have top firewall priority: %w", err)
+		return false, otherVpnNames, false, log.ErrorFE("error checking whether we have top firewall priority: %w", err)
 	}
 
 	// re-detect VPNs w/ CLI
 	if _, err := reDetectOtherVpnsImpl(forceRedetectOtherVpns, false, false, false, false); err != nil {
-		return false, otherVpnNames, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
+		return false, otherVpnNames, false, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
 	}
 
 	otherVpnNamesSet := otherVpnsInstalledWithCliPresent.Clone()
 	if otherVpnNameWithTopSublayerPri != "" {
 		otherVpnNamesSet.Add(otherVpnNameWithTopSublayerPri)
 	}
+	if nordVpnUpOnWindows = nordVpnProfile.isConnectedConnecting; nordVpnUpOnWindows {
+		otherVpnNamesSet.Add(nordVpnProfile.name)
+		setHealthchecksTypeCallback(nordVpnProfile.customHealthchecksType) // set custom healthchecks type
+		// } else { // reset healthchecks type to default
+		// 	getPrefsCallback().HealthchecksType = service_types.HealthchecksTypeDefault
+	}
 
-	return !weHaveTopFirewallPriority || !otherVpnsInstalledWithCliPresent.IsEmpty(), otherVpnNamesSet.ToSlice(), nil
+	// NordVPN status (whether its interface is up) was just re-checked in reDetectOtherVpnsImpl()
+	return !weHaveTopFirewallPriority || !otherVpnsInstalledWithCliPresent.IsEmpty(), otherVpnNamesSet.Clone(), nordVpnUpOnWindows, nil
 }
 
 // reDetectOtherVpnsImpl - re-detect the other VPNs present (by interface name and by CLI), and optionally adjust the current MTU accordingly.

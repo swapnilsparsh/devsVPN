@@ -36,6 +36,7 @@ import (
 	"github.com/swapnilsparsh/devsVPN/daemon/service/dns"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/preferences"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/srvhelpers"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
 )
 
 var log *logger.Logger
@@ -70,6 +71,7 @@ var (
 	stateAllowLanMulticast bool
 
 	getPrefsCallback                 preferences.GetPrefsCallback
+	setHealthchecksTypeCallback      service_types.SetHealthchecksTypeCallback
 	disableTotalShieldAsyncCallback  DisableTotalShieldAsyncCallback
 	onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback
 	vpnConnectedOrConnectingCallback protocol_types.VpnConnectedCallback // whether VPN is connected or connecting
@@ -80,9 +82,10 @@ var (
 
 // Initialize is doing initialization stuff
 // Must be called on application start
-func Initialize(_getPrefsCallback preferences.GetPrefsCallback, _disableTotalShieldAsyncCallback DisableTotalShieldAsyncCallback,
-	_onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback,
-	_vpnConnectedOrConnectingCallback, _vpnConnectedCallback, _isDaemonStoppingCallback protocol_types.VpnConnectedCallback, _getRestApiHostsCallback GetRestApiHostsCallback) error {
+func Initialize(_getPrefsCallback preferences.GetPrefsCallback, _setHealthchecksTypeCallback service_types.SetHealthchecksTypeCallback,
+	_disableTotalShieldAsyncCallback DisableTotalShieldAsyncCallback, _onKillSwitchStateChangedCallback OnKillSwitchStateChangedCallback,
+	_vpnConnectedOrConnectingCallback, _vpnConnectedCallback, _isDaemonStoppingCallback protocol_types.VpnConnectedCallback,
+	_getRestApiHostsCallback GetRestApiHostsCallback) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -90,6 +93,7 @@ func Initialize(_getPrefsCallback preferences.GetPrefsCallback, _disableTotalShi
 	getRestApiHostsCallback = _getRestApiHostsCallback
 
 	getPrefsCallback = _getPrefsCallback
+	setHealthchecksTypeCallback = _setHealthchecksTypeCallback
 	disableTotalShieldAsyncCallback = _disableTotalShieldAsyncCallback
 
 	vpnConnectedOrConnectingCallback = _vpnConnectedOrConnectingCallback

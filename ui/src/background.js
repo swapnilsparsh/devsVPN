@@ -49,6 +49,7 @@ import "@/context-menu/main";
 let win;
 let settingsWindow;
 let updateWindow;
+let vpnWizardWindow;
 let isAppReadyToQuit = false;
 
 let isTrayInitialized = false;
@@ -145,6 +146,12 @@ ipcMain.on("renderer-request-show-settings-antitracker", () => {
 });
 ipcMain.on("renderer-request-show-settings-SplitTunnel", () => {
   showSettings("appwhitelist");
+});
+ipcMain.on("renderer-request-show-vpn-wizard", (introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect) => {
+  vpnWizardWindowOnShow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect);
+});
+ipcMain.on("renderer-request-close-vpn-wizard", () => {
+  closeVpnWizardWindow();
 });
 ipcMain.handle("renderer-request-connect-to-daemon", async () => {
   return await connectToDaemon();
@@ -1002,6 +1009,80 @@ function closeUpdateWindow() {
   updateWindow.destroy(); // close();
 }
 
+// VPN Wizard window
+function createVpnWizardWindow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect) {
+  if (vpnWizardWindow != null) {
+    closeVpnWizardWindow();
+  }
+
+  let windowConfig = {
+    backgroundColor: getBackgroundColor(),
+    show: false,
+
+    width: config.VpnWizardWindowWidth,
+    height: 700,
+    maxWidth: config.VpnWizardWindowWidth,
+    maxHeight: 700,
+
+    resizable: false,
+    fullscreenable: false,
+    maximizable: false,
+    minimizable: false,
+
+    center: true,
+    title: "privateLINE Connect - VPN Reconfiguration Wizard",
+
+    autoHideMenuBar: true,
+
+    frame: IsWindowHasFrame(),
+    // frame: false,
+  };
+
+  vpnWizardWindow = createBrowserWindow(windowConfig);
+
+  // Load the remote URL for development or the local html file for production.
+  if (process.env['ELECTRON_RENDERER_URL']) {
+    vpnWizardWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + `#vpnwizard`)
+  } else {
+    vpnWizardWindow.loadURL(`file://${join(__dirname, '../renderer/index.html')}#vpnwizard`);
+  }
+
+  // pass args to VPN Wizard
+  store.commit("uiState/introHeader", introHeader);
+  store.commit("uiState/introDescr", introDescr);
+  store.commit("uiState/showAutoReconfigVpnStep", showAutoReconfig);
+  store.commit("uiState/showNordVpnWindowsStep", showNordVpnManualInstructions);
+  store.commit("uiState/issueExplicitConnect", issueExplicitConnect);
+
+  vpnWizardWindow.once("ready-to-show", () => {
+    vpnWizardWindow.show();
+
+    if (config.IsDebug()) {
+      try {
+        vpnWizardWindow.webContents.openDevTools();
+      } catch (e) {
+        console.error("Failed to open dev tools:", e.toString());
+      }
+    }
+  });
+
+  vpnWizardWindow.on("closed", () => {
+    vpnWizardWindow = null;
+  });
+}
+
+function closeVpnWizardWindow() {
+  store.commit("uiState/introHeader", "");
+  store.commit("uiState/introDescr", "");
+  store.commit("uiState/showAutoReconfigVpnStep", false);
+  store.commit("uiState/showNordVpnWindowsStep", false);
+  store.commit("uiState/issueExplicitConnect", false);
+
+  if (vpnWizardWindow == null) return;
+
+  vpnWizardWindow.destroy(); // close();
+}
+
 // INITIALIZE CONNECTION TO A DAEMON
 async function connectToDaemon(
   doNotTryToInstall,
@@ -1207,6 +1288,12 @@ function menuOnCheckUpdates() {
 function OnAppUpdateAvailable() {
   if (updateWindow) return;
   createUpdateWindow();
+}
+
+// VPN Wizard window
+function vpnWizardWindowOnShow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect) {
+  if (vpnWizardWindow) return;
+  createVpnWizardWindow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect);
 }
 
 // COLORS
