@@ -95,6 +95,7 @@ const daemonRequests = Object.freeze({
   KillSwitchSetIsPersistent: "KillSwitchSetIsPersistent",
   KillSwitchSetUserExceptions: "KillSwitchSetUserExceptions",
   KillSwitchReregister: "KillSwitchReregister",
+  // SetVpnCoexistPermission: "SetVpnCoexistPermission",
 
   SplitTunnelGetStatus: "SplitTunnelGetStatus",
   SplitTunnelSetConfig: "SplitTunnelSetConfig",
@@ -142,6 +143,7 @@ const daemonResponses = Object.freeze({
   DnsPredefinedConfigsResp: "DnsPredefinedConfigsResp",
   KillSwitchStatusResp: "KillSwitchStatusResp",
   KillSwitchReregisterErrorResp: "KillSwitchReregisterErrorResp",
+  // SetVpnCoexistPermissionErrorResp: "SetVpnCoexistPermissionErrorResp",
   SessionStatusResp: "SessionStatusResp",
 
   SplitTunnelStatus: "SplitTunnelStatus",
@@ -1658,6 +1660,16 @@ async function KillSwitchReregister(CanStopOtherVpn) {
   return ret;
 }
 
+// async function SetVpnCoexistPermission(CanReconfigureOtherVpns) {
+//   let ret = await sendRecv({
+//     Command: daemonRequests.SetVpnCoexistPermission,
+//     CanReconfigureOtherVpns,
+//   },
+//     [daemonResponses.SetVpnCoexistPermissionErrorResp]
+//   );
+//   return ret;
+// }
+
 async function SplitTunnelGetStatus() {
   let ret = await sendRecv(
     {
@@ -2063,6 +2075,7 @@ export default {
   KillSwitchSetIsPersistent,
   KillSwitchSetUserExceptions,
   KillSwitchReregister,
+  // SetVpnCoexistPermission,
 
   SplitTunnelGetStatus,
   SplitTunnelSetConfig,

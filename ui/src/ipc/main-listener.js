@@ -189,6 +189,13 @@ ipcMain.handle(
   }
 );
 
+// ipcMain.handle(
+//   "renderer-request-SetVpnCoexistPermission",
+//   async (event, enable) => {
+//     return await client.SetVpnCoexistPermission(enable);
+//   }
+// );
+
 ipcMain.handle("renderer-request-SplitTunnelGetStatus", async () => {
   return await client.SplitTunnelGetStatus();
 });

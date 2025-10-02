@@ -208,6 +208,10 @@ export default {
     return await invoke("renderer-request-KillSwitchGetStatus");
   },
 
+  // SetVpnCoexistPermission: async (CanReconfigureOtherVpns) => {
+  //   return await invoke("renderer-request-SetVpnCoexistPermission", CanReconfigureOtherVpns);
+  // },
+
   SplitTunnelGetStatus: async () => {
     return await invoke("renderer-request-SplitTunnelGetStatus");
   },
