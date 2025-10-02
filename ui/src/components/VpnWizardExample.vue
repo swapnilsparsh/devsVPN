@@ -64,7 +64,7 @@
               Auto Reconfigure Other VPNs Once
             </button>
           </div>
-          <input type="checkbox" class="margin-top" id="SetVpnCoexistPermissionCheckbox" v-model="toSetVpnCoexistPermission" />
+          <input type="checkbox" id="SetVpnCoexistPermissionCheckbox" v-model="toSetVpnCoexistPermission" />
           <label for="SetVpnCoexistPermissionCheckbox">Give PL Connect permission to reconfigure other VPNs automatically when needed
              (you can disable it later in Settings)</label>
         </div>
@@ -73,13 +73,18 @@
       <!-- The error message is shown in final instructions screen only if error was recorded -->
       <template v-if="this.autoReconfigFailed" #final-instructions-content>
         <div class="custom-error-content">
-          <h4>⚠️ {{this.autoReconfigErrHeader}}</h4>
+          <h3>⚠️ {{this.autoReconfigErrHeader}}</h3>
           <div class="action-buttons">
             <button class="master small-btn" @click="onSendVpnWizardLogs">
               Send Error Logs To privateLINE
             </button>
           </div>
-          <p>{{this.autoReconfigErrDetails}}</p>
+
+          <div class="margin-top">
+            <div class="info-box">
+              <p>{{this.autoReconfigErrDetails}}</p>
+            </div>
+        </div>
         </div>
       </template>
     </VpnWizard>
@@ -183,7 +188,7 @@ export default {
     },
 
     onStepChanged(data) {
-      console.log("Step changed: ", data, "\nautoReconfigFailed=", this.autoReconfigFailed, "\ntimeOfLastPromptToReconfigureOtherVpns=", this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns);
+      // console.log("Step changed: ", data, "\nautoReconfigFailed=", this.autoReconfigFailed, "\ntimeOfLastPromptToReconfigureOtherVpns=", this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns);
       // Handle step change logic here
       sender.SetPermissionReconfigureOtherVPNs(this.toSetVpnCoexistPermission == true);
     },
@@ -261,141 +266,5 @@ export default {
 </script>
 
 <style scoped lang="scss">
-@use "@/components/scss/constants";
-
-.example-container {
-  padding: 20px;
-}
-
-.example-buttons {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-}
-
-.example-btn {
-  height: 40px;
-  min-width: 140px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-
-  &.master {
-    background: #6f329d;
-    color: white;
-    border: none;
-
-    &:hover {
-      opacity: 0.9;
-    }
-  }
-
-  &.slave {
-    background: var(--button-slave-background);
-    color: var(--text-color);
-    border: 1px solid var(--separator-line-color);
-
-    &:hover {
-      background: var(--background-color-alternate);
-    }
-  }
-}
-
-.custom-content {
-  h4 {
-    margin: 0 0 12px 0;
-    color: var(--text-color);
-    font-size: 16px;
-  }
-
-  p {
-    margin: 0 0 16px 0;
-    color: var(--text-color-details);
-    line-height: 1.5;
-  }
-}
-
-.custom-error-content {
-  // color: red;
-
-  h4 {
-    color: red;
-    margin: 0 0 12px 0;
-    font-size: 16px;
-  }
-
-  p {
-    margin: 16px 0 16px 0;
-    line-height: 1.5;
-  }
-}
-
-.action-buttons {
-  // margin-top: 20px;
-  margin-top: 0px;
-}
-
-.margin-top {
-  margin-top: 20px;
-}
-
-.small-btn {
-  height: 32px;
-  padding: 0 16px;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 12px;
-  cursor: pointer;
-  border: none;
-
-  &.master {
-    background: #6f329d;
-    color: white;
-
-    &:hover {
-      opacity: 0.9;
-    }
-  }
-
-  &.error {
-    background: red;
-    color: white;
-
-    &:hover {
-      opacity: 0.9;
-    }
-  }
-}
-
-.instruction-steps {
-  margin-top: 16px;
-}
-
-.step-item {
-  display: flex;
-  align-items: flex-start;
-  margin-bottom: 12px;
-
-  .step-number {
-    background: #6f329d;
-    color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 600;
-    margin-right: 12px;
-    flex-shrink: 0;
-  }
-
-  .step-text {
-    color: var(--text-color);
-    line-height: 1.5;
-  }
-}
+@use './scss/vpn-wizard.scss';
 </style>
