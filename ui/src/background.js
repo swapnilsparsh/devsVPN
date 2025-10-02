@@ -365,6 +365,7 @@ if (gotTheLock && isAllowedToStart) {
         menuOnPreferences,
         menuOnAccount,
         menuOnCheckUpdates,
+        // vpnWizardWindowOnShowTray,
         LaunchAppInSplitTunnel
       );
       isTrayInitialized = true;
@@ -1309,3 +1310,9 @@ function getBackgroundColor() {
 
   return "#FFFFFF";
 }
+
+// // Vlad - testing
+// function vpnWizardWindowOnShowTray() {
+//   if (vpnWizardWindow) return;
+//   createVpnWizardWindow("trayHeader", "trayDescr", true, true, true);
+// }

@@ -16,6 +16,7 @@ let menuHandlerShow = null;
 let menuHandlerPreferences = null;
 let menuHandlerAccount = null;
 let menuHandlerCheckUpdates = null;
+// let menuHandlerVpnWizard = null;
 let fLaunchStApp = null;
 
 let iconConnected = null;
@@ -60,12 +61,14 @@ export function InitTray(
   menuItemPreferences,
   menuItemAccount,
   menuItemCheckUpdates,
+  // menuItemVpnWizard,
   funcLaunchStApp
 ) {
   menuHandlerShow = menuItemShow;
   menuHandlerPreferences = menuItemPreferences;
   menuHandlerAccount = menuItemAccount;
   menuHandlerCheckUpdates = menuItemCheckUpdates;
+  // menuHandlerVpnWizard = menuItemVpnWizard;
   fLaunchStApp = funcLaunchStApp;
 
   const trayIconsDir = path.join(path.dirname(__dirname), "renderer", "tray");
@@ -488,6 +491,14 @@ function doUpdateTrayMenu() {
         click: menuHandlerCheckUpdates,
       });
     }
+
+    // if (menuHandlerVpnWizard != null) {
+    //   mainMenu.push({
+    //     label: `VPN Wizard`,
+    //     click: menuHandlerVpnWizard,
+    //   });
+    // }
+
   } else { // If logged out - allow only Settings/General
     mainMenu.push({ label: "Settings", click: menuHandlerPreferences });
   }
