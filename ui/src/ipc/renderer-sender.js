@@ -410,10 +410,10 @@ export default {
 
   // VPN Wizard window
   ShowVpnWizard: function (introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect) {
-    ipcRenderer.send("renderer-request-show-vpn-wizard", introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect);
+    ipcRenderer.invoke("renderer-request-show-vpn-wizard", introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect);
   },
   CloseVpnWizardWindow: function () {
-    ipcRenderer.send("renderer-request-close-vpn-wizard");
+    ipcRenderer.invoke("renderer-request-close-vpn-wizard");
   },
 
   // DIALOG

@@ -74,7 +74,7 @@
             <div class="failedText" v-if="showVpnCoexFailed">
               <!-- TODO: WIll Fix Text Show According to the info received in this.$store.state.vpnState.firewallState ... -->
               FAILED
-              <button class="retryBtn" @click="runVpnCoexistenceWizard()" v-if="showVpnCoexFailedWithFixButton">
+              <button class="retryBtn" @click="runVpnCoexistenceWizard" v-if="showVpnCoexFailedWithFixButton">
                 Fix
               </button>
             </div>
@@ -307,17 +307,16 @@ export default {
       }
     },
 
-    async runVpnCoexistenceWizard() { // FIXME: Vlad - show other VPN and/or list of reconfigurable VPNs
+    runVpnCoexistenceWizard() {
       //let shouldProceed = this.hasPermissionToReconfigureOtherVPNs;
-      let otherVpnsMsg = "";
-      if (this.$store.state.vpnState.firewallState.OtherVpnName && this.$store.state.vpnState.firewallState.OtherVpnName !== "") {
-        otherVpnsMsg = this.$store.state.vpnState.firewallState.OtherVpnName;
-      } else if (this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsDetected) {
-        otherVpnsMsg = this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames.toString();
-      }
-      let introHeader = "privateLINE connectivity is blocked"
-      let introDescr = `Other VPNs detected which may block our connectivity: ${otherVpnsMsg}`
-                     `\n\nIt it necessary to reconfigure them. Press Next to continue.`;
+      // let otherVpnsMsg = "";
+      // if (this.$store.state.vpnState.firewallState.OtherVpnName && this.$store.state.vpnState.firewallState.OtherVpnName !== "") {
+      //   otherVpnsMsg = this.$store.state.vpnState.firewallState.OtherVpnName;
+      // } else if (this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsDetected) {
+      //   otherVpnsMsg = this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames.toString();
+      // }
+      let introHeader = "privateLINE connectivity is blocked";
+      let introDescr = "Other VPNs detected that may block our connectivity. It is necessary to reconfigure them. Press Next to continue.";
 
       // if (!shouldProceed) {
       //   let ret = await sender.showMessageBox(
@@ -344,16 +343,12 @@ export default {
         let errMsg =
           "Error: failed to get top firewall permissions and/or reconfigure other VPNs - please disconnect PL Connect or stop the connection attempt, and retry VPN Coexistence wizard again.";
         try {
-          // this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns = Date.now(); // store the timestamp only when the user agreed to re-configure other VPNs
-          await sender.ShowVpnWizard(introHeader, introDescr, true, this.$store.state.vpnState.firewallState.NordVpnUpOnWindows, true);
-          
+          sender.ShowVpnWizard(introHeader, introDescr, true, this.$store.state.vpnState.firewallState.NordVpnUpOnWindows, true);
+
           // let resp = await sender.KillSwitchReregister(true); // this will also kick off reconnection attempt
           // //console.log("resp", resp);
           // if (resp && resp !== null) {
           //   if (resp.OtherVpnUnknownToUs != null && resp.OtherVpnUnknownToUs) {
-          //     // FIXME: Vlad:
-          //     //  - re-check what "KillSwitchReregister" request returns
-          //     //  - add a button to send logs
           //     errMsg =
           //       "Error: failed to get top firewall permissions - please take a screenshot or photo of this error message and email it to support@privateline.io";
           //     let detailMsg =
@@ -380,7 +375,7 @@ export default {
           //     });
           //   }
           // }
-          
+
           // start connection attempt, as daemon disconnected VPN during KillSwitchReregister() call
           // await sender.Connect(); // Re-connect
         } catch (e) {
@@ -528,42 +523,41 @@ export default {
 
       isConnectedOrConnecting && isFirewallEnabled && vpnCoexistenceGood												                  show	VPN Coexistence: GOOD
 
+      isConnectedOrConnecting && isFirewallEnabled && !vpnCoexistenceGood && hasPermissionToReconfigureOtherVPNs	show	VPN Coexistence: FAILED
+      isConnectedOrConnecting && isFirewallEnabled && !vpnCoexistenceGood && !hasPermissionToReconfigureOtherVPNs	show	VPN Coexistence: FAILED | Fix
+
     Windows:
       vpnCoexistenceGood																								                                          show	VPN Coexistence: GOOD
 
       !isConnectedOrConnecting && !vpnCoexistenceGood && hasPermissionToReconfigureOtherVPNs						        	show	VPN Coexistence:
       !isConnectedOrConnecting && !vpnCoexistenceGood && !hasPermissionToReconfigureOtherVPNs							        show	VPN Coexistence: FAILED | Fix
 
+      // on Windows NordVPN has to be manually reconfigured by user, even if daemon hasPermissionToReconfigureOtherVPNs - automatic logic can't reconfigure it yet
+      isConnectedOrConnecting && isFirewallEnabled && !vpnCoexistenceGood                                       	show	VPN Coexistence: FAILED | Fix
+
     Windows and Linux, common:
       // means that reconfiguration is in progress
       isConnectedOrConnecting && !isFirewallEnabled																	                              show	VPN Coexistence:
-
-      isConnectedOrConnecting && isFirewallEnabled && !vpnCoexistenceGood && hasPermissionToReconfigureOtherVPNs	show	VPN Coexistence: FAILED
-      isConnectedOrConnecting && isFirewallEnabled && !vpnCoexistenceGood && !hasPermissionToReconfigureOtherVPNs	show	VPN Coexistence: FAILED | Fix
     */
     showVpnCoex: function () {
-      return (this.isWindows) || (this.isLinux && this.isConnectedOrConnecting);
+      return this.isWindows || this.isConnectedOrConnecting;
     },
     showVpnCoexGood: function () {
-      if (this.isWindows)
-        return this.vpnCoexistenceGood;
-      else if (this.isLinux)
-        return this.isConnectedOrConnecting && this.isFirewallEnabled && this.vpnCoexistenceGood;
-      else
-        return false;
+      return this.vpnCoexistenceGood && (this.isWindows || (this.isConnectedOrConnecting && this.isFirewallEnabled));
     },
     showVpnCoexFailed: function () {
-      return this.showVpnCoexFailedWithFixButton ||
-              (this.isConnectedOrConnecting && this.isFirewallEnabled && !this.vpnCoexistenceGood);
+      if (this.vpnCoexistenceGood) return false;
+      if (this.isConnectedOrConnecting)
+        return this.isFirewallEnabled;
+      else
+        return (this.isWindows && !this.hasPermissionToReconfigureOtherVPNs);
     },
     showVpnCoexFailedWithFixButton: function () {
-      if (!this.vpnCoexistenceGood && !this.hasPermissionToReconfigureOtherVPNs) {
-        if (this.isConnectedOrConnecting)
-          return this.isFirewallEnabled;
-        else
-          return this.isWindows;
-      }
-      return false;
+      if (this.vpnCoexistenceGood) return false;
+      if (this.isConnectedOrConnecting)
+        return (this.isFirewallEnabled && (this.isWindows || !this.hasPermissionToReconfigureOtherVPNs));
+      else
+        return (this.isWindows && !this.hasPermissionToReconfigureOtherVPNs);
     },
   },
 };

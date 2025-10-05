@@ -147,10 +147,10 @@ ipcMain.on("renderer-request-show-settings-antitracker", () => {
 ipcMain.on("renderer-request-show-settings-SplitTunnel", () => {
   showSettings("appwhitelist");
 });
-ipcMain.on("renderer-request-show-vpn-wizard", (introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect) => {
+ipcMain.handle("renderer-request-show-vpn-wizard", (event, introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect) => {
   vpnWizardWindowOnShow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect);
 });
-ipcMain.on("renderer-request-close-vpn-wizard", () => {
+ipcMain.handle("renderer-request-close-vpn-wizard", () => {
   closeVpnWizardWindow();
 });
 ipcMain.handle("renderer-request-connect-to-daemon", async () => {
@@ -1011,7 +1011,7 @@ function closeUpdateWindow() {
 }
 
 // VPN Wizard window
-function createVpnWizardWindow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect) {
+function createVpnWizardWindow(_introHeader, _introDescr, _showAutoReconfig, _showNordVpnManualInstructions, _issueExplicitConnect) {
   if (vpnWizardWindow != null) {
     closeVpnWizardWindow();
   }
@@ -1049,11 +1049,13 @@ function createVpnWizardWindow(introHeader, introDescr, showAutoReconfig, showNo
   }
 
   // pass args to VPN Wizard
-  store.commit("uiState/introHeader", introHeader);
-  store.commit("uiState/introDescr", introDescr);
-  store.commit("uiState/showAutoReconfigVpnStep", showAutoReconfig);
-  store.commit("uiState/showNordVpnWindowsStep", showNordVpnManualInstructions);
-  store.commit("uiState/issueExplicitConnect", issueExplicitConnect);
+  store.commit("uiState/vpnWizard",{
+    introHeader: _introHeader,
+    introDescr: _introDescr,
+    showAutoReconfigVpnStep: _showAutoReconfig,
+    showNordVpnWindowsStep: _showNordVpnManualInstructions,
+    issueExplicitConnect: _issueExplicitConnect,
+  });
 
   vpnWizardWindow.once("ready-to-show", () => {
     vpnWizardWindow.show();
@@ -1072,12 +1074,14 @@ function createVpnWizardWindow(introHeader, introDescr, showAutoReconfig, showNo
   });
 }
 
-function closeVpnWizardWindow() {
-  store.commit("uiState/introHeader", "");
-  store.commit("uiState/introDescr", "");
-  store.commit("uiState/showAutoReconfigVpnStep", false);
-  store.commit("uiState/showNordVpnWindowsStep", false);
-  store.commit("uiState/issueExplicitConnect", false);
+async function closeVpnWizardWindow() {
+  store.commit("uiState/vpnWizard",{
+    introHeader: "",
+    introDescr: "",
+    showAutoReconfigVpnStep: false,
+    showNordVpnWindowsStep: false,
+    issueExplicitConnect: false,
+  });
 
   if (vpnWizardWindow == null) return;
 

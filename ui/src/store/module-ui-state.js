@@ -24,11 +24,11 @@ export default {
     //}
     appUpdateProgress: null,
 
-    // if not empty, then UI settings view will show this message 
+    // if not empty, then UI settings view will show this message
     // (e.g. message text about the Location Services permission required for ability to get WiFi info)
     wifiWarningMessage: "",
 
-    // Time when (a) we last prompted the user via VPN wizard to reconfigure other VPNs, and (b) the user agreed. 
+    // Time when (a) we last prompted the user via VPN wizard to reconfigure other VPNs, and (b) the user agreed.
     // We want to prompt them at least 3 minutes apart, to avoid duplicate prompts during the same connection attempt.
     timeOfLastPromptToReconfigureOtherVpns: 0,
     delayToRePromptToReconfigureOtherVpns: 3*60,
@@ -65,6 +65,10 @@ export default {
     wifiWarningMessage(state, value) {
       state.wifiWarningMessage = value;
     },
+    timeOfLastPromptToReconfigureOtherVpns(state, value) {
+      state.timeOfLastPromptToReconfigureOtherVpns = value;
+    },
+
     introHeader(state, value) {
       state.vpnWizard.introHeader = value;
     },
@@ -80,8 +84,9 @@ export default {
     issueExplicitConnect(state, value) {
       state.vpnWizard.issueExplicitConnect = value;
     },
-    timeOfLastPromptToReconfigureOtherVpns(state, value) {
-      state.timeOfLastPromptToReconfigureOtherVpns = value;
+
+    vpnWizard(state, obj) {
+      state.vpnWizard = obj;
     },
   },
 

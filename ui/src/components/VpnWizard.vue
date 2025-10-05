@@ -45,17 +45,17 @@
           <div v-if="this.otherVpnsDetected" class="step-content">
             <slot name="intro-screen-content">
               <div class="info-box">
-                <p><strong>Other VPNs detected, that may be blocking privateLINE connectivity</strong></p>
-                  <ul>
-                    <li v-for="otherVpnName in this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames">
-                      {{ otherVpnName }}
-                    </li>
-                  </ul>
+                <!-- <p><strong>Other VPNs detected, that may be blocking privateLINE connectivity</strong></p> -->
+                <ul class="no-top-margin">
+                  <li v-for="otherVpnName in this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames">
+                    {{ otherVpnName }}
+                  </li>
+                </ul>
               </div>
             </slot>
           </div>
         </div>
-        
+
         <!-- NordVPN Windows Step -->
         <div v-if="currentStep.id === 'nordvpn-windows'" class="wizard-step">
           <div class="step-header">

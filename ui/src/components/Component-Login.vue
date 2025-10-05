@@ -517,11 +517,20 @@ export default {
           if (resp.APIStatus === 200) {
             return;
           } else if (resp.APIStatus === 408) { // Connectivity to PL servers blocked. If other VPNs detected - prompt the user to reconfigure them and retry.
-            if (loginTry < 1 && !this.hasPermissionToReconfigureOtherVPNs && resp.ReconfigurableOtherVpns && resp.ReconfigurableOtherVpns !== null && resp.ReconfigurableOtherVpns.length > 0) {
-              // if (!this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames ||
-              //   this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames.length <= 0)
-              //   this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames = resp.ReconfigurableOtherVpns;
-              
+            // On Linux no other known VPNs require manual intervention, automatic logic can take care of known ones.
+            // So on Linux show the wizard only if !this.hasPermissionToReconfigureOtherVPNs
+            // On Linux daemon always returns resp.NordVpnUpOnWindows as false.
+
+            // On Windows NordVPN requires manual configuration by user, regardless of whether daemon
+            // hasPermissionToReconfigureOtherVPNs or not. So on Windows show the wizard if:
+            //  (!this.hasPermissionToReconfigureOtherVPNs || resp.NordVpnUpOnWindows)
+
+            let toShowVpnWizard = resp.ReconfigurableOtherVpns &&
+                                  resp.ReconfigurableOtherVpns !== null &&
+                                  resp.ReconfigurableOtherVpns.length > 0 &&
+                                  (!this.hasPermissionToReconfigureOtherVPNs || resp.NordVpnUpOnWindows);
+
+            if (loginTry < 1 && toShowVpnWizard) {
               let introHeader = "Could not connect to privateLINE servers"
               let introDescr = "Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpns.toString()}";
               let showNordVpnManualInstructions = (resp.NordVpnUpOnWindows !== null && resp.NordVpnUpOnWindows);
@@ -549,7 +558,7 @@ export default {
               // }
 
               // and continue login_loop
-            } else {
+            } else { // either no known other VPNs detected, or already tried the wizard - show a generic message
               sender.showMessageBoxSync({
                 type: "error",
                 buttons: ["OK"],

@@ -1322,8 +1322,13 @@ func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) er
 	return firewall.AllowLAN(isAllowLAN, prefs.IsFwAllowLANMulticast)
 }
 
+var KillSwitchReregisterMutex sync.Mutex
+
 // KillSwitchReregister try to reregister our firewall logic at top
 func (s *Service) KillSwitchReregister(canReconfigureOtherVpns bool) (err error) {
+	KillSwitchReregisterMutex.Lock() // Single-instance function. In case the user clicks the button multiple times - we want to run one request at a time.
+	defer KillSwitchReregisterMutex.Unlock()
+
 	// log.Debug("KillSwitchReregister entered")
 	defer log.Debug("KillSwitchReregister exited")
 
@@ -1351,7 +1356,7 @@ func (s *Service) KillSwitchReregister(canReconfigureOtherVpns bool) (err error)
 	// 	}
 	// }
 
-	// if firewall.TryReregisterFirewallAtTopPriority() was successful, connect/reconnect
+	// if firewall.TryReregisterFirewallAtTopPriority() was successful, fork a connect/reconnect request
 	if len(lastConnParams.WireGuardParameters.EntryVpnServer.Hosts) < 1 {
 		log.ErrorE(errors.New("error - invalid Preferences after logout-login, zero-length prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts"), 0)
 	} else {
