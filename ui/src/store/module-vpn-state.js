@@ -231,9 +231,20 @@ export default {
     hostsPings(state, val) {
       state.hostsPings = val;
     },
+
     firewallState(state, obj) {
       state.firewallState = obj;
     },
+    ReconfigurableOtherVpnsDetected(state, val) {
+      state.firewallState.ReconfigurableOtherVpnsDetected = val;
+    },
+    ReconfigurableOtherVpnsNames(state, obj) {
+      state.firewallState.ReconfigurableOtherVpnsNames = obj;
+    },
+    NordVpnUpOnWindows(state, val) {
+      state.firewallState.NordVpnUpOnWindows = val;
+    },
+
     // Split-Tunnelling
     splitTunnelling(state, val) {
       state.splitTunnelling = val;

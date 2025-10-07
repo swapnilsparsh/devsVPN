@@ -119,7 +119,7 @@ async function connect(me, isConnect) {
       const subscriptionData = me.$store.state.account.subscriptionData;
 
       if (
-        subscriptionData && subscriptionData !== null && 
+        subscriptionData && subscriptionData !== null &&
         subscriptionData.Plan && subscriptionData.Plan != null &&
         subscriptionData.Plan.name && subscriptionData.Plan.name != null
       ) {
@@ -270,15 +270,15 @@ export default {
       // if connection failed and other VPNs detected - prompt the user to allow PL Connect to reconfigure them
       if (failureInfo.ReasonDescription.includes("Other VPNs detected")) {
         const currTime = Date.now();
-        if (Math.floor((currTime - this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns) / 1000) >= 
+        if (Math.floor((currTime - this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns) / 1000) >=
           this.$store.state.uiState.delayToRePromptToReconfigureOtherVpns) { // if 3 minutes passed since last prompt to reconfigure other VPNs - prompt again
 
           let nordVpnUpOnWindows = failureInfo.ReasonDescription.includes("NordVPN (up)");
           //let introDescr = "Could not connect to privateLINE servers. Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpns.toString()}";
           let introHeader = "Could not connect to privateLINE servers";
           let introDescr = capitalizeFirstLetter(failureInfo.ReasonDescription);
-          await sender.ShowVpnWizard(introHeader, introDescr, true, nordVpnUpOnWindows, true);
-          
+          /* await */ sender.ShowVpnWizard(introHeader, introDescr, true, nordVpnUpOnWindows, true, false);
+
           // let ret = await sender.showMessageBox({
           //     type: "error",
           //     buttons: ["Retry", "Cancel"],
@@ -293,12 +293,12 @@ export default {
 
           // if (ret.response == 0) {// 0 = Retry, 1 = Cancel
           //   this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns = Date.now(); // store the timestamp only when the user agreed to re-configure other VPNs
-            
+
           //   if (ret.checkboxChecked) {
           //     sender.SetPermissionReconfigureOtherVPNs(true);
           //   }
           //   sender.KillSwitchReregister(true); // this will kick off reconnection attempt
-            
+
           //   return;
           // } else {
             return;
@@ -311,7 +311,7 @@ export default {
         type: "error",
         buttons: ["OK"],
         message: `Failed to connect`,
-        detail: capitalizeFirstLetter(failureInfo.ReasonDescription) + 
+        detail: capitalizeFirstLetter(failureInfo.ReasonDescription) +
           "\n\nPlease check your internet connection. If you have other VPNs installed - please disable them and their kill switches.",
       });
     },
@@ -504,8 +504,8 @@ export default {
             type: "info",
             buttons: ["OK"],
             message: "Account Migrated Successfully",
-            detail: `Your Account ID: ${resp.AccountID}. You can also view it under Settings/Account\n\n` + 
-                    "For future logins, simply use your account ID — no password needed.\n\n" + 
+            detail: `Your Account ID: ${resp.AccountID}. You can also view it under Settings/Account\n\n` +
+                    "For future logins, simply use your account ID — no password needed.\n\n" +
                     "Please save the account ID and keep it secure — it's your sole identifier for using our service. No email or username is required, ensuring your anonymity. Do not share your account ID with anyone.",
           });
         }

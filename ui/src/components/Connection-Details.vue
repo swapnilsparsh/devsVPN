@@ -343,7 +343,7 @@ export default {
         let errMsg =
           "Error: failed to get top firewall permissions and/or reconfigure other VPNs - please disconnect PL Connect or stop the connection attempt, and retry VPN Coexistence wizard again.";
         try {
-          sender.ShowVpnWizard(introHeader, introDescr, true, this.$store.state.vpnState.firewallState.NordVpnUpOnWindows, true);
+          sender.ShowVpnWizard(introHeader, introDescr, true, this.$store.state.vpnState.firewallState.NordVpnUpOnWindows, true, false);
 
           // let resp = await sender.KillSwitchReregister(true); // this will also kick off reconnection attempt
           // //console.log("resp", resp);

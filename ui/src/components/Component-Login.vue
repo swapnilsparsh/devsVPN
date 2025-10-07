@@ -510,7 +510,7 @@ export default {
             // confirmation2FA ? confirmation2FA : this.confirmation2FA
           );
 
-          console.log("resp (login try ",loginTry,"): ", resp);
+          // console.log("resp (login try ",loginTry,"): ", resp);
           //const accountInfoResponse = await sender.AccountInfo();
           //console.log("accountInfoResponse", accountInfoResponse);
 
@@ -525,17 +525,18 @@ export default {
             // hasPermissionToReconfigureOtherVPNs or not. So on Windows show the wizard if:
             //  (!this.hasPermissionToReconfigureOtherVPNs || resp.NordVpnUpOnWindows)
 
-            let toShowVpnWizard = resp.ReconfigurableOtherVpns &&
-                                  resp.ReconfigurableOtherVpns !== null &&
-                                  resp.ReconfigurableOtherVpns.length > 0 &&
+            let toShowVpnWizard = resp.ReconfigurableOtherVpnsNames &&
+                                  resp.ReconfigurableOtherVpnsNames !== null &&
+                                  resp.ReconfigurableOtherVpnsNames.length > 0 &&
                                   (!this.hasPermissionToReconfigureOtherVPNs || resp.NordVpnUpOnWindows);
 
             if (loginTry < 1 && toShowVpnWizard) {
               let introHeader = "Could not connect to privateLINE servers"
-              let introDescr = "Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpns.toString()}";
+              let introDescr = "Other VPN(s) detected that may be blocking privateLINE connectivity:";
               let showNordVpnManualInstructions = (resp.NordVpnUpOnWindows !== null && resp.NordVpnUpOnWindows);
 
-              await sender.ShowVpnWizard(introHeader, introDescr, true, showNordVpnManualInstructions, false);
+              const waitForWizardCompletion = true; // wait synchronously till wizard closes
+              const _ret = await sender.ShowVpnWizard(introHeader, introDescr, true, showNordVpnManualInstructions, false,  waitForWizardCompletion);
 
               // let ret = await sender.showMessageBox(
               //   {
@@ -543,7 +544,7 @@ export default {
               //     buttons: ["Retry", "Cancel"],
               //     message: "Please Confirm",
               //     detail:
-              //       `Could not connect to privateLINE servers. Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpns.toString()}` +
+              //       `Could not connect to privateLINE servers. Other VPN(s) detected that may be blocking privateLINE connectivity: \n\n${resp.ReconfigurableOtherVpnsNames.toString()}` +
               //       `\n\nDo you allow privateLINE to reconfigure other VPN(s) once (in order to allow privateLINE connectivity) and retry login? Press Retry to continue`,
               //     checkboxLabel: `Give PL Connect permission to reconfigure other VPNs automatically when needed (you can disable it in Settings later)`,
               //     checkboxChecked: false,
@@ -559,7 +560,7 @@ export default {
 
               // and continue login_loop
             } else { // either no known other VPNs detected, or already tried the wizard - show a generic message
-              sender.showMessageBoxSync({
+              sender.showMessageBox({
                 type: "error",
                 buttons: ["OK"],
                 message: "Failed to login",

@@ -147,8 +147,8 @@ ipcMain.on("renderer-request-show-settings-antitracker", () => {
 ipcMain.on("renderer-request-show-settings-SplitTunnel", () => {
   showSettings("appwhitelist");
 });
-ipcMain.handle("renderer-request-show-vpn-wizard", (event, introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect) => {
-  vpnWizardWindowOnShow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect);
+ipcMain.handle("renderer-request-show-vpn-wizard", (event, introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion) => {
+  return vpnWizardWindowOnShow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion);
 });
 ipcMain.handle("renderer-request-close-vpn-wizard", () => {
   closeVpnWizardWindow();
@@ -365,7 +365,7 @@ if (gotTheLock && isAllowedToStart) {
         menuOnPreferences,
         menuOnAccount,
         menuOnCheckUpdates,
-        // vpnWizardWindowOnShowTray,
+        vpnWizardWindowOnShowTray,
         LaunchAppInSplitTunnel
       );
       isTrayInitialized = true;
@@ -1011,7 +1011,7 @@ function closeUpdateWindow() {
 }
 
 // VPN Wizard window
-function createVpnWizardWindow(_introHeader, _introDescr, _showAutoReconfig, _showNordVpnManualInstructions, _issueExplicitConnect) {
+async function createVpnWizardWindow(_introHeader, _introDescr, _showAutoReconfig, _showNordVpnManualInstructions, _issueExplicitConnect, waitForWizardCompletion) {
   if (vpnWizardWindow != null) {
     closeVpnWizardWindow();
   }
@@ -1072,6 +1072,14 @@ function createVpnWizardWindow(_introHeader, _introDescr, _showAutoReconfig, _sh
   vpnWizardWindow.on("closed", () => {
     vpnWizardWindow = null;
   });
+
+  if (waitForWizardCompletion) {
+    while (vpnWizardWindow != null) { // if caller requested, wait for the wizard window to close
+      await new Promise(r => setTimeout(r, 250));
+    }
+  }
+
+  return true;
 }
 
 async function closeVpnWizardWindow() {
@@ -1296,9 +1304,9 @@ function OnAppUpdateAvailable() {
 }
 
 // VPN Wizard window
-function vpnWizardWindowOnShow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect) {
-  if (vpnWizardWindow) return;
-  createVpnWizardWindow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect);
+async function vpnWizardWindowOnShow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion) {
+  if (vpnWizardWindow) return false;
+  return createVpnWizardWindow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion);
 }
 
 // COLORS
@@ -1315,8 +1323,8 @@ function getBackgroundColor() {
   return "#FFFFFF";
 }
 
-// // Vlad - testing
-// function vpnWizardWindowOnShowTray() {
-//   if (vpnWizardWindow) return;
-//   createVpnWizardWindow("trayHeader", "trayDescr", true, true, true);
-// }
+// Vlad - testing
+function vpnWizardWindowOnShowTray() {
+  if (vpnWizardWindow) return;
+  createVpnWizardWindow("trayHeader", "trayDescr", true, true, true, false);
+}
