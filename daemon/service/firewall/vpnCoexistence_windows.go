@@ -123,6 +123,8 @@ var (
 		name:       "ExpressVPN",
 		namePrefix: "expressvpn",
 
+		customHealthchecksType: service_types.HealthchecksType_RestApiCall, // have to use REST API for healthchecks w/ ExpressVPN, can't use ping
+
 		// When PL Total Shield on, ExpressVPN itself can't connect, of course.
 		// But PL Connect stays connected, VPN coex logic shakes out, may disable Total Shield automatically.
 		//incompatWithTotalShieldWhenConnected: true,
@@ -528,9 +530,13 @@ func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected 
 	}
 	if nordVpnUpOnWindows = nordVpnProfile.isConnectedConnecting; nordVpnUpOnWindows {
 		otherVpnNamesSet.Add(nordVpnProfile.name)
-		setHealthchecksTypeCallback(nordVpnProfile.customHealthchecksType) // set custom healthchecks type
-		// } else { // reset healthchecks type to default
-		// 	getPrefsCallback().HealthchecksType = service_types.HealthchecksTypeDefault
+	}
+
+	for vpnName := range otherVpnNamesSet.Iter() { // if any of the detected other VPNs specifies custom healthchecks type - persist to configuration
+		if otherVpn, ok := otherVpnsByName[vpnName]; ok && otherVpn.customHealthchecksType != service_types.HealthchecksTypeDefault {
+			setHealthchecksTypeCallback(otherVpn.customHealthchecksType) // set custom healthchecks type
+			break
+		}
 	}
 
 	// NordVPN status (whether its interface is up) was just re-checked in reDetectOtherVpnsImpl()
