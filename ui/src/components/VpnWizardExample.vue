@@ -23,7 +23,7 @@
     </div>
     -->
 
-    <!-- 
+    <!--
       :introDescr="this.$store.state.uiState.vpnWizard.introDescr"
       :autoReconfigAvailable="this.$store.state.uiState.vpnWizard.showAutoReconfigVpnStep"
       :nordVPNWindows="this.$store.state.uiState.vpnWizard.showNordVpnWindowsStep"
@@ -46,11 +46,11 @@
           </div>
         </div>
       </template> -->
-      
+
       <!-- <template #nordvpn-content>
         <div class="custom-content">
         </div>
-      </template> -->     
+      </template> -->
 
       <template #auto-reconfig-content>
         <div class="custom-content">
@@ -65,7 +65,7 @@
             </button>
           </div>
           <input type="checkbox" id="SetVpnCoexistPermissionCheckbox" v-model="toSetVpnCoexistPermission" />
-          <label for="SetVpnCoexistPermissionCheckbox">Give PL Connect permission to reconfigure other VPNs automatically when needed
+          <label for="SetVpnCoexistPermissionCheckbox">Recommended: Give PL Connect permission to reconfigure other VPNs automatically when needed
              (you can disable it later in Settings)</label>
         </div>
       </template>
@@ -215,7 +215,7 @@ export default {
             console.log("KillSwitchReregister() returned OtherVpnUnknownToUs");
             sender.SetLogging(true);
             this.autoReconfigFailed = true;
-            this.autoReconfigErrHeader = 
+            this.autoReconfigErrHeader =
               "Error - failed to get top firewall permissions";
             this.autoReconfigErrDetails =
               `Error: ${resp.ErrorMessage}\n\n` +
