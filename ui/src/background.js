@@ -484,9 +484,9 @@ if (gotTheLock && isAllowedToStart) {
 
     // For some commands we don't prompt the user to send Rageshake report. Commands: SubscriptionData, ...
     if (String(reason).includes("not logged in; please visit") ||
-        String(reason).includes("/user/check-subscription") ||
-        String(reason).includes("/user/profile") ||
-        String(reason).includes("/user/device-list"))
+      String(reason).includes("/user/check-subscription") ||
+      String(reason).includes("/user/profile") ||
+      String(reason).includes("/user/device-list"))
       return;
 
     try {
@@ -1016,14 +1016,26 @@ async function createVpnWizardWindow(_introHeader, _introDescr, _showAutoReconfi
     closeVpnWizardWindow();
   }
 
+  // Update store FIRST before creating window
+  store.commit("uiState/vpnWizard", {
+    introHeader: _introHeader,
+    introDescr: _introDescr,
+    showAutoReconfigVpnStep: _showAutoReconfig,
+    showNordVpnWindowsStep: _showNordVpnManualInstructions,
+    issueExplicitConnect: _issueExplicitConnect,
+  });
+
+  // Dynamic height based on whether NordVPN step is present
+  const windowHeight = _showNordVpnManualInstructions ? 700 : 500;
+
   let windowConfig = {
     backgroundColor: getBackgroundColor(),
     show: false,
 
     width: config.VpnWizardWindowWidth,
-    height: 700,
+    height: windowHeight,
     maxWidth: config.VpnWizardWindowWidth,
-    maxHeight: 700,
+    maxHeight: windowHeight,
 
     resizable: false,
     fullscreenable: false,
@@ -1047,15 +1059,6 @@ async function createVpnWizardWindow(_introHeader, _introDescr, _showAutoReconfi
   } else {
     vpnWizardWindow.loadURL(`file://${join(__dirname, '../renderer/index.html')}#vpnwizard`);
   }
-
-  // pass args to VPN Wizard
-  store.commit("uiState/vpnWizard",{
-    introHeader: _introHeader,
-    introDescr: _introDescr,
-    showAutoReconfigVpnStep: _showAutoReconfig,
-    showNordVpnWindowsStep: _showNordVpnManualInstructions,
-    issueExplicitConnect: _issueExplicitConnect,
-  });
 
   vpnWizardWindow.once("ready-to-show", () => {
     vpnWizardWindow.show();
@@ -1083,7 +1086,7 @@ async function createVpnWizardWindow(_introHeader, _introDescr, _showAutoReconfi
 }
 
 async function closeVpnWizardWindow() {
-  store.commit("uiState/vpnWizard",{
+  store.commit("uiState/vpnWizard", {
     introHeader: "",
     introDescr: "",
     showAutoReconfigVpnStep: false,
@@ -1326,5 +1329,8 @@ function getBackgroundColor() {
 // Vlad - testing
 function vpnWizardWindowOnShowTray() {
   if (vpnWizardWindow) return;
-  createVpnWizardWindow("trayHeader", "trayDescr", true, true, true, false);
+  // Parameters: introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion
+  // Set showNordVpnManualInstructions to FALSE to test compact height (500px)
+  // Set showNordVpnManualInstructions to TRUE to test full height (700px)
+  createVpnWizardWindow("trayHeader", "trayDescr", true, false, true, false); // Changed to false for testing
 }
