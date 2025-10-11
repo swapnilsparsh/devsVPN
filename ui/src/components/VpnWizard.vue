@@ -46,7 +46,10 @@
             <div class="info-box">
               <!-- <p><strong>Other VPNs detected, that may be blocking privateLINE connectivity</strong></p> -->
               <ul class="no-top-margin">
-                  <li v-for="otherVpnName in this.$store.state.vpnState.firewallState.ReconfigurableOtherVpnsNames">
+                <li
+                  v-for="otherVpnName in this.$store.state.vpnState
+                    .firewallState.ReconfigurableOtherVpnsNames"
+                >
                   {{ otherVpnName }}
                 </li>
               </ul>
@@ -249,13 +252,15 @@ export default {
           id: "nordvpn-windows",
           title: "NordVPN Windows",
           // condition: () => this.nordVPNWindows,
-          condition: () => this.$store.state.uiState.vpnWizard.showNordVpnWindowsStep,
+          condition: () =>
+            this.$store.state.uiState.vpnWizard.showNordVpnWindowsStep,
         },
         {
           id: "auto-reconfig",
           title: "Auto-reconfig VPN",
           // condition: () => this.autoReconfigAvailable,
-          condition: () => this.$store.state.uiState.vpnWizard.showAutoReconfigVpnStep,
+          condition: () =>
+            this.$store.state.uiState.vpnWizard.showAutoReconfigVpnStep,
         },
         {
           id: "final-instructions",
@@ -289,7 +294,8 @@ export default {
       return ((this.currentStepIndex + 1) / this.availableSteps.length) * 100;
     },
     otherVpnsDetected() {
-      return this.$store.state.vpnState?.firewallState?.ReconfigurableOtherVpnsDetected;
+      return this.$store.state.vpnState?.firewallState
+        ?.ReconfigurableOtherVpnsDetected;
     },
   },
   mounted() {
