@@ -39,8 +39,6 @@ async function invoke(channel, ...args) {
   }
 }
 
-
-
 export default {
   // This object is using to expose ipcRenderer functionality (send\receive) only for limited channels
   // E.g. 'shared-mutation' plugin for vuex is requiring IPC communication
@@ -107,13 +105,15 @@ export default {
 
   Login: async (
     emailOrAcctID,
-    password
+    password,
+    permissionReconfigureOtherVPNs_Once,
     //  force, captchaID, captcha, confirmation2FA
   ) => {
     return await invoke(
       "renderer-request-login",
       emailOrAcctID,
-      password
+      password,
+      permissionReconfigureOtherVPNs_Once,
       // accountID,
       // force,
       // captchaID,
@@ -207,6 +207,10 @@ export default {
   KillSwitchGetStatus: async () => {
     return await invoke("renderer-request-KillSwitchGetStatus");
   },
+
+  // SetVpnCoexistPermission: async (CanReconfigureOtherVpns) => {
+  //   return await invoke("renderer-request-SetVpnCoexistPermission", CanReconfigureOtherVpns);
+  // },
 
   SplitTunnelGetStatus: async () => {
     return await invoke("renderer-request-SplitTunnelGetStatus");
@@ -402,6 +406,14 @@ export default {
   },
   ShowContextMenuEdit: function () {
     ipcRenderer.send("renderer-request-show-context-menu-edit");
+  },
+
+  // VPN Wizard window
+  ShowVpnWizard: function (introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion) {
+    return ipcRenderer.invoke("renderer-request-show-vpn-wizard", introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion);
+  },
+  CloseVpnWizardWindow: function () {
+    ipcRenderer.invoke("renderer-request-close-vpn-wizard");
   },
 
   // DIALOG

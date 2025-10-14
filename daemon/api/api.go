@@ -413,12 +413,13 @@ func (a *API) DoRequestByAlias(apiAlias string, ipTypeRequired protocolTypes.Req
 }
 
 // SessionNew - try to register new session
-func (a *API) SessionNew(emailOrAcctID string, password string, tryAccountIdWithADashPrefix bool) (
-	*types.SessionNewResponse,
-	*types.SessionNewErrorLimitResponse,
-	*types.APIErrorResponse,
-	string, // RAW response
-	error) {
+func (a *API) SessionNew(emailOrAcctID string, password string /*, tryAccountIdWithADashPrefix bool*/) (
+	sessionNewResp *types.SessionNewResponse,
+	sessionNewErrorLimitResp *types.SessionNewErrorLimitResponse,
+	apiErrorResp *types.APIErrorResponse,
+	apiConnectivityFailed bool,
+	retRawResponse string, // RAW response
+	retErr error) {
 
 	var (
 		successResp    types.SessionNewResponse
@@ -444,11 +445,11 @@ func (a *API) SessionNew(emailOrAcctID string, password string, tryAccountIdWith
 		// Account ID must not have "a-" prefix, per PLCON-52
 		// TODO: Vlad - right now the production REST API deskapi.privateline.io/user/login/quick-auth is broken, for some account IDs it works only with "a-" prefix and for some it only works without. So trying both.
 		acctID := emailOrAcctID
-		if !tryAccountIdWithADashPrefix {
-			acctID = strings.TrimPrefix(acctID, "a-")
-		} else if !strings.HasPrefix(acctID, "a-") {
-			acctID = "a-" + acctID
-		}
+		// if !tryAccountIdWithADashPrefix {
+		acctID = strings.TrimPrefix(acctID, "a-")
+		// } else if !strings.HasPrefix(acctID, "a-") {
+		// 	acctID = "a-" + acctID
+		// }
 
 		request = &types.SessionNewRequest{
 			AccountID: acctID,
@@ -458,14 +459,17 @@ func (a *API) SessionNew(emailOrAcctID string, password string, tryAccountIdWith
 
 	data, httpResp, err = a.requestRaw(protocolTypes.IPvAny, a.getApiHost().Hostname, apiPath, "POST", "application/json", request, 0, 0)
 	if err != nil {
-		return nil, nil, nil, rawResponse, err
+		if data == nil && httpResp == nil {
+			apiConnectivityFailed = true
+		}
+		return nil, nil, nil, apiConnectivityFailed, rawResponse, err
 	}
 
 	rawResponse = string(data)
 
 	// Check is it API error
 	if err := unmarshalAPIErrorResponse(data, httpResp, &apiErr); err != nil {
-		return nil, nil, nil, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+		return nil, nil, nil, apiConnectivityFailed, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 	}
 
 	// if !apiErr.Status {
@@ -478,10 +482,10 @@ func (a *API) SessionNew(emailOrAcctID string, password string, tryAccountIdWith
 		err := json.Unmarshal(data, &successResp)
 		successResp.SetHttpStatusCode(apiErr.HttpStatusCode)
 		if err != nil {
-			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+			return nil, nil, &apiErr, apiConnectivityFailed, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 		}
 
-		return &successResp, nil, &apiErr, rawResponse, nil
+		return &successResp, nil, &apiErr, apiConnectivityFailed, rawResponse, nil
 	}
 
 	// Session limit check
@@ -489,12 +493,12 @@ func (a *API) SessionNew(emailOrAcctID string, password string, tryAccountIdWith
 		err := json.Unmarshal(data, &errorLimitResp)
 		errorLimitResp.SetHttpStatusCode(apiErr.HttpStatusCode)
 		if err != nil {
-			return nil, nil, &apiErr, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
+			return nil, nil, &apiErr, apiConnectivityFailed, rawResponse, fmt.Errorf("failed to deserialize API response: %w", err)
 		}
-		return nil, &errorLimitResp, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+		return nil, &errorLimitResp, &apiErr, apiConnectivityFailed, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 	}
 
-	return nil, nil, &apiErr, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
+	return nil, nil, &apiErr, apiConnectivityFailed, rawResponse, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
 
 // SsoLogin - try to register new session
@@ -611,7 +615,7 @@ func (a *API) CheckDeviceID(session, deviceWGPublicKey string) (deviceFound bool
 	return false, nil
 }
 
-// TODO FIXME: Vlad - use the below CheckDeviceID() implementation once the client knows its internal device ID
+// TODO: FIXME: Vlad - use the below CheckDeviceID() implementation once the client knows its internal device ID
 /*
 func (a *API) CheckDeviceID(InternalID int, sessionToken string) (
 	*types.CheckDeviceResponse,
@@ -983,7 +987,7 @@ func (a *API) newRageshakeRequest(params map[string]string, filesToAttach []stri
 		fi, err := os.Stat(fileToAttach)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				log.Warn("logfile `" + fileToAttach + "` does not exist - skipping")
+				log.Warning("logfile `" + fileToAttach + "` does not exist - skipping")
 				continue
 			} else {
 				return nil, log.ErrorFE("error os.Stat(%s): %w", fileToAttach, err)

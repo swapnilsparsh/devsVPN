@@ -602,7 +602,7 @@ Do you want to enable Inverse mode for Split Tunnel?",
           // Windows:
           let configApps = splitTunnelling.SplitTunnelApps;
           if (configApps == null) {
-            console.error("Error: configApps are null");
+            // console.error("Error: configApps are null");
             return;
           }
           configApps.forEach((appPath) => {

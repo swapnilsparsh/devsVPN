@@ -56,8 +56,6 @@ var (
 	curStateAllowLAN          bool     // Allow LAN is enabled
 	curStateAllowLanMulticast bool     // Allow Multicast is enabled
 	curStateEnabled           bool     // Firewall is enabled
-
-	waitForTopFirewallPriAfterWeLostItMutex sync.Mutex
 )
 
 func implInitialize() (err error) {
@@ -80,12 +78,17 @@ func implInitialize() (err error) {
 	return nil
 }
 
-func implHaveTopFirewallPriority(recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
+func implHaveTopFirewallPriority(fwIsEnabled bool, recursionDepth uint8) (weHaveTopFirewallPriority bool, otherVpnID, otherVpnName, otherVpnDescription string, retErr error) {
 	var (
 		implHaveTopFirewallPriorityWaiter sync.WaitGroup
 		errNft, errLegacy                 error
 		topPriNft, topPriLegacy           bool
 	)
+
+	// Linux-specific logic: if firewall is disabled - just return true, to keep UI happy.
+	if !fwIsEnabled {
+		return true, "", "", "", nil
+	}
 
 	implHaveTopFirewallPriorityWaiter.Add(2)
 	go func() {
@@ -130,24 +133,28 @@ func implGetEnabled(blockingWait bool) (isEnabled bool, retErr error) {
 	return isEnabledNft && isEnabledLegacy, nil
 }
 
-func implReregisterFirewallAtTopPriority(canStopOtherVpn, forceReconfigureFirewall bool) (firewallReconfigured bool, retErr error) {
+func implReregisterFirewallAtTopPriority( /* canReconfigureOtherVpns, */ forceReconfigureFirewall bool) (firewallReconfigured bool, retErr error) {
+	// log.Debugf("implReregisterFirewallAtTopPriority entered. canReconfigureOtherVpns=%t, forceReconfigureFirewall=%t", canReconfigureOtherVpns, forceReconfigureFirewall)
+	log.Debugf("implReregisterFirewallAtTopPriority entered. forceReconfigureFirewall=%t", forceReconfigureFirewall)
+	defer log.Debug("implReregisterFirewallAtTopPriority exited")
+
 	var (
 		implReregisterFirewallAtTopPriorityWaiter           sync.WaitGroup
 		errNft, errLegacy                                   error
 		firewallReconfiguredNft, firewallReconfiguredLegacy bool
 	)
 
-	if _, err := reDetectOtherVpnsImpl(true, false, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableNft() needs otherVpnsNftMutex
-		log.ErrorFE("error reDetectOtherVpnsImpl(true, true): %w", err) // and continue
+	if _, err := reDetectOtherVpnsImpl(true, false, true, false, true /*canReconfigureOtherVpns*/); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableNft() needs otherVpnsNftMutex
+		log.ErrorFE("error reDetectOtherVpnsImpl(true, false, true, false): %w", err) // and continue
 	}
 
 	implReregisterFirewallAtTopPriorityWaiter.Add(2)
 	go func() {
-		firewallReconfiguredLegacy, errLegacy = implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, false)
+		firewallReconfiguredLegacy, errLegacy = implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, false, true /*canReconfigureOtherVpns*/)
 		implReregisterFirewallAtTopPriorityWaiter.Done()
 	}()
 	go func() {
-		firewallReconfiguredNft, errNft = implReregisterFirewallAtTopPriorityNft(forceReconfigureFirewall, false)
+		firewallReconfiguredNft, errNft = implReregisterFirewallAtTopPriorityNft(forceReconfigureFirewall, false, true /*canReconfigureOtherVpns*/)
 		implReregisterFirewallAtTopPriorityWaiter.Done()
 	}()
 	implReregisterFirewallAtTopPriorityWaiter.Wait()
@@ -186,16 +193,18 @@ func implGetFirewallBackgroundMonitors() (monitors []*srvhelpers.ServiceBackgrou
 	return monitors
 }
 
+var waitForTopFirewallPriAfterWeLostItMutex sync.Mutex
+
 // waitForTopFirewallPriAfterWeLostIt is called after we lost top firewall pri. It'll notify clients about the loss, and will keep on checking top-pri every 5s
 // - until we either regain top-pri, or VPN connection gets stopped.
 func waitForTopFirewallPriAfterWeLostIt() {
-	waitForTopFirewallPriAfterWeLostItMutex.Lock() // single instance
+	waitForTopFirewallPriAfterWeLostItMutex.Lock() // single-instance function
 	defer waitForTopFirewallPriAfterWeLostItMutex.Unlock()
 
 	log.Debug("waitForTopFirewallPriAfterWeLostIt entered")
 	defer log.Debug("waitForTopFirewallPriAfterWeLostIt exited")
 
-	go onKillSwitchStateChangedCallback() // initial notification out
+	go onKillSwitchStateChangedCallback(false) // initial notification out
 
 	for vpnConnectedOrConnectingCallback() { // if VPN is no longer connected - terminate this waiting loop
 		time.Sleep(time.Second * 5)
@@ -210,22 +219,22 @@ func waitForTopFirewallPriAfterWeLostIt() {
 		}
 	}
 
-	go onKillSwitchStateChangedCallback() // final notification out
+	go onKillSwitchStateChangedCallback(true) // final notification out
 }
 
-func implReEnable() (retErr error) {
+func implReEnable(canReconfigureOtherVpns bool) (retErr error) {
 	var (
 		implReEnableWaiter sync.WaitGroup
 		errNft, errLegacy  error
 	)
 
-	if _, err := reDetectOtherVpnsImpl(false, false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before reenable logic
-		log.ErrorFE("error reDetectOtherVpnsLinux(false, true): %w", err) // and continue
+	if _, err := reDetectOtherVpnsImpl(false, false, true, false, canReconfigureOtherVpns); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before reenable logic
+		log.ErrorFE("error reDetectOtherVpnsLinux(false, false, true, false): %w", err) // and continue
 	}
 
 	implReEnableWaiter.Add(2)
-	go func() { errLegacy = implReEnableLegacy(false); implReEnableWaiter.Done() }()
-	go func() { errNft = implReEnableNft(false); implReEnableWaiter.Done() }()
+	go func() { errLegacy = implReEnableLegacy(false, canReconfigureOtherVpns); implReEnableWaiter.Done() }()
+	go func() { errNft = implReEnableNft(false, canReconfigureOtherVpns); implReEnableWaiter.Done() }()
 	implReEnableWaiter.Wait()
 
 	if errNft != nil {
@@ -237,7 +246,7 @@ func implReEnable() (retErr error) {
 	return nil
 }
 
-func implDeployPostConnectionRules() (retErr error) {
+func implDeployPostConnectionRules(canReconfigureOtherVpns bool) (retErr error) {
 	var (
 		implDeployPostConnectionRulesWaiter sync.WaitGroup
 		errNft, errLegacy                   error
@@ -248,7 +257,7 @@ func implDeployPostConnectionRules() (retErr error) {
 
 	// Re-run VPN coexistence rules, since presumably now we're CONNECTED
 	// Required for Mullvad on Linux after CONNECTED, to set custom DNS in its settings.
-	if err := enableVpnCoexistenceLinuxNft(); err != nil {
+	if err := enableVpnCoexistenceLinuxNft(canReconfigureOtherVpns); err != nil {
 		retErr = log.ErrorFE("error running EnableCoexistenceWithOtherVpns(): %w", err) // and continue
 	}
 
@@ -278,7 +287,7 @@ func implDeployPostConnectionRules() (retErr error) {
 	return retErr
 }
 
-func implSetEnabled(isEnabled, _, _, _ bool) error {
+func implSetEnabled(isEnabled, _, _, _, canReconfigureOtherVpns bool) error {
 	log.Debug("implSetEnabled=", isEnabled)
 
 	var (
@@ -290,11 +299,14 @@ func implSetEnabled(isEnabled, _, _, _ bool) error {
 
 	implSetEnabledWaiter.Add(2)
 	if isEnabled {
-		if _, err := reDetectOtherVpnsImpl(false, false, true); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before enable logic
-			log.ErrorFE("error reDetectOtherVpnsLinux(false, true): %w", err) // and continue
+		if _, err := reDetectOtherVpnsImpl(false, false, true, false, canReconfigureOtherVpns); err != nil { // re-detect other VPNs (if stale) synchronously - it must finish before enable logic
+			log.ErrorFE("error reDetectOtherVpnsLinux(false, false, true, false): %w", err) // and continue
 		}
-		go func() { errLegacy = doEnableLegacy(false); implSetEnabledWaiter.Done() }()
-		go func() { errNft = doEnableNft(false, true); implSetEnabledWaiter.Done() }()
+		go func() { errLegacy = doEnableLegacy(false, canReconfigureOtherVpns); implSetEnabledWaiter.Done() }()
+		go func() {
+			errNft = doEnableNft(false, canReconfigureOtherVpns || getPrefsCallback().PermissionReconfigureOtherVPNs)
+			implSetEnabledWaiter.Done()
+		}()
 	} else {
 		go func() { errLegacy = doDisableLegacy(false); implSetEnabledWaiter.Done() }()
 		go func() { errNft = doDisableNft(false); implSetEnabledWaiter.Done() }()
@@ -323,7 +335,7 @@ func implSetPersistent(persistent bool) error {
 			if isDaemonStoppingCallback() {
 				return log.ErrorFE("error - daemon is stopping")
 			}
-			return implSetEnabled(true, false, false, false)
+			return implSetEnabled(true, false, false, false, getPrefsCallback().PermissionReconfigureOtherVPNs)
 		}
 
 		// Some Linux distributions erasing IVPN rules during system boot
@@ -336,7 +348,7 @@ func implSetPersistent(persistent bool) error {
 }
 
 func implCleanupRegistration() (err error) {
-	return implSetEnabled(false, false, false, false)
+	return implSetEnabled(false, false, false, false, getPrefsCallback().PermissionReconfigureOtherVPNs)
 }
 
 // OnChangeDNS - must be called on each DNS change (to update firewall rules according to new DNS configuration)
@@ -418,7 +430,7 @@ func implTotalShieldApply(wfpTransactionAlreadyInProgress, totalShieldNewState b
 // During some period of time (60 seconds should be enough)
 // check if FW rules still exist (if not - re-apply them)
 func ensurePersistent(secondsToWait int) {
-	// TODO FIXME: Vlad - stubbed out
+	// TODO: FIXME: Vlad - stubbed out
 	return
 
 	const delaySec = 5
@@ -435,7 +447,7 @@ func ensurePersistent(secondsToWait int) {
 		}
 		if isPersistent && !enabled {
 			log.Warning("[ensurePersistent] Persistent FW rules not available. Retry to apply...")
-			implSetEnabled(true, false, false, false)
+			implSetEnabled(true, false, false, false, getPrefsCallback().PermissionReconfigureOtherVPNs)
 		}
 	}
 	log.Info("[ensurePersistent] stopped.")
@@ -443,7 +455,7 @@ func ensurePersistent(secondsToWait int) {
 
 // ClientConnected - allow communication for local vpn/client IP address
 func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net.IP, clientPort int, serverIP net.IP, serverPort int, isTCP bool) error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	inf, err := netinfo.InterfaceByIPAddr(clientLocalIPAddress)
@@ -474,7 +486,7 @@ func implClientConnected(clientLocalIPAddress net.IP, clientLocalIPv6Address net
 
 // ClientDisconnected - Disable communication for local vpn/client IP address
 func implClientDisconnected() error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	// remove all exceptions related to current connection (all non-persistent exceptions)
@@ -487,14 +499,14 @@ func implClientDisconnected() error {
 }
 
 func implAllowLAN(isAllowLAN bool, isAllowLanMulticast bool) error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	return doAllowLAN(isAllowLAN, isAllowLanMulticast)
 }
 
 func doAllowLAN(isAllowLAN, isAllowLanMulticast bool) error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	// save expected state of AllowLAN
@@ -547,7 +559,7 @@ func doAllowLAN(isAllowLAN, isAllowLanMulticast bool) error {
 //
 // NOTE! if (isPersistent==false and onlyForICMP==false) - this exceptions have highest priority (e.g. they will not be blocked by DNS restrictions of the FW)
 func implAddHostsToExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	IPsStr := make([]string, 0, len(IPs))
@@ -562,7 +574,7 @@ func implAddHostsToExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool)
 }
 
 func implRemoveHostsFromExceptions(IPs []net.IP, onlyForICMP bool, isPersistent bool) error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	IPsStr := make([]string, 0, len(IPs))
@@ -575,7 +587,7 @@ func implRemoveHostsFromExceptions(IPs []net.IP, onlyForICMP bool, isPersistent 
 
 // implOnUserExceptionsUpdated() called when 'userExceptions' value were updated. Necessary to update firewall rules.
 func implOnUserExceptionsUpdated() error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	applyFunc := func(isIpv4 bool) error {
@@ -611,14 +623,14 @@ func implOnUserExceptionsUpdated() error {
 }
 
 func implSingleDnsRuleOff() (retErr error) {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	return shell.Exec(log, platform.FirewallScript(), "-only_dns_off")
 }
 
 func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	exceptions := ""
@@ -632,7 +644,7 @@ func implSingleDnsRuleOn(dnsAddr net.IP) (retErr error) {
 // allow communication with specified hosts
 // if isPersistent == false - exception will be removed when client disconnects
 func addHostsToExceptions(IPs []string, isPersistent bool, onlyForICMP bool) error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	if len(IPs) == 0 {
@@ -675,7 +687,7 @@ func addHostsToExceptions(IPs []string, isPersistent bool, onlyForICMP bool) err
 
 // Deprecate communication with this hosts
 func removeHostsFromExceptions(IPs []string, isPersistent bool, onlyForICMP bool) error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	if len(IPs) == 0 {
@@ -718,7 +730,7 @@ func removeHostsFromExceptions(IPs []string, isPersistent bool, onlyForICMP bool
 //
 //	(has 'true' value in allowedHosts; eg.: LAN and Multicast connectivity)
 func removeAllHostsFromExceptions() error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	toRemoveIPs := make([]string, 0, len(allowedHosts))
@@ -732,7 +744,7 @@ func removeAllHostsFromExceptions() error {
 //---------------------------------------------------------------------
 
 func getAllowedIpExceptions() (prioritized, persistent []string) {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return
 
 	prioritized = make([]string, 0, len(allowedHosts))
@@ -748,7 +760,7 @@ func getAllowedIpExceptions() (prioritized, persistent []string) {
 }
 
 func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	ret := []net.IPNet{}
@@ -765,7 +777,7 @@ func getUserExceptions(ipv4, ipv6 bool) []net.IPNet {
 	return ret
 }
 
-// TODO FIXME: Vlad - flesh out. Do we need this?... we always allow localhost traffic (lo interface)
+// TODO: FIXME: Vlad - flesh out. Do we need this?... we always allow localhost traffic (lo interface)
 func doAddClientIPFilters(clientLocalIP net.IP, clientLocalIPv6 net.IP) (retErr error) {
 	return nil
 }
@@ -774,7 +786,7 @@ func doRemoveClientIPFilters() (retErr error) {
 }
 
 func applyAddHostsToExceptions(hostsIPs []string, isPersistent bool, onlyForICMP bool) error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	ipList := strings.Join(hostsIPs, ",")
@@ -800,7 +812,7 @@ func applyAddHostsToExceptions(hostsIPs []string, isPersistent bool, onlyForICMP
 }
 
 func applyRemoveHostsFromExceptions(hostsIPs []string, isPersistent bool, onlyForICMP bool) error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	ipList := strings.Join(hostsIPs, ",")
@@ -826,7 +838,7 @@ func applyRemoveHostsFromExceptions(hostsIPs []string, isPersistent bool, onlyFo
 }
 
 func reApplyExceptions() error {
-	// TODO FIXME: Vlad - stubbing out for now
+	// TODO: FIXME: Vlad - stubbing out for now
 	return nil
 
 	// Allow LAN communication (if necessary)

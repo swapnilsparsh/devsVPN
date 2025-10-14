@@ -26,9 +26,9 @@
 echo -e "$(date '+%Y-%m-%d__%H-%M-%S_%Z')\t$@" >> /tmp/firewall-helper.sh_ran.log
 
 # default apps to be included in App Whitelist (to be allowed access to the enclave)
-# TODO FIXME: Vlad - do we need two separate cgroups - one for PL apps and other for user-specified apps?
-# TODO FIXME: input from Chris - whitelist browsers
-# TODO FIXME: add cryptocurrency wallets (Trezor, Ledger)
+# TODO: FIXME: Vlad - do we need two separate cgroups - one for PL apps and other for user-specified apps?
+# TODO: FIXME: input from Chris - whitelist browsers
+# TODO: FIXME: add cryptocurrency wallets (Trezor, Ledger)
 declare -a DEFAULT_WHITELISTED_APPS=(
     "/usr/bin/privateline-connect-svc"
     "/usr/bin/privateline-connect-cli"
@@ -62,7 +62,7 @@ INPUT="PRIVATELINE_ST_INPUT"
 _iptables_locktime=2
 
 # Backup folder name.
-# This folder contains temporary data to be able to clean everything correctly 
+# This folder contains temporary data to be able to clean everything correctly
 _backup_folder_name=privateline-app-whitelist-tmp
 _mutable_folder_default=/etc/opt/privateline-connect/mutable   # default location of 'mutable' folder
 _mutable_folder_fallback=/opt/privateline-connect/mutable      # alternate location of 'mutable' folder (needed for backward compatibility and snap environment)
@@ -98,13 +98,13 @@ _def_gatewayIPv6=""
 
 # Vlad: for App Whitelist feature we always have _is_inversed=1
 #
-# When inversed - only apps added to ST will use VPN connection, 
+# When inversed - only apps added to ST will use VPN connection,
 # all other apps will use direct unencrypted connection.
 _is_inversed=1
 
 # Vlad: _is_inversed_blocked* set to 0
 #
-# Applicable for Inverse mode only: block/allow communication for 'splitted' apps 
+# Applicable for Inverse mode only: block/allow communication for 'splitted' apps
 #   -   "1" means the communication for splitted apps will be blocked (for example, when VPN not connected)
 #   -   "0" means the communication for splitted apps will not be blocked
 _is_inversed_blocked=0
@@ -146,21 +146,21 @@ function test()
 
     if [ ! -d /sys/fs/cgroup/net_cls ]; then
         echo "Creating '/sys/fs/cgroup/net_cls' folder ..."
-        if ! mkdir -p /sys/fs/cgroup/net_cls;   then 
+        if ! mkdir -p /sys/fs/cgroup/net_cls;   then
             echo "ERROR: Failed to create CGROUP folder Not Found (/sys/fs/cgroup/net_cls)" 1>&2
-            return 1; 
+            return 1;
         fi
     fi
     if ! mount | grep "/sys/fs/cgroup/net_cls" &>/dev/null ; then
         echo "Mounting CGROUP subsystem '/sys/fs/cgroup/net_cls'..."
         if ! mount -t cgroup -o net_cls net_cls /sys/fs/cgroup/net_cls ; then
             echo "ERROR: Failed to mount CGROUP subsystem (net_cls)" 1>&2
-            return 2; 
+            return 2;
         fi
     fi
 
 #    if ! command -v ${_bin_iptables} &>/dev/null ;   then echo "ERROR: Binary Not Found (${_bin_iptables})" 1>&2; return 1; fi
-    if ! command -v ${_bin_ip} &>/dev/null ;         then echo "ERROR: Binary Not Found (${_bin_ip})" 1>&2; return 1; fi    
+    if ! command -v ${_bin_ip} &>/dev/null ;         then echo "ERROR: Binary Not Found (${_bin_ip})" 1>&2; return 1; fi
     if ! command -v ${_bin_grep} &>/dev/null ;       then echo "ERROR: Binary Not Found (${_bin_grep})" 1>&2; return 1; fi
     if ! command -v ${_bin_dirname} &>/dev/null ;    then echo "ERROR: Binary Not Found (${_bin_dirname})" 1>&2; return 1; fi
     if ! command -v ${_bin_sed} &>/dev/null ;        then echo "ERROR: Binary Not Found (${_bin_sed})" 1>&2; return 1; fi
@@ -174,20 +174,20 @@ function test()
     # -= Compare minimum required iptables version for Inverse Split Tunneling =-
     # ###
 #    local min_required_ver="1.8.7"
-    
+
 #    local iptables_version=$(${_bin_iptables} --version 2>&1 | ${_bin_awk} '{print $2}') # Get iptables version
 #    local iptables_version=${iptables_version#v} # remove "v" prefix, if exists
 #    vercomp $iptables_version $min_required_ver # compare versions
-#    if [[ $? -eq 2 ]]; then 
+#    if [[ $? -eq 2 ]]; then
 #        # NOTE! Do not change the message below. It is used by daemon to detect the error.
 #        echo "ERROR: Inverse mode for all_apps_allowed/some_apps_allowed functionality is not applicable. The minimum required version of 'iptables' is $min_required_ver, while your version is $iptables_version."
 #        exit 1
 #    fi
-    
+
     return 0
 }
 
-function detectDefRouteVars() 
+function detectDefRouteVars()
 {
     if [ -z ${_def_gateway} ] || [ -z ${_def_interface_name} ]; then
         # Get both default gateway IP and interface name in one command
@@ -203,12 +203,12 @@ function detectDefRouteVars()
     fi
 }
 
-function init_iptables() 
+function init_iptables()
 {
     # Vlad: this script doesn't use iptables in MVP 3.0
     echo "iptables not used in MVP 3.0"
     exit 1
-    
+
     local bin_iptables=$1
     local def_inf_name=$2
     local inverse_block=$3
@@ -237,7 +237,7 @@ function init_iptables()
     ${bin_iptables} -w ${LOCKWAITTIME} -N ${INPUT}
 
     # Save packets mark (to be able to restore mark for incoming packets of the same connection)
-    ${bin_iptables} -w ${_iptables_locktime} -I ${POSTROUTING_mangle} -j CONNMARK --save-mark    
+    ${bin_iptables} -w ${_iptables_locktime} -I ${POSTROUTING_mangle} -j CONNMARK --save-mark
     # Change the source IP address of packets to the IP address of the interface they're going out on
     # Do this only if default interface is defined (for example: IPv6 interface may be empty when IPv6 not configured on the system)
 #    if [ ! -z ${def_inf_name} ]; then
@@ -271,7 +271,7 @@ function init_iptables()
 
         # Drop outgoing traffic to wgprivateline interface if there's a mark (meaning it's a non-whitelisted app)
         ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -m mark --mark ${_packets_fwmark_value} -o ${_wg_interface_name} -j DROP
-        
+
         # Drop incoming traffic from wgprivateline interface if the app is not in the whitelist cgroup
         ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT} -m cgroup ${inverseOption} --cgroup ${_cgroup_classid} -i ${_wg_interface_name} -j DROP
 
@@ -290,13 +290,13 @@ function init_iptables()
         if [ ${inverse_block} -eq 1 ]; then
             ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -m cgroup --cgroup ${_cgroup_classid} -j DROP
             ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -m cgroup --cgroup ${_cgroup_classid} -j DROP
-        fi 
-    fi 
+        fi
+    fi
 
-    # Just ensure that packets from/to localhost will not be blocked            
+    # Just ensure that packets from/to localhost will not be blocked
     ${bin_iptables} -w ${_iptables_locktime} -I ${OUTPUT} -o lo -j ACCEPT
     ${bin_iptables} -w ${_iptables_locktime} -I ${INPUT}  -i lo -j ACCEPT
-    
+
     # Restore packets mark for incoming packets
     ${bin_iptables} -w ${_iptables_locktime} -I ${PREROUTING_mangle} -j CONNMARK --restore-mark
 
@@ -309,17 +309,17 @@ function init_iptables()
     ${bin_iptables} -w ${_iptables_locktime} -I INPUT -j ${INPUT}
 }
 
-function clear_iptables() 
-{   
+function clear_iptables()
+{
     # Vlad: this script doesn't use iptables in MVP 3.0
     echo "iptables not used in MVP 3.0"
     exit 1
 
-    local bin_iptables=$1    
+    local bin_iptables=$1
     ##############################################
     # Remove firewall rules
     ##############################################
-    # '-D' Delete matching rule from chain    
+    # '-D' Delete matching rule from chain
     ${bin_iptables} -w ${_iptables_locktime} -D POSTROUTING -t mangle  -j ${POSTROUTING_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -D OUTPUT -t mangle  -j ${OUTPUT_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -D PREROUTING -t mangle  -j ${PREROUTING_mangle}
@@ -327,8 +327,8 @@ function clear_iptables()
     # ${bin_iptables} -w ${_iptables_locktime} -D PREROUTING -t nat  -j ${PREROUTING_nat}
     ${bin_iptables} -w ${_iptables_locktime} -D OUTPUT -j ${OUTPUT}
     ${bin_iptables} -w ${_iptables_locktime} -D INPUT -j ${INPUT}
-    
-    # '-F' Delete all rules in  chain 
+
+    # '-F' Delete all rules in  chain
     ${bin_iptables} -w ${_iptables_locktime} -F ${POSTROUTING_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -F ${OUTPUT_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -F ${PREROUTING_mangle}
@@ -367,7 +367,7 @@ function init()
         #return 3
     fi
 
-    if [ -f /proc/net/if_inet6 ]; then 
+    if [ -f /proc/net/if_inet6 ]; then
         if [ -z ${_def_gatewayIPv6} ]; then
             echo "Warning: Default IPv6 gateway is not defined." 1>&2
         fi
@@ -397,25 +397,25 @@ function init()
     ##############################################
     [ ! -d ${_cgroup_folder} ]                  && mkdir -p ${_cgroup_folder}
     echo ${_cgroup_classid} > ${_cgroup_folder}/net_cls.classid
-    
+
     ##############################################
     # Firewall rules for packets coming from cgroup
     ##############################################
     #
-    # Vlad: disabled init_iptables logic in the shell scripts - all firewall manipulation is via nftables in Golang now       
+    # Vlad: disabled init_iptables logic in the shell scripts - all firewall manipulation is via nftables in Golang now
 #    init_iptables  "${_bin_iptables}" "${_def_interface_name}" "${_is_inversed_blocked}"
 #    if [ -f /proc/net/if_inet6 ]; then
 #        block=0
-#        if [ ! ${_is_inversed_blocked} -eq 0 ] || [ ! ${_is_inversed_blocked_ipv6} -eq 0 ]; then 
+#        if [ ! ${_is_inversed_blocked} -eq 0 ] || [ ! ${_is_inversed_blocked_ipv6} -eq 0 ]; then
 #            block=1
 #        fi
 #        init_iptables  "${_bin_ip6tables}" "${_def_interface_nameIPv6}" "${block}"
 #    fi
 
     ##############################################
-    # TODO FIXME: Vlad - disabled: Initialize routing table for packets coming from cgroup   
+    # TODO: FIXME: Vlad - disabled: Initialize routing table for packets coming from cgroup
     ##############################################
-    # 
+    #
     # if ! ${_bin_grep} -E "^[0-9]+\s+${_routing_table_name}\s*$" /etc/iproute2/rt_tables &>/dev/null ; then
     #     # initialize new routing table
     #     mkdir -p /etc/iproute2
@@ -435,13 +435,13 @@ function init()
     #     fi
 
     #     # The splittun table has a default gateway route to the default interface
-    #     #   ${_bin_ip} route add default via ${_def_gateway} table ${_routing_table_name}  
+    #     #   ${_bin_ip} route add default via ${_def_gateway} table ${_routing_table_name}
     #     #   ${_bin_ip} -6 route add default via ${_def_gatewayIPv6} table ${_routing_table_name}
-    #     updateRoutes        
+    #     updateRoutes
     # fi
 
     ##############################################
-    # TODO FIXME: Vlad - disabled: Compatibility with WireGuard rules 
+    # TODO: FIXME: Vlad - disabled: Compatibility with WireGuard rules
     ##############################################
     # Check iw WG connected
     # _ret=$(${_bin_ip} rule list not from all fwmark 0xca6c) # WG rule
@@ -449,7 +449,7 @@ function init()
     #     # Only for WireGuard connection:
     #     # Ensure rule 'rule add from all lookup main suppress_prefixlength 0' has higher priority
     #     #
-    #     # This wireguard rule respects the manually configured routes in the main table. 
+    #     # This wireguard rule respects the manually configured routes in the main table.
     #     # (routing decision is ignored for routes with a prefix length of 0 (it is 'default' route: 0.0.0.0/0))
     #     #
     #     # Info:
@@ -480,7 +480,7 @@ function init()
 
 # Vlad: this function effectively does nothing in MVP 2.0. "Allow privateLINE Apps only" functionality only uses the firewall, doesn't use or care about routing table.
 function updateRoutes()
-{ 
+{
     # Vlad: this script doesn't care about routing table in PL Connect MVP 2.0
     echo "updateRoutes not supported in MVP 2.0"
     exit 1
@@ -491,8 +491,8 @@ function updateRoutes()
     fi
 
     # splittun table has a default gateway to the default interface
-    if [ ! -z ${_def_gateway} ] && [ ! -z ${_def_interface_name} ]; then        
-        ${_bin_ip} route replace default via ${_def_gateway} dev ${_def_interface_name} table ${_routing_table_name}  
+    if [ ! -z ${_def_gateway} ] && [ ! -z ${_def_interface_name} ]; then
+        ${_bin_ip} route replace default via ${_def_gateway} dev ${_def_interface_name} table ${_routing_table_name}
     fi
     if [ -f /proc/net/if_inet6 ] && [ ! -z ${_def_gatewayIPv6} ] && [ ! -z ${_def_interface_nameIPv6} ]; then
         ${_bin_ip} -6 route replace default via ${_def_gatewayIPv6} dev ${_def_interface_nameIPv6} table ${_routing_table_name}
@@ -505,43 +505,43 @@ function clean()
     # Restore parameters
     ##############################################
     # read ${_def_interface_name} from backup
-    restore 
+    restore
 
     ##############################################
     # Restore the App Whitelist cgroup only to default PL apps
-    ##############################################    
+    ##############################################
     removeAllPids
     addDefaultWhitelistedApps
 
     ##############################################
-    # TODO: Vlad - disabled: Remove cgroup    
+    # TODO: Vlad - disabled: Remove cgroup
     ##############################################
 #    # check is cgroup exists
 #    if [ -d ${_cgroup_folder} ]; then
 #        # Note: the cgroup folder will be removed only in case
 #        # when no active process are in that cgroup
 #        rmdir ${_cgroup_folder}
-#    fi  
+#    fi
 
     ##############################################
     # TODO: Vlad - disabled: Remove firewall rules
     ##############################################
-#    clear_iptables ${_bin_iptables}    
+#    clear_iptables ${_bin_iptables}
 #    if [ -f /proc/net/if_inet6 ]; then
-#        clear_iptables ${_bin_ip6tables} &>/dev/null 
+#        clear_iptables ${_bin_ip6tables} &>/dev/null
 #    fi
 
     ##############################################
     # TODO: Vlad - disabled: Remove routing
     ##############################################
-#    ${_bin_ip} rule del fwmark ${_packets_fwmark_value} table ${_routing_table_name}    
+#    ${_bin_ip} rule del fwmark ${_packets_fwmark_value} table ${_routing_table_name}
 #    ${_bin_ip} route flush table ${_routing_table_name}
 #    if [ -f /proc/net/if_inet6 ]; then
-#        ${_bin_ip} -6 rule del fwmark ${_packets_fwmark_value} table ${_routing_table_name}    &>/dev/null 
-#        ${_bin_ip} -6 route flush table ${_routing_table_name}    &>/dev/null 
-#    fi 
+#        ${_bin_ip} -6 rule del fwmark ${_packets_fwmark_value} table ${_routing_table_name}    &>/dev/null
+#        ${_bin_ip} -6 route flush table ${_routing_table_name}    &>/dev/null
+#    fi
 
-#    ${_bin_sed} -i "/${_routing_table_name}\s*$/d" /etc/iproute2/rt_tables   
+#    ${_bin_sed} -i "/${_routing_table_name}\s*$/d" /etc/iproute2/rt_tables
 }
 
 function uninstall()
@@ -562,12 +562,12 @@ function uninstall()
 function getBackupFolderPath()
 {
     # default location
-    if [ -w "${_mutable_folder_default}" ]; then       
-        echo "${_mutable_folder_default}/${_backup_folder_name}"  # return value in stdout        
+    if [ -w "${_mutable_folder_default}" ]; then
+        echo "${_mutable_folder_default}/${_backup_folder_name}"  # return value in stdout
         return 0
     fi
     # fallback location
-    if [ -w "${_mutable_folder_fallback}" ]; then       
+    if [ -w "${_mutable_folder_fallback}" ]; then
         echo "${_mutable_folder_fallback}/${_backup_folder_name}"  # return value in stdout
         return 0
     fi
@@ -589,7 +589,7 @@ function backup()
     mkdir -p ${_tempDir}
 
     echo ${_def_interface_name} > ${_tempDir}/def_interface
-    if [ -f /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter ]; then        
+    if [ -f /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter ]; then
         cat /proc/sys/net/ipv4/conf/${_def_interface_name}/rp_filter >  ${_tempDir}/${_def_interface_name}-rp_filter
     fi
 }
@@ -600,7 +600,7 @@ function restore()
     return 0
 
     local _tempDir="$( getBackupFolderPath )"
-    if [ ! -f ${_tempDir}/def_interface ]; then 
+    if [ ! -f ${_tempDir}/def_interface ]; then
         return 1
     fi
 
@@ -614,8 +614,8 @@ function restore()
 }
 
 # Move all processes from the privateLINE cgroup to the main cgroup
-function removeAllPids() 
-{    
+function removeAllPids()
+{
     while IFS= read -r line
     do
         echo $line >> /sys/fs/cgroup/net_cls/cgroup.procs
@@ -624,35 +624,35 @@ function removeAllPids()
 
 function removepid()
 {
-    local _pid="$1"    
+    local _pid="$1"
     if [ -z "${_pid}" ]; then
         echo "[!] ERROR: PID not defined" 1>&2
         exit 1
-    fi   
+    fi
     echo "[+] Removing PID ${_pid} from Split Tunneling group..."
     echo ${_pid} >> /sys/fs/cgroup/net_cls/cgroup.procs
 }
 
 function addpid()
 {
-    local _pid="$1"    
+    local _pid="$1"
     if [ -z "${_pid}" ]; then
         echo "[!] ERROR: PID not defined"
         exit 1
-    fi   
+    fi
     echo "[+] Adding PID ${_pid} to Split Tunneling group..."
     echo ${_pid} >> ${_cgroup_folder}/cgroup.procs
 }
 
 function execute()
-{    
+{
     _user="$1"
     _app="$2"
 
     if [ -z "${_app}" ]; then
         echo "[!] ERROR: Application not defined" 1>&2
         exit 1
-    fi   
+    fi
 
     # Check if app whitelist is enabled
     appWhitelistEnabled > /dev/null 2>&1
@@ -665,14 +665,14 @@ function execute()
     # (script can be executed with 'sudo', but we should get real user)
     if [ -z "${_user}" ]; then
         _user="${SUDO_USER:-$USER}"
-    fi    
+    fi
     if [ -z "${_user}" ]; then
         echo "[!] User not defined" 1>&2
         exit 2
     fi
 
     addpid $$
-    
+
     if [ $? != 0 ]; then
         echo "[!] Failed " 1>&2
         exit 3
@@ -703,7 +703,7 @@ function info()
     if [[ $1 != "-6" ]]; then
         _val=`cat /proc/sys/net/ipv4/ip_forward`
         echo "[*] /proc/sys/net/ipv4/ip_forward: ${_val}"
-        
+
         echo ---------------------------------
         echo "[*] /proc/sys/net/ipv4/conf/*/rp_filter:"
         for i in /proc/sys/net/ipv4/conf/*/rp_filter; do
@@ -711,7 +711,7 @@ function info()
             echo $i: ${_val}
         done
     fi
-    
+
     echo ---------------------------------
     if [ ! -d ${_cgroup_folder} ]; then
         echo "[*] cgroup folder NOT exists: '${_cgroup_folder}'"
@@ -720,11 +720,11 @@ function info()
         echo "[*] File '${_cgroup_folder}/net_cls.classid':"
         cat ${_cgroup_folder}/net_cls.classid
     fi
-    
+
     echo ---------------------------------
     echo "[*] File '/etc/iproute2/rt_tables':"
     cat /etc/iproute2/rt_tables
-        
+
 #    echo ---------------------------------
 #    if [[ $1 != "-4" ]]; then
 #        echo "[*] ip6tables -t mangle -S:"
@@ -755,7 +755,7 @@ function info()
     #${_bin_ip6tables} -S ${OUTPUT}
     #echo "[*] iptables -S ${OUTPUT}:"
     #${_bin_iptables} -S ${OUTPUT}
-    
+
 #    echo ---------------------------------
 #    if [[ $1 != "-4" ]]; then
 #        echo "[*] ip6tables -S | grep PRIVATELINE:"
@@ -763,7 +763,7 @@ function info()
 #    fi
 #    if [[ $1 != "-6" ]]; then
 #        echo "[*] iptables -S | grep PRIVATELINE:"
-#        ${_bin_iptables} -S  | grep PRIVATELINE    
+#        ${_bin_iptables} -S  | grep PRIVATELINE
 #    fi
 #    echo ---------------------------------
 #    if [[ $1 != "-4" ]]; then
@@ -778,7 +778,7 @@ function info()
 #    echo ---------------------------------
 #    if [[ $1 != "-4" ]]; then
 #        echo "[*] ip -6 route show table ${_routing_table_weight}"
-#        ${_bin_ip} -6 route show table ${_routing_table_weight}    
+#        ${_bin_ip} -6 route show table ${_routing_table_weight}
 #    fi
 #    if [[ $1 != "-6" ]]; then
 #        echo "[*] ip route show table ${_routing_table_weight}"
@@ -820,31 +820,31 @@ function parseInputArgs()
     [ ${_is_inversed_blocked_ipv6} -eq 0 ]  || { >&2 echo "ERROR: -inverse_block_ipv6 mode is not supported in MVP 2.0"; exit 1; }
 }
 
-if [[ $1 = "start" ]] ; then    
-    shift    
-    parseInputArgs "$@"    
+if [[ $1 = "start" ]] ; then
+    shift
+    parseInputArgs "$@"
     detectDefRouteVars # Ensure the input parameters not empty
     init
 
-elif [[ $1 = "stop" ]] ; then    
+elif [[ $1 = "stop" ]] ; then
     clean
 
-elif [[ $1 = "reset" ]] ; then 
+elif [[ $1 = "reset" ]] ; then
     removeAllPids
     addDefaultWhitelistedApps
 
-elif [[ $1 = "uninstall" ]] ; then 
+elif [[ $1 = "uninstall" ]] ; then
     uninstall
 
 elif [[ $1 = "addpid" ]] ; then
-    shift 
+    shift
     addpid $@
 
 elif [[ $1 = "removepid" ]] ; then
-    shift 
+    shift
     removepid $@
 
-elif [[ $1 = "run" ]] ; then    
+elif [[ $1 = "run" ]] ; then
     _command=""
     _user=""
     shift
@@ -866,14 +866,14 @@ elif [[ $1 = "update-routes" ]] ; then
     exit 1
 
     # Linux is erasing ST routing rules when disable/enable default network interface, so we need to restore them back
-    shift 
+    shift
     detectDefRouteVars
 
-    updateRoutes $@  
+    updateRoutes $@
 
 elif [[ $1 = "info" ]] ; then
-    shift 
-    info $@  
+    shift
+    info $@
 
 elif [[ $1 = "appWhitelistEnabled" ]] ; then
     shift
@@ -914,7 +914,7 @@ else
     echo "                                         Note: This option applicable only with '-inverse' option."
     echo "        - inverse_block_ipv6- (optional) Block IPv6 connectivity for specified apps."
     echo "                                         For example, to block IPv6 connectivity when VPN does not support IPv6."
-    echo "                                         Note: This option applicable only with '-inverse' option."    
+    echo "                                         Note: This option applicable only with '-inverse' option."
     echo "    stop"
     echo "        Uninitialize split-tunneling functionality"
     echo "    run [-u <username>] <command>"

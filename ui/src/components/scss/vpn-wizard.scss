@@ -1,0 +1,390 @@
+// styles for VpnWizard.vue, VpnWizardExample.vue
+
+@use "@/components/scss/constants";
+
+.wizard-container {
+  background: var(--background-color);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.wizard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--separator-line-color);
+}
+
+.wizard-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.wizard-close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text-color-details);
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+
+  &:hover {
+    background: var(--background-color-alternate);
+  }
+}
+
+.wizard-progress {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--separator-line-color);
+}
+
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--background-color-alternate);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #6f329d;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.step-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.step-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  border: 2px solid var(--separator-line-color);
+  background: var(--background-color);
+  color: var(--text-color-details);
+  transition: all 0.3s ease;
+
+  &.active {
+    border-color: #6f329d;
+    background: #6f329d;
+    color: white;
+  }
+
+  &.completed {
+    border-color: var(--connection-switch-color);
+    background: var(--connection-switch-color);
+    color: white;
+  }
+}
+
+.wizard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.wizard-step {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.step-header {
+  margin-bottom: 24px;
+}
+
+.step-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.step-description {
+  margin: 0;
+  color: var(--text-color-details);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.step-content {
+  flex: 1;
+
+  .warning-text {
+    color: var(--warning-color);
+    font-weight: 500;
+    margin-top: 16px;
+  }
+}
+
+.info-box {
+  background: var(--background-color-alternate);
+  border-radius: 8px;
+  padding: 20px;
+  border-left: 4px solid #6f329d;
+
+  &.success {
+    border-left-color: var(--connection-switch-color);
+  }
+
+  p {
+    margin: 0 0 16px 0;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  ul,
+  ol {
+    margin: 16px 0 0 0;
+    padding-left: 20px;
+
+    li {
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+  }
+
+  .no-top-margin {
+    margin-top: 0;
+  }
+
+  .monospace-text {
+    font-family: monospace, monospace;
+  }
+}
+
+.wizard-footer {
+  padding: 20px 24px;
+  border-top: 1px solid var(--separator-line-color);
+  background: var(--background-color);
+}
+
+.wizard-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wizard-btn {
+  height: 40px;
+  min-width: 100px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &.master {
+    background: #6f329d;
+    color: white;
+    border: none;
+
+    &:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+  }
+
+  &.slave {
+    background: var(--button-slave-background);
+    color: var(--text-color);
+    border: 1px solid var(--separator-line-color);
+
+    &:hover:not(:disabled) {
+      background: var(--background-color-alternate);
+    }
+  }
+}
+
+// Scrollbar styling for wizard content
+.wizard-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wizard-content::-webkit-scrollbar-track {
+  background: var(--background-color-alternate);
+  border-radius: 3px;
+}
+
+.wizard-content::-webkit-scrollbar-thumb {
+  background: var(--separator-line-color);
+  border-radius: 3px;
+
+  &:hover {
+    background: var(--text-color-details);
+  }
+}
+
+// VpnWizardExample styles below
+
+.example-container {
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.example-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.example-btn {
+  height: 40px;
+  min-width: 140px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+
+  &.master {
+    background: #6f329d;
+    color: white;
+    border: none;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+
+  &.slave {
+    background: var(--button-slave-background);
+    color: var(--text-color);
+    border: 1px solid var(--separator-line-color);
+
+    &:hover {
+      background: var(--background-color-alternate);
+    }
+  }
+}
+
+.custom-content {
+  h4 {
+    margin: 0 0 12px 0;
+    color: var(--text-color);
+    font-size: 16px;
+  }
+
+  p {
+    margin: 0 0 16px 0;
+    color: var(--text-color-details);
+    line-height: 1.5;
+  }
+}
+
+.custom-error-content {
+  // color: red;
+
+  h3 {
+    // margin: 0 0 24px 0;
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: red;
+  }
+
+  p {
+    // margin: 16px 0 16px 0;
+    margin: 0 0 16px 0;
+    line-height: 1.5;
+  }
+}
+
+.action-buttons {
+  // margin-top: 20px;
+  margin-top: 0px;
+  margin-bottom: 16px;
+}
+
+.margin-top {
+  margin-top: 28px;
+}
+
+.small-btn {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+
+  &.master {
+    background: #6f329d;
+    color: white;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+
+  &.error {
+    background: red;
+    color: white;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+}
+
+.instruction-steps {
+  margin-top: 16px;
+}
+
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+
+  .step-number {
+    background: #6f329d;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 12px;
+    flex-shrink: 0;
+  }
+
+  .step-text {
+    color: var(--text-color);
+    line-height: 1.5;
+  }
+}

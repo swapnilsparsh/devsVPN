@@ -26,6 +26,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -88,10 +89,10 @@ func (s *Service) PingServers(firstPhaseTimeoutMs int, vpnTypePrioritized vpn.Ty
 	startTime := time.Now()
 
 	// temporarily enable the firewall, need VPN coexistence logic up - otherwise, if another VPN is already running, our pings may not go through
-	if err := firewall.EnableIfNeeded(); err != nil {
+	if err := firewall.EnableIfNeeded(true, s._preferences.PermissionReconfigureOtherVPNs); err != nil {
 		return nil, log.ErrorFE("error in firewall.EnableIfNeeded: %w", err)
 	} else {
-		defer firewall.DisableUnlessConnectedConnecting() // want to keep our firewall logic (incl. VPN coexistence rules) disabled most of the time
+		defer firewall.DisableUnlessConnectedConnecting(s._preferences.PermissionReconfigureOtherVPNs) // want to keep our firewall logic (incl. VPN coexistence rules) disabled most of the time
 	}
 
 	if s.ConnectedOrConnecting() {
@@ -207,17 +208,16 @@ func (s *Service) PingInternalApiHosts() (success bool, err error) {
 	defer s._pingInternalApiHosts._singleRequestLimitMutex.Unlock()
 
 	if !s._vpnConnectedCallback() { // if VPN is not connected, it's probably due to either another thread reconnecting, or disconnect in progress - return true.
-		log.Warn("warning - VPN is not connected, so not pinging API hosts")
+		log.Warning("warning - VPN is not connected, so not pinging API hosts")
 		return true, nil
 	}
 
 	// We know the VPN is connected by now. If the firewall is disabled (for whatever reason - i.e., due to VPN reconnect or firewall redeployment being in progress) - return true.
 	if fwEnabled, fwErr := firewall.GetEnabledNoLogs(); fwErr != nil {
-		log.ErrorFE("error checking firewall state: %w", fwErr)
-		return true, nil
+		return false, log.ErrorFE("error checking firewall state: %w", fwErr)
 	} else if !fwEnabled {
-		log.Warn("warning - firewall not enabled, not enabling it here, not pinging API hosts")
-		return true, nil
+		log.Warning("warning - firewall not enabled, not enabling it here, not pinging API hosts")
+		return false, nil
 	}
 
 	startTime := time.Now()
@@ -247,7 +247,7 @@ func (s *Service) PingInternalApiHosts() (success bool, err error) {
 	resolveApiHostsInParallelWG.Wait()
 
 	if apiHostIPsToPing.Length() <= 0 {
-		return false, log.ErrorFE("error - resolving API servers doesn't yield any private IPv4 IPs")
+		return false, errors.New("error - resolving API servers doesn't yield any private IPv4 IPs")
 	}
 
 	// Return value: map[host]latency

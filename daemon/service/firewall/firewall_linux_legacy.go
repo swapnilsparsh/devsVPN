@@ -176,7 +176,7 @@ func implGetEnabledLegacy(blockingWait bool) (exists bool, retErr error) {
 	return true, nil
 }
 
-func implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, forceRedetectOtherVpns bool) (firewallReconfigured bool, retErr error) {
+func implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, forceRedetectOtherVpns, enableNftVpnCoexistence bool) (firewallReconfigured bool, retErr error) {
 	if !iptablesLegacyWasInitialized.Load() || isDaemonStoppingCallback() {
 		return false, nil
 	}
@@ -209,15 +209,15 @@ func implReregisterFirewallAtTopPriorityLegacy(forceReconfigureFirewall, forceRe
 	log.Debug("implReregisterFirewallAtTopPriorityLegacy - ", entryMsg)
 
 	if forceRedetectOtherVpns {
-		if _, err := reDetectOtherVpnsImpl(true, false, true); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableLegacy() needs otherVpnsLegacyMutex
-			log.ErrorFE("error reDetectOtherVpnsImpl(true, true): %w", err) // and continue
+		if _, err := reDetectOtherVpnsImpl(true, false, true, false, enableNftVpnCoexistence); err != nil { // run forced re-detection of other VPNs synchronously - it must finish before implReEnableLegacy() needs otherVpnsLegacyMutex
+			log.ErrorFE("error reDetectOtherVpnsImpl(true, false, true, false): %w", err) // and continue
 		}
 	}
-	if err := implReEnableLegacy(true); err != nil {
+	if err := implReEnableLegacy(true, enableNftVpnCoexistence); err != nil {
 		return true, log.ErrorFE("error in implReEnableLegacy: %w", err)
 	}
 
-	go onKillSwitchStateChangedCallback()         // send notification out in case state went from FAIL to GOOD
+	go onKillSwitchStateChangedCallback(true)     // send notification out in case state went from FAIL to GOOD
 	go implDeployPostConnectionRulesLegacy(false) // forking in the background, as otherwise DNS timeouts are up to ~15 sec, they freeze UI changes
 
 	return true, nil
@@ -240,7 +240,7 @@ func implFirewallBackgroundMonitorLegacy() {
 	loopIteration := 0
 	for {
 		select {
-		case _ = <-stopMonitoringFirewallChangesLegacy:
+		case <-stopMonitoringFirewallChangesLegacy:
 			log.Debug("implFirewallBackgroundMonitorLegacy exiting on stop signal")
 			return
 		default: // no message received
@@ -252,7 +252,7 @@ func implFirewallBackgroundMonitorLegacy() {
 			time.Sleep(time.Second) // sleep 1 second per each loop iteration
 			loopIteration = (loopIteration + 1) % 5
 			if loopIteration == 0 { // poll iptables-legacy only every 5th iteration - that is, once every 5 seconds
-				if _, err := implReregisterFirewallAtTopPriorityLegacy(false, true); err != nil {
+				if _, err := implReregisterFirewallAtTopPriorityLegacy(false, false, getPrefsCallback().PermissionReconfigureOtherVPNs); err != nil {
 					log.ErrorFE("error in implReregisterFirewallAtTopPriorityLegacy(): %w", err) // and continue
 				}
 			}
@@ -260,7 +260,7 @@ func implFirewallBackgroundMonitorLegacy() {
 	}
 }
 
-func implReEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
+func implReEnableLegacy(fwLinuxLegacyMutexGrabbed, enableNftVpnCoexistence bool) (retErr error) {
 	if !iptablesLegacyWasInitialized.Load() {
 		return nil
 	}
@@ -281,7 +281,7 @@ func implReEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 		log.ErrorFE("failed to disable iptables-legacy firewall: %w", err) // and continue
 	}
 
-	if err := doEnableLegacy(true); err != nil {
+	if err := doEnableLegacy(true, enableNftVpnCoexistence); err != nil {
 		return log.ErrorFE("failed to enable iptables-legacy firewall: %w", err)
 	}
 
@@ -289,7 +289,7 @@ func implReEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 	return nil
 }
 
-func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
+func doEnableLegacy(fwLinuxLegacyMutexGrabbed, enableNftVpnCoexistence bool) (err error) {
 	if !iptablesLegacyWasInitialized.Load() {
 		return nil
 	}
@@ -448,7 +448,7 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 	}
 
 	// Allow all DNS - workaround for Surfshark, but applying it generally for now.
-	// TODO FIXME: allow only until login (SessionNew) is done
+	// TODO: FIXME: allow only until login (SessionNew) is done
 	if err = vpnCoexLegacyOut.MatchProtocol(false, network.ProtocolUDP).MatchUDP(iptables.WithMatchUDPDstPort(false, 53)).TargetAccept().Insert(); err != nil {
 		return log.ErrorFE("error add all DNS dst UDP port 53: %w", err)
 	}
@@ -470,7 +470,7 @@ func doEnableLegacy(fwLinuxLegacyMutexGrabbed bool) (err error) {
 			continue
 		} else if otherVpnLegacy.iptablesLegacyHelper == nil {
 			err = log.ErrorFE("error: iptablesLegacyHelper==nil for other VPN '%s', it's unexpected", otherVpnRelevantForLegacyName)
-		} else if err = otherVpnLegacy.iptablesLegacyHelper(); err != nil {
+		} else if err = otherVpnLegacy.iptablesLegacyHelper(enableNftVpnCoexistence); err != nil {
 			err = log.ErrorFE("error running iptablesLegacyHelper for other VPN '%s': %w", otherVpnRelevantForLegacyName, err)
 		}
 	}
@@ -606,10 +606,10 @@ func doDisableLegacy(fwLinuxLegacyMutexGrabbed bool) (retErr error) {
 
 	// delete our chains
 	if err := vpnCoexLegacyIn.DeleteChain(); err != nil {
-		log.Warn(fmt.Errorf("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_IN, err)) // and continue
+		log.Warning(fmt.Errorf("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_IN, err)) // and continue
 	}
 	if err := vpnCoexLegacyOut.DeleteChain(); err != nil {
-		log.Warn(fmt.Errorf("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_OUT, err)) // and continue
+		log.Warning(fmt.Errorf("error deleting our chain %s: %w", VPN_COEXISTENCE_CHAIN_LEGACY_OUT, err)) // and continue
 	}
 
 	return nil

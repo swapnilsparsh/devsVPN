@@ -245,10 +245,11 @@ type ResumeConnection struct {
 // When login is passwordless, EmailOrAcctID contains account ID, and password is set to ""
 type SessionNew struct {
 	RequestBase
-	EmailOrAcctID  string
-	Password       string
-	DeviceName     string
-	StableDeviceID bool
+	EmailOrAcctID                       string
+	Password                            string
+	DeviceName                          string
+	StableDeviceID                      bool
+	PermissionReconfigureOtherVPNs_Once bool // whether the user allows daemon to reconfigure other VPNs once, but not store permission
 }
 type SsoLogin struct {
 	RequestBase

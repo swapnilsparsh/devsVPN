@@ -222,7 +222,7 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 		return err
 	}
 
-	// TODO FIXME: Vlad - adjust logic
+	// TODO: FIXME: Vlad - adjust logic
 	// If: (VPN not connected + inverse split-tunneling enabled + isStInverseAllowWhenNoVpn==false) --> we need to set blackhole IP addresses for tunnel interface
 	// This will forward all traffic of split-tunnel apps to 'nowhere' (in fact, it will block all traffic of split-tunnel apps)
 	if isStInversed && !isStInverseAllowWhenNoVpn && !isVpnEnabled {
@@ -230,7 +230,7 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 		addrConfig.IPv6Tunnel = net.ParseIP(BlackHoleIPv6)
 	}
 
-	// TODO FIXME: Vlad - adjust logic
+	// TODO: FIXME: Vlad - adjust logic
 	// If ST not enabled or no configuration - just disconnect driver (if connected)
 	// We do not need to start ST driver when:
 	// - ST disabled
@@ -265,7 +265,7 @@ func implApplyConfig(isStEnabled, isStInversed, enableAppWhitelist, isStInverseA
 		}
 
 		addresses := addrConfig
-		// TODO FIXME: Vlad - check logic
+		// TODO: FIXME: Vlad - check logic
 		// For inversed split-tunnel we just inverse IP addresses in driver configuration (defaultPublicInterfaceIP <=> tunnelInterfaceIP)
 		if isStInversed {
 			// In situation when there is no IPv6 connectivity on local machine (IPv6Public not defined) - we need to set IPv6Tunnel to IPv6Public
@@ -419,7 +419,7 @@ func applyInverseSplitTunRoutingRules(isVpnEnabled, isStInversed, isStEnabled bo
 	return retErr
 }
 
-// TODO FIXME: Vlad - adjust logic
+// TODO: FIXME: Vlad - adjust logic
 func doApplyInverseRoutes(isIPv6, enable bool) error {
 	if routeBinaryPath == "" {
 		return fmt.Errorf("route.exe location not specified")
@@ -489,8 +489,8 @@ func doApplyInverseRoutes(isIPv6, enable bool) error {
 	return nil
 }
 
-// TODO FIXME: Vlad - write out descr
-// TODO FIXME: Vlad - process isVpnEnabled logic. Ensure we get called if VPN gets enabled/disabled.
+// TODO: FIXME: Vlad - write out descr
+// TODO: FIXME: Vlad - process isVpnEnabled logic. Ensure we get called if VPN gets enabled/disabled.
 func doApplySplitFullTunnelRoutes(ipFamily uint16, isStEnabled bool, isVpnEnabled bool, wgEndpoint net.IP) error {
 	var (
 		wgEndpointDestPrefix, changeFromDestPrefix, changeToDestPrefix winipcfg.IPAddressPrefix
@@ -568,7 +568,7 @@ func checkCallErrResp(retval uintptr, err error, mName string) error {
 func connect(logging bool) (err error) {
 	defer catchPanic(&err)
 
-	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	// TODO: FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
 	return nil
 
 	if isDriverConnected {
@@ -648,7 +648,7 @@ func stopAndClean() (err error) {
 	///		Stop splitting
 	///		Stop processes monitoring
 	///		Clean all configuration/statuses
-	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	// TODO: FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
 	// retval, _, err := fSplitTun_StopAndClean.Call()
 	// if err := checkCallErrResp(retval, err, "SplitTun_StopAndClean"); err != nil {
 	// 	return err
@@ -705,7 +705,7 @@ func setConfig(config Config) (err error) {
 	if err := isInitialised(); err != nil {
 		return err
 	}
-	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	// TODO: FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
 	return nil
 
 	// SET IP ADDRESSES
@@ -736,16 +736,16 @@ func setConfig(config Config) (err error) {
 		return err
 	}
 
-	// TODO FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
+	// TODO: FIXME: Vlad - disabled for now. Reenable back once we enable the driver.
 	/*
 		// SET APPS TO SPLIT
 		for idx, appPath := range config.Apps.ImagesPathToSplit {
 			appID, _ := wf.AppID(appPath)
-			// TODO FIXME: Vlad:
+			// TODO: FIXME: Vlad:
 			// Link all objects to our provider. When multiple providers are installed
 			// on a computer, this makes it easy to determine who added what.
 			r := &wf.Rule{
-				// TODO FIXME: Vlad - make deterministic GUID from canonicalized path
+				// TODO: FIXME: Vlad - make deterministic GUID from canonicalized path
 				ID:   wf.RuleID(mustGUID()),
 				Name: "privateLINE rule IPv4 #" + strconv.Itoa(idx),
 				//Layer: wf.LayerALEAuthConnectV4,

@@ -75,7 +75,7 @@ func init() {
 //   - if yes, we'll need locking
 func implInitialize() error {
 	if willUseResolvectl, err := WillUseResolvectlForDnsMgmt(); err != nil {
-		return log.ErrorFE("error WillUseResolvectl(): %w", err) // TODO FIXME: Vlad - or just ignore errors and force old-style DNS management on errors?
+		return log.ErrorFE("error WillUseResolvectl(): %w", err) // TODO: FIXME: Vlad - or just ignore errors and force old-style DNS management on errors?
 	} else if willUseResolvectl {
 		// new management style: using 'resolvectl'
 		f_implInitialize = rctl_implInitialize

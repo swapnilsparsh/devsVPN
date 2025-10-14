@@ -85,7 +85,8 @@ type ConnectionParams struct {
 	// (if true - the parameter 'firewallDuringConnection' will be ignored)
 	FirewallOn bool
 	// Unconditionally reenable (disable-then-enable) firewall before connection (whether firewall was enabled or not) and disable after disconnection.
-	FirewallOnDuringConnection bool
+	FirewallOnDuringConnection  bool
+	CanReconfigureOtherVpnsOnce bool // it's a transient value, only good for one connection request. Always stored as false in preferences.
 
 	WireGuardParameters struct {
 		// Port in use only for Single-Hop connections

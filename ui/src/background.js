@@ -15,8 +15,8 @@ import {
 
 import path from "path";
 
-import { SentryInit } from "./sentry/sentry.js";
-SentryInit();
+// import { SentryInit } from "./sentry/sentry.js";
+// SentryInit();
 
 // Initialize Rageshake crash reporting
 import rageshake from "./rageshake/index.js";
@@ -49,6 +49,7 @@ import "@/context-menu/main";
 let win;
 let settingsWindow;
 let updateWindow;
+let vpnWizardWindow;
 let isAppReadyToQuit = false;
 
 let isTrayInitialized = false;
@@ -145,6 +146,12 @@ ipcMain.on("renderer-request-show-settings-antitracker", () => {
 });
 ipcMain.on("renderer-request-show-settings-SplitTunnel", () => {
   showSettings("appwhitelist");
+});
+ipcMain.handle("renderer-request-show-vpn-wizard", (event, introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion) => {
+  return vpnWizardWindowOnShow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion);
+});
+ipcMain.handle("renderer-request-close-vpn-wizard", () => {
+  closeVpnWizardWindow();
 });
 ipcMain.handle("renderer-request-connect-to-daemon", async () => {
   return await connectToDaemon();
@@ -358,6 +365,7 @@ if (gotTheLock && isAllowedToStart) {
         menuOnPreferences,
         menuOnAccount,
         menuOnCheckUpdates,
+        vpnWizardWindowOnShowTray,
         LaunchAppInSplitTunnel
       );
       isTrayInitialized = true;
@@ -473,6 +481,14 @@ if (gotTheLock && isAllowedToStart) {
 
   process.on('unhandledRejection', async (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+
+    // For some commands we don't prompt the user to send Rageshake report. Commands: SubscriptionData, ...
+    if (String(reason).includes("not logged in; please visit") ||
+      String(reason).includes("/user/check-subscription") ||
+      String(reason).includes("/user/profile") ||
+      String(reason).includes("/user/device-list"))
+      return;
+
     try {
       await rageshake.showCrashReportDialog('ui - unhandled_rejection', String(reason), {
         // reason: String(reason),
@@ -994,6 +1010,95 @@ function closeUpdateWindow() {
   updateWindow.destroy(); // close();
 }
 
+// VPN Wizard window
+async function createVpnWizardWindow(_introHeader, _introDescr, _showAutoReconfig, _showNordVpnManualInstructions, _issueExplicitConnect, waitForWizardCompletion) {
+  if (vpnWizardWindow != null) {
+    closeVpnWizardWindow();
+  }
+
+  // Update store FIRST before creating window
+  store.commit("uiState/vpnWizard", {
+    introHeader: _introHeader,
+    introDescr: _introDescr,
+    showAutoReconfigVpnStep: _showAutoReconfig,
+    showNordVpnWindowsStep: _showNordVpnManualInstructions,
+    issueExplicitConnect: _issueExplicitConnect,
+  });
+
+  // Dynamic height based on whether NordVPN step is present
+  const windowHeight = _showNordVpnManualInstructions ? 700 : 500;
+
+  let windowConfig = {
+    backgroundColor: getBackgroundColor(),
+    show: false,
+
+    width: config.VpnWizardWindowWidth,
+    height: windowHeight,
+    maxWidth: config.VpnWizardWindowWidth,
+    maxHeight: windowHeight,
+
+    resizable: false,
+    fullscreenable: false,
+    maximizable: false,
+    minimizable: false,
+
+    center: true,
+    title: "privateLINE Connect - VPN Reconfiguration Wizard",
+
+    autoHideMenuBar: true,
+
+    frame: IsWindowHasFrame(),
+    // frame: false,
+  };
+
+  vpnWizardWindow = createBrowserWindow(windowConfig);
+
+  // Load the remote URL for development or the local html file for production.
+  if (process.env['ELECTRON_RENDERER_URL']) {
+    vpnWizardWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + `#vpnwizard`)
+  } else {
+    vpnWizardWindow.loadURL(`file://${join(__dirname, '../renderer/index.html')}#vpnwizard`);
+  }
+
+  vpnWizardWindow.once("ready-to-show", () => {
+    vpnWizardWindow.show();
+
+    if (config.IsDebug()) {
+      try {
+        vpnWizardWindow.webContents.openDevTools();
+      } catch (e) {
+        console.error("Failed to open dev tools:", e.toString());
+      }
+    }
+  });
+
+  vpnWizardWindow.on("closed", () => {
+    vpnWizardWindow = null;
+  });
+
+  if (waitForWizardCompletion) {
+    while (vpnWizardWindow != null) { // if caller requested, wait for the wizard window to close
+      await new Promise(r => setTimeout(r, 250));
+    }
+  }
+
+  return true;
+}
+
+async function closeVpnWizardWindow() {
+  store.commit("uiState/vpnWizard", {
+    introHeader: "",
+    introDescr: "",
+    showAutoReconfigVpnStep: false,
+    showNordVpnWindowsStep: false,
+    issueExplicitConnect: false,
+  });
+
+  if (vpnWizardWindow == null) return;
+
+  vpnWizardWindow.destroy(); // close();
+}
+
 // INITIALIZE CONNECTION TO A DAEMON
 async function connectToDaemon(
   doNotTryToInstall,
@@ -1201,6 +1306,12 @@ function OnAppUpdateAvailable() {
   createUpdateWindow();
 }
 
+// VPN Wizard window
+async function vpnWizardWindowOnShow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion) {
+  if (vpnWizardWindow) return false;
+  return createVpnWizardWindow(introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion);
+}
+
 // COLORS
 function getBackgroundColor() {
   // NOTE! the return values should be synchronized with CSS configuration
@@ -1213,4 +1324,13 @@ function getBackgroundColor() {
     return "#1c1c1e";
 
   return "#FFFFFF";
+}
+
+// Vlad - testing
+function vpnWizardWindowOnShowTray() {
+  if (vpnWizardWindow) return;
+  // Parameters: introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion
+  // Set showNordVpnManualInstructions to FALSE to test compact height (500px)
+  // Set showNordVpnManualInstructions to TRUE to test full height (700px)
+  createVpnWizardWindow("trayHeader", "trayDescr", true, false, true, false); // Changed to false for testing
 }

@@ -365,7 +365,7 @@ func NewFilterAllowLocalIP(
 	}
 	f.Action = FwpActionPermit
 
-	// TODO FIXME: Vlad - do check whether we may need to set FwpmFilterFlagClearActionRight here
+	// TODO: FIXME: Vlad - do check whether we may need to set FwpmFilterFlagClearActionRight here
 	// Do not set FwpmFilterFlagClearActionRight (f.Flags = FwpmFilterFlagClearActionRight)
 	// Otherwise, we will overlap blocking rules from Windows Firewall (if they are)
 	// For example: if the Windows firewall have rule to block a specific application
@@ -401,7 +401,7 @@ func NewFilterAllowLocalIPV6(
 	}
 	f.Action = FwpActionPermit
 
-	// TODO FIXME: Vlad - do check whether we may need to set FwpmFilterFlagClearActionRight here
+	// TODO: FIXME: Vlad - do check whether we may need to set FwpmFilterFlagClearActionRight here
 	// Do not set FwpmFilterFlagClearActionRight (f.Flags = FwpmFilterFlagClearActionRight)
 	// Otherwise, we will overlap blocking rules from Windows Firewall (if they are)
 	// For example: if the Windows firewall have rule to block a specific application

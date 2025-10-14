@@ -43,3 +43,22 @@ func Random64HexStr() (string, error) {
 	}
 	return hex.EncodeToString(bytes), nil
 }
+
+// Unicode-aware substring from https://stackoverflow.com/questions/12311033/extracting-substrings-in-go/56129336
+//
+// NOTE: this isn't multi-Unicode-codepoint aware, like specifying skintone or
+//
+//	gender of an emoji: https://unicode.org/emoji/charts/full-emoji-modifiers.html
+func Substring(input string, start int, length int) string {
+	asRunes := []rune(input)
+
+	if start >= len(asRunes) {
+		return ""
+	}
+
+	if start+length > len(asRunes) {
+		length = len(asRunes) - start
+	}
+
+	return string(asRunes[start : start+length])
+}
