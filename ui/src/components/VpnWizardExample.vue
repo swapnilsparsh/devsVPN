@@ -54,26 +54,95 @@
 
       <template #auto-reconfig-content>
         <div class="custom-content">
-          <!-- <h4>Custom Auto-reconfig Content</h4>
-          <p>
-            This is custom content for the auto-reconfig step. You can put any
-            Vue template content here.
-          </p> -->
+          <!-- Loading indicator -->
+          <div v-if="isAutoReconfiguring" class="status-message loading">
+            <div class="spinner"></div>
+            <span class="loading-text">Reconfiguring VPN settings...</span>
+          </div>
+
+          <!-- Success message -->
+          <div v-else-if="autoReconfigSuccess" class="status-message success">
+            <svg
+              class="status-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            <span>Successfully reconfigured VPN settings!</span>
+          </div>
+
+          <!-- Error message -->
+          <div v-else-if="autoReconfigFailed" class="status-message error">
+            <svg
+              class="status-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>Auto-reconfiguration failed. Please try manual steps.</span>
+          </div>
+
           <div class="action-buttons">
-            <button class="master small-btn" @click="performAutoReconfig">
-              Auto Reconfigure Other VPNs Once
+            <button
+              class="master small-btn"
+              @click="performAutoReconfig"
+              :disabled="isAutoReconfiguring"
+            >
+              <span v-if="isAutoReconfiguring">Reconfiguring...</span>
+              <span v-else>Auto Reconfigure Other VPNs Once</span>
             </button>
           </div>
-          <input type="checkbox" id="SetVpnCoexistPermissionCheckbox" v-model="toSetVpnCoexistPermission" />
-          <label for="SetVpnCoexistPermissionCheckbox">Recommended: Give PL Connect permission to reconfigure other VPNs automatically when needed
-             (you can disable it later in Settings)</label>
+          <input
+            type="checkbox"
+            id="SetVpnCoexistPermissionCheckbox"
+            v-model="toSetVpnCoexistPermission"
+          />
+          <label for="SetVpnCoexistPermissionCheckbox"
+            >Recommended: Give PL Connect permission to reconfigure other VPNs
+            automatically when needed (you can disable it later in
+            Settings)</label
+          >
         </div>
       </template>
 
       <!-- The error message is shown in final instructions screen only if error was recorded -->
       <template v-if="this.autoReconfigFailed" #final-instructions-content>
         <div class="custom-error-content">
-          <h3>⚠️ {{this.autoReconfigErrHeader}}</h3>
+          <div class="step-header">
+            <div class="step-title-with-icon">
+              <svg
+                class="step-icon"
+                style="color: #f44336"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <h3>{{ this.autoReconfigErrHeader }}</h3>
+            </div>
+          </div>
           <div class="action-buttons">
             <button class="master small-btn" @click="onSendVpnWizardLogs">
               Send Error Logs To privateLINE
@@ -81,10 +150,10 @@
           </div>
 
           <div class="margin-top">
-            <div class="info-box">
-              <p>{{this.autoReconfigErrDetails}}</p>
+            <div class="info-box error">
+              <p>{{ this.autoReconfigErrDetails }}</p>
             </div>
-        </div>
+          </div>
         </div>
       </template>
     </VpnWizard>
@@ -109,6 +178,8 @@ export default {
       autoReconfigFailed: false,
       autoReconfigErrHeader: "",
       autoReconfigErrDetails: "",
+      isAutoReconfiguring: false,
+      autoReconfigSuccess: false,
       // wizardConfig: {
       //   endOfFlowParam: false,
       //   autoReconfigAvailable: false,
@@ -160,12 +231,15 @@ export default {
     //   this.showWizard = true;
     // },
 
-    wizardEndHandler() { // Reset vars on wizard completed, closed. Close the window.
+    wizardEndHandler() {
+      // Reset vars on wizard completed, closed. Close the window.
       this.showWizard = false;
       this.reconnectIssued = false;
       this.autoReconfigFailed = false;
       this.autoReconfigErrHeader = "";
       this.autoReconfigErrDetails = "";
+      this.isAutoReconfiguring = false;
+      this.autoReconfigSuccess = false;
 
       sender.CloseVpnWizardWindow(); // this will reset this.$store.state.uiState.vpnWizard.* vars
     },
@@ -180,7 +254,11 @@ export default {
       // Handle wizard completion logic here
 
       // in case of NordVPN on Windows, check whether reconnected already - and, if not, issue reconnect
-      if (this.$store.state.uiState.vpnWizard.showNordVpnWindowsStep && this.$store.state.uiState.vpnWizard.issueExplicitConnect && !this.reconnectIssued) {
+      if (
+        this.$store.state.uiState.vpnWizard.showNordVpnWindowsStep &&
+        this.$store.state.uiState.vpnWizard.issueExplicitConnect &&
+        !this.reconnectIssued
+      ) {
         sender.Connect();
       }
 
@@ -190,14 +268,23 @@ export default {
     onStepChanged(data) {
       // console.log("Step changed: ", data, "\nautoReconfigFailed=", this.autoReconfigFailed, "\ntimeOfLastPromptToReconfigureOtherVpns=", this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns);
       // Handle step change logic here
-      sender.SetPermissionReconfigureOtherVPNs(this.toSetVpnCoexistPermission == true);
+      sender.SetPermissionReconfigureOtherVPNs(
+        this.toSetVpnCoexistPermission == true
+      );
     },
 
     async performAutoReconfig() {
       console.log("Performing auto-reconfig...");
       // Add your auto-reconfig logic here
 
-      this.$store.dispatch("uiState/timeOfLastPromptToReconfigureOtherVpns", Date.now()); // store the timestamp only when the user agreed to re-configure other VPNs
+      this.isAutoReconfiguring = true;
+      this.autoReconfigFailed = false;
+      this.autoReconfigSuccess = false;
+
+      this.$store.dispatch(
+        "uiState/timeOfLastPromptToReconfigureOtherVpns",
+        Date.now()
+      ); // store the timestamp only when the user agreed to re-configure other VPNs
       // this.$store.state.uiState.timeOfLastPromptToReconfigureOtherVpns = Date.now();
 
       if (this.toSetVpnCoexistPermission) {
@@ -208,6 +295,9 @@ export default {
       try {
         let resp = await sender.KillSwitchReregister(true); // this will also kick off reconnection attempt
         console.log("KillSwitchReregister resp:\n\n", resp);
+
+        this.isAutoReconfiguring = false;
+
         if (resp && resp !== null) {
           if (resp.OtherVpnUnknownToUs != null && resp.OtherVpnUnknownToUs) {
             // TODO: Vlad:
@@ -215,6 +305,7 @@ export default {
             console.log("KillSwitchReregister() returned OtherVpnUnknownToUs");
             sender.SetLogging(true);
             this.autoReconfigFailed = true;
+            this.autoReconfigSuccess = false;
             this.autoReconfigErrHeader =
               "Error - failed to get top firewall permissions";
             this.autoReconfigErrDetails =
@@ -226,20 +317,29 @@ export default {
               "in PL Connect again. If successful - then restart the service of the other VPN and reconnect to the other VPN.\n\n" +
               "(3) If previous step failed - uninstall the other VPN and click Fix in PL Connect again. Then reinstall the other VPN and reconnect to it.";
           } else if (resp.ErrorMessage != null && resp.ErrorMessage) {
-            console.log("KillSwitchReregister() returned error:\n\n", resp.ErrorMessage);
+            console.log(
+              "KillSwitchReregister() returned error:\n\n",
+              resp.ErrorMessage
+            );
             sender.SetLogging(true);
             this.autoReconfigFailed = true;
-            this.autoReconfigErrHeader = "Error - automatic reconfiguration failed";
+            this.autoReconfigSuccess = false;
+            this.autoReconfigErrHeader =
+              "Error - automatic reconfiguration failed";
             this.autoReconfigErrDetails = resp.ErrorMessage;
           } else if (resp.obj?.ErrorMessage != null && resp.obj?.ErrorMessage) {
             console.log("resp.ErrorMessage:\n\n", resp.obj.ErrorMessage);
-          } else
+          } else {
             this.autoReconfigFailed = false;
+            this.autoReconfigSuccess = true;
+          }
         }
       } catch (error) {
         console.log("KillSwitchReregister() threw error:\n\n", error);
         sender.SetLogging(true);
+        this.isAutoReconfiguring = false;
         this.autoReconfigFailed = true;
+        this.autoReconfigSuccess = false;
         this.autoReconfigErrHeader = "Error - automatic reconfiguration failed";
         this.autoReconfigErrDetails = error;
       }
@@ -252,19 +352,27 @@ export default {
 
     async onSendVpnWizardLogs() {
       try {
-        let userComment = this.autoReconfigErrHeader + "\n\n" + this.autoReconfigErrDetails;
-        await sender.SubmitRageshakeReport('ui - VPN wizard error', userComment, {});
+        let userComment =
+          this.autoReconfigErrHeader + "\n\n" + this.autoReconfigErrDetails;
+        await sender.SubmitRageshakeReport(
+          "ui - VPN wizard error",
+          userComment,
+          {}
+        );
       } catch (error) {
-        console.error('Error submitting VPN wizard logs to Rageshake:', error);
+        console.error("Error submitting VPN wizard logs to Rageshake:", error);
       }
-    }
+    },
   },
   hasPermissionToReconfigureOtherVPNs: function () {
-    return this.$store.state.settings?.daemonSettings?.PermissionReconfigureOtherVPNs ?? false;
+    return (
+      this.$store.state.settings?.daemonSettings
+        ?.PermissionReconfigureOtherVPNs ?? false
+    );
   },
 };
 </script>
 
 <style scoped lang="scss">
-@use './scss/vpn-wizard.scss';
+@use "./scss/vpn-wizard.scss";
 </style>

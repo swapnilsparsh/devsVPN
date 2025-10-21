@@ -61,14 +61,14 @@ export function InitTray(
   menuItemPreferences,
   menuItemAccount,
   menuItemCheckUpdates,
-  // menuItemVpnWizard,
+  menuItemVpnWizard,
   funcLaunchStApp
 ) {
   menuHandlerShow = menuItemShow;
   menuHandlerPreferences = menuItemPreferences;
   menuHandlerAccount = menuItemAccount;
   menuHandlerCheckUpdates = menuItemCheckUpdates;
-  // menuHandlerVpnWizard = menuItemVpnWizard;
+  menuHandlerVpnWizard = menuItemVpnWizard;
   fLaunchStApp = funcLaunchStApp;
 
   const trayIconsDir = path.join(path.dirname(__dirname), "renderer", "tray");

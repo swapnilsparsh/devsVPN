@@ -1332,5 +1332,5 @@ function vpnWizardWindowOnShowTray() {
   // Parameters: introHeader, introDescr, showAutoReconfig, showNordVpnManualInstructions, issueExplicitConnect, waitForWizardCompletion
   // Set showNordVpnManualInstructions to FALSE to test compact height (500px)
   // Set showNordVpnManualInstructions to TRUE to test full height (700px)
-  createVpnWizardWindow("trayHeader", "trayDescr", true, false, true, false); // Changed to false for testing
+  createVpnWizardWindow("trayHeader", "trayDescr", true, true, true, false); // Changed to false for testing
 }
