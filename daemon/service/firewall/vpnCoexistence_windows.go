@@ -1,4 +1,4 @@
-// TODO FIXME: prepend license
+// TODO: FIXME: prepend license
 // Copyright (c) 2024 privateLINE, LLC.
 
 package firewall
@@ -20,6 +20,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall/winlib"
 	"github.com/swapnilsparsh/devsVPN/daemon/service/platform"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
@@ -40,7 +41,8 @@ var (
 
 	ZeroGUID = syscall.GUID{}
 
-	ProgramFilesResolved = "" // env var expansion for %ProgramFiles%, or "" if there's an error resolving %ProgramFiles%
+	ProgramFilesResolved    = "" // env var expansion for %ProgramFiles%, or "" if there's an error resolving %ProgramFiles%
+	ProgramFilesX86Resolved = "" // env var expansion for %ProgramFiles(x86)%, or "" if there's an error resolving %ProgramFiles(x86)%
 
 	// blacklist of words that can't be brand name candidates
 	// Vlad - don't stop services whose name starts with "Wireguard", because we don't want to kill our own connection, lol
@@ -64,9 +66,10 @@ var (
 	// other VPNs known to us
 
 	// Mullvad
-	mullvadSublayerKey     = syscall.GUID{Data1: 0xC78056FF, Data2: 0x2BC1, Data3: 0x4211, Data4: [8]byte{0xAA, 0xDD, 0x7F, 0x35, 0x8D, 0xEF, 0x20, 0x2D}}
-	mullvadInterfaceNameWg = "Mullvad" // When it uses Wireguard
-	mullvadProfile         = OtherVpnInfo{
+	mullvadSublayerKey              = syscall.GUID{Data1: 0xC78056FF, Data2: 0x2BC1, Data3: 0x4211, Data4: [8]byte{0xAA, 0xDD, 0x7F, 0x35, 0x8D, 0xEF, 0x20, 0x2D}}
+	mullvadVpnPersistentSublayerKey = syscall.GUID{Data1: 0x3C28881E, Data2: 0x8891, Data3: 0x4D61, Data4: [8]byte{0xB8, 0x7F, 0xF2, 0x72, 0x50, 0x2D, 0x10, 0x05}}
+	mullvadInterfaceNameWg          = "Mullvad" // When it uses Wireguard
+	mullvadProfile                  = OtherVpnInfo{
 		name:       "Mullvad VPN",
 		namePrefix: "mullvad",
 
@@ -92,12 +95,21 @@ var (
 		},
 	}
 
-	// TODO: NordVPN CLI
 	// NordVPN
-	nordVpnSublayerKey = syscall.GUID{Data1: 0x92C759E5, Data2: 0x03BA, Data3: 0x41AD, Data4: [8]byte{0xA5, 0x99, 0x68, 0xAF, 0x2C, 0x1A, 0x17, 0xE5}}
-	nordVpnProfile     = OtherVpnInfo{
-		name:       "NordVPN",
+	nordVpnSublayerKey              = syscall.GUID{Data1: 0x92C759E5, Data2: 0x03BA, Data3: 0x41AD, Data4: [8]byte{0xA5, 0x99, 0x68, 0xAF, 0x2C, 0x1A, 0x17, 0xE5}}
+	nordVpnInterfaceNameDef         = "NordLynx"    // NordLynx protocol, and apparently OpenVPN. This interface is active even when NordVPN is disconnected.
+	nordVpnInterfaceNameNordWhisper = "NordWhisper" // NordWhisper protocol
+	NordVpnName                     = "NordVPN"
+	nordVpnProfile                  = OtherVpnInfo{
+		name:       NordVpnName,
 		namePrefix: "nord",
+
+		networkInterfaceNames:  []string{nordVpnInterfaceNameDef, nordVpnInterfaceNameNordWhisper},
+		customHealthchecksType: service_types.HealthchecksType_RestApiCall, // have to use REST API for healthchecks w/ NordVPN, can't use ping
+
+		incompatWithTotalShieldWhenConnected: true,
+
+		// TODO: NordVPN CLI
 		//cliPathResolved:    "ProgramFiles/NordVPN/NordVPN.exe", // disabled for now, since we didn't find yet a programmatic way to check whether VPN is connected
 		cliCmds: otherVpnCliCmds{
 			cmdConnect:    "--connect",
@@ -105,21 +117,53 @@ var (
 		},
 	}
 
-	// index (DB) of other VPNs by sublayer key
+	// ExpressVPN
+	// no high-pri WFP sublayer apparently
+	expressVpnProfile = OtherVpnInfo{
+		name:       "ExpressVPN",
+		namePrefix: "expressvpn",
+
+		customHealthchecksType: service_types.HealthchecksType_RestApiCall, // have to use REST API for healthchecks w/ ExpressVPN, can't use ping
+
+		// When PL Total Shield on, ExpressVPN itself can't connect, of course.
+		// But PL Connect stays connected, VPN coex logic shakes out, may disable Total Shield automatically.
+		//incompatWithTotalShieldWhenConnected: true,
+
+		cliPathResolved: "ProgramFilesX86/ExpressVPN/services/ExpressVPN.CLI.exe",
+		cliCmds: otherVpnCliCmds{
+			cmdStatus:               "status",
+			checkCliConnectedStatus: true,
+			statusConnectedRE:       regexp.MustCompile("^Connect(ed|ing)"), // must be 1st line
+			statusDisconnectedRE:    regexp.MustCompile("^Not connected"),
+
+			cmdConnect:    "connect",
+			cmdDisconnect: "disconnect",
+
+			// Will run disconnect command for ExpressVPN unconditionally, whether connected or not.
+			// This will shake ExpressVPN out of lockdown mode, if it's gotten into it.
+			disconnectBeforeCmdLockdown: true,
+			cmdLockdownMode:             []string{"network_lock", "off"},
+		},
+	}
+
+	// Static index (DB) of other VPNs by sublayer key
 	otherVpnsBySublayerGUID = map[syscall.GUID]*OtherVpnInfo{
-		mullvadSublayerKey: &mullvadProfile,
-		nordVpnSublayerKey: &nordVpnProfile,
+		mullvadSublayerKey:              &mullvadProfile,
+		mullvadVpnPersistentSublayerKey: &mullvadProfile,
+		nordVpnSublayerKey:              &nordVpnProfile,
 	}
 
-	// Index (DB) of other VPNs by their network interface names
+	// Static index (DB) of other VPNs by their network interface names
 	otherVpnsByInterfaceName = map[string]*OtherVpnInfo{
-		mullvadInterfaceNameWg: &mullvadProfile,
+		mullvadInterfaceNameWg:          &mullvadProfile,
+		nordVpnInterfaceNameDef:         &nordVpnProfile,
+		nordVpnInterfaceNameNordWhisper: &nordVpnProfile,
 	}
 
-	// Index (DB) of other VPNs by their CLI command (to detect them by CLI present in PATH); populated in init()
+	// Static index (DB) of other VPNs by their CLI command (to detect them by CLI present in PATH); populated in init()
 	otherVpnsByCLI = map[string]*OtherVpnInfo{}
 
-	// list of other VPNs with CLI present on the system; indexed by VPN name
+	// List of other VPNs with CLI present on the system; indexed by VPN name. Dynamically updated at runtime.
 	otherVpnsInstalledWithCliPresent mapset.Set[string] = mapset.NewSet[string]()
 )
 
@@ -128,18 +172,29 @@ func init() {
 		log.Warning("error resolving %ProgramFiles% environment variable")
 	}
 
-	knownOtherVpnProfiles = []*OtherVpnInfo{&nordVpnProfile, &mullvadProfile}
+	if ProgramFilesX86Resolved = os.Getenv("ProgramFiles(x86)"); len(ProgramFilesX86Resolved) <= 0 {
+		log.Warning("error resolving %ProgramFiles(x86)% environment variable")
+	}
+
+	knownOtherVpnProfiles = []*OtherVpnInfo{&nordVpnProfile, &mullvadProfile, &expressVpnProfile}
 
 	for _, otherVpn := range knownOtherVpnProfiles {
 		// Index (DB) of other VPNs by name, must be initialized in init() to avoid initialization cycles
 		otherVpnsByName[otherVpn.name] = otherVpn
 
-		if len(ProgramFilesResolved) > 0 && len(otherVpn.cliPathResolved) > 0 {
-			otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "ProgramFiles", ProgramFilesResolved)
-			otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "/", "\\")
-
-			otherVpnsByCLI[otherVpn.cliPathResolved] = otherVpn
+		if len(otherVpn.cliPathResolved) <= 0 {
+			continue
 		}
+
+		if len(ProgramFilesX86Resolved) > 0 {
+			otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "ProgramFilesX86", ProgramFilesX86Resolved)
+		}
+		if len(ProgramFilesResolved) > 0 {
+			otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "ProgramFiles", ProgramFilesResolved)
+		}
+		otherVpn.cliPathResolved = strings.ReplaceAll(otherVpn.cliPathResolved, "/", "\\")
+
+		otherVpnsByCLI[otherVpn.cliPathResolved] = otherVpn
 	}
 }
 
@@ -218,7 +273,7 @@ func lookupOtherVpnProvider(otherVpnProviderKey syscall.GUID, manager *winlib.Ma
 func ParseOtherVpnBySublayerGUID(otherSublayerFound bool, otherSublayer *winlib.SubLayer, manager *winlib.Manager) (otherVpnParsed *OtherVpnInfoParsed /*, err error*/) {
 	var (
 		err                                      error
-		otherVpn                                 *OtherVpnInfo
+		_otherVpn                                *OtherVpnInfo // don't use it, unless certain it was initialized - use otherVpnInfoParsed
 		found                                    bool
 		otherVpnProvider                         winlib.ProviderInfo
 		otherVpnProviderFound                    bool
@@ -227,8 +282,8 @@ func ParseOtherVpnBySublayerGUID(otherSublayerFound bool, otherSublayer *winlib.
 		serviceNameRegex                         *regexp.Regexp
 	)
 
-	if otherVpn, found = otherVpnsBySublayerGUID[otherSublayer.Key]; found { // other VPN found by sublayer ID
-		otherVpnInfoParsed = &OtherVpnInfoParsed{true, nil, []*mgr.Service{}, *otherVpn}
+	if _otherVpn, found = otherVpnsBySublayerGUID[otherSublayer.Key]; found { // other VPN found by sublayer ID
+		otherVpnInfoParsed = &OtherVpnInfoParsed{true, nil, []*mgr.Service{}, *_otherVpn}
 		_, otherVpnProvider, providerName1stWord = lookupOtherVpnProvider(otherSublayer.ProviderKey, manager) // lookup the other VPN provider for its serviceName
 		goto ParseOtherVpn_CheckingStage1_serviceNameRegexPrep
 	}
@@ -256,8 +311,8 @@ func ParseOtherVpnBySublayerGUID(otherSublayerFound bool, otherSublayer *winlib.
 
 ParseOtherVpn_CheckingStage1_serviceNameRegexPrep:
 	if otherVpnInfoParsed.OtherVpnKnownFromDB { // other VPN profile known from DB, so match service names only by other VPN name prefix and provider.serviceName
-		if serviceNameRegex, err = regexp.Compile("(?i)^" + otherVpn.namePrefix); err != nil { // (?i) for case-insensitive matching
-			log.ErrorFE("error compiling regular expression from other VPN name prefix '%s': %w", otherVpn.namePrefix, err)
+		if serviceNameRegex, err = regexp.Compile("(?i)^" + otherVpnInfoParsed.namePrefix); err != nil { // (?i) for case-insensitive matching
+			log.ErrorFE("error compiling regular expression from other VPN name prefix '%s': %w", otherVpnInfoParsed.namePrefix, err)
 			goto ParseOtherVpn_CheckingStage3_processCLI
 		}
 	} else { // Other VPN not in our DB, so try matching the Windows service names against the list of default service name prefixes
@@ -297,7 +352,7 @@ ParseOtherVpn_CheckingStage3_processCLI:
 	}
 
 	// check whether other VPN was connected
-	if _, err := otherVpn.CheckVpnConnectedConnecting(); err != nil {
+	if _, err := otherVpnInfoParsed.CheckVpnConnectedConnecting(); err != nil {
 		log.ErrorFE("error otherVpn.CheckVpnConnected(): %w", err)
 		return otherVpnInfoParsed
 	}
@@ -323,6 +378,11 @@ func startStopServiceHelper(stopSvc bool, svc *mgr.Service, reportChan chan erro
 }
 
 func (otherVpn *OtherVpnInfoParsed) PreSteps() (retErr error) {
+	if otherVpnEntryForMutex, ok := otherVpnsByName[otherVpn.name]; ok { // can't use OtherVpnInfoParsed var, because it copies the mutex var
+		//log.Debug("PreSteps() waiting for mutex for " + otherVpn.name)
+		otherVpnEntryForMutex.perVpnMutex.Lock() // will be unlocked in PostSteps()
+	}
+
 	log.Debug("PreSteps() started for " + otherVpn.name)
 	var retErr2 error = nil
 
@@ -352,8 +412,12 @@ func (otherVpn *OtherVpnInfoParsed) PreSteps() (retErr error) {
 	}
 }
 
-// TODO FIXME: Vlad - implement a deterministic callback for post-steps. WFP transaction starts at implReregisterFirewallAtTopPriority()
+// TODO: Vlad - implement a deterministic callback for post-steps. WFP transaction starts at implReregisterFirewallAtTopPriority()
 func (otherVpn *OtherVpnInfoParsed) PostSteps() {
+	if otherVpnEntryForMutex, ok := otherVpnsByName[otherVpn.name]; ok { // can't use OtherVpnInfoParsed var, because it copies the mutex var
+		defer otherVpnEntryForMutex.perVpnMutex.Unlock() // was locked in PreSteps()
+	}
+
 	log.Debug("PostSteps() started for " + otherVpn.name)
 	defer log.Debug("PostSteps() ended for " + otherVpn.name)
 
@@ -377,48 +441,68 @@ func (otherVpn *OtherVpnInfoParsed) PostSteps() {
 
 // runVpnCliCommands - can be run asynchronously, as it may take a while
 func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
-	log.Debug("RunVpnCliCommands() started for " + otherVpn.name)
-	defer log.Debug("RunVpnCliCommands() ended for " + otherVpn.name)
-
 	if !otherVpn.otherVpnCliFound {
 		return nil
 	}
 
-	otherVpn.runVpnCliCommandsMutex.Lock()
-	defer otherVpn.runVpnCliCommandsMutex.Unlock()
+	otherVpn.perVpnMutex.Lock()
+	defer otherVpn.perVpnMutex.Unlock()
 
-	if len(otherVpn.cliCmds.cmdLockdownMode) > 0 {
-		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdLockdownMode...); retErr != nil {
+	log.Debug("runVpnCliCommands() started for " + otherVpn.name)
+	defer log.Debug("runVpnCliCommands() ended for " + otherVpn.name)
+
+	var otherVpnConnected bool // when needed, check whether other VPN is connected
+	if otherVpn.incompatWithTotalShieldWhenConnected || otherVpn.cliCmds.disconnectBeforeCmdLockdown {
+		var err error
+		if otherVpnConnected, err = otherVpn.CheckVpnConnectedConnecting(); err != nil {
+			log.ErrorFE("error checking whether other VPN '%s' is connected: %w", otherVpn.name, err)
+		}
+	}
+
+	if len(otherVpn.cliCmds.cmdLockdownMode) > 0 { // disable lockdown (killswitch) for other VPN
+		if otherVpn.cliCmds.disconnectBeforeCmdLockdown { // if we need to disconnect the other VPN before disabling its lockdown
+			if err := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdDisconnect); err != nil { // run disconnect cmd for other VPN unconditionally
+				log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdDisconnect, otherVpn.name, err)
+			}
+
+			if otherVpnConnected { // if the other VPN was connected, then schedule async reconnect on function exit
+				defer func() {
+					go func() {
+						if err := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdConnect); err != nil {
+							log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdConnect, otherVpn.name, err)
+						}
+					}()
+				}()
+			}
+		}
+
+		if retErr = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdLockdownMode...); retErr != nil {
 			retErr = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdLockdownMode, otherVpn.name, retErr)
 		}
 	}
 
 	if len(otherVpn.cliCmds.cmdAllowLan) > 0 {
-		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); retErr != nil {
+		if retErr = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); retErr != nil {
 			retErr = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdAllowLan, otherVpn.name, retErr)
 		}
 	}
 
 	if len(otherVpn.cliCmds.cmdEnableSplitTun) > 0 {
-		if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
+		if retErr = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdEnableSplitTun...); retErr != nil {
 			retErr = log.ErrorFE("error enabling Split Tunnel in other VPN '%s': %w", otherVpn.name, retErr) // and continue
 		}
 
 		for _, svcExe := range platform.PLServiceBinariesToAddToOtherVpnSplitTunnel() {
 			cmdWhitelistOurSvcExe := append(otherVpn.cliCmds.cmdAddOurBinaryPathToSplitTunWhitelist, svcExe)
-			if retErr := shell.Exec(log, otherVpn.cliPathResolved, cmdWhitelistOurSvcExe...); retErr != nil {
+			if retErr = shell.Exec(log, otherVpn.cliPathResolved, cmdWhitelistOurSvcExe...); retErr != nil {
 				retErr = log.ErrorFE("error adding '%s' to Split Tunnel in other VPN '%s': %w", svcExe, otherVpn.name, retErr) // and continue
 			}
 		}
 	}
 
-	if otherVpn.incompatWithTotalShieldWhenConnected && getPrefsCallback().IsTotalShieldOn {
-		if _, err := otherVpn.CheckVpnConnectedConnecting(); err != nil {
-			log.ErrorFE("error in otherVpn.CheckVpnConnected(): %w", err) // and continue
-		} else if otherVpn.isConnectedConnecting {
-			log.Warning("When other VPN '", otherVpn.name, "' is connected/connecting - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
-			go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
-		}
+	if otherVpn.incompatWithTotalShieldWhenConnected && otherVpnConnected && getPrefsCallback().IsTotalShieldOn {
+		log.Warning("When other VPN '", otherVpn.name, "' is connected/connecting - Total Shield cannot be enabled in PL Connect. Disabling Total Shield.")
+		go disableTotalShieldAsyncCallback() // need to fork into the background, so that firewall.TotalShieldApply() can wait for all the mutexes
 	}
 
 	// if retErr := shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdConnect); retErr != nil {
@@ -428,41 +512,67 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 	return retErr
 }
 
-// reDetectOtherVpnsImpl - re-detect the other VPNs present, and optionally adjust the current MTU accordingly.
+func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected bool, otherVpnNames mapset.Set[string], nordVpnUpOnWindows bool, retErr error) {
+	// check whether we have top WFP sublayer priority
+	weHaveTopFirewallPriority /*otherVpnID*/, _, otherVpnNameWithTopSublayerPri /*otherVpnDescription*/, _, err := implHaveTopFirewallPriority(false, 0)
+	if err != nil {
+		return false, otherVpnNames, false, log.ErrorFE("error checking whether we have top firewall priority: %w", err)
+	}
+
+	// re-detect VPNs w/ CLI
+	if _, err := reDetectOtherVpnsImpl(forceRedetectOtherVpns, false, false, false, false); err != nil {
+		return false, otherVpnNames, false, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
+	}
+
+	otherVpnNamesSet := otherVpnsInstalledWithCliPresent.Clone()
+	if otherVpnNameWithTopSublayerPri != "" {
+		otherVpnNamesSet.Add(otherVpnNameWithTopSublayerPri)
+	}
+	if nordVpnUpOnWindows = nordVpnProfile.isConnectedConnecting; nordVpnUpOnWindows {
+		otherVpnNamesSet.Add(nordVpnProfile.name)
+	}
+
+	for vpnName := range otherVpnNamesSet.Iter() { // if any of the detected other VPNs specifies custom healthchecks type - persist to configuration
+		if otherVpn, ok := otherVpnsByName[vpnName]; ok && otherVpn.customHealthchecksType != service_types.HealthchecksTypeDefault {
+			setHealthchecksTypeCallback(otherVpn.customHealthchecksType) // set custom healthchecks type
+			break
+		}
+	}
+
+	// NordVPN status (whether its interface is up) was just re-checked in reDetectOtherVpnsImpl()
+	return !weHaveTopFirewallPriority || !otherVpnsInstalledWithCliPresent.IsEmpty(), otherVpnNamesSet.Clone(), nordVpnUpOnWindows, nil
+}
+
+// reDetectOtherVpnsImpl - re-detect the other VPNs present (by interface name and by CLI), and optionally adjust the current MTU accordingly.
 // If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
 // Else it will run re-detection only if the previous detection data is older than 5 seconds.
-func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, _ bool) (recommendedNewMTU int, err error) {
+// If detecting other VPNs by CLI - also will run their CLI actions (on Windows only).
+func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, _, _, canReconfigureOtherVpns bool) (recommendedNewMTU int, err error) {
 	if isDaemonStoppingCallback() {
 		return 0, log.ErrorFE("error - daemon is stopping")
 	}
 
-	return 0, reDetectVpnsWithCliAndRunTheirCliActions(forceRedetection, detectOnlyByInterfaceName)
-}
-
-var reDetectVpnsWithCliAndRunTheirCliActionsMutex sync.Mutex
-
-// reDetectVpnsWithCliAndRunTheirCliActions - detect the other VPNs installed, that have a CLI present.
-// If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
-// Else it will run re-detection only if the previous detection data is older than 5 seconds.
-func reDetectVpnsWithCliAndRunTheirCliActions(forceRedetection, detectOnlyByInterfaceName bool) (retErr error) {
-	reDetectVpnsWithCliAndRunTheirCliActionsMutex.Lock()
-	defer reDetectVpnsWithCliAndRunTheirCliActionsMutex.Unlock()
-	log.Debug("reDetectVpnsWithCliAndRunTheirCliActions entered")
+	reDetectOtherVpnsImplMutex.Lock() // single-instance function
+	defer reDetectOtherVpnsImplMutex.Unlock()
 
 	// Check whether the last detection timestamp is too old. (If it's zero - it means detection wasn't run yet since the daemon start.
 	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < VPN_REDETECT_PERIOD { // if the timestamp is fresh
-		log.Debug("reDetectVpnsWithCliAndRunTheirCliActions exited early")
-		return nil
+		// log.Debug("reDetectOtherVpnsImpl exited early")
+		return 0, nil
 	} // else we have to re-detect
-	defer log.Debug("reDetectVpnsWithCliAndRunTheirCliActions exited - redetected")
+
+	log.Debugf("reDetectOtherVpnsImpl entered. forceRedetection=%t, detectOnlyByInterfaceName=%t, canReconfigureOtherVpns=%t, PermissionReconfigureOtherVPNs=%t",
+		forceRedetection, detectOnlyByInterfaceName, canReconfigureOtherVpns, getPrefsCallback().PermissionReconfigureOtherVPNs)
+	defer log.Debug("reDetectOtherVpnsImpl exited - redetected")
 
 	var reDetectOtherVpnsWaiter sync.WaitGroup
+	canReconfigureOtherVpns = canReconfigureOtherVpns || getPrefsCallback().PermissionReconfigureOtherVPNs
 
 	reDetectOtherVpnsWaiter.Add(1)
 	go func() { // detect other VPNs by existing network interface name
 		defer reDetectOtherVpnsWaiter.Done()
-		log.Debug("reDetectVpnsWithCliAndRunTheirCliActions interface worker - entered")
-		defer log.Debug("reDetectVpnsWithCliAndRunTheirCliActions interface worker - exited")
+		log.Debug("reDetectOtherVpnsImpl interface worker - entered")
+		defer log.Debug("reDetectOtherVpnsImpl interface worker - exited")
 
 		disabledTotalShield := false
 		for otherVpnInterfaceName, otherVpn := range otherVpnsByInterfaceName {
@@ -483,8 +593,8 @@ func reDetectVpnsWithCliAndRunTheirCliActions(forceRedetection, detectOnlyByInte
 		reDetectOtherVpnsWaiter.Add(1)
 		go func() { // detect other VPNs by whether their CLI is in PATH
 			defer reDetectOtherVpnsWaiter.Done()
-			log.Debug("reDetectVpnsWithCliAndRunTheirCliActions CLI worker - entered")
-			defer log.Debug("reDetectVpnsWithCliAndRunTheirCliActions CLI worker - exited")
+			log.Debug("reDetectOtherVpnsImpl CLI worker - entered")
+			defer log.Debug("reDetectOtherVpnsImpl CLI worker - exited")
 
 			var otherVpnCheckErr error
 			for _, otherVpn := range otherVpnsByCLI {
@@ -495,18 +605,18 @@ func reDetectVpnsWithCliAndRunTheirCliActions(forceRedetection, detectOnlyByInte
 					}
 				}
 
-				if otherVpn.otherVpnCliFound && otherVpnCheckErr == nil { // if we have a CLI for another VPN - run its CLI actions asynchronously
-					go otherVpn.runVpnCliCommands()
+				if canReconfigureOtherVpns && otherVpn.otherVpnCliFound && otherVpnCheckErr == nil { // if we have a CLI for another VPN - run its CLI actions asynchronously
+					go otherVpn.runVpnCliCommands() // TODO: Vlad - notice that under Windows we do run other VPN CLI commands from reDetectOtherVpnsImpl, but not under Linux
 				}
 			}
 		}()
 	}
 
 	reDetectOtherVpnsWaiter.Wait()
-	log.Debug("reDetectVpnsWithCliAndRunTheirCliActions: reDetectOtherVpnsWaiter.Wait() ended")
+	log.Debug("reDetectOtherVpnsImpl: reDetectOtherVpnsWaiter.Wait() ended")
 	otherVpnsLastDetectionTimestamp = time.Now()
 
-	return nil
+	return 0, nil
 }
 
 // ================================ Windows service helpers: ================================
@@ -668,15 +778,18 @@ func StopService(s *mgr.Service) error {
 }
 
 func StartService(s *mgr.Service) error {
-	serviceStatus, err := QueryServiceStatusEx(s)
-	if err != nil {
-		return log.ErrorE(fmt.Errorf("error QueryServiceStatusEx(): %w", err), 0)
-	}
-
-	if serviceStatus.State == svc.Running {
-		log.Debug(fmt.Sprintf("service '%s' already running", s.Name))
-		return nil
-	}
+	// Don't check here whether the service is running - in case of degenerate condition where a service may be shutting down, but still running.
+	// Just send a start signal unconditionally.
+	//
+	// serviceStatus, err := QueryServiceStatusEx(s)
+	// if err != nil {
+	// 	return log.ErrorE(fmt.Errorf("error QueryServiceStatusEx(): %w", err), 0)
+	// }
+	//
+	// if serviceStatus.State == svc.Running {
+	// 	log.Debug(fmt.Sprintf("service '%s' already running", s.Name))
+	// 	return nil
+	// }
 
 	return s.Start()
 }

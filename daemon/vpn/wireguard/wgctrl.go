@@ -99,15 +99,17 @@ func WaitForWireguardMultipleHandshakesChan(tunnelName string, stopTriggers []*b
 				statisticsCallbacks.OnTransferDataCallback(sent, received)
 
 				// Log the transfer speed
-				logFunc(fmt.Sprintf("Total Data received: %s, Total Data sent: %s", received, sent))
+				if logFunc != nil {
+					logFunc(fmt.Sprintf("Total Data received: %s, Total Data sent: %s", received, sent))
+				}
 
 				if !peer.LastHandshakeTime.IsZero() {
 					previousTime, known := previousHandshakeTimes[peer.PublicKey.String()]
 					if !known || !peer.LastHandshakeTime.Equal(previousTime) {
 						if logFunc != nil {
 							logFunc(fmt.Sprintf("New handshake detected for peer %s at %s", peer.PublicKey, peer.LastHandshakeTime))
-							statisticsCallbacks.OnHandshakeCallback(peer.LastHandshakeTime.String())
 						}
+						statisticsCallbacks.OnHandshakeCallback(peer.LastHandshakeTime.String())
 						previousHandshakeTimes[peer.PublicKey.String()] = peer.LastHandshakeTime
 
 						// Non-blocking send to retChan

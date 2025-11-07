@@ -280,13 +280,16 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 
 	// prevent user-defined data injection: ensure that nothing except the base64 public key will be stored in the configuration
 	if !helpers.ValidateBase64(wg.connectParams.hostPublicKey) {
-		return nil, fmt.Errorf("WG public key is not base64 string")
+		len := len(wg.connectParams.hostPublicKey)
+		return nil, log.ErrorFE("WG public key '...%s', %d characters long, is not base64 string", helpers.Substring(wg.connectParams.hostPublicKey, len-4, 4), len)
 	}
 	if !helpers.ValidateBase64(wg.connectParams.clientPrivateKey) {
-		return nil, fmt.Errorf("WG private key is not base64 string")
+		len := len(wg.connectParams.clientPrivateKey)
+		return nil, log.ErrorFE("WG private key '...%s', %d characters long, is not base64 string", helpers.Substring(wg.connectParams.clientPrivateKey, len-4, 4), len)
 	}
 	if len(wg.connectParams.presharedKey) > 0 && !helpers.ValidateBase64(wg.connectParams.presharedKey) {
-		return nil, fmt.Errorf("WG PresharedKey is not base64 string")
+		len := len(wg.connectParams.presharedKey)
+		return nil, log.ErrorFE("WG PresharedKey '...%s', %d characters long, is not base64 string", helpers.Substring(wg.connectParams.presharedKey, len-4, 4), len)
 	}
 
 	interfaceCfg := []string{
@@ -321,8 +324,7 @@ func (wg *WireGuard) generateConfig() ([]string, error) {
 }
 
 func logFunc(mes string) {
-	// TODO: refactor to display rx/tx stats in the UI
-	// log.Info(mes)
+	log.Info(mes)
 }
 
 func (wg *WireGuard) waitHandshakeAndNotifyConnected(stateChan chan<- vpn.StateInfo) error {
@@ -333,9 +335,9 @@ func (wg *WireGuard) waitHandshakeAndNotifyConnected(stateChan chan<- vpn.StateI
 
 	// Check connectivity: wait for first handshake
 	// function returns only when handshake received or wg.isDisconnectRequested == true
-	err := <-WaitForWireguardMultipleHandshakesChan(wg.GetTunnelName(), []*bool{&wg.isDisconnectRequested, &wg.isDisconnected}, logFunc, wg._statsCallbacks)
+	err := <-WaitForWireguardMultipleHandshakesChan(wg.GetTunnelName(), []*bool{&wg.isDisconnectRequested, &wg.isDisconnected}, nil /* logFunc */, wg._statsCallbacks)
 	if err != nil {
-		return err
+		return log.ErrorFE("error returned from WaitForWireguardMultipleHandshakesChan: %w", err)
 	}
 
 	if !wg.isDisconnectRequested && !wg.isDisconnected {

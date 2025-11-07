@@ -319,7 +319,6 @@ func (wg *WireGuard) getServiceName() string {
 }
 
 func (wg *WireGuard) getOSSpecificConfigParams() (interfaceCfg []string, peerCfg []string, err error) {
-	// TODO FIXME: Vlad - see how the IVPN DNS logic works out
 	manualDNS := wg.internals.manualDNSRequired
 	if !manualDNS.IsEmpty() {
 		if manualDNS.Encryption == dns.EncryptionNone {

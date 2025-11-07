@@ -79,6 +79,10 @@ const (
 	Disconnect     RequiredState = 0
 	Connect        RequiredState = 1
 	KeepConnection RequiredState = 2
+
+	// used by connectionAttemptTimeoutMonitor
+	CONNECT_ATTEMPT_TIMEOUT1_NOTIFY_USER = 10 // if connection attempt not finished in 10 seconds - detect other VPNs, and, if detected, show VPN Coexistence status "FAILED|Fix" in UI
+	CONNECT_ATTEMPT_TIMEOUT2_DISCONNECT  = 30 // if connection attempt not finished in 30 seconds - cancel it and show an error MessageBox in UI
 )
 
 const (
@@ -146,7 +150,7 @@ type Service struct {
 	// So, it is not allowed to update LastConnectionParams while connected without reconnection (to avoid inconsistency).
 	// We use this object to store connection settings while the VPN is connected (to be able to update LastConnectionParams after disconnection).
 	// (UI may send us new connection settings while VPN is connected, e.g., when the user changes connection settings in the UI)
-	_tmpParams      types.ConnectionParams
+	_tmpParams      service_types.ConnectionParams
 	_tmpParamsMutex sync.Mutex
 
 	_statsCallbacks       protocol.StatsCallbacks
@@ -159,7 +163,37 @@ type Service struct {
 	connectivityHealthchecksBackgroundMonitorDef                                *srvhelpers.ServiceBackgroundMonitor
 	connectivityHealthchecksRunningMutex, connectivityHealthchecksStopFuncMutex sync.Mutex
 	stopPollingConnectivityHealthchecks                                         chan bool
-	backendConnectivityCheckState                                               BackendConnectivityCheckState
+	backendConnectivityCheckPhase                                               BackendConnectivityCheckState
+	backendConnectivityCheckBad                                                 atomic.Bool // whether checkConnectivityFixAsNeeded detected connectivity as bad
+
+	// connectionAttemptTimeoutMonitor data
+	connectionAttemptTimeoutMonitorDef                                                        *srvhelpers.ServiceBackgroundMonitor
+	connectionAttemptTimeoutMonitorRunningMutex, connectionAttemptTimeoutMonitorStopFuncMutex sync.Mutex
+	connectionAttemptTimeoutMonitor_endchan                                                   chan bool
+
+	// connectAttemptTimeout vars protected by connectionAttemptTimeoutMonitorRunningMutex
+
+	// whether we did one-time check for other VPNs present and reported to UI
+	connectAttemptTimeout1Reached_UserNotificationCheckDone bool
+
+	// Whether other VPNs were detected during above one-time check.
+	// If yes - OnKillSwitchStateChanged will unconditionally report WeHaveTopFirewallPriority as true to cliens for the duration of the connection attempt.
+	connectAttemptTimeout1Reached_OtherVpnsDetected atomic.Bool
+
+	// whether the connection attempt timed out and got cancelled
+	connectAttemptTimeout2Reached_CancelledConnectionAttempt bool
+}
+
+// If we're connecting, but can't connect, and other reconfigurable VPNs detected - report VPN coexistence as bad, to force UI to show it as FAILED|Fix
+// This condition may be up only during connection attempt.
+func (s *Service) otherVpnsDetectedDuringIncompleteConnectionAttempt() bool {
+	return s.connectAttemptTimeout1Reached_OtherVpnsDetected.Load()
+}
+
+// If CONNECTED, and connectivity detected as bad, and daemon doesn't have permission stored to reconfig other VPNs automatically.
+// Likewise then report VPN coexistence as bad, to force UI to show it as FAILED|Fix.
+func (s *Service) badConnectivityWhileConnectedAndNoPermissionToReconfigureOtherVpns() bool {
+	return !s._preferences.PermissionReconfigureOtherVPNs && s.backendConnectivityCheckBad.Load()
 }
 
 // IsDaemonShuttingDown implements protocol.Service.
@@ -227,6 +261,16 @@ func CreateService(evtReceiver IServiceEventsReceiver,
 		MonitorRunningMutex:  &serv.connectivityHealthchecksRunningMutex,
 		MonitorStopFuncMutex: &serv.connectivityHealthchecksStopFuncMutex}
 
+	// init connectionAttemptTimeoutMonitorDef
+	serv.connectionAttemptTimeoutMonitor_endchan = make(chan bool, 1)
+	serv.connectionAttemptTimeoutMonitorDef = &srvhelpers.ServiceBackgroundMonitor{
+		MonitorName:          "connectionAttemptTimeoutMonitor",
+		MonitorFunc:          serv.connectionAttemptTimeoutMonitor,
+		ResetStateFunc:       serv.connectionAttemptTimeoutMonitor_resetState,
+		MonitorEndChan:       serv.connectionAttemptTimeoutMonitor_endchan,
+		MonitorRunningMutex:  &serv.connectionAttemptTimeoutMonitorRunningMutex,
+		MonitorStopFuncMutex: &serv.connectionAttemptTimeoutMonitorStopFuncMutex}
+
 	// register the current service as a 'Connectivity checker' for API object
 	serv._api.SetConnectivityChecker(serv)
 
@@ -291,7 +335,7 @@ func (s *Service) init() error {
 	}
 
 	// initialize firewall functionality
-	if err := firewall.Initialize(s.Preferences, s.disableTotalShieldAsync, s._evtReceiver.OnKillSwitchStateChanged, s.ConnectedOrConnecting,
+	if err := firewall.Initialize(s.Preferences, s.setHealthchecksType, s.disableTotalShieldAsync, s._evtReceiver.OnKillSwitchStateChanged, s.ConnectedOrConnecting,
 		s._vpnConnectedCallback, s.IsDaemonStopping, s._api.GetRestApiHosts); err != nil {
 		return fmt.Errorf("firewall initialization error : %w", err)
 	}
@@ -429,7 +473,7 @@ func (s *Service) unInitialise(isLogout bool) error {
 
 	// If not logging out - disable firewall. If logging out - parent callers will conditionally disable it.
 	if !isLogout {
-		if err := firewall.SetEnabled(false); err != nil {
+		if err := firewall.SetEnabled(false, s._preferences.PermissionReconfigureOtherVPNs); err != nil {
 			log.ErrorFE("error disabling firewall: %w", err)
 			updateRetErr(err)
 		}
@@ -510,8 +554,7 @@ func (s *Service) updateAPIAddrInFWExceptions() {
 	if len(apiAddrs) > 0 {
 		const onlyForICMP = false
 		const isPersistent = true
-		// const isPersistent = false // TODO FIXME: Vlad - changed to false, can't have WFP persistent anything in MVP
-		prefs := s.Preferences()
+		prefs := s._preferences
 		if prefs.IsFwAllowApiServers {
 			firewall.AddHostsToExceptions(apiAddrs, onlyForICMP, isPersistent)
 		} else {
@@ -538,7 +581,7 @@ func (s *Service) findOpenVpnHost(hostname string, ip net.IP, svrs []api_types.O
 		}
 	}
 
-	return api_types.OpenVPNServerHostInfo{}, fmt.Errorf(fmt.Sprintf("host '%s' not found", hostname))
+	return api_types.OpenVPNServerHostInfo{}, errors.New("host '" + hostname + "' not found")
 }
 
 // ServersListForceUpdate returns servers list info.
@@ -657,6 +700,9 @@ func (s *Service) Disconnect() error {
 }
 
 func (s *Service) disconnect() error {
+	log.Debug("Service.disconnect() entered")
+	defer log.Debug("Service.disconnect() exited")
+
 	vpn := s._vpn
 	if vpn == nil {
 		return nil
@@ -671,7 +717,7 @@ func (s *Service) disconnect() error {
 
 	// stop all service background monitors 1st thing - as the iptables-legacy one is prone to lengthy timeouts (2-3min) on xtables lock
 	for _, serviceBackgroundMonitor := range s.listAllServiceBackgroundMonitors() {
-		log.Debug("forking StopServiceBackgroundMonitor() for '", serviceBackgroundMonitor.MonitorName, "' from disconnect()")
+		// log.Debug("forking StopServiceBackgroundMonitor() for '", serviceBackgroundMonitor.MonitorName, "' from disconnect()")
 		go serviceBackgroundMonitor.StopServiceBackgroundMonitor() // async, as iptables-legacy one sleeps for 5s between each polling loop iteration
 	}
 
@@ -729,14 +775,14 @@ func (s *Service) Pause(durationSeconds uint32) error {
 	s._pause._mutex.Lock()
 	defer s._pause._mutex.Unlock()
 
-	fwStatus, err := s.KillSwitchState()
+	fwStatus, err := s.KillSwitchState(true)
 	if err != nil {
 		return fmt.Errorf("failed to check KillSwitch status: %w", err)
 	}
 	s._pause._killSwitchState = fwStatus.IsEnabled
 	if fwStatus.IsEnabled && !fwStatus.IsPersistent {
 		log.Error("error - disabling the firewall because IsPersistent=false")
-		if err := s.SetKillSwitchState(false); err != nil {
+		if err := s.SetKillSwitchState(false, s._preferences.PermissionReconfigureOtherVPNs); err != nil {
 			return err
 		}
 	}
@@ -753,7 +799,7 @@ func (s *Service) Pause(durationSeconds uint32) error {
 	log.Info(fmt.Sprintf("Paused on %v (till %v)", time.Second*time.Duration(durationSeconds), s._pause._pauseTill.Format(time.Stamp)))
 
 	// Update SplitTunnel state (if enabled)
-	prefs := s.Preferences()
+	prefs := s._preferences
 	if !prefs.IsTotalShieldOn {
 		if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 			log.Error(err)
@@ -818,7 +864,7 @@ func (s *Service) Resume() error {
 	}
 
 	// Update SplitTunnel state (if enabled)
-	prefs := s.Preferences()
+	prefs := s._preferences
 	if !prefs.IsTotalShieldOn {
 		if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 			log.Error(err)
@@ -848,12 +894,12 @@ func (s *Service) resume() error {
 		return err
 	}
 
-	fwStatus, err := s.KillSwitchState()
+	fwStatus, err := s.KillSwitchState(true)
 	if err != nil {
 		log.Error(fmt.Errorf("failed to check KillSwitch status: %w", err))
 	} else {
 		if !fwStatus.IsPersistent && fwStatus.IsEnabled != s._pause._killSwitchState {
-			if err := s.SetKillSwitchState(s._pause._killSwitchState); err != nil {
+			if err := s.SetKillSwitchState(s._pause._killSwitchState, s._preferences.PermissionReconfigureOtherVPNs); err != nil {
 				log.Error("failed to restore KillSwitch status: %w", err)
 			}
 		}
@@ -876,7 +922,7 @@ func (s *Service) PausedTill() time.Time {
 	return s._pause._pauseTill
 }
 
-func (s *Service) saveDefaultDnsParams(dnsCfg dns.DnsSettings, antiTrackerCfg types.AntiTrackerMetadata) (retErr error) {
+func (s *Service) saveDefaultDnsParams(dnsCfg dns.DnsSettings, antiTrackerCfg service_types.AntiTrackerMetadata) (retErr error) {
 	defaultParams := s.GetConnectionParams()
 
 	if defaultParams.ManualDNS.Equal(dnsCfg) && defaultParams.Metadata.AntiTracker.Equal(antiTrackerCfg) {
@@ -918,7 +964,7 @@ func (s *Service) GetActiveDNS() (dnsCfg dns.DnsSettings, err error) {
 //	manualDnsCfg - default manual DNS parameters
 //	antiTrackerCfg - default AntiTracker parameters
 //	realDnsValue - real DNS value (if 'antiTracker' is enabled - it will contain DNS of AntiTracker server)
-func (s *Service) GetDefaultManualDnsParams() (manualDnsCfg dns.DnsSettings, antiTrackerCfg types.AntiTrackerMetadata, realDnsValue dns.DnsSettings, err error) {
+func (s *Service) GetDefaultManualDnsParams() (manualDnsCfg dns.DnsSettings, antiTrackerCfg service_types.AntiTrackerMetadata, realDnsValue dns.DnsSettings, err error) {
 	defaultParams := s.GetConnectionParams()
 
 	manualDnsCfg = defaultParams.ManualDNS
@@ -934,8 +980,8 @@ func (s *Service) GetDefaultManualDnsParams() (manualDnsCfg dns.DnsSettings, ant
 
 // SetManualDNS update default DNS parameters AND apply new DNS value for current VPN connection
 // If 'antiTracker' is enabled - the 'dnsCfg' will be ignored
-func (s *Service) SetManualDNS(dnsCfg dns.DnsSettings, antiTracker types.AntiTrackerMetadata) (changedDns dns.DnsSettings, retErr error) {
-	prefs := s.Preferences()
+func (s *Service) SetManualDNS(dnsCfg dns.DnsSettings, antiTracker service_types.AntiTrackerMetadata) (changedDns dns.DnsSettings, retErr error) {
+	prefs := s._preferences
 	if !dnsCfg.IsEmpty() || antiTracker.Enabled {
 		if prefs.IsInverseSplitTunneling() && prefs.SplitTunnelAnyDns {
 			return dns.DnsSettings{}, fmt.Errorf("custom DNS or AntiTracker cannot be enabled while allowing all DNS for Inverse Split Tunnel mode; please block non-IVPN DNS first in the Inverse Split Tunnel configuration")
@@ -1000,7 +1046,7 @@ func (s *Service) GetManualDNSStatus() dns.DnsSettings {
 // TODO: Vlad - disabling AntiTracker functionality for now
 /*
 
-func (s *Service) GetAntiTrackerStatus() types.AntiTrackerMetadata {
+func (s *Service) GetAntiTrackerStatus() service_types.AntiTrackerMetadata {
 	// Get AntiTracker DNS settings. If error - use default date and ignore error
 	retAtMetadata, err := s.normalizeAntiTrackerBlockListName(s.GetConnectionParams().Metadata.AntiTracker)
 	if err != nil {
@@ -1012,7 +1058,7 @@ func (s *Service) GetAntiTrackerStatus() types.AntiTrackerMetadata {
 // Normze AntiTracker block list name:
 // - if antiTrackerPlusList not defined - return default value
 // - if antiTrackerPlusList defined - check if it is valid; if not valid - return default value and error
-func (s *Service) normalizeAntiTrackerBlockListName(antiTracker types.AntiTrackerMetadata) (types.AntiTrackerMetadata, error) {
+func (s *Service) normalizeAntiTrackerBlockListName(antiTracker service_types.AntiTrackerMetadata) (types.AntiTrackerMetadata, error) {
 	var retError error
 
 	atBlistName := strings.ToLower(strings.TrimSpace(antiTracker.AntiTrackerBlockListName))
@@ -1082,46 +1128,46 @@ func (s *Service) getAntiTrackerDns(isHardcore bool, antiTrackerPlusList string)
 // Get AntiTracker info according to DNS settings
 func (s *Service) getAntiTrackerInfo(dnsVal dns.DnsSettings) (types.AntiTrackerMetadata, error) {
 	if dnsVal.IsEmpty() || dnsVal.Encryption != dns.EncryptionNone {
-		return types.AntiTrackerMetadata{}, nil
+		return service_types.AntiTrackerMetadata{}, nil
 	}
 
 	servers, err := s.ServersList()
 	if err != nil {
-		return types.AntiTrackerMetadata{}, fmt.Errorf("failed to determine AntiTracker parameters: %w", err)
+		return service_types.AntiTrackerMetadata{}, fmt.Errorf("failed to determine AntiTracker parameters: %w", err)
 	}
 
 	dnsHost := strings.ToLower(strings.TrimSpace(dnsVal.DnsHosts))
 	if dnsHost == "" {
-		return types.AntiTrackerMetadata{}, nil
+		return service_types.AntiTrackerMetadata{}, nil
 	}
 
 	// Check AntiTracker Plus lists
 	for _, atp_svr := range servers.Config.AntiTrackerPlus.DnsServers {
 		if strings.EqualFold(dnsHost, strings.TrimSpace(atp_svr.Normal)) {
-			return types.AntiTrackerMetadata{Enabled: true, Hardcore: false, AntiTrackerBlockListName: atp_svr.Name}, nil
+			return service_types.AntiTrackerMetadata{Enabled: true, Hardcore: false, AntiTrackerBlockListName: atp_svr.Name}, nil
 		}
 		if strings.EqualFold(dnsHost, strings.TrimSpace(atp_svr.Hardcore)) {
-			return types.AntiTrackerMetadata{Enabled: true, Hardcore: true, AntiTrackerBlockListName: atp_svr.Name}, nil
+			return service_types.AntiTrackerMetadata{Enabled: true, Hardcore: true, AntiTrackerBlockListName: atp_svr.Name}, nil
 		}
 	}
 
 	// Check AntiTracker values
 	if strings.EqualFold(dnsHost, strings.TrimSpace(servers.Config.Antitracker.Default.IP)) {
-		return types.AntiTrackerMetadata{Enabled: true, Hardcore: false}, nil
+		return service_types.AntiTrackerMetadata{Enabled: true, Hardcore: false}, nil
 	}
 	if strings.EqualFold(dnsHost, strings.TrimSpace(servers.Config.Antitracker.Hardcore.IP)) {
-		return types.AntiTrackerMetadata{Enabled: true, Hardcore: true}, nil
+		return service_types.AntiTrackerMetadata{Enabled: true, Hardcore: true}, nil
 	}
 
-	return types.AntiTrackerMetadata{}, nil
+	return service_types.AntiTrackerMetadata{}, nil
 }
 */
 
 // ////////////////////////////////////////////////////////
 // KillSwitch
 // ////////////////////////////////////////////////////////
-func (s *Service) onKillSwitchStateChanged() {
-	s._evtReceiver.OnKillSwitchStateChanged()
+func (s *Service) onKillSwitchStateChanged(logState bool) {
+	s._evtReceiver.OnKillSwitchStateChanged(logState)
 
 	// check if we need try to update account info
 	if s._isNeedToUpdateSessionInfo {
@@ -1130,12 +1176,12 @@ func (s *Service) onKillSwitchStateChanged() {
 }
 
 // ReEnableKillSwitch disable-then-enable kill-switch
-func (s *Service) ReEnableKillSwitch() error {
-	return firewall.ReEnable()
+func (s *Service) ReEnableKillSwitch(canReconfigureOtherVpns bool) error {
+	return firewall.ReEnable(canReconfigureOtherVpns)
 }
 
 // SetKillSwitchState enable\disable kill-switch
-func (s *Service) SetKillSwitchState(isEnabled bool) error {
+func (s *Service) SetKillSwitchState(isEnabled, canReconfigureOtherVpns bool) error {
 	if !isEnabled && s._preferences.IsFwPersistent {
 		return fmt.Errorf("unable to disable Firewall in 'Persistent' state. Please, disable 'Always-on firewall' first")
 	}
@@ -1146,9 +1192,9 @@ func (s *Service) SetKillSwitchState(isEnabled bool) error {
 	// 	return fmt.Errorf("firewall cannot be enabled while Inverse Split Tunnel is active; please disable Inverse Split Tunnel first")
 	// }
 
-	err := firewall.SetEnabled(isEnabled)
+	err := firewall.SetEnabled(isEnabled, canReconfigureOtherVpns)
 	if err == nil {
-		s.onKillSwitchStateChanged()
+		s.onKillSwitchStateChanged(true)
 		// If no any clients connected - connection notification will not be passed to user
 		// In this case we are trying to save info message into system log
 		if !s._evtReceiver.IsClientConnected(false) {
@@ -1163,23 +1209,56 @@ func (s *Service) SetKillSwitchState(isEnabled bool) error {
 }
 
 // KillSwitchState returns kill-switch state
-func (s *Service) KillSwitchState() (status types.KillSwitchStatus, err error) {
+func (s *Service) KillSwitchState(logState bool) (status service_types.KillSwitchStatus, retErr error) {
 	prefs := s._preferences
-	enabled, isLanAllowed, _, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err := firewall.GetState()
+	isEnabled, stateAllowLan, _, weHaveTopFirewallPriority, otherVpnID, otherVpnName, otherVpnDescription, err := firewall.GetState(false)
+	if err != nil {
+		retErr = log.ErrorFE("error firewall.GetState(): %w", err)
+	}
+	forceRedetectOtherVpns := !weHaveTopFirewallPriority
 
-	return types.KillSwitchStatus{
-		IsEnabled:                 enabled,
+	// override logic - whether we're to report VPN Coexistence to UI as bad unconditionally, so that UI will show FAILED|Fix
+	if weHaveTopFirewallPriority &&
+		(s.otherVpnsDetectedDuringIncompleteConnectionAttempt() || // or if we're connecting, but can't connect, and other reconfigurable VPNs detected - report VPN coex as bad (This condition may be up only during connection attempt)
+			s.badConnectivityWhileConnectedAndNoPermissionToReconfigureOtherVpns()) { // or if CONNECTED, and connectivity detected as bad, and daemon doesn't have permission stored to reconfig other VPNs automatically
+		weHaveTopFirewallPriority = false
+	}
+
+	_status := service_types.KillSwitchStatus{
+		IsEnabled:                 isEnabled,
 		IsPersistent:              prefs.IsFwPersistent,
 		IsAllowLAN:                prefs.IsFwAllowLAN,
 		IsAllowMulticast:          prefs.IsFwAllowLANMulticast,
 		IsAllowApiServers:         prefs.IsFwAllowApiServers,
 		UserExceptions:            prefs.FwUserExceptions,
-		StateLanAllowed:           isLanAllowed,
+		StateLanAllowed:           stateAllowLan,
 		WeHaveTopFirewallPriority: weHaveTopFirewallPriority,
 		OtherVpnID:                otherVpnID,
 		OtherVpnName:              otherVpnName,
 		OtherVpnDescription:       otherVpnDescription,
-	}, err
+	}
+
+	if !weHaveTopFirewallPriority {
+		// in case of otherVpnsDetectedDuringIncompleteConnectionAttempt - other VPNs were recently force-redetected in connectionAttemptTimeoutMonitor
+		// in case of badConnectivityWhileConnectedAndNoPermissionToReconfigureOtherVpns - automatic redetection every 30s is good enough
+		if otherVpnsDetected, otherVpnNames, nordVpnUpOnWindows, err := firewall.ReconfigurableOtherVpnsDetected(forceRedetectOtherVpns); err == nil {
+			_status.ReconfigurableOtherVpnsDetected = otherVpnsDetected
+			_status.ReconfigurableOtherVpnsNames = otherVpnNames.ToSlice()
+			_status.NordVpnUpOnWindows = nordVpnUpOnWindows
+		} else {
+			err := log.ErrorFE("error firewall.ReconfigurableOtherVpnsDetected(): %w", err)
+			if retErr == nil {
+				retErr = err
+			}
+		}
+	}
+
+	if logState {
+		log.Infof("KillSwitchState: isEnabled:%t topFirewallPri:%t otherVpnName:%s otherVpnsDetected:%t totalShieldDeployed:%t",
+			isEnabled, weHaveTopFirewallPriority, otherVpnName, _status.ReconfigurableOtherVpnsDetected, firewall.TotalShieldDeployedState())
+	}
+
+	return _status, retErr
 }
 
 // SetKillSwitchIsPersistent change kill-switch value
@@ -1202,7 +1281,7 @@ func (s *Service) SetKillSwitchIsPersistent(isPersistent bool) error {
 
 	err := firewall.SetPersistent(isPersistent)
 	if err == nil {
-		s.onKillSwitchStateChanged()
+		s.onKillSwitchStateChanged(true)
 	}
 	return err
 }
@@ -1225,7 +1304,7 @@ func (s *Service) setKillSwitchAllowLAN(isAllowLan bool, isAllowLanMulticast boo
 
 	err := s.applyKillSwitchAllowLAN(nil)
 	if err == nil {
-		s.onKillSwitchStateChanged()
+		s.onKillSwitchStateChanged(true)
 	}
 	return err
 }
@@ -1243,14 +1322,29 @@ func (s *Service) applyKillSwitchAllowLAN(wifiInfoPtr *wifiNotifier.WifiInfo) er
 	return firewall.AllowLAN(isAllowLAN, prefs.IsFwAllowLANMulticast)
 }
 
+var KillSwitchReregisterMutex sync.Mutex
+
 // KillSwitchReregister try to reregister our firewall logic at top
-func (s *Service) KillSwitchReregister(canStopOtherVpn bool) (err error) {
+func (s *Service) KillSwitchReregister(canReconfigureOtherVpns bool) (err error) {
+	KillSwitchReregisterMutex.Lock() // Single-instance function. In case the user clicks the button multiple times - we want to run one request at a time.
+	defer KillSwitchReregisterMutex.Unlock()
+
+	// log.Debug("KillSwitchReregister entered")
+	defer log.Debug("KillSwitchReregister exited")
+
+	lastConnParams := s.Preferences().LastConnectionParams
+	lastConnParams.VpnType = vpn.WireGuard
+
 	// If we're connected/connecting/etc. - fork disconnect request.
 	// Otherwise, if we're trying to connect VPN and reregister our firewall in parallel - we tend to get errors in firewall.HaveTopFirewallPriority() (looking up meet.privateline.network)
-	go s.Disconnect()
+	go func() {
+		if errDisconnect := s.Disconnect(); errDisconnect != nil {
+			log.ErrorFE("error Service.Disconnect(): %w", errDisconnect)
+		}
+	}()
 
-	if err = firewall.TryReregisterFirewallAtTopPriority(canStopOtherVpn, false); err != nil {
-		return err
+	if err = firewall.TryReregisterFirewallAtTopPriority(canReconfigureOtherVpns, true); err != nil {
+		return log.ErrorFE("error firewall.TryReregisterFirewallAtTopPriority: %w", err)
 	}
 
 	// Vlad - so don't try firewall.DeployPostConnectionRules() here, another VPN connection will take care of that
@@ -1262,6 +1356,23 @@ func (s *Service) KillSwitchReregister(canStopOtherVpn bool) (err error) {
 	// 	}
 	// }
 
+	// if firewall.TryReregisterFirewallAtTopPriority() was successful, fork a connect/reconnect request
+	if len(lastConnParams.WireGuardParameters.EntryVpnServer.Hosts) < 1 {
+		log.ErrorE(errors.New("error - invalid Preferences after logout-login, zero-length prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts"), 0)
+	} else {
+		go func() {
+			var retErr error
+			const canFixParams bool = true
+			if lastConnParams, retErr = s.ValidateConnectionParameters(lastConnParams, canFixParams); retErr != nil {
+				log.ErrorFE("Auto connection: error validating connection parameters: %w", retErr)
+			}
+
+			if retErr = s._evtReceiver.RegisterConnectionRequest(lastConnParams); retErr != nil {
+				log.ErrorFE("Auto connection: connecting: %w", retErr)
+			}
+		}()
+	}
+
 	return err
 }
 
@@ -1269,7 +1380,7 @@ func (s *Service) SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error {
 	if !isAllowAPIServers {
 		// Do not allow to disable access to IVPN API server if user logged-out
 		// Otherwise, we will not have possibility to login
-		session := s.Preferences().Session
+		session := s._preferences.Session
 		if !session.IsLoggedIn() {
 			return srverrors.ErrorNotLoggedIn{}
 		}
@@ -1278,7 +1389,7 @@ func (s *Service) SetKillSwitchAllowAPIServers(isAllowAPIServers bool) error {
 	prefs := s._preferences
 	prefs.IsFwAllowApiServers = isAllowAPIServers
 	s.setPreferences(prefs)
-	s.onKillSwitchStateChanged()
+	s.onKillSwitchStateChanged(true)
 	s.updateAPIAddrInFWExceptions()
 	return nil
 }
@@ -1293,7 +1404,7 @@ func (s *Service) SetKillSwitchUserExceptions(exceptions string, ignoreParsingEr
 
 	err := firewall.SetUserExceptions(exceptions, ignoreParsingErrors)
 	if err == nil {
-		s.onKillSwitchStateChanged()
+		s.onKillSwitchStateChanged(true)
 	}
 	return err
 }
@@ -1385,6 +1496,12 @@ func (s *Service) SetUserPreferences(userPrefs preferences.UserPreferences) erro
 	return nil
 }
 
+func (s *Service) setHealthchecksType(_healthchecksType types.HealthchecksTypeEnum) {
+	prefs := s._preferences
+	prefs.HealthchecksType = _healthchecksType
+	s.setPreferences(prefs)
+}
+
 // Preferences returns preferences
 func (s *Service) Preferences() preferences.Preferences {
 	return s._preferences
@@ -1399,6 +1516,9 @@ func (s *Service) disableTotalShieldAsync() {
 	if !s._preferences.IsTotalShieldOn { // if already disabled - nothing to do
 		return
 	}
+
+	// log.Debug("disableTotalShieldAsync entered")
+	// defer log.Debug("disableTotalShieldAsync exited")
 
 	prefs := s._preferences
 	prefs.IsTotalShieldOn = false
@@ -1420,11 +1540,11 @@ func (s *Service) ResetPreferences() error {
 	return nil
 }
 
-func (s *Service) GetConnectionParams() types.ConnectionParams {
+func (s *Service) GetConnectionParams() service_types.ConnectionParams {
 	return s._preferences.LastConnectionParams
 }
 
-func (s *Service) SetConnectionParams(params types.ConnectionParams) error {
+func (s *Service) SetConnectionParams(params service_types.ConnectionParams) error {
 	if s.ConnectedOrConnecting() {
 		s._tmpParamsMutex.Lock()
 		s._tmpParams = params
@@ -1442,7 +1562,7 @@ func (s *Service) SetConnectionParams(params types.ConnectionParams) error {
 		// if it is first initialization of connection parameters - run auto-connection rules
 		// (seems, it is first start after app version upgrade)
 
-		prefs := s.Preferences()
+		prefs := s._preferences
 		const checkOnlyUiClients = true
 		if prefs.Session.IsLoggedIn() && s._evtReceiver.IsClientConnected(checkOnlyUiClients) {
 			log.Info("Applying auto-connection rules (reason: first initialization of connection parameters) ...")
@@ -1453,13 +1573,15 @@ func (s *Service) SetConnectionParams(params types.ConnectionParams) error {
 	return retErr
 }
 
-func (s *Service) setConnectionParams(params types.ConnectionParams) error {
+func (s *Service) setConnectionParams(params service_types.ConnectionParams) error {
 	prefs := s._preferences
 
-	// TODO: FIXME: Vlad - if we have already stored a Wireguard server config, then used the saved one, don't overwrite it from here
+	// FIXME: Vlad - if we have already stored a Wireguard server config, then used the saved one, don't overwrite it from here
 	if len(prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts) >= 0 {
 		return nil
 	}
+
+	params.CanReconfigureOtherVpnsOnce = false // this is a transient value, never store as true
 	prefs.LastConnectionParams = params
 	s.setPreferences(prefs)
 
@@ -1508,7 +1630,7 @@ func (s *Service) GetBinaryIcon(binaryPath string) (string, error) {
 }
 
 func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, error) {
-	var prefs = s.Preferences()
+	var prefs = s._preferences
 	runningProcesses, err := splittun.GetRunningApps()
 	if err != nil {
 		runningProcesses = []splittun.RunningApp{}
@@ -1571,21 +1693,21 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, enableAppWhit
 
 	// Check plan name. Free accounts are not allowed to use Total Shield.
 	// if !isEnabled {
-	// 	session := s.Preferences().Session
+	// 	session := s._preferences.Session
 	// 	if !session.IsLoggedIn() {
 	// 		return log.ErrorE(errors.New("Total Shield is only available for premium plans. You're not logged in yet, so cannot check your subscription. Please login first."), 0)
 	// 	}
 
-	// 	if s.Preferences().PlanName == "" { // if we haven't fetched plan name yet, fetch it now
+	// 	if s._preferences.PlanName == "" { // if we haven't fetched plan name yet, fetch it now
 	// 		if _, _, err := s.SubscriptionData(); err != nil {
 	// 			return log.ErrorE(fmt.Errorf("error fetching plan name: %w", err), 0)
 	// 		}
-	// 		if s.Preferences().PlanName == "" {
+	// 		if s._preferences.PlanName == "" {
 	// 			return log.ErrorE(errors.New("error - plan name still empty after calling SubscriptionData()"), 0)
 	// 		}
 	// 	}
 
-	// 	if s.Preferences().PlanName == "Free" {
+	// 	if s._preferences.PlanName == "Free" {
 	// 		return log.ErrorE(errors.New("Total Shield is only available for premium plans. You can upgrade your subscription at https://privateline.io/#pricing"), 0)
 	// 	}
 	// }
@@ -1680,7 +1802,7 @@ func (s *Service) splitTunnelling_ApplyConfig(applyTotalShieldUnconditionally bo
 		return nil
 	}
 
-	prefs := s.Preferences()
+	prefs := s._preferences
 
 	// Vlad: disabling IsLoggedIn check. If the service crashed while in full tunnel, and left the machine w/o default routes,
 	// then (if we're not connecting to VPN on start) we absolutely must restore the default routes on start, regardless of the
@@ -1848,25 +1970,37 @@ func (s *Service) setCredentials(accountInfo preferences.AccountStatus, accountI
 }
 
 // SessionNew creates new session
-func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID, notifyClientsOnSessionDelete, disableFirewallOnExit, disableFirewallOnErrorOnly bool) (
+func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName string, stableDeviceID, notifyClientsOnSessionDelete, disableFirewallOnExit, disableFirewallOnErrorOnly, canReconfigureOtherVPNs bool) (
 	apiCode int,
 	apiErrorMsg string,
 	accountInfo preferences.AccountStatus,
 	rawResponse string,
+	noConnectivity_promptUserToReconfigureOtherVpns bool,
+	otherVpnsToReconfigure []string,
+	nordVpnUpOnWindows bool,
 	err error) {
+
+	canReconfigureOtherVPNs = canReconfigureOtherVPNs || s._preferences.PermissionReconfigureOtherVPNs
 
 	if disableFirewallOnExit || disableFirewallOnErrorOnly {
 		defer func() {
 			if disableFirewallOnExit || (disableFirewallOnErrorOnly && err != nil) {
-				s.SetKillSwitchState(false)
+				s.SetKillSwitchState(false, canReconfigureOtherVPNs)
 			}
 		}()
 	}
 
-	// 	try to enable the firewall, need VPN coexistence logic up - otherwise our API calls may not go through
-	if err := firewall.EnableIfNeeded(); err != nil {
-		return 0, "", preferences.AccountStatus{}, "", log.ErrorFE("error in firewall.EnableIfNeeded: %w", err)
+	if canReconfigureOtherVPNs { // if we have permission (one-time or stored) - reconfigure firewall and rerun CLI actions for other VPNs; on Windows also gain top WFP pri, if we don't have it
+		if err = firewall.TryReregisterFirewallAtTopPriority(canReconfigureOtherVPNs, true); err != nil {
+			return 0, "", preferences.AccountStatus{}, "", false, []string{}, false, log.ErrorFE("error in firewall.TryReregisterFirewallAtTopPriority: %w", err)
+		}
 	}
+
+	//  Also make sure firewall is enabled. With permission it will also try to bring VPN coexistence logic up - otherwise our API calls may not go through.
+	if err := firewall.EnableIfNeeded(false, canReconfigureOtherVPNs); err != nil {
+		return 0, "", preferences.AccountStatus{}, "", false, []string{}, false, log.ErrorFE("error in firewall.EnableIfNeeded: %w", err)
+	}
+
 	// TODO: Vlad - disabling old IVPN logic that deals with API servers as exceptions
 	// // Temporary allow API server access (If Firewall is enabled)
 	// // Otherwise, there will not be any possibility to Login (because all connectivity is blocked)
@@ -1882,7 +2016,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	// }()
 
 	// delete current session (if exists)
-	if helpers.IsAValidAccountID(s.Preferences().Session.AccountID) { // if we have stored an account ID - try to logout
+	if helpers.IsAValidAccountID(s._preferences.Session.AccountID) { // if we have stored an account ID - try to logout
 		isCanDeleteSessionLocally := true
 		if err := s.SessionDelete(isCanDeleteSessionLocally, notifyClientsOnSessionDelete, false); err != nil {
 			log.Error("Creating new session -> Failed to delete active session: ", err)
@@ -1944,6 +2078,8 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 		connectDevSuccessResp *api_types.ConnectDeviceResponse
 
 		deviceID string
+
+		apiConnectivityFailed bool
 	)
 
 	for {
@@ -1954,11 +2090,24 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 		}
 
 		apiCode = 0
-		// TODO: Vlad - right now the production REST API deskapi.privateline.io/user/login/quick-auth is broken, for some account IDs it works only with "a-" prefix and for some it only works without. So trying both.
-		sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(emailOrAcctID, password, false)
-		if apiErr != nil && apiErr.HttpStatusCode == 400 {
-			sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(emailOrAcctID, password, true)
+		sessionNewSuccessResp, errorLimitResp, apiErr, apiConnectivityFailed, rawResponse, err = s._api.SessionNew(emailOrAcctID, password /*, false*/)
+		if apiConnectivityFailed { // if it's a connectivity problem
+			if canReconfigureOtherVPNs { // if we already tried to reconfigure other VPNs above - just report the problem
+				return apiCode, "", accountInfo, rawResponse, false, []string{}, false, log.ErrorFE("Error - could not reach the API server: %w\n\n"+
+					"Please check your internet connection. If you have other VPNs installed - please disable them and their kill switches.", err)
+			} else if detected, otherVpnNames, _nordVpnUpOnWindows, err := firewall.ReconfigurableOtherVpnsDetected(true); err == nil && detected {
+				// if we don't have permission to reconfigure other VPNs, and they are blocking us - prompt the user for permission to reconfigure them
+				err = log.ErrorFE("Error - connectivity to the backend API server is blocked. Other VPNs detected, and they're possibly the reason. PL Connect doesn't have permission to reconfigure them - will prompt the user for permission.")
+				return 408, "", accountInfo, rawResponse, true, otherVpnNames.ToSlice(), _nordVpnUpOnWindows, err
+			} else {
+				return apiCode, "", accountInfo, rawResponse, false, []string{}, false, log.ErrorFE("error firewall.ReconfigurableOtherVpnsDetected: %w", err)
+			}
 		}
+
+		// Vlad - logic disabled: Right now the production REST API deskapi.privateline.io/user/login/quick-auth is broken, for some account IDs it works only with "a-" prefix and for some it only works without. So trying both.
+		// if apiErr != nil && apiErr.HttpStatusCode == 400 {
+		// 	sessionNewSuccessResp, errorLimitResp, apiErr, rawResponse, err = s._api.SessionNew(emailOrAcctID, password, true)
+		// }
 
 		if apiErr != nil {
 			apiCode = apiErr.HttpStatusCode
@@ -1968,20 +2117,20 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 			// if SessionsLimit response
 			if errorLimitResp != nil {
 				accountInfo = s.createAccountStatus(errorLimitResp.SessionLimitData)
-				return apiCode, apiErr.Message, accountInfo, rawResponse, err
+				return apiCode, apiErr.Message, accountInfo, rawResponse, false, []string{}, false, err
 			}
 
 			// in case of other API error
 			if apiErr != nil {
-				return apiCode, apiErr.Message, accountInfo, rawResponse, err
+				return apiCode, apiErr.Message, accountInfo, rawResponse, false, []string{}, false, err
 			}
 
 			// not API error
-			return apiCode, "", accountInfo, rawResponse, err
+			return apiCode, "", accountInfo, rawResponse, false, []string{}, false, err
 		}
 
 		if sessionNewSuccessResp == nil {
-			return apiCode, "", accountInfo, rawResponse, fmt.Errorf("unexpected error when creating a new session")
+			return apiCode, "", accountInfo, rawResponse, false, []string{}, false, fmt.Errorf("unexpected error when creating a new session")
 		}
 
 		//the /user/login API does not return the KEM ciphers yet
@@ -2013,7 +2162,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 
 	if stableDeviceID { // generate the stable (anonymized) device ID, and device name based on it
 		if deviceID, err = helpers.StableMachineID(); err != nil {
-			return 0, "", accountInfo, rawResponse, fmt.Errorf("failed to generate stable machine ID: %w", err)
+			return 0, "", accountInfo, rawResponse, false, []string{}, false, log.ErrorFE("failed to generate stable machine ID: %w", err)
 		}
 	} else { // generate a random device ID
 		// Max random value, a 80-bits integer, i.e 2^80 - 1
@@ -2023,7 +2172,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 		// Generate a cryptographically strong pseudo-random between 0 - max
 		n, err := rand.Int(rand.Reader, max)
 		if err != nil {
-			return 0, "", accountInfo, rawResponse, fmt.Errorf("failed to generate random machine ID: %w", err)
+			return 0, "", accountInfo, rawResponse, false, []string{}, false, log.ErrorFE("failed to generate random machine ID: %w", err)
 		}
 
 		// String representation of n in base 16
@@ -2044,23 +2193,23 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	if err != nil {
 		// in case of other API error
 		if apiErr != nil {
-			return apiCode, apiErr.Message, accountInfo, rawResponse, err
+			return apiCode, apiErr.Message, accountInfo, rawResponse, false, []string{}, false, err
 		}
 		log.Error("rawResponse: " + rawResponse)
 
 		// not API error
-		return apiCode, "", accountInfo, rawResponse, err
+		return apiCode, "", accountInfo, rawResponse, false, []string{}, false, err
 	}
 
 	if connectDevSuccessResp == nil {
-		return apiCode, "", accountInfo, rawResponse, fmt.Errorf("unexpected error when registering a device")
+		return apiCode, "", accountInfo, rawResponse, false, []string{}, false, fmt.Errorf("unexpected error when registering a device")
 	}
 
 	localIP := strings.Split(connectDevSuccessResp.Data[0].Interface.Address, "/")[0]
 	if strings.HasSuffix(localIP, ".0") || strings.HasSuffix(localIP, ".0.1") {
 		s.SessionDelete(true, true, true) // logout
-		return 0, "", preferences.AccountStatus{}, "", log.ErrorFE("Error - got assigned an invalid IP address '%s' when registering a device. Please try "+
-			"logging in again later. Please email support@privateline.io about this problem.", localIP)
+		return 0, "", preferences.AccountStatus{}, "", false, []string{}, false, log.ErrorFE("Error - got assigned an invalid IP address '%s' when "+
+			"registering a device. Please try logging in again later. Please email support@privateline.io about this problem.", localIP)
 	}
 
 	// get account status info
@@ -2084,7 +2233,7 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	endpointPort, err := strconv.Atoi(endpointPortStr)
 	if err != nil {
 		log.Error(fmt.Sprintf("Error parsing endpoint port '%s' as number: %v", endpointPortStr, err))
-		return apiCode, "", accountInfo, "", err
+		return apiCode, "", accountInfo, "", false, []string{}, false, err
 	}
 	hostValue := api_types.WireGuardServerHostInfo{
 		HostInfoBase: api_types.HostInfoBase{
@@ -2131,29 +2280,31 @@ func (s *Service) SessionNew(emailOrAcctID string, password string, deviceName s
 	// Apply SplitTunnel configuration. It is applicable for Inverse mode of SplitTunnel
 	if err := s.splitTunnelling_ApplyConfig(true); err != nil {
 		log.Error(fmt.Errorf("splitTunnelling_ApplyConfig failed: %v", err))
-		return apiCode, "", accountInfo, "", err
+		return apiCode, "", accountInfo, "", false, []string{}, false, err
 	}
 
-	return apiCode, "", accountInfo, rawResponse, nil
+	return apiCode, "", accountInfo, rawResponse, false, []string{}, false, nil
 }
 
 // TODO: Vlad - merge with SessionNew() into a single login pipeline, there's a lot of shared code that was copy-pasted
-func (s *Service) SsoLogin(code string, sessionCode string, disableFirewallOnExit, disableFirewallOnErrorOnly bool) (
+func (s *Service) SsoLogin(code string, sessionCode string, disableFirewallOnExit, disableFirewallOnErrorOnly, canReconfigureOtherVPNs bool) (
 	apiCode int,
 	apiErrorMsg string,
 	rawResponse *api_types.SsoLoginResponse,
 	err error) {
 
+	canReconfigureOtherVPNs = canReconfigureOtherVPNs || s._preferences.PermissionReconfigureOtherVPNs
+
 	if disableFirewallOnExit || disableFirewallOnErrorOnly {
 		defer func() {
 			if disableFirewallOnExit || (disableFirewallOnErrorOnly && err != nil) {
-				s.SetKillSwitchState(false)
+				s.SetKillSwitchState(false, canReconfigureOtherVPNs)
 			}
 		}()
 	}
 
 	// 	try to enable the firewall, need VPN coexistence logic up - otherwise our API calls may not go through
-	if err := firewall.EnableIfNeeded(); err != nil {
+	if err := firewall.EnableIfNeeded(true, canReconfigureOtherVPNs); err != nil {
 		return 0, "", nil, log.ErrorFE("error in firewall.EnableIfNeeded: %w", err)
 	}
 	// TODO: Vlad - disabling old IVPN logic that deals with API servers as exceptions
@@ -2171,7 +2322,7 @@ func (s *Service) SsoLogin(code string, sessionCode string, disableFirewallOnExi
 	// }()
 
 	// delete current session (if exists)
-	if helpers.IsAValidAccountID(s.Preferences().Session.AccountID) { // if we have stored an account ID - try to logout
+	if helpers.IsAValidAccountID(s._preferences.Session.AccountID) { // if we have stored an account ID - try to logout
 		isCanDeleteSessionLocally := true
 		if err := s.SessionDelete(isCanDeleteSessionLocally, true, false); err != nil {
 			log.Error("Creating new session -> Failed to delete active session: ", err)
@@ -2354,7 +2505,7 @@ func (s *Service) MigrateSsoUser() (
 	resp *api_types.MigrateSsoUserResponse,
 	err error) {
 
-	prefs := s.Preferences()
+	prefs := s._preferences
 
 	// must be logged in
 	session := prefs.Session
@@ -2387,9 +2538,9 @@ func (s *Service) AccountInfo() (
 	accountStatus preferences.AccountStatus,
 	rawResponse string,
 	err error) {
-	// TODO FIXME: Swapnil, Vlad: this function is a stub for now
+	// TODO: FIXME: Swapnil, Vlad: this function is a stub for now
 	log.Debug("================================ AccountInfo function Reached ================================")
-	return 200, "", s.Preferences().Account, "FIXME stub", nil
+	return 200, "", s._preferences.Account, "FIXME stub", nil
 }
 
 func (s *Service) ProfileData() (
@@ -2400,13 +2551,13 @@ func (s *Service) ProfileData() (
 		profileDataResponse *api_types.ProfileDataResponse
 	)
 	// Not querying Profile Data if we're not logged in yet
-	session := s.Preferences().Session
+	session := s._preferences.Session
 	if !session.IsLoggedIn() {
 		log.Error("we're not logged in yet, so not querying Profile Data (/user/profile API)")
 		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
 	}
 
-	profileDataResponse, apiCode, err = s._api.ProfileData(s.Preferences().Session.Session)
+	profileDataResponse, apiCode, err = s._api.ProfileData(s._preferences.Session.Session)
 	return apiCode, profileDataResponse, err
 }
 
@@ -2418,13 +2569,13 @@ func (s *Service) DeviceList(Search string, Page int, Limit int, DeleteId int) (
 		deviceListResponse *api_types.DeviceListResponse
 	)
 	// Not querying Device List if we're not logged in yet
-	session := s.Preferences().Session
+	session := s._preferences.Session
 	if !session.IsLoggedIn() {
 		log.Error("we're not logged in yet, so not querying Device List (/user/devices API)")
 		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
 	}
 
-	deviceListResponse, err = s._api.DeviceList(s.Preferences().Session.Session, Search, Page, Limit, DeleteId)
+	deviceListResponse, err = s._api.DeviceList(s._preferences.Session.Session, Search, Page, Limit, DeleteId)
 	return apiCode, deviceListResponse, err
 }
 
@@ -2436,13 +2587,13 @@ func (s *Service) SubscriptionData() (
 		subscriptionDataResponse *api_types.SubscriptionDataResponse
 	)
 	// Not querying Subscription Data if we're not logged in yet
-	session := s.Preferences().Session
+	session := s._preferences.Session
 	if !session.IsLoggedIn() {
 		log.Error("we're not logged in yet, so not querying Subscription Data (/user/check-subscription API)")
 		return apiCode, nil, srverrors.ErrorNotLoggedIn{}
 	}
 
-	if subscriptionDataResponse, apiCode, err = s._api.SubscriptionData(s.Preferences().Session.Session); err == nil {
+	if subscriptionDataResponse, apiCode, err = s._api.SubscriptionData(s._preferences.Session.Session); err == nil {
 		s._preferences.PlanName = subscriptionDataResponse.Plan.Name // save subscription plan name
 	}
 	return apiCode, subscriptionDataResponse, err
@@ -2473,7 +2624,7 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally
 
 	defer func() {
 		if disableFirewallOnExit { // conditionally disable firewall on exit
-			if err := firewall.SetEnabled(false); err != nil {
+			if err := firewall.SetEnabled(false, s._preferences.PermissionReconfigureOtherVPNs); err != nil {
 				retErr = log.ErrorFE("error disabling firewall in logOut: %w", err)
 			}
 		}
@@ -2488,7 +2639,7 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally
 
 	if sessionNeedToDeleteOnBackend {
 		// 	try to enable the firewall, need VPN coexistence logic up - otherwise our API calls may not go through
-		if err := firewall.EnableIfNeeded(); err != nil {
+		if err := firewall.EnableIfNeeded(true, s._preferences.PermissionReconfigureOtherVPNs); err != nil {
 			log.ErrorFE("error in firewall.EnableIfNeeded: %w", err)
 		}
 		// TODO: Vlad - disabling old IVPN logic that deals with API servers as exceptions
@@ -2504,10 +2655,10 @@ func (s *Service) logOut(sessionNeedToDeleteOnBackend, isCanDeleteSessionLocally
 		// 	}
 		// }()
 
-		session := s.Preferences().Session
+		session := s._preferences.Session
 		if session.IsLoggedIn() {
 			log.Info("Logging out")
-			err := s._api.SessionDelete(session.Session, s.Preferences().Session.WGPublicKey)
+			err := s._api.SessionDelete(session.Session, s._preferences.Session.WGPublicKey)
 			if err != nil {
 				log.Info(fmt.Errorf("error logging out: %w", err))
 				if !isCanDeleteSessionLocally {
@@ -2550,12 +2701,12 @@ func (s *Service) OnSessionStatus(sessionToken string, sessionData preferences.S
 func (s *Service) CheckBackendConnectivity() (success bool, err error) {
 	// Enable one of implementations
 
-	// log.Debug("s.Preferences().HealthchecksType = ", s.Preferences().HealthchecksType)
+	// log.Debug("s._preferences.HealthchecksType = ", s._preferences.HealthchecksType)
 
-	switch s.Preferences().HealthchecksType {
-	case types.HealthchecksType_Ping: // Healthchecks implementation via pinging API backend servers
+	switch s._preferences.HealthchecksType {
+	case service_types.HealthchecksType_Ping: // Healthchecks implementation via pinging API backend servers
 		return s.PingInternalApiHosts()
-	case types.HealthchecksType_RestApiCall: // Healthchecks implementation using REST API calls
+	case service_types.HealthchecksType_RestApiCall: // Healthchecks implementation using REST API calls
 		return s._api.PublicGetPlans()
 	default:
 		return true, nil
@@ -2570,7 +2721,7 @@ func (s *Service) RequestSessionStatus() (
 	sessionStatus preferences.SessionMutableData,
 	err error) {
 
-	session := s.Preferences().Session
+	session := s._preferences.Session
 	if !session.IsLoggedIn() {
 		return apiCode, "", "", sessionStatus, srverrors.ErrorNotLoggedIn{}
 	}
@@ -2592,7 +2743,7 @@ func (s *Service) RequestSessionStatus() (
 	stat, apiErr, err := s._api.SessionStatus(session.Session)
 	log.Info("Session status request: done")
 
-	currSession := s.Preferences().Session
+	currSession := s._preferences.Session
 	if currSession.Session != session.Session {
 		// It could happen that logout\login was performed during the session check
 		// Ignoring result if there is already a new session
@@ -2658,7 +2809,7 @@ func (s *Service) startSessionChecker() {
 	// ensure that session checker is not running
 	s.stopSessionChecker()
 
-	session := s.Preferences().Session
+	session := s._preferences.Session
 	if !session.IsLoggedIn() {
 		return
 	}
@@ -2674,7 +2825,7 @@ func (s *Service) startSessionChecker() {
 			s.RequestSessionStatus()
 
 			// if not logged-in - no sense to check status anymore
-			session := s.Preferences().Session
+			session := s._preferences.Session
 			if !session.IsLoggedIn() {
 				return
 			}
@@ -2729,7 +2880,7 @@ func (s *Service) WireGuardSaveNewKeys(wgPublicKey string, wgPrivateKey string, 
 
 // WireGuardSetKeysRotationInterval change WG key rotation interval
 func (s *Service) WireGuardSetKeysRotationInterval(interval int64) {
-	// TODO FIXME: Vlad - for now effectively disable updating Wireguard keys, key rotation
+	// TODO: FIXME: Vlad - for now effectively disable updating Wireguard keys, key rotation
 	// Set it to 100 years
 	interval = 100 * 365 * 86400
 

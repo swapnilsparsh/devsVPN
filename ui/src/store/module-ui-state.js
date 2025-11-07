@@ -24,9 +24,23 @@ export default {
     //}
     appUpdateProgress: null,
 
-    // if not empty, then UI settings view will show this message 
+    // if not empty, then UI settings view will show this message
     // (e.g. message text about the Location Services permission required for ability to get WiFi info)
     wifiWarningMessage: "",
+
+    // Time when (a) we last prompted the user via VPN wizard to reconfigure other VPNs, and (b) the user agreed.
+    // We want to prompt them at least 3 minutes apart, to avoid duplicate prompts during the same connection attempt.
+    timeOfLastPromptToReconfigureOtherVpns: 0,
+    delayToRePromptToReconfigureOtherVpns: 3*60,
+
+    // VPN wizard
+    vpnWizard: {
+      introHeader: "",
+      introDescr: "",
+      showAutoReconfigVpnStep: false,
+      showNordVpnWindowsStep: false,
+      issueExplicitConnect: false,
+    },
   },
 
   mutations: {
@@ -51,6 +65,29 @@ export default {
     wifiWarningMessage(state, value) {
       state.wifiWarningMessage = value;
     },
+    timeOfLastPromptToReconfigureOtherVpns(state, value) {
+      state.timeOfLastPromptToReconfigureOtherVpns = value;
+    },
+
+    introHeader(state, value) {
+      state.vpnWizard.introHeader = value;
+    },
+    introDescr(state, value) {
+      state.vpnWizard.introDescr = value;
+    },
+    showAutoReconfigVpnStep(state, value) {
+      state.vpnWizard.showAutoReconfigVpnStep = value;
+    },
+    showNordVpnWindowsStep(state, value) {
+      state.vpnWizard.showNordVpnWindowsStep = value;
+    },
+    issueExplicitConnect(state, value) {
+      state.vpnWizard.issueExplicitConnect = value;
+    },
+
+    vpnWizard(state, obj) {
+      state.vpnWizard = obj;
+    },
   },
 
   // can be called from renderer
@@ -66,6 +103,9 @@ export default {
     },
     isIPv6View(context, value) {
       context.commit("isIPv6View", value);
+    },
+    timeOfLastPromptToReconfigureOtherVpns(context, value) {
+      context.commit("timeOfLastPromptToReconfigureOtherVpns", value);
     },
   },
 };

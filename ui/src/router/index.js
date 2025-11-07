@@ -3,6 +3,7 @@ import Main from "../views/Component-Main.vue";
 import AccountLimit from "../views/AccountLimit.vue";
 import Settings from "../views/Component-Settings.vue";
 import Update from "../views/dialogs/Dlg-Update.vue";
+import VpnWizardExample from "../components/VpnWizardExample.vue";
 
 const mainRoutes = [
   {
@@ -35,6 +36,11 @@ const forbiddenToChangeRouteFrom = [
     path: "/update",
     name: "Update",
     component: Update,
+  },
+  {
+    path: "/vpnwizard",
+    name: "VpnWizardExample",
+    component: VpnWizardExample,
   },
 ];
 

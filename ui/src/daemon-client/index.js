@@ -95,6 +95,7 @@ const daemonRequests = Object.freeze({
   KillSwitchSetIsPersistent: "KillSwitchSetIsPersistent",
   KillSwitchSetUserExceptions: "KillSwitchSetUserExceptions",
   KillSwitchReregister: "KillSwitchReregister",
+  // SetVpnCoexistPermission: "SetVpnCoexistPermission",
 
   SplitTunnelGetStatus: "SplitTunnelGetStatus",
   SplitTunnelSetConfig: "SplitTunnelSetConfig",
@@ -142,6 +143,7 @@ const daemonResponses = Object.freeze({
   DnsPredefinedConfigsResp: "DnsPredefinedConfigsResp",
   KillSwitchStatusResp: "KillSwitchStatusResp",
   KillSwitchReregisterErrorResp: "KillSwitchReregisterErrorResp",
+  // SetVpnCoexistPermissionErrorResp: "SetVpnCoexistPermissionErrorResp",
   SessionStatusResp: "SessionStatusResp",
 
   SplitTunnelStatus: "SplitTunnelStatus",
@@ -396,16 +398,27 @@ async function processResponse(response) {
   const obj = JSON.parse(response);
 
   if (obj != null && obj.Command != null) {
+    switch (obj.Command) {
+      case "APIResponse":
+        log.debug(`<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` + (obj.Error ? " Error!" : ""));
+        break;
+
+      case "KillSwitchStatusResp":  // log JSON of some command responses, ones being debugged
+      case "DisconnectedResp":
+        log.debug(`<== ${obj.Command} [${obj.Idx}]  ${response.length > 2048 ? " ..." : response}`);
+        break;
+
+      case "TransferredDataResp":   // don't log tx/rx messages, too many of them
+        break;
+
+      default:                      // by default log only the command and index
+        log.debug(`<== ${obj.Command} [${obj.Idx}]`);
+        break;
+    }
+
     // TODO: Full logging is only for debug. Must be removed from production!
-    //log.log(`<== ${obj.Command} ${response.length > 512 ? " ..." : response}`);
-    //log.log(`<== ${response}`);
-    if (obj.Command == "APIResponse")
-      log.debug(
-        `<== ${obj.Command}  [${obj.Idx}] ${obj.APIPath}` +
-        (obj.Error ? " Error!" : "")
-      );
-    else if (obj.Command != "TransferredDataResp")
-      log.debug(`<== ${obj.Command} [${obj.Idx}]`);
+    //log.debug(`<== ${obj.Command} [${obj.Idx}] ${response.length > 512 ? " ..." : response}`);
+    //log.debug(`<== ${response}`);
   } else log.error(`<== ${response}`);
 
   if (obj == null || obj.Command == null || obj.Command.length <= 0) return;
@@ -965,7 +978,8 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
 
 async function Login(
   emailOrAcctID,
-  password
+  password,
+  permissionReconfigureOtherVPNs_Once,
   //  force, captchaID, captcha, confirmation2FA
 ) {
   let resp = await sendRecv({
@@ -973,7 +987,8 @@ async function Login(
     EmailOrAcctID: emailOrAcctID,
     Password: password,
     StableDeviceID: false,
-    // ForceLogin: force,
+    PermissionReconfigureOtherVPNs_Once: permissionReconfigureOtherVPNs_Once,
+  	    // ForceLogin: force,
     // CaptchaID: captchaID,
     // Captcha: captcha,
     // Confirmation2FA: confirmation2FA,
@@ -984,6 +999,19 @@ async function Login(
     ProfileData();
     DeviceList('', 1, 10);
     SubscriptionData();
+  } else { // store names of other VPNs, if any
+    // let _firewallState = store.state.vpnState.firewallState;
+    if (resp.ReconfigurableOtherVpnsNames != null && resp.ReconfigurableOtherVpnsNames.length > 0) {
+      // _firewallState.ReconfigurableOtherVpnsDetected = true;
+      // _firewallState.ReconfigurableOtherVpnsNames = resp.ReconfigurableOtherVpnsNames;
+      store.commit(`vpnState/ReconfigurableOtherVpnsDetected`, true);
+      store.commit(`vpnState/ReconfigurableOtherVpnsNames`, resp.ReconfigurableOtherVpnsNames);
+    }
+    if (resp.NordVpnUpOnWindows != null) {
+      //_firewallState.NordVpnUpOnWindows = resp.NordVpnUpOnWindows;
+      store.commit(`vpnState/NordVpnUpOnWindows`, resp.NordVpnUpOnWindows);
+    }
+    //store.commit(`vpnState/firewallState`, _firewallState);
   }
 
   // Returning whole response object (even in case of error)
@@ -1636,6 +1664,16 @@ async function KillSwitchReregister(CanStopOtherVpn) {
   return ret;
 }
 
+// async function SetVpnCoexistPermission(CanReconfigureOtherVpns) {
+//   let ret = await sendRecv({
+//     Command: daemonRequests.SetVpnCoexistPermission,
+//     CanReconfigureOtherVpns,
+//   },
+//     [daemonResponses.SetVpnCoexistPermissionErrorResp]
+//   );
+//   return ret;
+// }
+
 async function SplitTunnelGetStatus() {
   let ret = await sendRecv(
     {
@@ -2041,6 +2079,7 @@ export default {
   KillSwitchSetIsPersistent,
   KillSwitchSetUserExceptions,
   KillSwitchReregister,
+  // SetVpnCoexistPermission,
 
   SplitTunnelGetStatus,
   SplitTunnelSetConfig,

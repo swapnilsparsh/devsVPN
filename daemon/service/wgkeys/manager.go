@@ -198,7 +198,7 @@ func (m *KeysManager) GenerateKeys() error {
 // 2) If active WG key defined - key will be updated only if it is a time to do it
 func (m *KeysManager) UpdateKeysIfNecessary() (retErr error) {
 	//return m.generateKeys(true)
-	// TODO FIXME: Vlad - disable updating Wireguard keys for now
+	// TODO: FIXME: Vlad - disable updating Wireguard keys for now
 	return nil
 }
 

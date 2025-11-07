@@ -271,7 +271,7 @@ func rctl_configOk() (bool, error) {
 	binPath := platform.ResolvectlBinPath()
 	outText, _, _, _, _ := shell.ExecAndGetOutput(nil, 1024*5, "", binPath, "status", localInterfaceName)
 
-	// TODO FIXME: Vlad - precompile regex for DNS servers in Preferences
+	// TODO: FIXME: Vlad - precompile regex for DNS servers in Preferences
 	var dnsServersRegex string
 	for _, dnsSrvIP := range manualDNS.DnsServers {
 		dnsServersRegex += " " + dnsSrvIP.String()

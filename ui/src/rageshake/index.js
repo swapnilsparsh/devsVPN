@@ -2,7 +2,7 @@ import { app, crashReporter, dialog, shell } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { SentrySendDiagnosticReport } from '../sentry/sentry.js';
+// import { SentrySendDiagnosticReport } from '../sentry/sentry.js';
 import { RAGESHAKE_CONFIG, getUploadURL, getAppConfig, getFileConfig } from './config.js';
 import { createRageshakeAPI, submitCrashReport } from './api.js';
 

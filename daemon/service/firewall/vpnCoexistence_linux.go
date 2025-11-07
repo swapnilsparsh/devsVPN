@@ -1,4 +1,4 @@
-// TODO FIXME: prepend license
+// TODO: FIXME: prepend license
 // Copyright (c) 2024 privateLINE, LLC.
 
 package firewall
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -29,7 +30,7 @@ import (
 //   - Its tunnel network interface is up, that means the other VPN is likely connected/connecting
 //		- We should deploy logic like low MTU and so
 //
-// TODO FIXME: Vlad - allow all DNS traffic from the point we start connecting till CONNECTED
+// TODO: FIXME: Vlad - allow all DNS traffic from the point we start connecting till CONNECTED
 //		- or maybe even for the whole time we're connecting/connected?
 
 type otherVpnUndoCompatCommand struct { // used by DisableCoexistenceWithOtherVpns to run command like: "cliPath" < ... intermediate args ...> <finalArg>
@@ -45,10 +46,12 @@ var (
 
 	// Sets of names of other VPNs detected, and whether they change nftables and/or iptables-legacy
 
-	// !!! to avoid deadlocks, always acquire the mutexes in the same order:
-	//	otherVpnsNftMutex 1st
-	//	otherVpnsLegacyMutex 2nd
-	//	DisableCoexistenceWithOtherVpnsMutex 3rd
+	// !!! to avoid deadlocks, always acquire the mutexes in the same order, and release in reverse order:
+	//	(1) otherVpnsNftMutex
+	//	(2) otherVpnsLegacyMutex
+	//	(3) DisableCoexistenceWithOtherVpnsMutex
+	OtherVpnsDetectedReconfigurableViaCli mapset.Set[string] = mapset.NewSet[string]() // Those other VPNs, which we need to reconfigure via their CLI. Effectively protected by reDetectOtherVpnsImplMutex
+	// otherVpnsCliMutex                          sync.Mutex                                   // used to protect OtherVpnsDetectedReconfigurableViaCli
 	OtherVpnsDetectedRelevantForNftables       mapset.Set[string] = mapset.NewSet[string]()
 	otherVpnsNftMutex                          sync.Mutex         // used to protect OtherVpnsDetectedRelevantForNftables
 	OtherVpnsDetectedRelevantForIptablesLegacy mapset.Set[string] = mapset.NewSet[string]()
@@ -62,8 +65,9 @@ var (
 
 	// NordVPN. Apparently it doesn't create any custom firewall chains.
 	nordVpnInterfaceName = "nordlynx"
+	NordVpnName          = "NordVPN"
 	nordVpnProfile       = OtherVpnInfo{
-		name:              "NordVPN",
+		name:              NordVpnName,
 		namePrefix:        "nord",
 		recommendedOurMTU: 1340,
 
@@ -73,8 +77,19 @@ var (
 
 		cli: "nordvpn", // will be checked whether it's in PATH
 		cliCmds: otherVpnCliCmds{
+			cmdStatus:               "status",
+			checkCliConnectedStatus: true,
+			statusConnectedRE:       regexp.MustCompile(`^Status:[\s]+Connect(ed|ing)`), // must be 1st line
+			statusDisconnectedRE:    regexp.MustCompile(`^Status:[\s]+Disconnected`),
+
+			cmdLockdownMode: []string{"set", "killswitch", "off"},
+			cmdFirewallMode: []string{"set", "firewall", "off"},
+
 			cmdAddAllowlistOption:    []string{"allowlist", "add", "subnet"},
 			cmdRemoveAllowlistOption: []string{"allowlist", "remove", "subnet"},
+
+			// TODO: do we also need to set PL DNS as custom DNS for NordVPN?
+			//	the command would be:	nordvpn set dns 10.0.19.2 10.0.20.2
 		},
 	}
 
@@ -122,6 +137,8 @@ var (
 			cmdAddOurBinaryPathToSplitTunWhitelist:  []string{"set", "split-app"},
 			cmdSplitTunnelOurBinaryPathPrefixAdd:    "bypass:",
 			cmdSplitTunnelOurBinaryPathPrefixRemove: "remove:", // TODO: unused for now
+
+			cmdLockdownMode: []string{"set", "networklock", "false"},
 
 			cmdAllowLan: []string{"set", "allowlan", "true"},
 		},
@@ -201,7 +218,7 @@ func init() {
 // ---------------- per-VPN helpers for iptables-legacy ----------------
 // By the time the per-VPN helpers for iptables-legacy get called, our chains must already exist. So these helpers are called at the end of doEnableLegacy().
 
-func surfsharkLegacyHelper() (err error) {
+func surfsharkLegacyHelper(_ bool) (err error) {
 	// if !iptablesLegacyWasInitialized.Load() {
 	// 	return nil
 	// }
@@ -268,7 +285,7 @@ func surfsharkLegacyHelper() (err error) {
 // ---------------- per-VPN helpers for nftables -----------------------
 
 // commonNftablesHelper - logic common to all nftables helpers. Can be run in parallel with VPN-specific helpers.
-func commonNftablesHelper(otherVpnName string) (err error) { // logic common to all nftables helpers
+func commonNftablesHelper(otherVpnName string, canReconfigureOtherVpn bool) (err error) { // logic common to all nftables helpers
 	log.Debug("commonNftablesHelper entered for VPN: ", otherVpnName)
 	defer log.Debug("commonNftablesHelper exited for VPN: ", otherVpnName)
 
@@ -281,10 +298,24 @@ func commonNftablesHelper(otherVpnName string) (err error) { // logic common to 
 		return log.ErrorFE("error looking up other VPN by its name '%s'", otherVpnName)
 	}
 
-	// if the VPN has allow-LAN command registered, run it
-	if len(otherVpn.cliCmds.cmdAllowLan) > 0 {
-		if err = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); err != nil {
-			err = log.ErrorFE("error enabling LAN (local area network access) in other VPN '%s': %w", otherVpnName, err) // and continue
+	canReconfigureOtherVpn = canReconfigureOtherVpn || getPrefsCallback().PermissionReconfigureOtherVPNs
+	if canReconfigureOtherVpn {
+		if len(otherVpn.cliCmds.cmdFirewallMode) > 0 { // disable firewall for other VPN
+			if err = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdFirewallMode...); err != nil {
+				err = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdFirewallMode, otherVpn.name, err)
+			}
+		}
+
+		if len(otherVpn.cliCmds.cmdLockdownMode) > 0 { // disable lockdown (killswitch) for other VPN
+			if err = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdLockdownMode...); err != nil {
+				err = log.ErrorFE("error sending '%v' command to the other VPN '%s': %w", otherVpn.cliCmds.cmdLockdownMode, otherVpn.name, err)
+			}
+		}
+
+		if len(otherVpn.cliCmds.cmdAllowLan) > 0 { // if the VPN has allow-LAN command registered, run it
+			if err = shell.Exec(log, otherVpn.cliPathResolved, otherVpn.cliCmds.cmdAllowLan...); err != nil {
+				err = log.ErrorFE("error enabling LAN (local area network access) in other VPN '%s': %w", otherVpnName, err) // and continue
+			}
 		}
 	}
 
@@ -302,7 +333,11 @@ func commonNftablesHelper(otherVpnName string) (err error) { // logic common to 
 }
 
 // ExpressVPN has a dedicated helper, because it needs to append prefixes to our binary paths
-func expressVpnNftablesHelper() (err error) {
+func expressVpnNftablesHelper(canReconfigureOtherVpn bool) (err error) {
+	if !(canReconfigureOtherVpn || getPrefsCallback().PermissionReconfigureOtherVPNs) {
+		return nil
+	}
+
 	log.Debug("expressVpnNftablesHelper entered")
 	defer log.Debug("expressVpnNftablesHelper exited")
 
@@ -339,7 +374,11 @@ func expressVpnNftablesHelper() (err error) {
 }
 
 // mullvadNftablesHelper is a dedicated helper for Mullvad
-func mullvadNftablesHelper() (err error) {
+func mullvadNftablesHelper(canReconfigureOtherVpn bool) (err error) {
+	if !(canReconfigureOtherVpn || getPrefsCallback().PermissionReconfigureOtherVPNs) {
+		return nil
+	}
+
 	log.Debug("mullvadVpnNftablesHelper entered")
 	defer log.Debug("mullvadNftablesHelper exited")
 
@@ -396,7 +435,7 @@ func mullvadNftablesHelper() (err error) {
 		otherVpnCommandsToUndo[daemonPid] = &otherVpnUndoCompatCommand{cliPath: mullvadCli, fullArgs: &mullvadRemoveDaemonPid}
 	}
 
-	// TODO FIXME: do we need?
+	// TODO: FIXME: do we need?
 	//		- to worry about explicitly whitelisting /opt/privateline-connect/wireguard-tools/wg* with Mullvad?
 	//		- "mullvad export-settings", munge them, "mullvad import-settings"
 
@@ -435,25 +474,33 @@ func tryCmdLogOnError(binPath string, args ...string) (retErr error) {
 // reDetectOtherVpnsImpl - re-detect the other VPNs present, and optionally adjust the current MTU accordingly.
 // If no detection was run yet, or if forceRedetection=true - it will run re-detection unconditionally.
 // Else it will run re-detection only if the previous detection data is older than 5 seconds.
-func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
+func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU, reDetectOtherVpnsImplMutex_alreadyGrabbed, canReconfigureOtherVpns bool) (recommendedNewMTU int, err error) {
 	if isDaemonStoppingCallback() {
 		return lowestRecommendedMTU, log.ErrorFE("error - daemon is stopping")
 	}
 
-	otherVpnsNftMutex.Lock()
-	otherVpnsLegacyMutex.Lock()
-	defer otherVpnsNftMutex.Unlock()
-	defer otherVpnsLegacyMutex.Unlock()
-	log.Debug("reDetectOtherVpnsLinux entered")
+	if !reDetectOtherVpnsImplMutex_alreadyGrabbed { // single-instance function, but its mutex can be already grabbed by the caller
+		reDetectOtherVpnsImplMutex.Lock()
+		defer reDetectOtherVpnsImplMutex.Unlock()
+	}
 
-	// Now we acquired both mutexes, we're in critical section - check whether the last detection timestamp is too old.
-	// (If it's zero - it means detection wasn't run yet since the daemon start.
+	// Before grabbing resource mutexes - check whether the last detection timestamp is too old. (If it's zero - it means detection wasn't run yet since the daemon start.
 	if !forceRedetection && !otherVpnsLastDetectionTimestamp.IsZero() && time.Since(otherVpnsLastDetectionTimestamp) < VPN_REDETECT_PERIOD { // if the timestamp is fresh
-		log.Debug("reDetectOtherVpnsLinux exited early")
 		return lowestRecommendedMTU, nil
 	} // else we have to re-detect
-	defer log.Debug("reDetectOtherVpnsLinux exited - redetected")
 
+	// otherVpnsCliMutex.Lock()
+	// defer otherVpnsCliMutex.Unlock()
+	otherVpnsNftMutex.Lock()
+	defer otherVpnsNftMutex.Unlock()
+	otherVpnsLegacyMutex.Lock()
+	defer otherVpnsLegacyMutex.Unlock()
+
+	// Now we've acquired all mutexes, we're in critical section
+	log.Debug("reDetectOtherVpnsImpl entered")
+	defer log.Debug("reDetectOtherVpnsImpl exited - redetected")
+
+	OtherVpnsDetectedReconfigurableViaCli.Clear()
 	OtherVpnsDetectedRelevantForNftables.Clear()
 	OtherVpnsDetectedRelevantForIptablesLegacy.Clear()
 
@@ -472,8 +519,8 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	// 	reDetectOtherVpnsWaiter.Add(1)
 	// 	go func() { // detect other VPNs by whether their iptables-legacy chain is present
 	// 		defer reDetectOtherVpnsWaiter.Done() // This thread tends to freeze on VPN disconnect. Console "iptables-legacy -L -nv" freezes, too.
-	// 		log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - entered")
-	// 		defer log.Debug("reDetectOtherVpnsLinux iptables-legacy worker - exited") // this one can hang for 2-3 minutes
+	// 		log.Debug("reDetectOtherVpnsImpl iptables-legacy worker - entered")
+	// 		defer log.Debug("reDetectOtherVpnsImpl iptables-legacy worker - exited") // this one can hang for 2-3 minutes
 	// 		for _, otherVpn := range otherVpnsByLegacyChain {
 	// 			userDefinedLegacyChain := iptables.ChainTypeUserDefined
 	// 			userDefinedLegacyChain.SetName(otherVpn.iptablesLegacyChain)
@@ -496,8 +543,8 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	reDetectOtherVpnsWaiter.Add(1)
 	go func() { // detect other VPNs by active network interface name
 		defer reDetectOtherVpnsWaiter.Done()
-		// log.Debug("reDetectOtherVpnsLinux interface worker - entered")
-		// defer log.Debug("reDetectOtherVpnsLinux interface worker - exited")
+		// log.Debug("reDetectOtherVpnsImpl interface worker - entered")
+		// defer log.Debug("reDetectOtherVpnsImpl interface worker - exited")
 
 		disabledTotalShield := false
 		for otherVpnInterfaceName, otherVpn := range otherVpnsByInterfaceName {
@@ -527,8 +574,8 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 
 		go func() { // detect other VPNs by whether their nftables chain is present in table filter
 			defer reDetectOtherVpnsWaiter.Done()
-			// log.Debug("reDetectOtherVpnsLinux nftables worker - entered")
-			// defer log.Debug("reDetectOtherVpnsLinux nftables worker - exited")
+			// log.Debug("reDetectOtherVpnsImpl nftables worker - entered")
+			// defer log.Debug("reDetectOtherVpnsImpl nftables worker - exited")
 
 			if chains, err := nftConn.ListChainsOfTableFamily(TABLE_TYPE); err != nil {
 				log.ErrorFE("error listing chains: %w", err)
@@ -553,8 +600,8 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 
 		go func() { // detect other VPNs by whether their CLI is in PATH
 			defer reDetectOtherVpnsWaiter.Done()
-			// log.Debug("reDetectOtherVpnsLinux CLI worker - entered")
-			// defer log.Debug("reDetectOtherVpnsLinux CLI worker - exited")
+			// log.Debug("reDetectOtherVpnsImpl CLI worker - entered")
+			// defer log.Debug("reDetectOtherVpnsImpl CLI worker - exited")
 
 			for _, otherVpn := range otherVpnsByCLI {
 				if otherVpnCliPath, err := exec.LookPath(otherVpn.cli); err != nil || otherVpnCliPath == "" {
@@ -570,6 +617,9 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 					if otherVpn.changesIptablesLegacy {
 						OtherVpnsDetectedRelevantForIptablesLegacy.Add(otherVpn.name)
 					}
+					if !reflect.DeepEqual(otherVpn.cliCmds, otherVpnCliCmdsEmpty) { // if the other VPN has CLI commands that we use to reconfigure it
+						OtherVpnsDetectedReconfigurableViaCli.Add(otherVpn.name)
+					}
 					if otherVpn.recommendedOurMTU != 0 && otherVpn.recommendedOurMTU < newRecommendedMtuByCli {
 						newRecommendedMtuByCli = otherVpn.recommendedOurMTU
 					}
@@ -579,11 +629,11 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	}
 
 	reDetectOtherVpnsWaiter.Wait()
-	// log.Debug("reDetectOtherVpnsLinux: reDetectOtherVpnsWaiter.Wait() ended")
+	// log.Debug("reDetectOtherVpnsImpl: reDetectOtherVpnsWaiter.Wait() ended")
 	otherVpnsLastDetectionTimestamp = time.Now()
 
 	if !iptablesLegacyInitialized() && !OtherVpnsDetectedRelevantForIptablesLegacy.IsEmpty() { // if iptables-legacy were not initialized yet,
-		go implInitializeIptablesLegacyWhenNeeded() // and we detected VPNs that affect legacy tables - then initialize it async, it's single-instance
+		go implInitializeIptablesLegacyWhenNeeded() // ... and we detected VPNs that affect legacy tables - then initialize it async, it's single-instance
 	}
 
 	lowestRecommendedMTU = min(newRecommendedMtuByCli, newRecommendedMtuByInterface, newRecommendedMtuByLegacyChain, newRecommendedMtuByNftablesChain)
@@ -595,7 +645,7 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 	var ourWgInterface netlink.Link
 	var currMtu = 0
 	if updateCurrentMTU { // if requested, update the current MTU on wgprivateline network interface
-		// log.Debug("reDetectOtherVpnsLinux about to netlink.LinkByName(", platform.WGInterfaceName(), ")")
+		// log.Debug("reDetectOtherVpnsImpl about to netlink.LinkByName(", platform.WGInterfaceName(), ")")
 		if ourWgInterface, err = netlink.LinkByName(platform.WGInterfaceName()); err == nil {
 			currMtu = ourWgInterface.Attrs().MTU
 			// log.Debug("currMtu = ", currMtu)
@@ -606,7 +656,7 @@ func reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCu
 
 	if updateCurrentMTU && currMtu != 0 { // if requested, update the current MTU on wgprivateline network interface
 		if currMtu != lowestRecommendedMTU && vpnConnectedOrConnectingCallback() { // if we have to change our current MTU
-			log.Debug("reDetectOtherVpnsLinux about to netlink.LinkSetMTU(", lowestRecommendedMTU, ") - changing from ", currMtu)
+			log.Debug("reDetectOtherVpnsImpl about to netlink.LinkSetMTU(", lowestRecommendedMTU, ") - changing from ", currMtu)
 			if err = netlink.LinkSetMTU(ourWgInterface, lowestRecommendedMTU); err != nil {
 				return lowestRecommendedMTU, log.ErrorFE("error netlink.LinkSetMTU(%d): %w", lowestRecommendedMTU, err)
 			}
@@ -623,7 +673,7 @@ func implBestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 	// otherVpnsLegacyMutex.Lock()
 	// defer otherVpnsLegacyMutex.Unlock()
 
-	return reDetectOtherVpnsImpl(false, false, false)
+	return reDetectOtherVpnsImpl(false, false, false, false, getPrefsCallback().PermissionReconfigureOtherVPNs)
 	// recommendedMTU = lowestRecommendedMTU
 	// return recommendedMTU, retErr
 }
@@ -655,12 +705,12 @@ func implBestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 // }
 
 // enableVpnCoexistenceLinuxNft enables VPN coexistence steps for those other VPNs that affect nftables
-func enableVpnCoexistenceLinuxNft() (retErr error) {
+func enableVpnCoexistenceLinuxNft(canReconfigureOtherVpns bool) (retErr error) {
 	if isDaemonStoppingCallback() {
 		return log.ErrorFE("error - daemon is stopping")
 	}
 
-	otherVpnsNftMutex.Lock() // we need to make sure reDetectOtherVpnsLinux() is not running, and that we have exclusive access to OtherVpnsDetectedRelevantForNftables
+	otherVpnsNftMutex.Lock() // we need to make sure reDetectOtherVpnsImpl() is not running, and that we have exclusive access to OtherVpnsDetectedRelevantForNftables
 	defer otherVpnsNftMutex.Unlock()
 
 	log.Debug("enableVpnCoexistenceLinuxNft entered")
@@ -670,6 +720,7 @@ func enableVpnCoexistenceLinuxNft() (retErr error) {
 	// defer printIptablesLegacy() // will print anything only if another VPN affecting iptables-legacy is detected
 
 	prefs := getPrefsCallback()
+	canReconfigureOtherVpns = canReconfigureOtherVpns || prefs.PermissionReconfigureOtherVPNs
 
 	var enableVpnCoexistenceLinuxNftTasks sync.WaitGroup
 
@@ -686,7 +737,7 @@ func enableVpnCoexistenceLinuxNft() (retErr error) {
 			enableVpnCoexistenceLinuxNftTasks.Add(1)
 			go func() {
 				defer enableVpnCoexistenceLinuxNftTasks.Done()
-				if err := otherVpnNft.nftablesHelper(); err != nil {
+				if err := otherVpnNft.nftablesHelper(canReconfigureOtherVpns); err != nil {
 					retErr = log.ErrorFE("error otherVpnNft.nftablesHelper() for VPN '%s': %w", otherVpnNftName, err)
 				}
 			}()
@@ -695,12 +746,12 @@ func enableVpnCoexistenceLinuxNft() (retErr error) {
 		enableVpnCoexistenceLinuxNftTasks.Add(1) // run commonNftablesHelper for this other VPN - logic common to all nftables-affecting other VPNs
 		go func() {
 			defer enableVpnCoexistenceLinuxNftTasks.Done()
-			if err := commonNftablesHelper(otherVpnNftName); err != nil {
+			if err := commonNftablesHelper(otherVpnNftName, canReconfigureOtherVpns); err != nil {
 				retErr = log.ErrorFE("error commonNftablesHelper() for VPN '%s': %w", otherVpnNftName, err)
 			}
 		}()
 
-		if otherVpnNft.cliPathResolved != "" && len(otherVpnNft.cliCmds.cmdAddAllowlistOption) > 0 { // if we have an allowlist command for that VPN
+		if canReconfigureOtherVpns && otherVpnNft.cliPathResolved != "" && len(otherVpnNft.cliCmds.cmdAddAllowlistOption) > 0 { // if we have an allowlist command for that VPN
 			otherVpnCommandsToUndo := otherVpnCommandsToUndoMap{}
 			for _, vpnEntryHost := range prefs.LastConnectionParams.WireGuardParameters.EntryVpnServer.Hosts {
 				enableVpnCoexistenceLinuxNftTasks.Add(1)
@@ -758,10 +809,12 @@ func DisableCoexistenceWithOtherVpns() (retErr error) {
 	log.Debug("DisableCoexistenceWithOtherVpns entered")
 	defer log.Debug("DisableCoexistenceWithOtherVpns exited")
 
-	for _, otherVpnCommands := range otherVpnsToUndo {
-		for _, cmdInfo := range *otherVpnCommands {
-			if err := tryCmdLogOnError(cmdInfo.cliPath, *cmdInfo.fullArgs...); err != nil {
-				retErr = err
+	if getPrefsCallback().PermissionReconfigureOtherVPNs {
+		for _, otherVpnCommands := range otherVpnsToUndo {
+			for _, cmdInfo := range *otherVpnCommands {
+				if err := tryCmdLogOnError(cmdInfo.cliPath, *cmdInfo.fullArgs...); err != nil {
+					retErr = err
+				}
 			}
 		}
 	}
@@ -769,4 +822,16 @@ func DisableCoexistenceWithOtherVpns() (retErr error) {
 	clear(otherVpnsToUndo)
 
 	return retErr
+}
+
+func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected bool, otherVpnNames mapset.Set[string], nordVpnUpOnWindows bool, err error) {
+	// lock the mutex protecting reDetectOtherVpnsImpl() ourselves, so that OtherVpnsDetectedReconfigurableViaCli doesn't get cleared via detectOnlyByInterfaceName==true
+	reDetectOtherVpnsImplMutex.Lock()
+	defer reDetectOtherVpnsImplMutex.Unlock()
+
+	if _, err = reDetectOtherVpnsImpl(forceRedetectOtherVpns, false, false, true, false); err != nil {
+		return false, otherVpnNames, false, log.ErrorFE("error in reDetectOtherVpnsImpl: %w", err)
+	}
+
+	return !OtherVpnsDetectedReconfigurableViaCli.IsEmpty(), OtherVpnsDetectedReconfigurableViaCli.Clone(), false, nil
 }

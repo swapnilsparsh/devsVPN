@@ -33,9 +33,16 @@ type KillSwitchStatus struct {
 	StateLanAllowed           bool // real state of 'Allow LAN'
 	WeHaveTopFirewallPriority bool // whether PL Firewall sublayer is registered at top weight (0xFFFF) in WFP
 	// if PL Firewall sublayer is not registered at top weight, then this is the information about the other guy
+
+	// ID, name, description of other VPN that has top firewall priority
 	OtherVpnID          string
 	OtherVpnName        string
 	OtherVpnDescription string
+
+	// whether other VPNs detected, that are reconfigurable
+	ReconfigurableOtherVpnsDetected bool
+	ReconfigurableOtherVpnsNames    []string
+	NordVpnUpOnWindows              bool // whether UI needs to show the user manual instructions to configure NordVPN on Windows
 }
 
 // Type - VPN type
@@ -46,6 +53,8 @@ const (
 	HealthchecksType_Ping        HealthchecksTypeEnum = iota
 	HealthchecksType_RestApiCall HealthchecksTypeEnum = iota
 	HealthchecksType_Disabled    HealthchecksTypeEnum = iota
+
+	HealthchecksTypeDefault = HealthchecksType_Ping
 )
 
 var (
@@ -57,3 +66,5 @@ var (
 		HealthcheckTypeNames[HealthchecksType_Disabled]:    HealthchecksType_Disabled,
 	}
 )
+
+type SetHealthchecksTypeCallback func(_healthchecksType HealthchecksTypeEnum)

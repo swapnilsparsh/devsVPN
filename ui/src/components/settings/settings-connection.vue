@@ -423,7 +423,7 @@
 
           <div class="flexRow paramBlockDetailedConfig">
             <div class="defColor paramName" style="min-width: 102px">
-              Permission To Reconfigure Other VPNs:
+              Permission To Reconfigure Other VPNs Automatically When Needed:
             </div>
             <input
               type="checkbox"

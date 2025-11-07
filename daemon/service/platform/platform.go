@@ -173,12 +173,12 @@ func Init() (warnings []string, errors []error, logInfo []string) {
 	}
 
 	if err := checkFileAccessRightsExecutable("dnscryptproxyBinPath", dnscryptproxyBinPath); err != nil {
-		// TODO FIXME: Vlad - we're not using dnscrypt-proxy yet
+		// TODO: FIXME: Vlad - we're not using dnscrypt-proxy yet
 		//errors = append(errors, err)
 		warnings = append(warnings, fmt.Errorf("dnscrypt-proxy functionality not accessible: %w", err).Error())
 	}
 	if err := checkFileAccessRightsStaticConfig("dnscryptproxyConfigTemplate", dnscryptproxyConfigTemplate); err != nil {
-		// TODO FIXME: Vlad - we're not using dnscrypt-proxy yet
+		// TODO: FIXME: Vlad - we're not using dnscrypt-proxy yet
 		//errors = append(errors, err)
 		warnings = append(warnings, fmt.Errorf("dnscrypt-proxy functionality not accessible: %w", err).Error())
 	}

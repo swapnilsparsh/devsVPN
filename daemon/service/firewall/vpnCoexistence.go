@@ -1,4 +1,4 @@
-// TODO FIXME: prepend license
+// TODO: FIXME: prepend license
 // Copyright (c) 2024 privateLINE, LLC.
 
 package firewall
@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
+	service_types "github.com/swapnilsparsh/devsVPN/daemon/service/types"
 	"github.com/swapnilsparsh/devsVPN/daemon/shell"
 )
 
@@ -17,23 +19,9 @@ const (
 	MIN_BRAND_FIRST_WORD_LEN = 4 // first word must be at least 4 characters long to be a candidate for brand name
 	// MAX_WINDOWS_SERVICE_CANDIDATES = 10
 
-	MAX_WAIT = 10 * time.Second
+	MAX_WAIT = 30 * time.Second
 
-	VPN_REDETECT_PERIOD = 5 * time.Second
-)
-
-var (
-	FirstWordRE                = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+")         // regexp for the 1st word: "^[^[:space:]_\.-]+"
-	commonStatusConnectedRE    = regexp.MustCompile("^Connect(ed|ing)([^a-zA-Z0-9]|$)") // must be 1st line
-	commonStatusDisconnectedRE = regexp.MustCompile("^Disconnected([^a-zA-Z0-9]|$)")
-
-	// Must contain all the other VPNs profiles, initialized in platform-specific init()
-	knownOtherVpnProfiles = []*OtherVpnInfo{}
-
-	// Index (DB) of other VPNs by name, must be initialized in platform-specific init() to avoid initialization cycles
-	otherVpnsByName = map[string]*OtherVpnInfo{}
-
-	otherVpnsLastDetectionTimestamp time.Time // if we last re-detected other VPNs less than 5s ago, usually no reason to re-detect again
+	VPN_REDETECT_PERIOD = 30 * time.Second // Normally cache other VPN re-detection results for 120 seconds. Re-detection can be forced sooner.
 )
 
 type otherVpnCliCmds struct {
@@ -59,12 +47,33 @@ type otherVpnCliCmds struct {
 	cmdAddAllowlistOption    []string // used for NordVPN on Linux
 	cmdRemoveAllowlistOption []string // used for NordVPN on Linux
 
-	cmdLockdownMode []string // used by Mullvad on Linux, Windows
-	cmdAllowLan     []string // used by ExpressVPN on Linux, and by Mullvad on Linux, Windows
+	disconnectBeforeCmdLockdown bool     // Used by ExpressVPN on Windows
+	cmdLockdownMode             []string // used by Mullvad on Linux, Windows, and by NordVPN, ExpressVPN on Linux
+	cmdFirewallMode             []string // used by NordVPN on Linux
+
+	cmdAllowLan []string // used by ExpressVPN on Linux, and by Mullvad on Linux, Windows
 }
 
-type otherVpnCoexistenceLegacyHelper func() (err error)
-type otherVpnCoexistenceNftHelper func() (err error)
+var (
+	FirstWordRE                = regexp.MustCompilePOSIX("^[^[:space:]_\\.-]+")         // regexp for the 1st word: "^[^[:space:]_\.-]+"
+	commonStatusConnectedRE    = regexp.MustCompile("^Connect(ed|ing)([^a-zA-Z0-9]|$)") // must be 1st line
+	commonStatusDisconnectedRE = regexp.MustCompile("^Disconnected([^a-zA-Z0-9]|$)")
+
+	reDetectOtherVpnsImplMutex sync.Mutex
+
+	// Must contain all the other VPNs profiles, initialized in platform-specific init()
+	knownOtherVpnProfiles = []*OtherVpnInfo{}
+
+	// Index (DB) of other VPNs by name, must be initialized in platform-specific init() to avoid initialization cycles
+	otherVpnsByName = map[string]*OtherVpnInfo{}
+
+	otherVpnsLastDetectionTimestamp time.Time // if we last re-detected other VPNs less than 5s ago, usually no reason to re-detect again
+
+	otherVpnCliCmdsEmpty = otherVpnCliCmds{}
+)
+
+type otherVpnCoexistenceLegacyHelper func(canReconfigureOtherVpn bool) (err error)
+type otherVpnCoexistenceNftHelper func(canReconfigureOtherVpn bool) (err error)
 
 // Contains all the information about another VPN that we need to configure interoperability
 type OtherVpnInfo struct {
@@ -77,6 +86,8 @@ type OtherVpnInfo struct {
 
 	networkInterfaceNames []string // names of network interfaces associated with this VPN
 
+	customHealthchecksType service_types.HealthchecksTypeEnum
+
 	changesNftables               bool // used on Linux
 	nftablesChain                 string
 	nftablesChainNamePrefix       string         // used on Linux by ExpressVPN, for nft monitor to try and detect when ExpressVPN is connecting
@@ -87,15 +98,20 @@ type OtherVpnInfo struct {
 	iptablesLegacyChain   string
 	iptablesLegacyHelper  otherVpnCoexistenceLegacyHelper // if changesIptablesLegacy=true, then iptablesLegacyHelper must be set to some func ptr
 
-	cli                    string // CLI command of that VPN, used to add our binaries & IP ranges to their exception list. If left blank - that means this VPN doesn't have a useful CLI.
-	cliPathResolved        string // resolved at runtime
-	otherVpnCliFound       bool
-	cliCmds                otherVpnCliCmds
-	runVpnCliCommandsMutex sync.Mutex // used to protect RunVpnCliCommands()
+	cli              string // CLI command of that VPN, used to add our binaries & IP ranges to their exception list. If left blank - that means this VPN doesn't have a useful CLI.
+	cliPathResolved  string // resolved at runtime
+	otherVpnCliFound bool
+	cliCmds          otherVpnCliCmds
+	perVpnMutex      sync.Mutex // Used to make sure we don't run PreSteps/PostSteps section and VPN CLI commands simultaneously.
+	// Make sure you use perVpnMutex in OtherVpnInfo struct (can lookup via otherVpnsByName), not in OtherVpnInfoParsed.
 }
 
 // CheckVpnConnectedConnecting checks whether other VPN was connected by running its CLI. Logic is common to Windows and Linux.
 func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, retErr error) {
+	defer func() {
+		otherVpn.isConnectedConnecting = isConnected
+	}()
+
 	if len(otherVpn.networkInterfaceNames) > 0 { // check by interface name 1st, whether one of their interfaces exists
 		for _, ifaceName := range otherVpn.networkInterfaceNames {
 			if _, err := net.InterfaceByName(ifaceName); err == nil {
@@ -115,7 +131,6 @@ func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, r
 		otherVpnCli = otherVpn.cli
 	}
 
-	_isConnected := false
 	const maxErrBufSize int = 1024
 	strErr := strings.Builder{}
 	outProcessFunc := func(text string, isError bool) {
@@ -129,7 +144,8 @@ func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, r
 			strErr.WriteString(text)
 		} else {
 			if otherVpn.cliCmds.statusConnectedRE.MatchString(text) {
-				_isConnected = true
+				isConnected = true
+				log.Debugf("%s is connected", otherVpn.name)
 			}
 		}
 	}
@@ -138,8 +154,7 @@ func (otherVpn *OtherVpnInfo) CheckVpnConnectedConnecting() (isConnected bool, r
 		return false, log.ErrorFE("error matching '%s': %s", otherVpn.cliCmds.statusConnectedRE, strErr.String())
 	}
 
-	otherVpn.isConnectedConnecting = _isConnected
-	return otherVpn.isConnectedConnecting, nil
+	return isConnected, nil
 }
 
 func BestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
@@ -147,5 +162,9 @@ func BestWireguardMtuForConditions() (recommendedMTU int, retErr error) {
 }
 
 func ReDetectOtherVpns(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU bool) (recommendedNewMTU int, err error) {
-	return reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU)
+	return reDetectOtherVpnsImpl(forceRedetection, detectOnlyByInterfaceName, updateCurrentMTU, false, false)
+}
+
+func ReconfigurableOtherVpnsDetected(forceRedetectOtherVpns bool) (detected bool, otherVpnNames mapset.Set[string], nordVpnUpOnWindows bool, err error) {
+	return reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns)
 }

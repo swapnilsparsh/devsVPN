@@ -13,6 +13,7 @@ export default {
   MinimizedUIWidth: 480,
   MaximizedUIWidth: 800,
   UpdateWindowWidth: 600,
+  VpnWizardWindowWidth: 780, // 650
 
   // shellOpenExternal(...) allows only URLs started with this prefix
   URLsAllowedPrefixes: [

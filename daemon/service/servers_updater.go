@@ -116,7 +116,7 @@ func (s *serversUpdater) StartUpdater() error {
 
 // UpdateServers - download servers list
 func (s *serversUpdater) updateServers() (*types.ServersInfoResponse, error) {
-	// TODO FIXME: Vlad - temporarily disabling server updates, until we host servers.json on our servers
+	// TODO: FIXME: Vlad - temporarily disabling server updates, until we host servers.json on our servers
 	log.Debug("Updating servers temporarily disabled")
 	return nil, nil
 

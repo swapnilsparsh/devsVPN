@@ -160,7 +160,7 @@ func doInitConstants() {
 	wgDefaultMtu = 1380 // reasonable default for MTU on Linux
 }
 
-// TODO FIXME: Vlad: doOsInit() gets called only once on daemon start
+// TODO: FIXME: Vlad: doOsInit() gets called only once on daemon start
 //   - likewise here have to re-check before each connection whether we can run resolvectl (after we brought up our firewall rule to allow all port 53 traffic)
 //   - also here may be a good place to check whether /etc/resolv.conf is a file or a symlink
 func doOsInit() (warnings []string, errors []error, logInfo []string) {
