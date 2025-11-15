@@ -470,15 +470,42 @@ export default {
         this.apiProfileTimeout = setTimeout(() => {
           throw Error("Profile API Time Out");
         }, 10 * 1000);
-        await sender.ProfileData();
+        const _profileData = await sender.ProfileData();
+        if (_profileData != null) {
+          if (_profileData.APIStatus && _profileData.APIStatus != 200) {
+            let errMsg = "";
+            if (_profileData.APIErrorMessage && _profileData.APIErrorMessage != null &&
+              _profileData.APIErrorMessage.Message && _profileData.APIErrorMessage.Message != null)
+              errMsg = _profileData.APIErrorMessage.Message + "\n\n";
+            switch (_profileData.APIStatus) {
+            case 401: // Unauthorized
+              sender.showMessageBoxSync({
+                type: "error",
+                buttons: ["OK"],
+                message: "Error checking profile data - account unauthorized",
+                detail: "Please logout and login again with your account.",
+              });
+              break;
+
+            default:
+              sender.showMessageBoxSync({
+                type: "error",
+                buttons: ["OK"],
+                message: "API Error " + _profileData.APIStatus,
+                detail: "Profile data couldn't be fetched at this moment, please check your internet connection!\n\nError: "
+                  + errMsg,
+              });
+            }
+          }
+        }
       } catch (err) {
-        //TODO: show error on UI
         console.log({ err });
         sender.showMessageBoxSync({
           type: "error",
           buttons: ["OK"],
           message: "API Error",
-          detail: `Profile data couldn't be fetched at this moment, please check your internet connection!`,
+          detail: "Profile data couldn't be fetched at this moment, please check your internet connection!\n\nError: "
+            + err,
         });
       } finally {
         this.isProcessing = false;
@@ -517,15 +544,45 @@ export default {
         this.apiSubscriptionTimeout = setTimeout(() => {
           throw Error("Subscription API Time Out");
         }, 10 * 1000);
-        await sender.SubscriptionData();
-      } catch (err) {
-        //TODO: show error on UI
+        const _subscriptionData = await sender.SubscriptionData();
+        if (_subscriptionData != null) {
+          if (_subscriptionData.APIStatus && _subscriptionData.APIStatus != 200) {
+            let errMsg = "";
+            if (_subscriptionData.APIErrorMessage && _subscriptionData.APIErrorMessage != null &&
+              _subscriptionData.APIErrorMessage.Message && _subscriptionData.APIErrorMessage.Message != null)
+              errMsg = _subscriptionData.APIErrorMessage.Message + "\n\n";
+            switch (_subscriptionData.APIStatus) {
+            case 400: // 400 Bad Request - show nothing, just ignore - it's a backend bug. For now need to handle it this way for subaccounts.
+              break;
+
+            case 401: // Unauthorized
+              sender.showMessageBoxSync({
+                type: "error",
+                buttons: ["OK"],
+                message: "Error checking subscription data - account unauthorized",
+                detail: "Please logout and login again with your account.",
+              });
+              break;
+
+            default:
+              sender.showMessageBoxSync({
+                type: "error",
+                buttons: ["OK"],
+                message: "API Error " + _subscriptionData.APIStatus,
+                detail: "Subscription data couldn't be fetched at this moment, please check your internet connection!\n\nError: "
+                  + errMsg,
+              });
+            }
+          }
+        }
+      } catch (err) {        //TODO: show error on UI
         console.log({ err });
         sender.showMessageBoxSync({
           type: "error",
           buttons: ["OK"],
           message: "API Error",
-          detail: `Subscription data couldn't be fetched at this moment, please check your internet connection!`,
+          detail: "Subscription data couldn't be fetched at this moment, please check your internet connection!\n\nError: "
+            + err,
         });
       } finally {
         this.isSubscriptionProcessing = false;

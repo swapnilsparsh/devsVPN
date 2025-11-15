@@ -1052,9 +1052,13 @@ async function ProfileData() {
   let resp = await sendRecv({
     Command: daemonRequests.ProfileData,
   });
-  const profileData = resp.RawResponse.data;
-  store.commit(`account/userDetails`, profileData);
-  return profileData;
+  //console.log(resp);
+  if (resp.RawResponse != null && resp.RawResponse.data != null) {
+    store.commit(`account/userDetails`, resp.RawResponse.data);
+  } else {
+    store.commit(`account/userDetails`, {});
+  }
+  return resp;
 }
 
 async function DeviceList(Search, Page, Limit, DeleteId) {
@@ -1074,9 +1078,13 @@ async function SubscriptionData() {
   let resp = await sendRecv({
     Command: daemonRequests.SubscriptionData,
   });
-  const subscriptionData = resp.RawResponse;
-  store.commit(`account/subscriptionData`, subscriptionData);
-  return subscriptionData;
+  //console.log(resp);
+  if (resp.RawResponse != null) {
+    store.commit(`account/subscriptionData`, resp.RawResponse);
+  } else {
+    store.commit(`account/subscriptionData`, {});
+  }
+  return resp;
 }
 
 async function Logout(
