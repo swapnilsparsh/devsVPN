@@ -601,11 +601,10 @@ export default {
             sender.showMessageBoxSync({
               type: "error",
               buttons: ["OK"],
-              message: "Failed to login",
+              message: "Failed to login - " + resp.APIErrorMessage,
               detail:
-                resp.APIErrorMessage +
-                "\n\nIf you previously entered your account ID in 'a-XXXX-XXXX-XXXX' format - now you can simply enter it in 'XXXX-XXXX-XXXX' format." +
-                "\n\nIf you don't have a privateLINE account yet, you can create one at https://account.privateline.io/sign-in",
+                "Note: if you previously entered your account ID in 'a-XXXX-XXXX-XXXX' format - now you can simply enter it in 'XXXX-XXXX-XXXX' format." +
+                "\n\nIf you don't have a privateLINE account yet, you can create one at https://privateline.io",
             });
             return;
           } else {

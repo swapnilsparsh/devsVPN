@@ -96,7 +96,7 @@ type SessionNewResponse struct {
 		Login          int    `json:"login"`
 		MFAStatus      int    `json:"mfa_status,omitempty"`
 		Name           string `json:"name"`
-		ParentID       string `json:"parent_id,omitempty"`
+		ParentID       int    `json:"parent_id,omitempty"`
 		Phone          string `json:"phone"`
 		Profile        string `json:"profile"`
 		SSORegistered  int    `json:"sso_registered,omitempty"`
