@@ -714,7 +714,8 @@ func (a *API) PublicGetPlans() (success bool, retErr error) {
 	} else if len(apiHostIPs) > 0 {
 		for _, apiHostIP := range apiHostIPs {
 			if apiHostIP.To4() != nil && !apiHostIP.IsPrivate() { // is an IPv4 address, and not a private addr
-				return false, errors.New("error - we wan't to test connectivity to API host by its private IP, but API host resolves to public IP " + apiHostIP.DefaultMask().String())
+				return false, errors.New("error - we want to test connectivity (REST API call) to API host " + a.getApiHost().Hostname +
+					" by its private IP, but it resolves to public IP " + apiHostIP.String())
 			}
 		}
 	} else {
