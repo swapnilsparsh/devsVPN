@@ -2701,7 +2701,7 @@ func (s *Service) OnSessionStatus(sessionToken string, sessionData preferences.S
 func (s *Service) CheckBackendConnectivity() (success bool, err error) {
 	// Enable one of implementations
 
-	log.Debug("CheckBackendConnectivity(): HealthchecksType = ", service_types.HealthcheckTypeNames[s._preferences.HealthchecksType])
+	//log.Debug("CheckBackendConnectivity(): HealthchecksType = ", service_types.HealthcheckTypeNames[s._preferences.HealthchecksType])
 
 	switch s._preferences.HealthchecksType {
 	case service_types.HealthchecksType_Ping: // Healthchecks implementation via pinging API backend servers
