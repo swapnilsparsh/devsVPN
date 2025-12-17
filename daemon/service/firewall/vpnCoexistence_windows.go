@@ -532,21 +532,21 @@ func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected 
 		otherVpnNamesSet.Add(nordVpnProfile.name)
 	}
 
-	setNonDefaultHealthchecksType := false
+	// setNonDefaultHealthchecksType := false
 	for vpnName := range otherVpnNamesSet.Iter() { // if any of the detected other VPNs specifies custom healthchecks type, and that VPN is connected - persist to configuration
 		if otherVpn, ok := otherVpnsByName[vpnName]; ok && otherVpn.customHealthchecksType != service_types.HealthchecksTypeDefault {
 			if otherVpnConnected, err := otherVpn.CheckVpnConnectedConnecting(); err != nil {
 				return false, otherVpnNames, false, log.ErrorFE("error checking whether other VPN '%s' is connected: %w", vpnName, err)
 			} else if otherVpnConnected {
 				setHealthchecksTypeCallback(otherVpn.customHealthchecksType) // set custom healthchecks type
-				setNonDefaultHealthchecksType = true
+				// setNonDefaultHealthchecksType = true
 				break
 			}
 		}
 	}
-	if !setNonDefaultHealthchecksType { // if no other VPN found, that's both connected and requires a custom healthchecks type - reset to default
-		setHealthchecksTypeCallback(service_types.HealthchecksTypeDefault)
-	}
+	// if !setNonDefaultHealthchecksType { // if no other VPN found, that's both connected and requires a custom healthchecks type - reset to default
+	// 	setHealthchecksTypeCallback(service_types.HealthchecksTypeDefault)
+	// }
 
 	// NordVPN status (whether its interface is up) was just re-checked in reDetectOtherVpnsImpl()
 	return !weHaveTopFirewallPriority || !otherVpnsInstalledWithCliPresent.IsEmpty(), otherVpnNamesSet.Clone(), nordVpnUpOnWindows, nil
