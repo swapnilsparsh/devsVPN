@@ -492,12 +492,12 @@ function doUpdateTrayMenu() {
       });
     }
 
-    if (menuHandlerVpnWizard != null) {
-      mainMenu.push({
-        label: `VPN Wizard`,
-        click: menuHandlerVpnWizard,
-      });
-    }
+    // if (menuHandlerVpnWizard != null) {
+    //   mainMenu.push({
+    //     label: `VPN Wizard`,
+    //     click: menuHandlerVpnWizard,
+    //   });
+    // }
 
   } else { // If logged out - allow only Settings/General
     mainMenu.push({ label: "Settings", click: menuHandlerPreferences });
