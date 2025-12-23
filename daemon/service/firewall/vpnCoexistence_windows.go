@@ -123,7 +123,7 @@ var (
 		name:       "ExpressVPN",
 		namePrefix: "expressvpn",
 
-		customHealthchecksType: service_types.HealthchecksType_RestApiCall, // have to use REST API for healthchecks w/ ExpressVPN, can't use ping
+		//customHealthchecksType: service_types.HealthchecksType_RestApiCall, // have to use REST API for healthchecks w/ ExpressVPN, can't use ping
 
 		// When PL Total Shield on, ExpressVPN itself can't connect, of course.
 		// But PL Connect stays connected, VPN coex logic shakes out, may disable Total Shield automatically.
