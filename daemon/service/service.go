@@ -1456,7 +1456,7 @@ func (s *Service) SetPreference(key protocolTypes.ServicePreference, val string)
 		if healthchecksType, ok := service_types.HealthcheckTypesByName[val]; ok {
 			isChanged = healthchecksType != prefs.HealthchecksType
 			prefs.HealthchecksType = healthchecksType
-			log.Debug("SetPreference(): val=", val, "; prefs.HealthchecksType=", prefs.HealthchecksType)
+			log.Debug("SetPreference(): val=", val, "; prefs.HealthchecksType=", service_types.HealthcheckTypeNames[prefs.HealthchecksType])
 		} else {
 			return false, log.ErrorFE("invalid HealthchecksType value: %s. Must be one of: Ping, RestApiCall, Disabled", val)
 		}
@@ -1500,6 +1500,7 @@ func (s *Service) setHealthchecksType(_healthchecksType types.HealthchecksTypeEn
 	prefs := s._preferences
 	prefs.HealthchecksType = _healthchecksType
 	s.setPreferences(prefs)
+	log.Debug("setHealthchecksType(): prefs.HealthchecksType=", service_types.HealthcheckTypeNames[prefs.HealthchecksType])
 }
 
 // Preferences returns preferences

@@ -513,6 +513,9 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 }
 
 func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected bool, otherVpnNames mapset.Set[string], nordVpnUpOnWindows bool, retErr error) {
+	reconfigurableOtherVpnsDetectedImplMutex.Lock() // single-instance function
+	defer reconfigurableOtherVpnsDetectedImplMutex.Unlock()
+
 	// check whether we have top WFP sublayer priority
 	weHaveTopFirewallPriority /*otherVpnID*/, _, otherVpnNameWithTopSublayerPri /*otherVpnDescription*/, _, err := implHaveTopFirewallPriority(false, 0)
 	if err != nil {
@@ -538,6 +541,7 @@ func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected 
 			if otherVpnConnected, err := otherVpn.CheckVpnConnectedConnecting(); err != nil {
 				return false, otherVpnNames, false, log.ErrorFE("error checking whether other VPN '%s' is connected: %w", vpnName, err)
 			} else if otherVpnConnected {
+				log.Debug("other VPN '", vpnName, "' requires custom healthchecks type = ", service_types.HealthcheckTypeNames[otherVpn.customHealthchecksType])
 				setHealthchecksTypeCallback(otherVpn.customHealthchecksType) // set custom healthchecks type
 				// setNonDefaultHealthchecksType = true
 				break

@@ -4,6 +4,7 @@
 package service
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/swapnilsparsh/devsVPN/daemon/service/firewall"
@@ -115,6 +116,13 @@ func (s *Service) connectivityHealthchecksBackgroundMonitor() {
 
 	log.Debug("connectivityHealthchecksBackgroundMonitor entered")
 	defer log.Debug("connectivityHealthchecksBackgroundMonitor exited")
+
+	// On Windows need to re-detect other VPNs. Some of them require custom healthchecks type - need to check for them now.
+	if runtime.GOOS == "windows" {
+		if _, _, _, err := firewall.ReconfigurableOtherVpnsDetected(false); err != nil {
+			log.ErrorFE("error in firewall.ReconfigurableOtherVpnsDetected(): %w", err)
+		}
+	}
 
 	s.backendConnectivityCheckPhase = PHASE0_CLEAN
 	loopIteration := 0
