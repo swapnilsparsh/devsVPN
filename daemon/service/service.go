@@ -1456,7 +1456,7 @@ func (s *Service) SetPreference(key protocolTypes.ServicePreference, val string)
 		if healthchecksType, ok := service_types.HealthcheckTypesByName[val]; ok {
 			isChanged = healthchecksType != prefs.HealthchecksType
 			prefs.HealthchecksType = healthchecksType
-			log.Debug("SetPreference(): val=", val, "; prefs.HealthchecksType=", prefs.HealthchecksType)
+			log.Debug("SetPreference(): val=", val, "; prefs.HealthchecksType=", service_types.HealthcheckTypeNames[prefs.HealthchecksType])
 		} else {
 			return false, log.ErrorFE("invalid HealthchecksType value: %s. Must be one of: Ping, RestApiCall, Disabled", val)
 		}
@@ -1500,6 +1500,7 @@ func (s *Service) setHealthchecksType(_healthchecksType types.HealthchecksTypeEn
 	prefs := s._preferences
 	prefs.HealthchecksType = _healthchecksType
 	s.setPreferences(prefs)
+	log.Debug("setHealthchecksType(): prefs.HealthchecksType=", service_types.HealthcheckTypeNames[prefs.HealthchecksType])
 }
 
 // Preferences returns preferences
@@ -2701,7 +2702,7 @@ func (s *Service) OnSessionStatus(sessionToken string, sessionData preferences.S
 func (s *Service) CheckBackendConnectivity() (success bool, err error) {
 	// Enable one of implementations
 
-	// log.Debug("s._preferences.HealthchecksType = ", s._preferences.HealthchecksType)
+	//log.Debug("CheckBackendConnectivity(): HealthchecksType = ", service_types.HealthcheckTypeNames[s._preferences.HealthchecksType])
 
 	switch s._preferences.HealthchecksType {
 	case service_types.HealthchecksType_Ping: // Healthchecks implementation via pinging API backend servers

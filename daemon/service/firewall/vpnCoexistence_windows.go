@@ -123,7 +123,7 @@ var (
 		name:       "ExpressVPN",
 		namePrefix: "expressvpn",
 
-		customHealthchecksType: service_types.HealthchecksType_RestApiCall, // have to use REST API for healthchecks w/ ExpressVPN, can't use ping
+		//customHealthchecksType: service_types.HealthchecksType_RestApiCall, // have to use REST API for healthchecks w/ ExpressVPN, can't use ping
 
 		// When PL Total Shield on, ExpressVPN itself can't connect, of course.
 		// But PL Connect stays connected, VPN coex logic shakes out, may disable Total Shield automatically.
@@ -513,6 +513,9 @@ func (otherVpn *OtherVpnInfo) runVpnCliCommands() (retErr error) {
 }
 
 func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected bool, otherVpnNames mapset.Set[string], nordVpnUpOnWindows bool, retErr error) {
+	reconfigurableOtherVpnsDetectedImplMutex.Lock() // single-instance function
+	defer reconfigurableOtherVpnsDetectedImplMutex.Unlock()
+
 	// check whether we have top WFP sublayer priority
 	weHaveTopFirewallPriority /*otherVpnID*/, _, otherVpnNameWithTopSublayerPri /*otherVpnDescription*/, _, err := implHaveTopFirewallPriority(false, 0)
 	if err != nil {
@@ -532,12 +535,22 @@ func reconfigurableOtherVpnsDetectedImpl(forceRedetectOtherVpns bool) (detected 
 		otherVpnNamesSet.Add(nordVpnProfile.name)
 	}
 
-	for vpnName := range otherVpnNamesSet.Iter() { // if any of the detected other VPNs specifies custom healthchecks type - persist to configuration
+	// setNonDefaultHealthchecksType := false
+	for vpnName := range otherVpnNamesSet.Iter() { // if any of the detected other VPNs specifies custom healthchecks type, and that VPN is connected - persist to configuration
 		if otherVpn, ok := otherVpnsByName[vpnName]; ok && otherVpn.customHealthchecksType != service_types.HealthchecksTypeDefault {
-			setHealthchecksTypeCallback(otherVpn.customHealthchecksType) // set custom healthchecks type
-			break
+			if otherVpnConnected, err := otherVpn.CheckVpnConnectedConnecting(); err != nil {
+				return false, otherVpnNames, false, log.ErrorFE("error checking whether other VPN '%s' is connected: %w", vpnName, err)
+			} else if otherVpnConnected {
+				log.Debug("other VPN '", vpnName, "' requires custom healthchecks type = ", service_types.HealthcheckTypeNames[otherVpn.customHealthchecksType])
+				setHealthchecksTypeCallback(otherVpn.customHealthchecksType) // set custom healthchecks type
+				// setNonDefaultHealthchecksType = true
+				break
+			}
 		}
 	}
+	// if !setNonDefaultHealthchecksType { // if no other VPN found, that's both connected and requires a custom healthchecks type - reset to default
+	// 	setHealthchecksTypeCallback(service_types.HealthchecksTypeDefault)
+	// }
 
 	// NordVPN status (whether its interface is up) was just re-checked in reDetectOtherVpnsImpl()
 	return !weHaveTopFirewallPriority || !otherVpnsInstalledWithCliPresent.IsEmpty(), otherVpnNamesSet.Clone(), nordVpnUpOnWindows, nil

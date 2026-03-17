@@ -704,13 +704,23 @@ func (a *API) SessionStatus(session string) (
 	return nil, &apiErr, types.CreateAPIError(apiErr.HttpStatusCode, apiErr.Message)
 }
 
-// PublicGetPlans - query a public API, /public/get-plans
+// PublicGetPlans - query a public API, /public/get-plans. Will succeed only if REST API host resolves to a private IP.
 func (a *API) PublicGetPlans() (success bool, retErr error) {
 	var apiErr types.APIErrorResponse
 
-	// apiHost := a.getApiHost().Hostname
-	// ...
-	// 	return false, errors.New("error - we wan't to test connectivity to API host by its private IP, but API host resolves to public IP " + a.getApiHost().DefaultIP.String())
+	// check the 1st IPv4 addr (if any) to be a private addr
+	if apiHostIPs, err := net.LookupIP(a.getApiHost().Hostname); err != nil {
+		return false, log.ErrorFE("error net.LookupIP(\"%s\"): %w", a.getApiHost().Hostname, err)
+	} else if len(apiHostIPs) > 0 {
+		for _, apiHostIP := range apiHostIPs {
+			if apiHostIP.To4() != nil && !apiHostIP.IsPrivate() { // is an IPv4 address, and not a private addr
+				return false, errors.New("error - we want to test connectivity (REST API call) to API host " + a.getApiHost().Hostname +
+					" by its private IP, but it resolves to public IP " + apiHostIP.String())
+			}
+		}
+	} else {
+		return false, errors.New("error resolving DNS for API host " + a.getApiHost().Hostname)
+	}
 
 	request := &types.SessionStatusRequest{Session: ""}
 	data, httpResp, err := a.requestRaw(protocolTypes.IPvAny, a.getApiHost().Hostname, _publicGetPlans, "GET", "application/json", request, 10000, 0)
