@@ -35,7 +35,7 @@ require (
 	github.com/prometheus-community/pro-bing v0.7.0
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
